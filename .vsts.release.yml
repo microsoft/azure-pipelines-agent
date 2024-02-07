@@ -80,7 +80,23 @@ extends:
 
             if ($isRelease) {
               if ($isScheduledRelease) {
-                $agentVersion = "3.$($currentSprint.sprint).0"
+                $majorAndMinorVersion = "3.$($currentSprint.sprint)"
+                $patchVersion = 0
+                ## Looking for a free patch version
+                while ($true) {
+                  $agentVersion = "$majorAndMinorVersion.$patchVersion"
+                  git ls-remote --exit-code --heads origin refs/heads/releases/$agentVersion
+                  if ($LASTEXITCODE -ne 0) {
+                    if ($LASTEXITCODE -eq 2) {
+                        $LASTEXITCODE = 0
+                        break
+                    }
+                    else {
+                        Write-Error "git ls-remote failed with exit code $LASTEXITCODE" -ErrorAction Stop
+                    }
+                  }
+                  $patchVersion++
+                }
               } else {
                 $agentVersion = "${{ parameters.version }}"
                 if ($agentVersion -eq 'NotSet') {
@@ -156,10 +172,12 @@ extends:
           - checkout: self
             clean: true
 
-          # Switch to release branch
-          - template: switch-branch.yml
-            parameters:
-              branch: $(ReleaseBranch)
+          - task: PowerShell@2
+            displayName: Switch to release branch
+            inputs:
+              filePath: .azure-pipelines/scripts/switch-branch.ps1
+            env:
+              TARGET_BRANCH: $(ReleaseBranch)
 
           # Download all agent packages from all previous phases
           - task: DownloadBuildArtifacts@0
@@ -290,18 +308,37 @@ extends:
               PAT: $(AdoPAT)
               USEREMAIL: $(Email)
 
-        - job: SendNotifications
-          displayName: Send notifications
-          dependsOn: create_ado_prs
-          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+      - stage: S_Notifications
+        displayName: Notifications
+        dependsOn:
+        - Verify_release
+        - CreatePRs
+        condition: always()
+        pool:
+          vmImage: ubuntu-latest
+        jobs:
+        - job: j_SendPRsNotifications
+          displayName: Send Release PRs notifications
+          variables:
+            IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
+            AdoPrId: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrId'] ]
+            AdoPrLink: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrLink'] ]
+            CcPrId: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CcPrId'] ]
+            CcPrLink: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.CcPrLink'] ]
+          condition: |
+            and(
+              eq(variables.IsRelease, 'True'),
+              not(${{ parameters.onlyGitHubRelease }})
+            )
           steps:
-          - pwsh: release\Send-PRsNotification.ps1
+          - task: PowerShell@2
+            inputs:
+              targetType: 'filePath'
+              filePath: ./release/Send-PRsNotification.ps1
             displayName: Send MS Teams notification
-            # We only want to send a notification if this is a scheduled release
-            condition: eq(variables['build.reason'], 'Schedule')
             env:
-              ADO_PR_ID: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrId'] ]
-              ADO_PR_LINK: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrLink'] ]
-              CC_PR_ID: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.CcPrId'] ]
-              CC_PR_LINK: $[ dependencies.create_ado_prs.outputs['s_CreateAdoPrs.CcPrLink'] ]
-              MS_TEAMS_WEBHOOK: $(MsTeamsWebhook)
+              TEAMS_WEBHOOK: $(MsTeamsWebhook)
+              ADO_PR_ID: $(AdoPrId)
+              ADO_PR_LINK: $(AdoPrLink)
+              CC_PR_ID: $(CcPrId)
+              CC_PR_LINK: $(CcPrLink)

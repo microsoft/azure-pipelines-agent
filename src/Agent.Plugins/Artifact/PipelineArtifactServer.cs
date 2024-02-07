@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Agent.Sdk.Knob;
 
 namespace Agent.Plugins
 {
@@ -44,14 +45,15 @@ namespace Agent.Plugins
             // Get the client settings, if any.
             var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose: false, (str) => context.Output(str));
             VssConnection connection = context.VssConnection;
-            var clientSettings = await DedupManifestArtifactClientFactory.GetClientSettingsAsync(
+            var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                 connection,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                 tracer,
                 cancellationToken);
             
-            // Get the default domain to use:
-            IDomainId domainId = DedupManifestArtifactClientFactory.GetDefaultDomainId(clientSettings, tracer);
+            // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
+            string overrideDomain = AgentKnobs.SendPipelineArtifactsToBlobstoreDomain.GetValue(context).AsString();
+            IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
 
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClient(

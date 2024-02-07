@@ -54,8 +54,15 @@ function print_rhel6depricationmessage()
 
 if [ -e /etc/os-release ]
 then
+    filepath='/etc/os-release'
+else 
+    filepath='/usr/lib/os-release'
+fi
+
+if [ -e $filepath ]
+then
     echo "--------OS Information--------"
-    cat /etc/os-release
+    cat $filepath
     echo "------------------------------"
 
     if [ -e /etc/debian_version ]
@@ -249,10 +256,10 @@ then
         fi
     else
         # we might on OpenSUSE
-        OSTYPE=$(grep ^ID_LIKE /etc/os-release | cut -f2 -d=)
+        OSTYPE=$(grep ^ID_LIKE $filepath | cut -f2 -d=)
         if [ -z $OSTYPE ]
         then
-            OSTYPE=$(grep ^ID /etc/os-release | cut -f2 -d=)
+            OSTYPE=$(grep ^ID $filepath | cut -f2 -d=)
         fi
         echo $OSTYPE
 
@@ -306,7 +313,7 @@ then
                 exit 1
             fi
         else
-            echo "Can't detect current OS type based on /etc/os-release."
+            echo "Can't detect current OS type based on $filepath."
             print_errormessage
             exit 1
         fi

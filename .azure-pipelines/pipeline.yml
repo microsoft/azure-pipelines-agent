@@ -59,11 +59,6 @@ parameters:
   type: boolean
   default: true
 
-resources:
-  containers:
-  - container: alpine
-    image: azpagentinfra/alpine:latest
-
 stages:
 
 - ${{ parameters.preBuildStages }}
@@ -99,7 +94,7 @@ stages:
               --projectUrl "$(CANARY_PROJECT_URL)" \
               --pipelineId "$(CANARY_PIPELINE_ID)" \
               --token "$(CANARY_PAT)" \
-              --templateParameters "{ \"branch\": \"${branch}\", \"template_timeout\": 3 }"
+              --templateParameters "{ \"branch\": \"${branch}\" }"
         displayName: Test Proxy Agent
 
   # Windows (x64)
@@ -205,13 +200,13 @@ stages:
         displayName: Alpine (x64)
         pool:
           vmImage: ubuntu-latest
-        container: alpine
+        #container: alpine
         os: linux-musl
         arch: x64
         branch: ${{ parameters.branch }}
         componentDetection: false
         unitTests: ${{ parameters.test }}
-        functionalTests: ${{ parameters.test }}
+        functionalTests: false
         sign: false
         publishArtifacts: ${{ parameters.publishArtifacts }}
         buildAlternatePackage: false

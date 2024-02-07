@@ -206,7 +206,16 @@ namespace Agent.Plugins.Repository
                     executionContext.Debug("Catch exception during repository move.");
                     executionContext.Debug(ex.ToString());
                     executionContext.Warning("Unable move and reuse existing repository to required location.");
-                    IOUtil.DeleteDirectory(expectRepoPath, CancellationToken.None);
+
+                    try
+                    {
+                        await IOUtil.DeleteDirectoryWithRetry(expectRepoPath, CancellationToken.None);
+                    }
+                    catch (Exception ioEx)
+                    {
+                        executionContext.Output($"Unable to delete existing repository on required location: {ioEx.GetType()}");
+                        throw;
+                    }
                 }
 
                 executionContext.Output($"Repository will be located at '{expectRepoPath}'.");
@@ -245,7 +254,15 @@ namespace Agent.Plugins.Repository
             if (!PlatformUtil.RunningOnWindows && !AgentKnobs.DisableTeePluginRemoval.GetValue(executionContext).AsBoolean())
             {
                 initializeTeeUtil(executionContext, token);
-                teeUtil.DeleteTee();
+                try
+                {
+                    teeUtil.DeleteTee();
+                }
+                catch (Exception ex)
+                {
+                    executionContext.Output($"Unable to delete existing repository on required location. ex:{ex.GetType}");
+                    throw;
+                }
             }
         }
     }

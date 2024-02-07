@@ -7,7 +7,8 @@ namespace Agent.Sdk.Knob
 {
     public class RuntimeKnobSource : IKnobSource
     {
-        private string _runTimeVar;
+        private readonly string _runTimeVar;
+
         public RuntimeKnobSource(string runTimeVar)
         {
             _runTimeVar = runTimeVar;
@@ -23,7 +24,7 @@ namespace Agent.Sdk.Knob
             }
             catch (NotSupportedException)
             {
-                throw new NotSupportedException($"{nameof(RuntimeKnobSource)} not supported for context type {context.GetType()}");
+                throw new NotSupportedException($"{GetType().Name} not supported for context type {context.GetType()}");
             }
 
             if (!string.IsNullOrEmpty(value))

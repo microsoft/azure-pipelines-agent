@@ -179,6 +179,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Telemetry")]
+        public void PublishTelemetryCommandForInBoxTask()
+        {
+            using (var _hc = SetupMocks())
+            {
+                var ex_context = _ec.Object;
+                ex_context.Variables.Set(Constants.Variables.Task.PublishTelemetry, true.ToString());
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
+
+                var data = new Dictionary<string, object>()
+                {
+                    {"key1", "valu\\e1"},
+                    {"key2", "value2"},
+                    {"key3", Int64.Parse("4") }
+                };
+
+                var json = JsonConvert.SerializeObject(data, Formatting.None);
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = json;
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(ex_context, cmd);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Telemetry")]
+        public void PublishTelemetryCommandForCustomerTask()
+        {
+            using (var _hc = SetupMocks())
+            {
+                var ex_context = _ec.Object;
+                ex_context.Variables.Set(Constants.Variables.Task.PublishTelemetry, false.ToString());
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
+
+                var data = new Dictionary<string, object>()
+                {
+                    {"key1", "valu\\e1"},
+                    {"key2", "value2"},
+                    {"key3", Int64.Parse("4") }
+                };
+
+                var json = JsonConvert.SerializeObject(data, Formatting.None);
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = json;
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(ex_context, cmd);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Never);
+            }
+        }
+
+
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
             var _hc = new TestHostContext(this, name);

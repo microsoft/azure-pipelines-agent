@@ -182,5 +182,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var knobValue = TestKnobs.A.GetValue<IAgentService>(executionContext.Object);
             Assert.Equal(null, knobValue);
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void PipelineFeatureKnobTest()
+        {
+            var executionContext = new Mock<IExecutionContext>();
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.TestFeature"))
+                .Returns("true");
+            var knob = new Knob("TestKnob", "Pipeline Feature Knob", new PipelineFeatureSource("TestFeature"));
+
+            var knobValue = knob.GetValue(executionContext.Object);
+
+            Assert.True(knobValue.AsBoolean());
+        }
     }
 }

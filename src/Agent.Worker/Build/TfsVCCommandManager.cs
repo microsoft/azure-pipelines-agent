@@ -154,7 +154,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 if (useSecureParameterPassing)
                 {
-                    File.Delete(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand));
+                    try
+                    {
+                       await IOUtil.DeleteFileWithRetry(Path.Combine(this.SourcesDirectory, temporaryFileWithCommand), CancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Warning($"Unable to delete command via file, ex:{ex.GetType()}");
+                        throw;
+                    }
                 }
             }
         }
@@ -268,7 +276,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (useSecretParameterPassing)
                 {
                     CleanupTfsVCOutput(ref result, formattedArguments);
-                    File.Delete(Path.Combine(this.SourcesDirectory, cmdFileName));
+                    try
+                    {
+                       await IOUtil.DeleteFileWithRetry(Path.Combine(this.SourcesDirectory, cmdFileName), CancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        ExecutionContext.Output($"Unable to delete command via file, ex:{ex.GetType()}");
+                        throw;
+                    }
                 }
 
                 return result;

@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Agent.Sdk.Util;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -172,13 +173,18 @@ namespace Microsoft.VisualStudio.Services.Agent
         public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, Guid planId, Guid jobId, CancellationToken cancellationToken)
         {
             int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
-            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupClientAsync(
+            var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
+                _connection, 
+                client: null, 
+                DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => Trace.Info(str)), cancellationToken);
+            var (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
+                .CreateDedupClient(
+                    _connection,
+                    WellKnownDomainIds.DefaultDomainId,
+                    maxParallelism,
+                    clientSettings.GetRedirectTimeout(),
                     verbose,
                     (str) => Trace.Info(str),
-                    this._connection,
-                    maxParallelism,
-                    clientType: null,
                     cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>

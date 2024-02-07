@@ -6,10 +6,8 @@ using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -68,6 +66,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
+            Trace.Info($"Allow publishing telemetry for {Task.Reference.Name}@{Task.Reference.Version} task: {IsTelemetryPublishRequired()}");
+
             // Enable skip for string translator in case of checkout task.
             // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
             this.ExecutionContext.Variables.Set(Constants.Variables.Task.SkipTranslatorForCheckout, this.Task.IsCheckoutTask().ToString());
@@ -76,6 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var scope = ExecutionContext.Variables.CreateScope())
             {
                 scope.Set(Constants.Variables.Task.DisplayName, DisplayName);
+                scope.Set(Constants.Variables.Task.PublishTelemetry, IsTelemetryPublishRequired().ToString());
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceId, Task.Id.ToString("D"));
                 scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
@@ -154,11 +155,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
                         foreach (var publicVar in ExecutionContext.Variables.Public)
                         {
-                            variableCopy[publicVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(publicVar.Value));
+                            variableCopy[publicVar.Name] = new VariableValue(stepTarget.TranslateToHostPath(publicVar.Value));
                         }
                         foreach (var secretVar in ExecutionContext.Variables.Private)
                         {
-                            variableCopy[secretVar.Key] = new VariableValue(stepTarget.TranslateToHostPath(secretVar.Value), true);
+                            variableCopy[secretVar.Name] = new VariableValue(stepTarget.TranslateToHostPath(secretVar.Value), true);
                         }
 
                         List<string> expansionWarnings;
@@ -388,6 +389,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
+                var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+
+                //Start Resource utility monitors
+                IResourceMetricsManager resourceDiagnosticManager = null;
+
+                resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.Setup(ExecutionContext);
+
+                if (enableResourceUtilizationWarnings) {
+                    _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
+                    _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
+                    _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
+                }
+
                 // Run the task.
                 int retryCount = this.Task.RetryCountOnTaskFailure;
 
@@ -405,6 +420,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     await handler.RunAsync();
+                }
+
+                if (enableResourceUtilizationWarnings)
+                {
+                    resourceDiagnosticManager?.Dispose();
                 }
             }
         }
@@ -552,6 +572,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // return original inputValue.
             Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
+        } 
+
+        private bool IsTelemetryPublishRequired()
+        {
+            // Publish if this is a server owned task or a task we want to track.
+            return !Task.IsServerOwned.HasValue ||
+                   (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value) ||
+                    WellKnownTasks.RequiredForTelemetry.Contains(Task.Reference.Id);
         }
 
         private void PrintTaskMetaData(Definition taskDefinition)
@@ -571,6 +599,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
+            if (!IsTelemetryPublishRequired()) 
+            {
+                return;
+            }
+
             ArgUtil.NotNull(Task, nameof(Task));
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
             ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));
@@ -610,9 +643,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 publishTelemetryCmd.Initialize(HostContext);
                 publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
             }
-            catch (NullReferenceException ex)
+            catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
             {
-                ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables is null");
+                ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables has unexpected value.");
                 ExecutionContext.Debug(ex.ToString());
             }
         }

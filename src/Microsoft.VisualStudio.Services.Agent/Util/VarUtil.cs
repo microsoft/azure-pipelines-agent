@@ -70,10 +70,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// Example: env.var -> ENV_VAR
         /// </summary>
         /// <param name="value"></param>
+        /// <param name="preserveCase"></param>
         /// <returns></returns>
-        public static string ConvertToEnvVariableFormat(string value)
+        public static string ConvertToEnvVariableFormat(string value, bool preserveCase)
         {
-            return value?.Replace('.', '_').Replace(' ', '_').ToUpperInvariant() ?? string.Empty;
+            string envVar = value?.Replace('.', '_').Replace(' ', '_') ?? string.Empty;
+            return preserveCase ? envVar : envVar.ToUpperInvariant();
         }
 
         public static JToken ExpandEnvironmentVariables(IHostContext context, JToken target)

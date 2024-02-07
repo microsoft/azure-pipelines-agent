@@ -388,7 +388,7 @@ namespace Agent.Plugins.Repository
             foreach (var variable in executionContext.Variables)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key);
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key, preserveCase: false);
                 gitEnv[formattedKey] = variable.Value?.Value ?? string.Empty;
             }
 
@@ -693,6 +693,7 @@ namespace Agent.Plugins.Repository
                 await gitCommandManager.GitConfig(executionContext, targetPath, "pack.windowmemory", "256m");
                 await gitCommandManager.GitConfig(executionContext, targetPath, "pack.deltaCacheSize", "256m");
                 await gitCommandManager.GitConfig(executionContext, targetPath, "pack.packSizeLimit", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.longpaths", "true");
             }
 
             // always remove any possible left extraheader setting from git config.

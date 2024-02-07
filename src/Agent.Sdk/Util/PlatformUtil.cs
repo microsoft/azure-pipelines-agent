@@ -27,6 +27,8 @@ namespace Agent.Sdk
         private static OperatingSystem[] net6SupportedSystems;
         private static HttpClient httpClient = new HttpClient();
 
+        private static readonly string[] linuxReleaseFilePaths = new string[2] { "/etc/os-release", "/usr/lib/os-release" };
+
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1717: Only FlagsAttribute enums should have plural names")]
@@ -152,13 +154,27 @@ namespace Agent.Sdk
             }
         }
 
+        private static string GetLinuxReleaseFilePath()
+        {
+            if (RunningOnLinux)
+            {
+                string releaseFilePath = linuxReleaseFilePaths.FirstOrDefault(x => File.Exists(x), null);
+                return releaseFilePath;
+            }
+
+            return null;
+        }
+
         private static string GetLinuxId()
         {
-            if (RunningOnLinux && File.Exists("/etc/os-release"))
+
+            string filePath = GetLinuxReleaseFilePath();
+
+            if (RunningOnLinux && filePath != null)
             {
                 Regex linuxIdRegex = new Regex("^ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
-                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -178,11 +194,14 @@ namespace Agent.Sdk
 
         private static string GetLinuxName()
         {
-            if (RunningOnLinux && File.Exists("/etc/os-release"))
+
+            string filePath = GetLinuxReleaseFilePath();
+
+            if (RunningOnLinux && filePath != null)
             {
                 Regex linuxVersionIdRegex = new Regex("^VERSION_ID\\s*=\\s*\"?(?<id>[0-9a-z._-]+)\"?");
 
-                using (StreamReader reader = new StreamReader("/etc/os-release"))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -446,7 +465,7 @@ namespace Agent.Sdk
         {
             if (name == null && version == null)
             {
-                throw new Exception("You need to provide at least one not-nullable parameter");
+                throw new ArgumentNullException("You need to provide at least one not-nullable parameter");
             }
 
             if (name != null)
@@ -516,7 +535,7 @@ namespace Agent.Sdk
 
             if (!parsedVersionRegexMatch.Success)
             {
-                throw new Exception($"String {version} can't be parsed");
+                throw new FormatException($"String {version} can't be parsed");
             }
 
             string versionString = string.Format(

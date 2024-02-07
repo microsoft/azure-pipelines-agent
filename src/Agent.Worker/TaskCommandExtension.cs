@@ -599,6 +599,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
             }
 
+            String preserveCaseValue;
+            Boolean preserveCase = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.PreserveCase, out preserveCaseValue))
+            {
+                Boolean.TryParse(preserveCaseValue, out preserveCase);
+            }
+
             if (context.Variables.IsReadOnly(name))
             {
                 // Check FF. If it is on then throw, otherwise warn
@@ -631,7 +638,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
             if (checker.CheckSettableVariable(context, name))
             {
-                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, preserveCase: preserveCase);
             }
         }
     }
@@ -686,6 +693,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
             }
 
+            String preserveCaseValue;
+            Boolean preserveCase = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.PreserveCase, out preserveCaseValue))
+            {
+                Boolean.TryParse(preserveCaseValue, out preserveCase);
+            }
+
             if (context.TaskVariables.IsReadOnly(name))
             {
                 // Check FF. If it is on then throw, otherwise warn
@@ -710,7 +724,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.TaskVariables.Set(name, data, secret: isSecret, readOnly: isReadOnly);
+            context.TaskVariables.Set(name, data, secret: isSecret, readOnly: isReadOnly, preserveCase: preserveCase);
         }
     }
 
@@ -827,6 +841,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String IsSecret = "issecret";
         public static readonly String IsOutput = "isoutput";
         public static readonly String IsReadOnly = "isreadonly";
+        public static readonly String PreserveCase = "preservecase";
     }
 
     internal static class TaskCompleteEventProperties

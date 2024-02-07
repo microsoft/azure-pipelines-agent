@@ -152,13 +152,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE10"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode16 = new Knob(
-            nameof(UseNode16),
-            "Forces the agent to use Node 16 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE16"),
-            new EnvironmentKnobSource("AGENT_USE_NODE16"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob UseNode20_1 = new Knob(
             nameof(UseNode20_1),
             "Forces the agent to use Node 20 handler for all Node-based tasks",
@@ -381,6 +374,18 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new EnvironmentKnobSource("DISABLE_BUILD_ARTIFACTS_TO_BLOB"),
             new BuiltInDefaultKnobSource("false"));
+        public static readonly Knob SendBuildArtifactsToBlobstoreDomain = new Knob(
+            nameof(SendBuildArtifactsToBlobstoreDomain),
+            "When set, defines the domain to use to send Build artifacts to.",
+            new RuntimeKnobSource("SEND_BUILD_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new EnvironmentKnobSource("SEND_BUILD_ARTIFACT_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new BuiltInDefaultKnobSource(string.Empty));
+        public static readonly Knob SendPipelineArtifactsToBlobstoreDomain = new Knob(
+            nameof(SendPipelineArtifactsToBlobstoreDomain),
+            "When set, defines the domain to use to send Pipeline artifacts to.",
+            new RuntimeKnobSource("SEND_PIPELINE_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new EnvironmentKnobSource("SEND_PIPELINE_ARTIFACT_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
@@ -422,6 +427,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob DisableNode6Tasks = new Knob(
+            nameof(DisableNode6Tasks),
+            "Disables Node 6 tasks and Node 6 runner.",
+            new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
+            new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
+            new BuiltInDefaultKnobSource("false"));
+       
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -505,6 +517,13 @@ namespace Agent.Sdk.Knob
             nameof(EnableFetchingNet6List),
             "Forces the agent to fetch list of .NET 6 supporting systems from server",
             new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableResourceUtilizationWarnings = new Knob(
+            nameof(EnableResourceUtilizationWarnings),
+            "If true, the agent will throw the resource utilization warnings",
+            new RuntimeKnobSource("AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new EnvironmentKnobSource("AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ForceCreateTasksDirectory = new Knob(

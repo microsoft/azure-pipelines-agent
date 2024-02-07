@@ -420,7 +420,14 @@ namespace Agent.Plugins.Repository
                         // Cleanup the comment file.
                         if (File.Exists(commentFile))
                         {
-                            File.Delete(commentFile);
+                            try
+                            {
+                                await IOUtil.DeleteFileWithRetry(commentFile, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                executionContext.Output($"Unable to delete comment file, ex:{ex.GetType()}");
+                            }
                         }
                     }
                 }

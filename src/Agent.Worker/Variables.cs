@@ -11,9 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Agent.Sdk.SecretMasking;
 using BuildWebApi = Microsoft.TeamFoundation.Build.WebApi;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Newtonsoft.Json.Linq;
-using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -60,23 +58,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return val;
         }
 
-        public IEnumerable<KeyValuePair<string, string>> Public
+        public IEnumerable<Variable> Public
         {
             get
             {
                 return _expanded.Values
                     .Where(x => !x.Secret)
-                    .Select(x => new KeyValuePair<string, string>(x.Name, StringTranslator(x.Value)));
+                    .Select(x => new Variable(x.Name, StringTranslator(x.Value), x.Secret, x.ReadOnly, x.PreserveCase));
             }
         }
 
-        public IEnumerable<KeyValuePair<string, string>> Private
+        public IEnumerable<Variable> Private
         {
             get
             {
                 return _expanded.Values
                     .Where(x => x.Secret)
-                    .Select(x => new KeyValuePair<string, string>(x.Name, StringTranslator(x.Value)));
+                    .Select(x => new Variable(x.Name, StringTranslator(x.Value), x.Secret, x.ReadOnly, x.PreserveCase));
             }
         }
 
@@ -102,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (!string.IsNullOrWhiteSpace(variable.Key))
                 {
-                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret, variable.Value.IsReadOnly));
+                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret, variable.Value.IsReadOnly, preserveCase: false));
                 }
             }
 
@@ -407,7 +405,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public void Set(string name, string val, bool secret = false, bool readOnly = false)
+        public void Set(string name, string val, bool secret = false, bool readOnly = false, bool preserveCase = false)
         {
             // Validate the args.
             ArgUtil.NotNullOrEmpty(name, nameof(name));
@@ -440,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Store the value as-is to the expanded dictionary and the non-expanded dictionary.
                 // It is not expected that the caller needs to store an non-expanded value and then
                 // retrieve the expanded value in the same context.
-                var variable = new Variable(name, val, secret, readOnly);
+                var variable = new Variable(name, val, secret, readOnly, preserveCase);
                 _expanded[name] = variable;
                 _nonexpanded[name] = variable;
                 _trace.Verbose($"Set '{name}' = '{val}'");
@@ -492,6 +490,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     bool secret = _nonexpanded[name].Secret;
                     bool readOnly = _nonexpanded[name].ReadOnly;
+                    bool preserveCase = _nonexpanded[name].PreserveCase;
                     _trace.Verbose($"Processing expansion for variable: '{name}'");
 
                     // This algorithm handles recursive replacement using a stack.
@@ -593,7 +592,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
 
                                 // Set the expanded value.
-                                expanded[state.Name] = new Variable(state.Name, state.Value, secret, readOnly);
+                                expanded[state.Name] = new Variable(state.Name, state.Value, secret, readOnly, preserveCase);
                                 _trace.Verbose($"Set '{state.Name}' = '{state.Value}'");
                             }
 
@@ -632,11 +631,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             foreach (var var in this.Public)
             {
-                target[var.Key] = translation(var.Value);
+                target[var.Name] = translation(var.Value);
             }
             foreach (var var in this.Private)
             {
-                target[var.Key] = new VariableValue(translation(var.Value), true);
+                target[var.Name] = new VariableValue(translation(var.Value), true);
             }
         }
 
@@ -672,14 +671,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool Secret { get; private set; }
         public string Value { get; private set; }
         public bool ReadOnly { get; private set; }
+        public bool PreserveCase { get; private set; }
 
-        public Variable(string name, string value, bool secret, bool readOnly)
+        public Variable(string name, string value, bool secret, bool readOnly, bool preserveCase)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
             Name = name;
             Value = value ?? string.Empty;
             Secret = secret;
             ReadOnly = readOnly;
+            PreserveCase = preserveCase;
         }
     }
 }

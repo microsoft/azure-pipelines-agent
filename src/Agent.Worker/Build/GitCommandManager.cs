@@ -749,10 +749,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // Add the public variables.
-            foreach (KeyValuePair<string, string> pair in context.Variables.Public)
+            foreach (Variable variable in context.Variables.Public)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = VarUtil.ConvertToEnvVariableFormat(pair.Key);
+                string formattedName = VarUtil.ConvertToEnvVariableFormat(variable.Name, variable.PreserveCase);
 
                 // Skip any GIT_TRACE variable since GIT_TRACE will affect ouput from every git command.
                 // This will fail the parse logic for detect git version, remote url, etc.
@@ -761,12 +761,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 //      git version
                 //      11:39:58.295959 git.c:371               trace: built-in: git 'version'
                 //      git version 2.11.1.windows.1
-                if (formattedKey == "GIT_TRACE" || formattedKey.StartsWith("GIT_TRACE_"))
+                if (formattedName == "GIT_TRACE" || formattedName.StartsWith("GIT_TRACE_"))
                 {
                     continue;
                 }
 
-                _gitEnv[formattedKey] = pair.Value ?? string.Empty;
+                _gitEnv[formattedName] = variable.Value ?? string.Empty;
             }
 
             return _gitEnv;
