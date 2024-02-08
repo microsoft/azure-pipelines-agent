@@ -125,11 +125,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     const bool continueAfterCancelProcessTreeKillAttempt = true;
                     if (TestUtil.IsWindows())
                     {
-                        execTask = processInvoker.ExecuteAsync("", "cmd", $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync(
+                            new()
+                            {
+                                WorkingDirectory = "",
+                                FileName = "cmd",
+                                Arguments = $"/c \"ping 127.0.0.1 -n {SecondsToRun} > nul\"",
+                                ContinueAfterCancelProcessTreeKillAttempt = continueAfterCancelProcessTreeKillAttempt
+                            },
+                            tokenSource.Token);
                     }
                     else
                     {
-                        execTask = processInvoker.ExecuteAsync("", "bash", $"-c \"sleep {SecondsToRun}s\"", null, false, null, false, null, false, false, false, continueAfterCancelProcessTreeKillAttempt, tokenSource.Token);
+                        execTask = processInvoker.ExecuteAsync(
+                            new()
+                            {
+                                WorkingDirectory = "",
+                                FileName = "bash",
+                                Arguments = $"-c \"sleep {SecondsToRun}s\"",
+                                ContinueAfterCancelProcessTreeKillAttempt = continueAfterCancelProcessTreeKillAttempt
+                            },
+                            tokenSource.Token);
                     }
 
                     await Task.Delay(500);
