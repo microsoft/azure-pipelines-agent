@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk.Knob;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -485,7 +486,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             return await GetEnvironmentContentNonWindows(agentId, agentName, steps);
         }
-
+    
+        [SupportedOSPlatform("windows")]
         private async Task<string> GetEnvironmentContentWindows(int agentId, string agentName, IList<Pipelines.JobStep> steps)
         {
             var builder = new StringBuilder();
@@ -524,6 +526,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Returns whether or not the Windows firewall is enabled.
+        [SupportedOSPlatform("windows")]
         private bool IsFirewallEnabled()
         {
             try
@@ -546,6 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        [SupportedOSPlatform("windows")]
         private async Task<string> GetPsVersionInfo()
         {
             var builder = new StringBuilder();
@@ -581,6 +585,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <summary>
         /// Gathers a list of local group memberships for the current user.
         /// </summary>
+        [SupportedOSPlatform("windows")]
         private async Task<string> GetLocalGroupMembership()
         {
             var builder = new StringBuilder();
@@ -687,6 +692,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // Collects Windows event logs that appeared during the job execution.
         // Dumps the gathered info into a separate file since the logs are long.
+        [SupportedOSPlatform("windows")]
         private async Task DumpCurrentJobEventLogs(IExecutionContext executionContext, string logFile, DateTime jobStartTimeUtc)
         {
             string startDate = jobStartTimeUtc.ToString("u");

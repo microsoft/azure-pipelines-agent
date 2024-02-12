@@ -2,12 +2,14 @@
 // Licensed under the MIT License.
 
 using System.IO;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
+    [SupportedOSPlatform("windows")]
     public class RSAEncryptedFileKeyManager : AgentService, IRSAKeyManager
     {
         private string _keyFile;

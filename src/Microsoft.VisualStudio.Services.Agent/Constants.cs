@@ -377,6 +377,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string RepoGitSubmoduleCheckout = "build.repository.git.submodulecheckout";
                 public static readonly string RepoId = "build.repository.id";
                 public static readonly string RepoLocalPath = "build.repository.localpath";
+                public static readonly string PipelineRepoName = "pipeline.repository.name";
                 public static readonly string RepoName = "build.Repository.name";
                 public static readonly string RepoProvider = "build.repository.provider";
                 public static readonly string RepoTfvcWorkspace = "build.repository.tfvc.workspace";
@@ -570,6 +571,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.GatedRunCI,
                 Build.GatedShelvesetName,
                 Build.Number,
+                Build.PipelineRepoName,
                 Build.RepoClean,
                 Build.RepoGitSubmoduleCheckout,
                 Build.RepoId,

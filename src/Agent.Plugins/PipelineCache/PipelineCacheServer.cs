@@ -321,7 +321,7 @@ namespace Agent.Plugins.PipelineCache
                     {
                         try
                         {
-                            IOUtil.DeleteFileWithRetry(manifestPath, cancellationToken);
+                            await IOUtil.DeleteFileWithRetry(manifestPath, cancellationToken);
                         }
                         catch (Exception ex)
                         {

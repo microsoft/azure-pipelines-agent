@@ -7,15 +7,18 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     [ServiceLocator(Default = typeof(PowerShellExeUtil))]
+    [SupportedOSPlatform("windows")]
     public interface IPowerShellExeUtil : IAgentService
     {
         string GetPath();
     }
 
+    [SupportedOSPlatform("windows")]
     public sealed class PowerShellExeUtil : AgentService, IPowerShellExeUtil
     {
         private static readonly Version MinimumVersion = new Version(3, 0);

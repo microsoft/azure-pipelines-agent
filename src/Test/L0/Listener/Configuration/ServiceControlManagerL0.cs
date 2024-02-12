@@ -7,12 +7,10 @@ using System;
 using System.Runtime.CompilerServices;
 using Xunit;
 
-
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 {
     public class ServiceControlManagerL0
     {
-
         private class ServiceNameTest
         {
             public String TestName;
@@ -22,7 +20,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             public String ServiceDisplayPattern;
             public String AgentName;
             public String PoolName;
-            public String Environment;
             public String EnvironmentName;
             public String ServerUrl;
 
@@ -104,6 +101,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             TestHostContext tc = new TestHostContext(this, testName);
             return tc;
         }
-
     }
 }

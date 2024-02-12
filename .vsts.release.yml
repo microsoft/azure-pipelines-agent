@@ -172,10 +172,10 @@ extends:
           - checkout: self
             clean: true
 
-          - task: Bash@3
+          - task: PowerShell@2
             displayName: Switch to release branch
             inputs:
-              filePath: .azure-pipelines/scripts/switch-branch.sh
+              filePath: .azure-pipelines/scripts/switch-branch.ps1
             env:
               TARGET_BRANCH: $(ReleaseBranch)
 
@@ -270,7 +270,7 @@ extends:
         - Verify_release
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
         pool:
-          vmImage: ubuntu-latest
+          name: 1ES-Shared-Hosted-Pool_Linux-Mariner-2
         jobs:
         ################################################################################
         - job: create_ado_prs

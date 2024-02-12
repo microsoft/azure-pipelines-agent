@@ -4,10 +4,10 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -31,6 +31,7 @@ namespace Agent.Sdk
 
         // System.Runtime.InteropServices.OSPlatform is a struct, so it is
         // not suitable for switch statements.
+        // The SupportedOSPlatformGuard is not supported on enums, so call sites using this need to suppress warnings https://github.com/dotnet/runtime/issues/51541
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1717: Only FlagsAttribute enums should have plural names")]
         public enum OS
         {
@@ -61,16 +62,19 @@ namespace Agent.Sdk
             }
         }
 
+        [SupportedOSPlatformGuard("windows")]
         public static bool RunningOnWindows
         {
             get => PlatformUtil.HostOS == PlatformUtil.OS.Windows;
         }
 
+        [SupportedOSPlatformGuard("macos")]
         public static bool RunningOnMacOS
         {
             get => PlatformUtil.HostOS == PlatformUtil.OS.OSX;
         }
 
+        [SupportedOSPlatformGuard("linux")]
         public static bool RunningOnLinux
         {
             get => PlatformUtil.HostOS == PlatformUtil.OS.Linux;
@@ -106,6 +110,7 @@ namespace Agent.Sdk
 
         public static string GetSystemId()
         {
+            #pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
             return PlatformUtil.HostOS switch
             {
                 PlatformUtil.OS.Linux => GetLinuxId(),
@@ -113,10 +118,12 @@ namespace Agent.Sdk
                 PlatformUtil.OS.Windows => GetWindowsId(),
                 _ => null
             };
+            #pragma warning restore CA1416
         }
 
         public static SystemVersion GetSystemVersion()
         {
+            #pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
             return PlatformUtil.HostOS switch
             {
                 PlatformUtil.OS.Linux => new SystemVersion(GetLinuxName(), null),
@@ -124,6 +131,7 @@ namespace Agent.Sdk
                 PlatformUtil.OS.Windows => new SystemVersion(GetWindowsName(), GetWindowsVersion()),
                 _ => null
             };
+            #pragma warning restore CA1416
         }
 
         private static void DetectRHEL6()
@@ -233,6 +241,7 @@ namespace Agent.Sdk
             return null;
         }
 
+        [SupportedOSPlatform("windows")]
         private static string GetWindowsId()
         {
             StringBuilder result = new StringBuilder();
@@ -253,6 +262,7 @@ namespace Agent.Sdk
             return result.ToString();
         }
 
+        [SupportedOSPlatform("windows")]
         private static string GetWindowsName()
         {
             Regex productNameRegex = new Regex("(Windows)(\\sServer)?\\s(?<versionNumber>[\\d.]+)");
@@ -274,6 +284,7 @@ namespace Agent.Sdk
             return null;
         }
 
+        [SupportedOSPlatform("windows")]
         private static string GetWindowsVersion()
         {
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
@@ -405,6 +416,7 @@ namespace Agent.Sdk
             {
                 if (PlatformUtil.RunningOnWindows)
                 {
+                    #pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
                     // For Windows we check Container Execution Agent Service (cexecsvc) existence
                     var serviceName = "cexecsvc";
                     ServiceController[] scServices = ServiceController.GetServices();
@@ -412,6 +424,7 @@ namespace Agent.Sdk
                     {
                         isDockerContainer = true;
                     }
+                    #pragma warning restore CA1416
                 }
                 else
                 {
@@ -423,7 +436,7 @@ namespace Agent.Sdk
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Logging exception will be handled by JobRunner
                 throw;
@@ -443,7 +456,7 @@ namespace Agent.Sdk
                 if (metadataProvider.HasMetadata())
                     isAzureVM = true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Logging exception will be handled by JobRunner
                 throw;

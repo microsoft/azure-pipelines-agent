@@ -151,6 +151,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.SetVariable(Constants.Variables.Build.RepoId, repoInfo.TriggeringRepository.Id);
             }
 
+            // Repo containing the pipeline.
+            executionContext.SetVariable(Constants.Variables.Build.PipelineRepoName, executionContext.GetVariableValueOrDefault(Constants.Variables.Build.RepoName));
+
             executionContext.SetVariable(Constants.Variables.Build.RepoName, repoInfo.TriggeringRepository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Name));
             executionContext.SetVariable(Constants.Variables.Build.RepoProvider, ConvertToLegacyRepositoryType(repoInfo.TriggeringRepository.Type));
             executionContext.SetVariable(Constants.Variables.Build.RepoUri, repoInfo.TriggeringRepository.Url?.AbsoluteUri);

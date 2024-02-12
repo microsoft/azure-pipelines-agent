@@ -975,12 +975,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (PlatformUtil.RunningOnWindows)
             {
+                #pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
                 // service CExecSvc is Container Execution Agent.
                 ServiceController[] scServices = ServiceController.GetServices();
                 if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
                 {
                     throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
                 }
+                #pragma warning restore CA1416
             }
             else
             {
@@ -1032,8 +1034,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void PublishTelemetry(
             IExecutionContext executionContext,
             object telemetryData,
-            string feature = nameof(ContainerOperationProvider)
-)
+            string feature = nameof(ContainerOperationProvider))
         {
             var cmd = new Command("telemetry", "publish")
             {
