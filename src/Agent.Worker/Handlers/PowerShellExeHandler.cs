@@ -7,10 +7,12 @@ using System.Security.Cryptography;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     [ServiceLocator(Default = typeof(PowerShellExeHandler))]
+    [SupportedOSPlatform("windows")]
     public interface IPowerShellExeHandler : IHandler
     {
         PowerShellExeHandlerData Data { get; set; }
@@ -18,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string AccessToken { get; set; }
     }
 
+    [SupportedOSPlatform("windows")]
     public sealed class PowerShellExeHandler : Handler, IPowerShellExeHandler
     {
         private const string InlineScriptType = "inlineScript";
@@ -45,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Add the access token to the environment variables, if the access token is set.
             if (!string.IsNullOrEmpty(AccessToken))
             {
-                string formattedKey = VarUtil.ConvertToEnvVariableFormat(Constants.Variables.System.AccessToken);
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(Constants.Variables.System.AccessToken, preserveCase: false);
                 AddEnvironmentVariable(formattedKey, AccessToken);
             }
 

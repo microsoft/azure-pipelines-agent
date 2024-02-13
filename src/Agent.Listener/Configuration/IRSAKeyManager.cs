@@ -1,15 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Agent.Listener.Configuration;
-using Agent.Sdk.Knob;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -27,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// key is returned to the caller.
         /// </summary>
         /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
-        RSACryptoServiceProvider CreateKey(bool enableAgentKeyStoreInNamedContainer);
+        RSACryptoServiceProvider CreateKey();
 
         /// <summary>
         /// Deletes the RSA key managed by the key manager.
@@ -39,23 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
         /// <exception cref="CryptographicException">No key exists in the store</exception>
-        RSACryptoServiceProvider GetKey(bool enableAgentKeyStoreInNamedContainer);
-    }
-
-    public static class IRSAKeyManagerExtensions
-    {
-        public static async Task<bool> GetStoreAgentTokenInNamedContainerFF(this IRSAKeyManager rsaKeyManager, IHostContext hostContext, global::Agent.Sdk.ITraceWriter trace, AgentSettings agentSettings, VssCredentials creds, CancellationToken cancellationToken = default)
-        {
-            if(AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
-            {
-                return true;
-            }
-
-            var featureFlagProvider = hostContext.GetService<IFeatureFlagProvider>();
-            var enableAgentKeyStoreInNamedContainer = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.StoreAgentTokenInNamedContainer", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
-
-            return enableAgentKeyStoreInNamedContainer;
-        }
+        RSACryptoServiceProvider GetKey();
     }
 
     // Newtonsoft 10 is not working properly with dotnet RSAParameters class
@@ -66,7 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [Serializable]
     internal class RSAParametersSerializable : ISerializable
     {
-        private string _containerName;
         private RSAParameters _rsaParameters;
 
         public RSAParameters RSAParameters
@@ -77,17 +54,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSAParametersSerializable(string containerName, RSAParameters rsaParameters)
+        public RSAParametersSerializable(RSAParameters rsaParameters)
         {
-            _containerName = containerName;
             _rsaParameters = rsaParameters;
         }
 
         private RSAParametersSerializable()
         {
         }
-
-        public string ContainerName { get { return _containerName; } set { _containerName = value; } }
 
         public byte[] D { get { return _rsaParameters.D; } set { _rsaParameters.D = value; } }
 
@@ -107,8 +81,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public RSAParametersSerializable(SerializationInfo information, StreamingContext context)
         {
-            _containerName = (string)information.GetValue("ContainerName", typeof(string));
-
             _rsaParameters = new RSAParameters()
             {
                 D = (byte[])information.GetValue("d", typeof(byte[])),
@@ -124,7 +96,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
-            info.AddValue("ContainerName", _containerName);
             info.AddValue("d", _rsaParameters.D);
             info.AddValue("dp", _rsaParameters.DP);
             info.AddValue("dq", _rsaParameters.DQ);

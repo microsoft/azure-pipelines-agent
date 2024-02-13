@@ -17,9 +17,6 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.Location;
 using Microsoft.VisualStudio.Services.Common;
-using Agent.Listener.Configuration;
-using Agent.Sdk;
-using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 {
@@ -41,7 +38,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private Mock<IMacOSServiceControlManager> _macServiceControlManager;
 
         private Mock<IRSAKeyManager> _rsaKeyManager;
-        private Mock<IFeatureFlagProvider> _featureFlagProvider;
         private ICapabilitiesManager _capabilitiesManager;
         private DeploymentGroupAgentConfigProvider _deploymentGroupAgentConfigProvider;
         private string _expectedToken = "expectedToken";
@@ -79,7 +75,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _linuxServiceControlManager = new Mock<ILinuxServiceControlManager>();
             _macServiceControlManager = new Mock<IMacOSServiceControlManager>();
             _capabilitiesManager = new CapabilitiesManager();
-            _featureFlagProvider = new Mock<IFeatureFlagProvider>();
 
             var expectedAgent = new TaskAgent(_expectedAgentName) { Id = 1 };
             var expectedDeploymentMachine = new DeploymentMachine() { Agent = expectedAgent, Id = _expectedDeploymentMachineId };
@@ -131,9 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             rsa = new RSACryptoServiceProvider(2048);
 
-            _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>())).Returns(rsa);
-
-            _featureFlagProvider.Setup(x => x.GetFeatureFlagWithCred(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<AgentSettings>(), It.IsAny<VssCredentials>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
+            _rsaKeyManager.Setup(x => x.CreateKey()).Returns(rsa);
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
@@ -156,7 +149,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             tc.SetSingleton<IMacOSServiceControlManager>(_macServiceControlManager.Object);
 
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);
-            tc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
 
             return tc;
         }

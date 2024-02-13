@@ -347,13 +347,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // push all variable.
             foreach (var variable in ExecutionContext.Variables.Public.Concat(ExecutionContext.Variables.Private))
             {
-                AddEnvironmentVariable("VSTSPSHOSTVAR_" + variable.Key, variable.Value);
+                AddEnvironmentVariable("VSTSPSHOSTVAR_" + variable.Name, variable.Value);
             }
 
             // push all public variable.
             foreach (var variable in ExecutionContext.Variables.Public)
             {
-                AddEnvironmentVariable("VSTSPSHOSTPUBVAR_" + variable.Key, variable.Value);
+                AddEnvironmentVariable("VSTSPSHOSTPUBVAR_" + variable.Name, variable.Value);
             }
 
             // push all endpoints

@@ -125,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                         {
                             Path = itemPath,
                             Node = dedupNode,
-                            Success = dedupNode != null
+                            Success = true
                         };
                     }
                     catch (Exception)

@@ -8,9 +8,11 @@
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>
 
-<PropertyGroup>
+  <PropertyGroup>
+    <!-- Suppress warning CA1416: This call site is reachable on all platforms. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-</PropertyGroup>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
@@ -26,13 +28,13 @@
   </ItemGroup>
 
   <ItemGroup>
-      <MySourceFiles Include="$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x86\*.dll;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x86\*.exe;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x64\*.dll;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x64\*.exe" />
+    <MySourceFiles Include="$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x86\*.dll;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x86\*.exe;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x64\*.dll;$(PkgMicrosoft_TestPlatform_TestHost)\build\netcoreapp2.1\x64\*.exe" />
   </ItemGroup>
 
   <Target Name="CopyFilesL0">
     <Copy SourceFiles="@(MySourceFiles)" DestinationFolder="$(MSBuildProjectDirectory)\bin\Debug\netcoreapp3.1\win-x86" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Retries="3" RetryDelayMilliseconds="300" />
   </Target>
   <Target Name="CopyFilesL1">
-      <Copy SourceFiles="@(MySourceFiles)" DestinationFolder="D:\a\1\s\_l1\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Retries="3" RetryDelayMilliseconds="300" />
+    <Copy SourceFiles="@(MySourceFiles)" DestinationFolder="D:\a\1\s\_l1\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Retries="3" RetryDelayMilliseconds="300" />
   </Target>
 </Project>

@@ -3,7 +3,7 @@
 
 using System;
 using System.Collections.Generic;
-
+using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release;
 
 using Xunit;
@@ -17,16 +17,16 @@ namespace Test.L0.Worker.Release
         [Trait("Category", "Common")]
         public void VetGetPrintableEnvironmentVariables()
         {
-            List<KeyValuePair<string, string>> variables = new List<KeyValuePair<string, string>>
-                                                                      {
-                                                                          new KeyValuePair<string, string>("key.B", "value1"),
-                                                                          new KeyValuePair<string, string>("key A", "value2"),
-                                                                          new KeyValuePair<string, string>("keyC", "value3")
-                                                                      };
+            List<Variable> variables = new List<Variable>
+            {
+                new Variable("key.B", "value1", secret: false, readOnly: false, preserveCase: false),
+                new Variable("key A", "value2", secret: false, readOnly: false, preserveCase: false),
+                new Variable("keyC", "value3", secret: false, readOnly: false, preserveCase: false),
+            };
             string expectedResult =
-                $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[1].Key)}] --> [{variables[1].Value}]"
-                + $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[0].Key)}] --> [{variables[0].Value}]"
-                + $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[2].Key)}] --> [{variables[2].Value}]";
+                $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[1].Name)}] --> [{variables[1].Value}]"
+                + $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[0].Name)}] --> [{variables[0].Value}]"
+                + $"{Environment.NewLine}\t\t\t\t[{FormatVariable(variables[2].Name)}] --> [{variables[2].Value}]";
 
             string result = AgentUtilities.GetPrintableEnvironmentVariables(variables);
             Assert.Equal(expectedResult, result);

@@ -6,15 +6,18 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     [ServiceLocator(Default = typeof(MacOSServiceControlManager))]
+    [SupportedOSPlatform("macos")]
     public interface IMacOSServiceControlManager : IAgentService
     {
         void GenerateScripts(AgentSettings settings);
     }
 
+    [SupportedOSPlatform("macos")]
     public class MacOSServiceControlManager : ServiceControlManager, IMacOSServiceControlManager
     {
         // This is the name you would see when you do `systemctl list-units | grep vsts`

@@ -102,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (freeDiskSpacePercentage <= AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD)
                     {
-                        _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold", diskInfo.VolumeLabel, AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD, $"{usedDiskSpacePercentage:0.00}"));
+                        _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold", diskInfo.VolumeRoot, AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD, $"{usedDiskSpacePercentage:0.00}"));
                         
                         break;
                     }
@@ -180,23 +180,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             public long TotalDiskSpaceMB;
             public long FreeDiskSpaceMB;
-            public string VolumeLabel;
+            public string VolumeRoot;
         }
 
         private DiskInfo GetDiskInfo()
         {
             DiskInfo diskInfo = new();
 
-            string root = Path.GetPathRoot(System.Reflection.Assembly.GetEntryAssembly().Location);
+            string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
             var driveInfo = new DriveInfo(root);
 
             diskInfo.TotalDiskSpaceMB = driveInfo.TotalSize / 1048576;
             diskInfo.FreeDiskSpaceMB = driveInfo.AvailableFreeSpace / 1048576;
-
-            if (PlatformUtil.RunningOnWindows)
-            {
-                diskInfo.VolumeLabel = $"{root} {driveInfo.VolumeLabel}";
-            }
+            diskInfo.VolumeRoot = root;
 
             return diskInfo;
         }
@@ -207,7 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 var diskInfo = GetDiskInfo();
 
-                return StringUtil.Loc("ResourceMonitorDiskInfo", diskInfo.VolumeLabel, $"{diskInfo.FreeDiskSpaceMB:0.00}", $"{diskInfo.TotalDiskSpaceMB:0.00}");
+                return StringUtil.Loc("ResourceMonitorDiskInfo", diskInfo.VolumeRoot, $"{diskInfo.FreeDiskSpaceMB:0.00}", $"{diskInfo.TotalDiskSpaceMB:0.00}");
 
             }
             catch (Exception ex)
