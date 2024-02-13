@@ -19,7 +19,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
     <PackageReference Include="Microsoft.CodeCoverage" Version="16.4.0" />
     <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="16.4.0" GeneratePathProperty="true" />
-    <PackageReference Include="Moq" Version="4.20.70" />
+    <PackageReference Include="Moq" Version="4.6.36-alpha" />
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.4.0" />
     <PackageReference Include="System.Threading.ThreadPool" Version="4.3.0" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
