@@ -398,7 +398,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     tokenValidation = true;
                 }
 
-                scope.Set("TASK_SDK_TOKEN_VALIDATION", tokenValidation.ToString());
+                scope.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, tokenValidation.ToString());
 
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
 

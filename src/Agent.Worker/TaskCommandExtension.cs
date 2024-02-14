@@ -371,7 +371,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
-            var tokenValidationRequired = bool.Parse(context.Variables.Get("TASK_SDK_TOKEN_VALIDATION"));
+            var tokenValidationRequired = bool.Parse(context.Variables.Get(Constants.Variables.Task.TaskSDKTokenValidationEnabled));
             if (tokenValidationRequired)
             {
                 ValidateSDKToken(context, eventProperties);
@@ -504,14 +504,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             else
             {
-                if (string.IsNullOrEmpty(issueSource))
-                {
-                    commandProperties.Add("source", "ManualInvocation");
-                }
-                else
-                {
-                    commandProperties["source"] = "ManualInvocation";
-                } 
+                commandProperties["source"] = "ManualInvocation";
             }      
         }
     }
