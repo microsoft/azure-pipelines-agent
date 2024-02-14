@@ -371,6 +371,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
+            var tokenValidationRequired = bool.Parse(context.Variables.Get("TASK_SDK_TOKEN_VALIDATION"));
+            if (tokenValidationRequired)
+            {
+                ValidateSDKToken(context, eventProperties);
+            }
+
             Issue taskIssue = null;
 
             String issueType;
@@ -476,6 +482,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             issue.Message = message;
 
             return issue;
+        }
+
+        private void ValidateSDKToken(IExecutionContext context, Dictionary<string, string> commandProperties)
+        {
+            commandProperties.TryGetValue("source", out string issueSource);
+            commandProperties.TryGetValue("token", out string token);
+            if (!string.IsNullOrEmpty(token))
+            {
+                if (string.IsNullOrEmpty(issueSource))
+                {
+                    throw new ArgumentException("The issue source is missing in the task.issue command.");
+                }
+
+                if (!token.Equals(context.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("The task provided an invalid token when using the task.issue command.");
+                }
+
+                commandProperties.Remove("token");
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(issueSource))
+                {
+                    commandProperties.Add("source", "ManualInvocation");
+                }
+                else
+                {
+                    commandProperties["source"] = "ManualInvocation";
+                } 
+            }      
         }
     }
 
