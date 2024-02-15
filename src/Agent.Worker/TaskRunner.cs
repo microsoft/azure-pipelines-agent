@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (logTaskNameInUserAgent)
             {
-                VssUtil.PushTaskIntoAgentInfo(Task.Name);
+                VssUtil.PushTaskIntoAgentInfo(Task.Name, Task.Reference.Version);
             }
 
             try

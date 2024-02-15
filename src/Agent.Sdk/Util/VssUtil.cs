@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        public static void PushTaskIntoAgentInfo(string taskName)
+        public static void PushTaskIntoAgentInfo(string taskName, string taskVersion)
         {
             var headerValues = VssClientHttpRequestSettings.Default.UserAgent;
 
@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 headerValues = new List<ProductInfoHeaderValue>();
             }
 
-            headerValues.Add(new ProductInfoHeaderValue(string.Concat(TaskUserAgentPrefix, taskName, ")")));
+            headerValues.Add(new ProductInfoHeaderValue(string.Concat(TaskUserAgentPrefix, taskName , "-" , taskVersion, ")")));
 
             VssClientHttpRequestSettings.Default.UserAgent = headerValues;
         }

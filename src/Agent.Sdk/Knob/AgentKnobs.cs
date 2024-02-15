@@ -596,7 +596,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob LogTaskNameInUserAgent = new Knob(
             nameof(LogTaskNameInUserAgent),
             "If true, agent will log the task name in user agent.",
-            new PipelineFeatureSource("LogTaskNameInUserAgent"),
+            new RuntimeKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
             new EnvironmentKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
             new BuiltInDefaultKnobSource("false"));
     }
