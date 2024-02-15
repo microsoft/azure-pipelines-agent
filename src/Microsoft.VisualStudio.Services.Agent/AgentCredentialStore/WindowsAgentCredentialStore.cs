@@ -4,12 +4,13 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using System.IO;
-using System.Security.Cryptography;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -25,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     //   1. read from current user's windows credential store, delete the DP-API encrypted backup content on disk if the windows credential store read succeed.
     //   2. if credential not found in current user's windows credential store, read from the DP-API encrypted backup content on disk, 
     //      write the credential back the current user's windows credential store and delete the backup on disk.
+    [SupportedOSPlatform("windows")]
     public sealed class WindowsAgentCredentialStore : AgentService, IAgentCredentialStore
     {
         private string _credStoreFile;

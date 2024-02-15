@@ -5,12 +5,15 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 {
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
     public sealed class NixCapabilitiesProvider : AgentService, ICapabilitiesProvider
     {
         private List<Capability> _capabilities; // Cache the capabilities for configure-then-run scenario.

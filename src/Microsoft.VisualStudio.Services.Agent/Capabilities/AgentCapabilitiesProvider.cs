@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             capabilities.Add(new Capability(name, value));
         }
 
+        [SupportedOSPlatform("windows")]
         private object GetHklmValue(string keyName, string valueName)
         {
             keyName = $@"HKEY_LOCAL_MACHINE\{keyName}";
@@ -60,6 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
             return value;
         }
 
+        [SupportedOSPlatform("windows")]
         private string GetOSVersionString()
         {
             // Do not use System.Environment.OSVersion.Version to resolve the OS version number.
@@ -98,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Capabilities
         // https://en.wikipedia.org/wiki/Darwin_%28operating_system%29
         // with Big Sur Apple made the jump from 10.* to 11.* that means that
         // the version reported from that point is 20.1.0.0 for 11.0.1
+        [SupportedOSPlatform("macos")]
         private static string GetDarwinVersionString()
         {
             // from .net 5 onwards the runtime returns the product version instead of the darwin kernel version
