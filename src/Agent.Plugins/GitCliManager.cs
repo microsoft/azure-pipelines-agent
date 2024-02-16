@@ -82,7 +82,9 @@ namespace Agent.Plugins.Repository
             return gitLfsVersion >= requiredVersion;
         }
 
-        public Tuple<string, string> GetInternalGitPaths(AgentTaskPluginExecutionContext context, bool useLatestGitVersion)
+        public (string gitPath, string gitLfsPath) GetInternalGitPaths(
+            AgentTaskPluginExecutionContext context,
+            bool useLatestGitVersion)
         {
             string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
             ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
@@ -98,7 +100,7 @@ namespace Agent.Plugins.Repository
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
             }
 
-            context.Debug($@"The useLatestGitVersion property is set to ""{useLatestGitVersion}"" so the Git path is ""{gitPath}""");
+            context.Debug($@"The useLatestGitVersion property is set to ""{useLatestGitVersion}"" therefore the Git path is ""{gitPath}""");
 
             string gitLfsPath;
 
@@ -111,7 +113,7 @@ namespace Agent.Plugins.Repository
                 gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", "mingw64", "bin", "git-lfs.exe");
             }
 
-            return Tuple.Create(gitPath, gitLfsPath);
+            return (gitPath, gitLfsPath);
         }
 
         public virtual async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
@@ -125,10 +127,12 @@ namespace Agent.Plugins.Repository
             {
                 context.Debug("Git paths are resolving from internal dependencies");
 
-                var localGitPaths = GetInternalGitPaths(context, AgentKnobs.UseLatestGitVersion.GetValue(context).AsBoolean());
+                var (resolvedGitPath, resolvedGitLfsPath) = GetInternalGitPaths(
+                    context,
+                    AgentKnobs.UseLatestGitVersion.GetValue(context).AsBoolean());
 
-                gitPath = localGitPaths.Item1;
-                gitLfsPath = localGitPaths.Item2;
+                gitPath = resolvedGitPath;
+                gitLfsPath = resolvedGitLfsPath;
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));

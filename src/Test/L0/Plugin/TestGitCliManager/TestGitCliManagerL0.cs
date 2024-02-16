@@ -57,15 +57,17 @@ namespace Test.L0.Plugin.TestGitCliManager
 
             ArgUtil.ArgUtilInstance = argUtilInstanced.Object;
             MockGitCliManager gitCliManagerMock = new();
-            var paths = gitCliManagerMock.GetInternalGitPaths(mockAgentTaskPluginExecutionContext, gitFeatureFlagStatus);
+            var (resolvedGitPath, resolvedGitLfsPath) = gitCliManagerMock.GetInternalGitPaths(
+                mockAgentTaskPluginExecutionContext,
+                gitFeatureFlagStatus);
 
             if (gitFeatureFlagStatus)
             {
-                Assert.Equal(paths.Item1, ffGitPath);
+                Assert.Equal(resolvedGitPath, ffGitPath);
             }
             else
             {
-                Assert.Equal(paths.Item1, gitPath);
+                Assert.Equal(resolvedGitPath, gitPath);
             }
         }
 

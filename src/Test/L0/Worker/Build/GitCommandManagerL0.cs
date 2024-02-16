@@ -31,7 +31,9 @@ public class TestGitCommandManagerL0
 
         GitCommandManager gitCliManager = new();
         gitCliManager.Initialize(tc);
-        var paths = gitCliManager.GetInternalGitPaths(executionContext.Object, gitFeatureFlagStatus);
+        var (resolvedGitPath, resolvedGitLfsPath) = gitCliManager.GetInternalGitPaths(
+            executionContext.Object,
+            gitFeatureFlagStatus);
 
         string gitPath;
 
@@ -58,7 +60,7 @@ public class TestGitCommandManagerL0
             gitLfsPath = Path.Combine(externalsDirectoryPath, "git", "mingw64", "bin", $"git-lfs.exe");
         }
 
-        Assert.Equal(paths.Item1, gitPath);
-        Assert.Equal(paths.Item2, gitLfsPath);
+        Assert.Equal(resolvedGitPath, gitPath);
+        Assert.Equal(resolvedGitLfsPath, gitLfsPath);
     }
 }
