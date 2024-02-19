@@ -613,5 +613,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
             new EnvironmentKnobSource("AZP_AGENT_DOCKER_INIT_OPTION"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob LogTaskNameInUserAgent = new Knob(
+            nameof(LogTaskNameInUserAgent),
+            "If true, agent will log the task name in user agent.",
+            new RuntimeKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
+            new EnvironmentKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
