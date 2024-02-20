@@ -25,9 +25,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         messagemessagemessagemessage
         XPLATmessagemessagemessagemessagemessagemessagemessagemessage";
         private const string LogDataUpperCaseGroup = @"messagemessagemessagemes
-        ##[group]sage
+        ##[GROUP]sage
         messagemessagemessagemessage
-        ##[endgroup]
+        ##[ENDGROUP]
         XPLATmessagemessagemessagemessagemessagemessagemessagemessage";
         private const int PagesToWrite = 2;
         private Mock<IJobServerQueue> _jobServerQueue;
