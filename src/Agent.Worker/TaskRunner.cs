@@ -63,6 +63,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
             ArgUtil.NotNull(Task, nameof(Task));
+
+            bool logTaskNameInUserAgent = AgentKnobs.LogTaskNameInUserAgent.GetValue(ExecutionContext).AsBoolean();
+
+            if (logTaskNameInUserAgent)
+            {
+                VssUtil.PushTaskIntoAgentInfo(Task.Name ?? "", Task.Reference?.Version ?? "");
+            }
+
+            try
+            {
+                await RunAsyncInternal();
+            }
+            finally
+            {
+                if (logTaskNameInUserAgent)
+                {
+                    VssUtil.RemoveTaskFromAgentInfo();
+                }
+            }
+        }
+
+        private async Task RunAsyncInternal()
+        {
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
@@ -397,7 +420,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.Setup(ExecutionContext);
 
-                if (enableResourceUtilizationWarnings) {
+                if (enableResourceUtilizationWarnings)
+                {
                     _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
@@ -572,7 +596,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // return original inputValue.
             Trace.Info("Cannot root path even by using JobExtension, return original input.");
             return inputValue;
-        } 
+        }
 
         private bool IsTelemetryPublishRequired()
         {
@@ -599,7 +623,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
-            if (!IsTelemetryPublishRequired()) 
+            if (!IsTelemetryPublishRequired())
             {
                 return;
             }
