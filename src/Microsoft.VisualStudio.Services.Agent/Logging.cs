@@ -73,11 +73,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Create();
             }
 
-            if (message.Contains(groupStartTag))
+            if (message.Contains(groupStartTag, StringComparison.OrdinalIgnoreCase))
             {
                 _groupOpened = true;
             } 
-            if (_groupOpened && message.Contains(groupEndTag))
+            if (_groupOpened && message.Contains(groupEndTag, StringComparison.OrdinalIgnoreCase))
             {
                 // Ignore group end tag only if group was opened, otherwise it is a normal message 
                 // because in web console ##[endgroup] becomes empty line without ##[group] tag
