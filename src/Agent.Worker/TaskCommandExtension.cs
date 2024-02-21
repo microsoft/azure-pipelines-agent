@@ -371,7 +371,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
-            var tokenValidationRequired = bool.Parse(context.Variables.Get(Constants.Variables.Task.TaskSDKTokenValidationEnabled));
+            bool tokenValidationRequired = false;
+            try
+            {
+                tokenValidationRequired = bool.Parse(context.Variables.Get(Constants.Variables.Task.TaskSDKTokenValidationEnabled));
+            }
+            catch
+            {
+                throw new InvalidOperationException("Failed when tried to check if the Token validation was enabled.");
+            }
+            
             if (tokenValidationRequired)
             {
                 ValidateSDKToken(context, eventProperties);

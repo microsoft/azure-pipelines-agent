@@ -192,8 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>()
-                { { Constants.Variables.Task.TaskSDKTokenValidationEnabled, new VariableValue ("true", false) } }, out List<string> _);
+                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
@@ -230,8 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>()
-                { { Constants.Variables.Task.TaskSDKTokenValidationEnabled, new VariableValue ("true", false) } }, out List<string> _);
+                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
@@ -264,8 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>()
-                { { Constants.Variables.Task.TaskSDKTokenValidationEnabled, new VariableValue ("true", false) } }, out List<string> _);
+                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
@@ -299,8 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>()
-                { { Constants.Variables.Task.TaskSDKTokenValidationEnabled, new VariableValue ("true", false) } }, out List<string> _);
+                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
@@ -328,6 +324,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("ManualInvocation", currentIssue.Data["source"]);
                 Assert.Equal("error", currentIssue.Data["type"]);
                 Assert.Equal(IssueType.Error, currentIssue.Type);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ThrowExceptionIfFailedToCheckValidationStatus()
+        {
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
+
+                var testToken = Guid.NewGuid().ToString();
+
+                _ec.Setup(x => x.Variables).Returns(variables);
+                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } });
+
+                var cmd = new Command("task", "issue");
+                cmd.Data = "test error";
+                cmd.Properties.Add("token", testToken);
+                cmd.Properties.Add("type", "error");
+
+                Issue currentIssue = null;
+
+                _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
+                var ec = _ec.Object;
+                var ex = Assert.Throws<InvalidOperationException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Equal("Failed when tried to check if the Token validation was enabled.", ex.Message);
             }
         }
 
