@@ -128,6 +128,27 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseGitLongPaths = new Knob(
+            nameof(UseGitLongPaths),
+            "When true, set core.longpaths to true",
+            new RuntimeKnobSource("USE_GIT_LONG_PATHS"),
+            new EnvironmentKnobSource("USE_GIT_LONG_PATHS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseGitSingleThread = new Knob(
+            nameof(UseGitSingleThread),
+            "When true, spawn only one thread searching for best delta matches",
+            new RuntimeKnobSource("USE_GIT_SINGLE_THREAD"),
+            new EnvironmentKnobSource("USE_GIT_SINGLE_THREAD"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseLatestGitVersion = new Knob(
+            nameof(UseLatestGitVersion),
+            "When true, set path to the latest git version",
+            new RuntimeKnobSource("USE_LATEST_GIT_VERSION"),
+            new EnvironmentKnobSource("USE_LATEST_GIT_VERSION"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
             nameof(TfVCUseSecureParameterPassing),
             "If true, don't pass auth token in TFVC parameters",

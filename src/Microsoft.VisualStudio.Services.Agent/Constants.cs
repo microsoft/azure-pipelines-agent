@@ -323,6 +323,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ContainerMapping = "agent.containermapping";
                 public static readonly string ContainerNetwork = "agent.containernetwork";
                 public static readonly string Diagnostic = "agent.diagnostic";
+                public static readonly string FixPossibleGitOutOfMemoryProblem = "FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM";
                 public static readonly string HomeDirectory = "agent.homedirectory";
                 public static readonly string Id = "agent.id";
                 public static readonly string IsSelfHosted = "agent.isselfhosted";
@@ -352,6 +353,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SslSkipCertValidation = "agent.skipcertvalidation";
                 public static readonly string TempDirectory = "agent.TempDirectory";
                 public static readonly string ToolsDirectory = "agent.ToolsDirectory";
+                public static readonly string UseGitLongPaths = "USE_GIT_LONG_PATHS";
+                public static readonly string UseGitSingleThread = "USE_GIT_SINGLE_THREAD";
+                public static readonly string UseLatestGitVersion = "USE_LATEST_GIT_VERSION";
                 public static readonly string Version = "agent.version";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";
@@ -524,6 +528,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.ContainerMapping,
                 Agent.ContainerNetwork,
                 Agent.Diagnostic,
+                Agent.FixPossibleGitOutOfMemoryProblem,
                 Agent.GitUseSChannel,
                 Agent.HomeDirectory,
                 Agent.Id,
@@ -553,6 +558,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.SslSkipCertValidation,
                 Agent.TempDirectory,
                 Agent.ToolsDirectory,
+                Agent.UseGitLongPaths,
+                Agent.UseGitSingleThread,
+                Agent.UseLatestGitVersion,
                 Agent.Version,
                 Agent.WorkFolder,
                 Agent.WorkingDirectory,
