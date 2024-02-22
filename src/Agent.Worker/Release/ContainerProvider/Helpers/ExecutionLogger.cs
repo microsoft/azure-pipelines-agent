@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerProvider.Helpers
 {
-    public class ExecutionLogger : IConatinerFetchEngineLogger
+    public class ExecutionLogger : IContainerFetchEngineLogger
     {
         private readonly IExecutionContext _executionContext;
 

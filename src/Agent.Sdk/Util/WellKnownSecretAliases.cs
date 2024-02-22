@@ -28,7 +28,7 @@ namespace Agent.Sdk.Util
 
         // Secret regex aliases
         public static readonly string UrlSecretPattern = "RegexUrlSecretPattern";
-        public static readonly string CredScanPatterns = "RegexCredScanPatterns";
+        public static readonly string OneESScanPatterns = "Regex1ESScanPatterns";
 
         // Value encoder aliases
         public static readonly string JsonStringEscape = "ValueEncoderJsonStringEscape";

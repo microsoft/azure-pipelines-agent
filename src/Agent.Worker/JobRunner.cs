@@ -20,6 +20,7 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Agent.Sdk.SecretMasking;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -346,6 +347,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 finally
                 {
                     Trace.Info("Finalize job.");
+                    
+                    PublishSecretsMaskingTelemetry(jobContext);
+
                     await jobExtension.FinalizeJob(jobContext);
                 }
 
@@ -632,6 +636,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
+            }
+        }
+        private void PublishSecretsMaskingTelemetry(IExecutionContext context)
+        {
+            try
+            {
+                var masker = HostContext.SecretMasker as LoggedSecretMasker;
+                if (masker == null) { return; }
+
+                var telemetryData = masker.GetTelemetry();
+                telemetryData["JobId"] = context.Variables.System_JobId.ToString();
+
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
+                cmd.Properties.Add("area", "PipelinesTasks");
+                cmd.Properties.Add("feature", "SecretsMasking");
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(HostContext);
+                publishTelemetryCmd.ProcessCommand(context, cmd);
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish secrets masking telemetry data. Exception: {ex}");
             }
         }
     }

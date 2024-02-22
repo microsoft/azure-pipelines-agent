@@ -3,7 +3,7 @@
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public static partial class AdditionalMaskingRegexes
+    public static partial class AdditionalMaskingPatterns
     {
         /// <summary>
         /// Regexp for unreserved characters - for more details see https://datatracker.ietf.org/doc/html/rfc3986#section-2.3

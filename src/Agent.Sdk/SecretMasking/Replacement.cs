@@ -2,20 +2,22 @@
 
 namespace Agent.Sdk.SecretMasking;
 
-internal sealed class ReplacementPosition
+internal sealed class Replacement
 {
-    public ReplacementPosition(Int32 start, Int32 length)
+    public Replacement(Int32 start, Int32 length, String token = "***")
     {
         Start = start;
         Length = length;
+        Token = token;
     }
 
-    public ReplacementPosition(ReplacementPosition copy)
+    public Replacement(Replacement copy)
     {
+        Token = copy.Token;
         Start = copy.Start;
         Length = copy.Length;
     }
-
+    public String Token { get; private set; }
     public Int32 Start { get; set; }
     public Int32 Length { get; set; }
     public Int32 End
