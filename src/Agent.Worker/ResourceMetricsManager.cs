@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
     {
         const int ACTIVE_MODE_INTERVAL = 5000;
-        const int WARNING_MESSAGE_INTERVAL = 10000;
+        const int WARNING_MESSAGE_INTERVAL = 5000;
         const int AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD = 5;
         const int AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD = 5;
         const int CPU_UTILIZATION_PERCENTAGE_THRESHOLD = 95;
