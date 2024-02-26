@@ -215,6 +215,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 outputEncoding = Encoding.UTF8;
             }
 
+            var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+
             try
             {
                 // Execute the process. Exit code 0 should always be returned.
@@ -242,6 +244,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     await step;
                 }
+            }
+            catch (ProcessExitCodeException ex)
+            {
+                if (enableResourceUtilizationWarnings && ex.ExitCode == 137)
+                {
+                    ExecutionContext.Error(StringUtil.Loc("AgentOutOfMemoryFailure"));
+                }
+
+                throw;
             }
             finally
             {
@@ -305,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
 
-                if(node20ResultsInGlibCError)
+                if (node20ResultsInGlibCError)
                 {
                     nodeFolder = NodeHandler.Node16Folder;
                     Node16FallbackWarning(inContainer);

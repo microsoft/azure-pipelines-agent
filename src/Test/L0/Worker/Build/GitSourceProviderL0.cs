@@ -162,6 +162,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             }
         }
 
+        public static IEnumerable<object[]> FeatureFlagsStatusData => new List<object[]>
+        {
+            new object[] { true },
+            new object[] { false },
+        };
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        [MemberData(nameof(FeatureFlagsStatusData))]
+        public void TestSetGitConfiguration(bool featureFlagsStatus)
+        {
+            var featureFlagStatusString = featureFlagsStatus.ToString();
+            var invocation = featureFlagsStatus ? Times.Once() : Times.Never();
+
+            using TestHostContext tc = new TestHostContext(this, $"GitFeatureFlagStatus_{featureFlagStatusString}");
+            using var trace = tc.GetTrace();
+
+            // Arrange.
+            var sourceProviderL0Path = Path.Combine(tc.GetDirectory(WellKnownDirectory.Bin), "SourceProviderL0");
+
+            var executionContext = GetTestExecutionContext(tc, sourceProviderL0Path, "master", "a596e13f5db8869f44574be0392fb8fe1e790ce4", false);
+
+            var environment = new LocalEnvironment();
+
+            executionContext
+                .Setup(x => x.GetScopedEnvironment())
+                .Returns(environment);
+
+            environment.SetEnvironmentVariable(Constants.Variables.Agent.UseGitLongPaths, featureFlagStatusString);
+            environment.SetEnvironmentVariable(Constants.Variables.Agent.UseGitSingleThread, featureFlagStatusString);
+            environment.SetEnvironmentVariable(Constants.Variables.Agent.FixPossibleGitOutOfMemoryProblem, featureFlagStatusString);
+
+            var gitCommandManager = GetDefaultGitCommandMock();
+
+            GitSourceProvider gitSourceProvider = new ExternalGitSourceProvider();
+
+            // Act.
+            gitSourceProvider.SetGitFeatureFlagsConfiguration(executionContext.Object, gitCommandManager.Object, sourceProviderL0Path);
+
+            // Assert.
+            gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, sourceProviderL0Path, "pack.threads", "1"), invocation);
+            gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, sourceProviderL0Path, "core.packedgitlimit", "256m"), invocation);
+            gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, sourceProviderL0Path, "core.longpaths", "true"), invocation);
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]

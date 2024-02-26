@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Runtime.Versioning;
 using Microsoft.Win32;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     [ServiceLocator(Default = typeof(WindowsRegistryManager))]
+    [SupportedOSPlatform("windows")]
     public interface IWindowsRegistryManager : IAgentService
     {
         string GetValue(RegistryHive hive, string subKeyName, string name);
@@ -15,6 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         bool SubKeyExists(RegistryHive hive, string subKeyName);
     }
 
+    [SupportedOSPlatform("windows")]
     public class WindowsRegistryManager : AgentService, IWindowsRegistryManager
     {
         public void DeleteValue(RegistryHive hive, string subKeyName, string name)

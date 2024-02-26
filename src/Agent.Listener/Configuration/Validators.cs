@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
@@ -72,6 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return !string.IsNullOrEmpty(value);
         }
 
+        [SupportedOSPlatform("windows")]
         public static bool NTAccountValidator(string arg)
         {
             if (string.IsNullOrEmpty(arg) || String.IsNullOrEmpty(arg.TrimStart('.', '\\')))

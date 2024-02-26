@@ -3,6 +3,7 @@
     <TargetFramework>net6</TargetFramework>
     <RuntimeFrameworkVersion>6.0.26</RuntimeFrameworkVersion>
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
     <NoWarn>NU1701;NU1603</NoWarn>
@@ -13,6 +14,7 @@
     <VssApiVersion>0.5.232-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

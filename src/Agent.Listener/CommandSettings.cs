@@ -13,6 +13,7 @@ using Agent.Sdk.Util;
 using CommandLine;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -430,6 +431,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
+        [SupportedOSPlatform("windows")]
         public string GetWindowsLogonAccount(string defaultValue, string descriptionMsg)
         {
             return GetArgOrPrompt(

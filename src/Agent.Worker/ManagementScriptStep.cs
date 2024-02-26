@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -14,6 +15,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
+    [SupportedOSPlatform("windows")]
     public class ManagementScriptStep : AgentService, IStep
     {
         public ManagementScriptStep(

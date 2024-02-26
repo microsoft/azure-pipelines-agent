@@ -7,10 +7,12 @@ using System.Security.Cryptography;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.Versioning;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     [ServiceLocator(Default = typeof(PowerShellExeHandler))]
+    [SupportedOSPlatform("windows")]
     public interface IPowerShellExeHandler : IHandler
     {
         PowerShellExeHandlerData Data { get; set; }
@@ -18,6 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string AccessToken { get; set; }
     }
 
+    [SupportedOSPlatform("windows")]
     public sealed class PowerShellExeHandler : Handler, IPowerShellExeHandler
     {
         private const string InlineScriptType = "inlineScript";

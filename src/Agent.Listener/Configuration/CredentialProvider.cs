@@ -174,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         term.WriteLine($"Please finish AAD device code flow in browser ({deviceCodeCallback.VerificationUrl}), user code: {deviceCodeCallback.UserCode}"); return Task.FromResult(0);
                     }).ExecuteAsync().ConfigureAwait(false);
             }
-            catch (MsalServiceException ex)
+            catch (MsalServiceException)
             {
                 // AADSTS50059: No tenant-identifying information found in either the request or implied by any provided credentials.
                 // AADSTS90133: Device Code flow is not supported under /common or /consumers endpoint.
