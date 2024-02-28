@@ -337,6 +337,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 IJobDispatcher jobDispatcher = null;
                 CancellationTokenSource messageQueueLoopTokenSource = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken);
+                CancellationTokenSource keepAliveToken = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken);
                 try
                 {
                     var notification = HostContext.GetService<IJobNotification>();
@@ -357,6 +358,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     bool runOnceJobReceived = false;
                     jobDispatcher = HostContext.CreateService<IJobDispatcher>();
                     TaskAgentMessage previuosMessage = null;
+
+                    _ = _listener.KeepAlive(keepAliveToken.Token);
 
                     while (!HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
@@ -545,6 +548,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 finally
                 {
+                    keepAliveToken.Dispose();
+
                     if (jobDispatcher != null)
                     {
                         await jobDispatcher.ShutdownAsync();

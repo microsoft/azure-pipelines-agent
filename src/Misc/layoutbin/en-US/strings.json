@@ -18,6 +18,7 @@
   "AgentMachinePoolNameLabel": "agent pool",
   "AgentName": "agent name",
   "AgentNameLog": "Agent name: '{0}'",
+  "AgentOutOfMemoryFailure": "The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.",
   "AgentReplaced": "Successfully replaced the agent",
   "agentRootFolderCheckError": "Unable to check access rules of the agent root folder. Please examine the log for more details.",
   "agentRootFolderInsecure": "Security warning! The group {0} has access to write/modify the agent folder. Please examine the log for more details.",

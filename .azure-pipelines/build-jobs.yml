@@ -1,3 +1,5 @@
+# This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
+
 parameters:
 
 - name: jobName
@@ -39,9 +41,6 @@ parameters:
   type: boolean
   default: false
 
-- name: componentDetection
-  type: boolean
-
 - name: sign
   type: boolean
 
@@ -61,41 +60,39 @@ parameters:
   default: false
 
 jobs:
-  - template: build-job.yml
+- template: /.azure-pipelines/build-job.yml@self
+  parameters:
+    jobName: ${{ parameters.jobName }}
+    displayName: ${{ parameters.displayName }}
+    pool: ${{ parameters.pool }}
+    container: ${{ parameters.container }}
+    timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+    os: ${{ parameters.os }}
+    arch: ${{ parameters.arch }}
+    branch: ${{ parameters.branch }}
+    codeCoverage: ${{ parameters.codeCoverage }}
+    unitTests: ${{ parameters.unitTests }}
+    functionalTests: ${{ parameters.functionalTests }}
+    sign: ${{ parameters.sign }}
+    verifySigning: ${{ parameters.verifySigning }}
+    publishArtifact: ${{ parameters.publishArtifacts }}
+    packageType: agent
+
+- ${{ if parameters.buildAlternatePackage }}:
+  - template: /.azure-pipelines/build-job.yml@self
     parameters:
-      jobName: ${{ parameters.jobName }}
-      displayName: ${{ parameters.displayName }}
+      jobName: ${{ parameters.jobName }}_alternate
+      displayName: ${{ parameters.displayName }} (without Node 6)
       pool: ${{ parameters.pool }}
       container: ${{ parameters.container }}
       timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
       os: ${{ parameters.os }}
       arch: ${{ parameters.arch }}
       branch: ${{ parameters.branch }}
-      codeCoverage: ${{ parameters.codeCoverage }}
-      componentDetection: ${{ parameters.componentDetection }}
-      unitTests: ${{ parameters.unitTests }}
-      functionalTests: ${{ parameters.functionalTests }}
+      codeCoverage: false
+      unitTests: false
+      functionalTests: false
       sign: ${{ parameters.sign }}
       verifySigning: ${{ parameters.verifySigning }}
       publishArtifact: ${{ parameters.publishArtifacts }}
-      packageType: agent
-
-  - ${{ if parameters.buildAlternatePackage }}:
-    - template: build-job.yml
-      parameters:
-        jobName: ${{ parameters.jobName }}_alternate
-        displayName: ${{ parameters.displayName }} (without Node 6)
-        pool: ${{ parameters.pool }}
-        container: ${{ parameters.container }}
-        timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
-        os: ${{ parameters.os }}
-        arch: ${{ parameters.arch }}
-        branch: ${{ parameters.branch }}
-        codeCoverage: false
-        componentDetection: ${{ parameters.componentDetection }}
-        unitTests: false
-        functionalTests: false
-        sign: ${{ parameters.sign }}
-        verifySigning: ${{ parameters.verifySigning }}
-        publishArtifact: ${{ parameters.publishArtifacts }}
-        packageType: pipelines-agent
+      packageType: pipelines-agent
