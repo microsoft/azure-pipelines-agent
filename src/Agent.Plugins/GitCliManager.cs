@@ -238,38 +238,42 @@ namespace Agent.Plugins.Repository
 
             // parse filter and only include valid options
             List<string> filters = new List<String>();
-            List<string> splitFilter = fetchFilter.Split('+').Where(filter => !String.IsNullOrWhiteSpace(filter)).ToList();
 
-            foreach (string filter in splitFilter)
+            if (AgentKnobs.UseFetchFilterInCheckoutTask.GetValue(context).AsBoolean())
             {
-                List<string> parsedFilter = filter.Split(':')
-                    .Where(filter => !String.IsNullOrWhiteSpace(filter))
-                    .Select(filter => filter.Trim())
-                    .ToList();
+                List<string> splitFilter = fetchFilter.Split('+').Where(filter => !String.IsNullOrWhiteSpace(filter)).ToList();
 
-                if (parsedFilter.Count == 2)
+                foreach (string filter in splitFilter)
                 {
-                    switch (parsedFilter[0].ToLower())
+                    List<string> parsedFilter = filter.Split(':')
+                        .Where(filter => !String.IsNullOrWhiteSpace(filter))
+                        .Select(filter => filter.Trim())
+                        .ToList();
+
+                    if (parsedFilter.Count == 2)
                     {
-                        case "tree":
-                            // currently only supporting treeless filter
-                            if (int.TryParse(parsedFilter[1], out int treeSize) && treeSize == 0)
-                            {
-                                filters.Add($"{parsedFilter[0]}:{treeSize}");
-                            }
-                            break;
+                        switch (parsedFilter[0].ToLower())
+                        {
+                            case "tree":
+                                // currently only supporting treeless filter
+                                if (int.TryParse(parsedFilter[1], out int treeSize) && treeSize == 0)
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{treeSize}");
+                                }
+                                break;
 
-                        case "blob":
-                            // currently only supporting blobless filter
-                            if (parsedFilter[1].Equals("none", StringComparison.OrdinalIgnoreCase))
-                            {
-                                filters.Add($"{parsedFilter[0]}:{parsedFilter[1]}");
-                            }
-                            break;
+                            case "blob":
+                                // currently only supporting blobless filter
+                                if (parsedFilter[1].Equals("none", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{parsedFilter[1]}");
+                                }
+                                break;
 
-                        default:
-                            // either invalid or unsupported git object
-                            break;
+                            default:
+                                // either invalid or unsupported git object
+                                break;
+                        }
                     }
                 }
             }
