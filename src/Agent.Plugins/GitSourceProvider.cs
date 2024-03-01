@@ -340,6 +340,8 @@ namespace Agent.Plugins.Repository
             // default fetchTags to true unless it's specifically set to false
             bool fetchTags = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags), true);
 
+            string fetchFilter = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter);
+
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
             executionContext.Debug($"sourceBranch={sourceBranch}");
@@ -349,6 +351,7 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"checkoutNestedSubmodules={checkoutNestedSubmodules}");
             executionContext.Debug($"exposeCred={exposeCred}");
             executionContext.Debug($"fetchDepth={fetchDepth}");
+            executionContext.Debug($"fetchFilter={fetchFilter}");
             executionContext.Debug($"fetchTags={fetchTags}");
             executionContext.Debug($"gitLfsSupport={gitLfsSupport}");
             executionContext.Debug($"acceptUntrustedCerts={acceptUntrustedCerts}");
@@ -865,6 +868,7 @@ namespace Agent.Plugins.Repository
             string refFetchedByCommit = null;
 
             executionContext.Debug($"fetchDepth : {fetchDepth}");
+            executionContext.Debug($"fetchFilter : {fetchFilter}");
             executionContext.Debug($"fetchByCommit : {fetchByCommit}");
             executionContext.Debug($"sourceVersion : {sourceVersion}");
             executionContext.Debug($"fetchTags : {fetchTags}");
@@ -895,7 +899,7 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -907,7 +911,7 @@ namespace Agent.Plugins.Repository
             if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
             {
                 List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
-                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
                 if (exitCode_fetch != 0)
                 {
                     throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
