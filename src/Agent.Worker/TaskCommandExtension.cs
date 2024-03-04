@@ -371,20 +371,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
-            bool tokenValidationRequired = false;
-            try
-            {
-                tokenValidationRequired = bool.Parse(context.Variables.Get(Constants.Variables.Task.TaskSDKTokenValidationEnabled));
-            }
-            catch
-            {
-                throw new InvalidOperationException("Failed when tried to check if the Token validation was enabled.");
-            }
-            
-            if (tokenValidationRequired)
-            {
-                ValidateSDKToken(context, eventProperties);
-            }
+            ValidateSDKToken(context, eventProperties);
 
             Issue taskIssue = null;
 
@@ -495,26 +482,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void ValidateSDKToken(IExecutionContext context, Dictionary<string, string> commandProperties)
         {
-            commandProperties.TryGetValue("source", out string issueSource);
-            commandProperties.TryGetValue("token", out string token);
-            if (!string.IsNullOrEmpty(token))
+            if (commandProperties.TryGetValue("token", out string token))
             {
-                if (string.IsNullOrEmpty(issueSource))
-                {
-                    throw new ArgumentException("The issue source is missing in the task.issue command.");
-                }
-
                 if (!token.Equals(context.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal))
                 {
-                    throw new ArgumentException("The task provided an invalid token when using the task.issue command.");
+                    context.Debug("The task provided an invalid token when using the task.issue command.");
+                    commandProperties.Remove("source");
                 }
 
                 commandProperties.Remove("token");
             }
             else
             {
-                commandProperties["source"] = "ManualInvocation";
-            }      
+                commandProperties.Remove("source");
+            }
         }
     }
 

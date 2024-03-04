@@ -17,8 +17,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -414,14 +412,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
-                bool tokenValidation = false;
                 if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsTaskSDKTokenRequired(handler, definition))
                 {
                     environment[Constants.TaskSDKCommandTokenEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken];
-                    tokenValidation = true;
                 }
-
-                scope.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, tokenValidation.ToString());
 
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
 
@@ -687,35 +681,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private bool IsTaskSDKTokenRequired(IHandler handler, Definition task)
         {
-            try
-            {
-                if (handler is IPowerShell3Handler)
-                {
-                    var module_file = File.ReadAllText(Path.Combine(task.Directory, "ps_modules", "VstsTaskSdk", "VstsTaskSdk.psd1"));
-                    var fileLines = module_file.Split('\n');
-                    var version_line = fileLines.First(x => x.Contains("ModuleVersion"));
-                    
-                    // I use the TaskVersion class here just for version comparison.
-                    var version = new TaskVersion(Regex.Match(version_line, @"\d+\.\d+\.\d+").ToString());
-                    return version >= new TaskVersion() { Major = 0, Minor = 20, Patch = 0 };
-                }
-                else if (handler is INodeHandler)
-                {
-                    var json = File.ReadAllText(Path.Combine(task.Directory, "node_modules", "azure-pipelines-task-lib", "package.json"));
-                    var jobj = JObject.Parse(json);
-                    var version_prop = jobj["version"].ToString();
+            var psSdkVer = task.GetPowerShellSDKVersion();
+            var nodeSdkVer = task.GetNodeSDKVersion();
 
-                    // I use the TaskVersion class here just for version comparison.
-                    var version = new TaskVersion(Regex.Match(version_prop, @"\d+\.\d+\.\d+").ToString());
-                    return version >= new TaskVersion() { Major = 4, Minor = 10, Patch = 0 };
-                }
-            }
-            catch(Exception e)
+            if (psSdkVer == null && nodeSdkVer == null)
             {
-                throw new InvalidOperationException($"Coudn't get the task SDK version for task {task.Data.Name} {task.Data.Version.Major}.{task.Data.Version.Minor}.{task.Data.Version.Patch}.", e);
+                return false;
             }
 
-            return false;
+            if ((handler is INodeHandler) && nodeSdkVer != null)
+            {
+                return (nodeSdkVer >= new TaskVersion() { Major = 4, Minor = 10, Patch = 0 }) && !((nodeSdkVer.Major == 5) && nodeSdkVer.IsTest);
+            }
+            else if (psSdkVer != null)
+            {
+                return psSdkVer >= new TaskVersion() { Major = 0, Minor = 20, Patch = 0 };
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }
