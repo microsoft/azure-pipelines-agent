@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
@@ -37,6 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             base.Initialize(hostContext);
             Console.CancelKeyPress += Console_CancelKeyPress;
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.InputEncoding = Encoding.UTF8;
         }
 
         private void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
