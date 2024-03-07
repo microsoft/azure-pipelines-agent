@@ -781,6 +781,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configuration = HostContext.GetService<IConfigurationStore>();
             _record.WorkerName = configuration.GetSettings().AgentName;
+            _record.Variables.Add(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
         }
