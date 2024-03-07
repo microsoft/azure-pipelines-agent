@@ -91,8 +91,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         // At 192x it was around 16 seconds and 256x was no faster.
         private const int DefaultDedupStoreClientMaxParallelism = 192;
 
-        private HashType? HashType { get; set; }
-
         public static readonly DedupManifestArtifactClientFactory Instance = new();
 
         private DedupManifestArtifactClientFactory()
@@ -152,17 +150,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             IDedupStoreHttpClient dedupStoreHttpClient = GetDedupStoreHttpClient(connection, domainId, maxRetries, tracer, cancellationToken);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            this.HashType = clientSettings.GetClientHashType(context);
+            HashType hashType= clientSettings.GetClientHashType(context);
 
-            if (this.HashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
+            if (hashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
             {
                 dedupStoreHttpClient.RecommendedChunkCountPerCall = 10; // This is to workaround IIS limit - https://learn.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/
             }
-            traceOutput($"Hashtype: {this.HashType.Value}");
+            traceOutput($"Hashtype: {hashType}");
 
             dedupStoreHttpClient.SetRedirectTimeout(clientSettings.GetRedirectTimeout());
 
-            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), this.HashType.Value);
+            var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), hashType);
             return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
@@ -222,6 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             dedupStoreHttpClient.SetRedirectTimeout(redirectTimeoutSeconds);
             var telemetry = new BlobStoreClientTelemetryTfs(tracer, dedupStoreHttpClient.BaseAddress, connection);
             var client = new DedupStoreClient(dedupStoreHttpClient, maxParallelism);
+            traceOutput($" - Hash type: {client.HashType}");
             return (client, telemetry);
         }
 

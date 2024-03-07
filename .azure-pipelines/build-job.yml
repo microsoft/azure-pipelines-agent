@@ -126,6 +126,14 @@ jobs:
       displayName: Install unzip
       retryCountOnTaskFailure: 5
 
+  # Install nuget
+  - ${{ if eq(parameters.os, 'win') }}:
+    - task: NuGetToolInstaller@1
+      displayName: Install NuGet for signing tests
+
+  # Set up auth for nuget for when new packages need to be consumed
+  - task: NuGetAuthenticate@1
+
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
@@ -156,11 +164,6 @@ jobs:
       workingDirectory: src
       displayName: Unit tests
       timeoutInMinutes: 5
-
-  # Install nuget
-  - ${{ if eq(parameters.os, 'win') }}:
-    - task: NuGetToolInstaller@1
-      displayName: Install NuGet for signing tests
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
