@@ -16,33 +16,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private string _keyFile;
         private IHostContext _context;
 
-        public RSACryptoServiceProvider CreateKey(bool enableAgentKeyStoreInNamedContainer)
+        public RSA CreateKey(bool enableAgentKeyStoreInNamedContainer, bool useCng)
         {
             if (enableAgentKeyStoreInNamedContainer)
             {
-                return CreateKeyStoreKeyInNamedContainer();
+                return CreateKeyStoreKeyInNamedContainer(useCng);
             }
             else
             {
-                return CreateKeyStoreKeyInFile();
+                return CreateKeyStoreKeyInFile(useCng);
             }
         }
 
-        private RSACryptoServiceProvider CreateKeyStoreKeyInNamedContainer()
+        private RSA CreateKeyStoreKeyInNamedContainer(bool useCng)
         {
-            RSACryptoServiceProvider rsa;
+            RSA rsa;
             if (!File.Exists(_keyFile))
             {
-                Trace.Info("Creating new RSA key using 2048-bit key length");
+                if (useCng)
+                {
+                    Trace.Info("Creating new RSA key using 2048-bit key length");
 
-                CspParameters Params = new CspParameters();
-                Params.KeyContainerName = "AgentKeyContainer" + Guid.NewGuid().ToString();
-                Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-                rsa = new RSACryptoServiceProvider(2048, Params);
+                    var cspKeyCreationParameters = new CngKeyCreationParameters();
+                    cspKeyCreationParameters.KeyCreationOptions = CngKeyCreationOptions.None;
+                    cspKeyCreationParameters.Provider = CngProvider.MicrosoftSoftwareKeyStorageProvider;
+                    cspKeyCreationParameters.Parameters.Add(new CngProperty("Length", BitConverter.GetBytes(2048), CngPropertyOptions.None));
+                    string keyContainerName = "AgentKeyContainer" + Guid.NewGuid().ToString();
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                    var cngKey = CngKey.Create(CngAlgorithm.Rsa, keyContainerName, cspKeyCreationParameters);
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                    rsa = new RSACng(cngKey);
 
-                // Now write the parameters to disk
-                SaveParameters(default(RSAParameters), Params.KeyContainerName);                
-                Trace.Info("Successfully saved containerName to file {0} in container {1}", _keyFile, Params.KeyContainerName);
+                    // Now write the parameters to disk
+                    SaveParameters(default(RSAParameters), keyContainerName, useCng);
+                    Trace.Info("Successfully saved containerName to file {0} in container {1}", _keyFile, keyContainerName);
+                }
+                else
+                {
+                    Trace.Info("Creating new RSA key using 2048-bit key length");
+
+                    CspParameters Params = new CspParameters();
+                    Params.KeyContainerName = "AgentKeyContainer" + Guid.NewGuid().ToString();
+                    Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
+                    rsa = new RSACryptoServiceProvider(2048, Params);
+
+                    // Now write the parameters to disk
+                    SaveParameters(default(RSAParameters), Params.KeyContainerName, useCng);
+                    Trace.Info("Successfully saved containerName to file {0} in container {1}", _keyFile, Params.KeyContainerName);
+                }
             }
             else
             {
@@ -53,7 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if(string.IsNullOrEmpty(result.containerName))
                 {
                     Trace.Info("Container name not present; reading RSA key from file");
-                    return CreateKeyStoreKeyInFile();
+                    return CreateKeyStoreKeyInFile(useCng);
                 }
 
                 CspParameters Params = new CspParameters();
@@ -70,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             // https://security.stackexchange.com/questions/234477/windows-certificates-where-is-private-key-located
         }
 
-        private RSACryptoServiceProvider CreateKeyStoreKeyInFile()
+        private RSA CreateKeyStoreKeyInFile(bool useCng)
         {
             RSACryptoServiceProvider rsa = null;
             if (!File.Exists(_keyFile))
@@ -80,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 rsa = new RSACryptoServiceProvider(2048);
 
                 // Now write the parameters to disk
-                SaveParameters(rsa.ExportParameters(true), string.Empty);
+                SaveParameters(rsa.ExportParameters(true), string.Empty, false);
                 Trace.Info("Successfully saved RSA key parameters to file {0}", _keyFile);
             }
             else
@@ -92,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if(!string.IsNullOrEmpty(result.containerName))
                 {
                     Trace.Info("Keyfile has ContainerName, so we must read from named container");
-                    return CreateKeyStoreKeyInNamedContainer();
+                    return CreateKeyStoreKeyInNamedContainer(useCng);
                 }
 
                 rsa = new RSACryptoServiceProvider();
@@ -111,19 +132,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSACryptoServiceProvider GetKey(bool enableAgentKeyStoreInNamedContainer)
+        public RSA GetKey()
         {
-            if (enableAgentKeyStoreInNamedContainer)
-            {
-                return GetKeyFromNamedContainer();
-            }
-            else
-            {
-                return GetKeyFromFile();
-            }
+            return GetKeyFromFile();
         }
 
-        private RSACryptoServiceProvider GetKeyFromNamedContainer()
+        private RSA GetKeyFromNamedContainer()
         {
             if (!File.Exists(_keyFile))
             {
@@ -136,17 +150,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             if (string.IsNullOrEmpty(result.containerName))
             {
+                // we should not get here.  GetKeyFromNamedContainer is only called from GetKeyFromFile when result.containerName is not empty
                 return GetKeyFromFile();
             }
 
-            CspParameters Params = new CspParameters();
-            Params.KeyContainerName = result.containerName;
-            Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-            var rsa = new RSACryptoServiceProvider(Params);
-            return rsa;
+            if (result.useCng)
+            {
+                Trace.Info("Using CNG api");
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                // disposed by by call to rsa.Dispose()
+                var cngKey = CngKey.Open(result.containerName, CngProvider.MicrosoftSoftwareKeyStorageProvider, CngKeyOpenOptions.UserKey);
+#pragma warning restore CA2000 // Dispose objects before losing scope
+
+                var rsa = new RSACng(cngKey);
+                return rsa;
+            }
+            else
+            {
+                Trace.Info("Using RSACryptoServiceProvider");
+                CspParameters Params = new CspParameters();
+                Params.KeyContainerName = result.containerName;
+                Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
+                var rsa = new RSACryptoServiceProvider(Params);
+                return rsa;
+            }
         }
 
-        private RSACryptoServiceProvider GetKeyFromFile()
+        private RSA GetKeyFromFile()
         {
             if (!File.Exists(_keyFile))
             {
@@ -168,17 +198,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return rsa;
         }
 
-        private (string containerName, RSAParameters rsaParameters) LoadParameters()
+        private (string containerName, bool useCng, RSAParameters rsaParameters) LoadParameters()
         {
             var encryptedBytes = File.ReadAllBytes(_keyFile);
             var parametersString = Encoding.UTF8.GetString(ProtectedData.Unprotect(encryptedBytes, null, DataProtectionScope.LocalMachine));
             var deserialized = StringUtil.ConvertFromJson<RSAParametersSerializable>(parametersString);
-            return (deserialized.ContainerName, deserialized.RSAParameters);
+            return (deserialized.ContainerName, deserialized.UseCng, deserialized.RSAParameters);
         }
 
-        private void SaveParameters(RSAParameters parameters, string containerName)
+        private void SaveParameters(RSAParameters parameters, string containerName, bool useCng)
         {
-            var parametersString = StringUtil.ConvertToJson(new RSAParametersSerializable(containerName, parameters));
+            var parametersString = StringUtil.ConvertToJson(new RSAParametersSerializable(containerName, useCng, parameters));
             var encryptedBytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(parametersString), null, DataProtectionScope.LocalMachine);
             File.WriteAllBytes(_keyFile, encryptedBytes);
             File.SetAttributes(_keyFile, File.GetAttributes(_keyFile) | FileAttributes.Hidden);

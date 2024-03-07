@@ -74,3 +74,20 @@ An RSA private key is being created during agent configuration and removed only 
 If this file will be removed - you need to run 'config remove' command and configure it again to register the agent.
 
 This is actual for all agent modes (running as interactive, 'run once' mode, running as a service).
+
+## StoreAgentKeyInCSPContainer (Windows)
+
+A knob is available that enables generation and storge of the RSA private key in a named container .  When the agent is registered, the name of the container is written to
+.credentials_rsaparams (which is still encrypted by DPAPI) instead of the key parameters.
+
+More information about CNG key storage is here: https://learn.microsoft.com/en-us/windows/win32/seccng/key-storage-and-retrieval
+
+e.g. set STORE_AGENT_KEY_IN_CSP_CONTAINER=true
+
+### AgentKeyUseCng (Windows)
+
+Specifies that the Key is created using Cng (Cryptography Next Generation)
+
+They key is created as User Private, so it will not be located if the agent is run as a different user.
+
+e.g. set AGENT_KEY_USE_CNG=true

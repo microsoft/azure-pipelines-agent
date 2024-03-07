@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _featureFlagProvider.Setup(x => x.GetFeatureFlagWithCred(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<AgentSettings>(), It.IsAny<VssCredentials>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
 
             rsa = new RSACryptoServiceProvider(2048);
-            _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>())).Returns(rsa);
+            _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>(), It.IsAny<bool>())).Returns(rsa);
         }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
