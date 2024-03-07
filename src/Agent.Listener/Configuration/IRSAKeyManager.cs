@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     {
         public static async Task<bool> GetStoreAgentTokenInNamedContainerFF(this IRSAKeyManager rsaKeyManager, IHostContext hostContext, global::Agent.Sdk.ITraceWriter trace, AgentSettings agentSettings, VssCredentials creds, CancellationToken cancellationToken = default)
         {
-            if(AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+            if (AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
             {
                 return true;
             }
@@ -107,7 +107,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public RSAParametersSerializable(SerializationInfo information, StreamingContext context)
         {
-            _containerName = (string)information.GetValue("ContainerName", typeof(string));
+            const string containerNameMemberName = "ContainerName";
+
+            bool hasContainerName = false;
+            var e = information.GetEnumerator();
+            while (e.MoveNext())
+            {
+                if (e.Name == containerNameMemberName)
+                {
+                    hasContainerName = true;
+                }
+            }
+
+            if (hasContainerName)
+            {
+                _containerName = (string)information.GetValue(containerNameMemberName, typeof(string));
+            }
+            else
+            {
+                _containerName = "";
+            }
 
             _rsaParameters = new RSAParameters()
             {
