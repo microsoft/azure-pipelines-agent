@@ -237,7 +237,7 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
-                    context.Debug($"PipelineId from trigerringBuild: {pipelineId}");
+                    context.Debug($"PipelineId from triggeringBuild: {pipelineId}");
                 }
 
                 if (pipelineId == 0)
@@ -263,7 +263,7 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         throw new InvalidOperationException("Unreachable code!");
                     }
-                    context.Debug($"PipelineId from non-trigerringBuild: {pipelineId}");
+                    context.Debug($"PipelineId from non-triggeringBuild: {pipelineId}");
                 }
 
                 OutputBuildInfo(context, pipelineId);
