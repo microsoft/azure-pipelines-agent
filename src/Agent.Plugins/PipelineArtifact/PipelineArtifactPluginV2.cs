@@ -208,7 +208,7 @@ namespace Agent.Plugins.PipelineArtifact
                 bool pipelineTriggeringBool;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    context.Debug("TrigerringPipeline: true");
+                    context.Debug("TriggeringPipeline: true");
                     string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
                     string triggeringPipeline = null;
                     if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
@@ -219,7 +219,7 @@ namespace Agent.Plugins.PipelineArtifact
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                            context.Debug($"TriggeringPipeline: {triggeringPipeline}");
                         }
                     }
                     else
@@ -229,7 +229,7 @@ namespace Agent.Plugins.PipelineArtifact
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                            context.Debug($"TriggeringPipeline: {triggeringPipeline}");
                         }
                     }
 
