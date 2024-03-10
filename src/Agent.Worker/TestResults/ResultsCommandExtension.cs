@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,11 +10,14 @@ using System.Xml;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
+using Microsoft.TeamFoundation.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -46,6 +47,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _configuration;
         private string _runTitle;
         private bool _publishRunLevelAttachments;
+        private TestCaseResult[] _testCaseResults;
+        private string _testPlanId;
 
         private bool _failTaskOnFailedTests;
 
@@ -81,76 +84,92 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
         {
             // Validate input test results files
-            string resultFilesInput;
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.ResultFiles, out resultFilesInput);
-            // To support compat we parse data first. If data is empty parse 'TestResults' parameter
-            if (!string.IsNullOrWhiteSpace(data) && data.Split(',').Count() != 0)
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.ResultFiles, out string resultFilesInput))
             {
-                _testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
-            }
-            else
-            {
-                if (string.IsNullOrEmpty(resultFilesInput) || resultFilesInput.Split(',').Count() == 0)
+                // To support compat we parse data first. If data is empty parse 'TestResults' parameter
+                if (!string.IsNullOrWhiteSpace(data) && data.Split(',').Count() != 0)
                 {
-                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
+                    _testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
                 }
+                else
+                {
+                    if (string.IsNullOrEmpty(resultFilesInput) || resultFilesInput.Split(',').Count() == 0)
+                    {
+                        throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
+                    }
 
-                _testResultFiles = resultFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
+                    _testResultFiles = resultFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
+                }
+            }
+
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.ListOfAutomatedTestPoints, out string jsonString))
+            {
+                //_testCaseResults = JsonSerializer.Deserialize<TestCaseResult[]>(jsonString);
+                _testCaseResults = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseResult[]>(jsonString);
+            }
+
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.TestPlanId, out _testPlanId))
+            {
+                if (string.IsNullOrEmpty(_testPlanId))
+                {
+                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestPlanId"));
+                }
             }
 
             //validate testrunner input
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.Type, out _testRunner);
-            if (string.IsNullOrEmpty(_testRunner))
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.Type, out _testRunner))
             {
-                throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Testrunner"));
+                if (string.IsNullOrEmpty(_testRunner))
+                {
+                    throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "Testrunner"));
+                }
             }
 
-            string mergeResultsInput;
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.MergeResults, out mergeResultsInput);
-            if (string.IsNullOrEmpty(mergeResultsInput) || !bool.TryParse(mergeResultsInput, out _mergeResults))
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.MergeResults, out string mergeResultsInput))
             {
-                // if no proper input is provided by default we merge test results
-                _mergeResults = true;
+                if (string.IsNullOrEmpty(mergeResultsInput) || !bool.TryParse(mergeResultsInput, out _mergeResults))
+                {
+                    // if no proper input is provided by default we merge test results
+                    _mergeResults = true;
+                }
             }
 
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.Platform, out _platform);
-            if (_platform == null)
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.Platform, out _platform))
             {
-                _platform = string.Empty;
+                _platform ??= string.Empty;
             }
 
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.Configuration, out _configuration);
-            if (_configuration == null)
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.Configuration, out _configuration))
             {
-                _configuration = string.Empty;
+                _configuration ??= string.Empty;
             }
 
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.RunTitle, out _runTitle);
-            if (_runTitle == null)
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.RunTitle, out _runTitle))
             {
-                _runTitle = string.Empty;
+                _runTitle ??= string.Empty;
             }
 
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.TestRunSystem, out _testRunSystem);
-            if (_testRunSystem == null)
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.TestRunSystem, out _testRunSystem))
             {
-                _testRunSystem = string.Empty;
+                _testRunSystem ??= string.Empty;
             }
 
-            string failTaskInput;
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.FailTaskOnFailedTests, out failTaskInput);
-            if (string.IsNullOrEmpty(failTaskInput) || !bool.TryParse(failTaskInput, out _failTaskOnFailedTests))
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.FailTaskOnFailedTests, out string failTaskInput))
             {
-                // if no proper input is provided by default fail task is false
-                _failTaskOnFailedTests = false;
+                if (string.IsNullOrEmpty(failTaskInput) || !bool.TryParse(failTaskInput, out _failTaskOnFailedTests))
+                {
+                    // if no proper input is provided by default fail task is false
+                    _failTaskOnFailedTests = false;
+                }
             }
 
-            string publishRunAttachmentsInput;
-            eventProperties.TryGetValue(PublishTestResultsEventProperties.PublishRunAttachments, out publishRunAttachmentsInput);
-            if (string.IsNullOrEmpty(publishRunAttachmentsInput) || !bool.TryParse(publishRunAttachmentsInput, out _publishRunLevelAttachments))
+            if (eventProperties.TryGetValue(PublishTestResultsEventProperties.PublishRunAttachments, out string publishRunAttachmentsInput))
             {
-                // if no proper input is provided by default we publish attachments.
-                _publishRunLevelAttachments = true;
+                if (string.IsNullOrEmpty(publishRunAttachmentsInput) || !bool.TryParse(publishRunAttachmentsInput, out _publishRunLevelAttachments))
+                {
+                    // if no proper input is provided by default we publish attachments.
+                    _publishRunLevelAttachments = true;
+                }
             }
         }
 
@@ -189,7 +208,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             string releaseUri = null;
             string releaseEnvironmentUri = null;
 
-            string teamProject = _executionContext.Variables.System_TeamProject;
             string owner = _executionContext.Variables.Build_RequestedFor;
             string buildUri = _executionContext.Variables.Build_BuildUri;
             int buildId = _executionContext.Variables.Build_BuildId ?? 0;
@@ -215,14 +233,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             // If runName is not provided by the task, then create runName from testRunner name and buildId.
-            string runName = String.IsNullOrWhiteSpace(_runTitle)
-                ? String.Format("{0}_TestResults_{1}", _testRunner, buildId)
+            string runName = string.IsNullOrWhiteSpace(_runTitle)
+                ? string.Format("{0}_TestResults_{1}", _testRunner, buildId)
                 : _runTitle;
 
-            StageReference stageReference = new StageReference() { StageName = stageName, Attempt = Convert.ToInt32(stageAttempt) };
-            PhaseReference phaseReference = new PhaseReference() { PhaseName = phaseName, Attempt = Convert.ToInt32(phaseAttempt) };
-            JobReference jobReference = new JobReference() { JobName = jobName, Attempt = Convert.ToInt32(jobAttempt) };
-            PipelineReference pipelineReference = new PipelineReference()
+            StageReference stageReference = new() { StageName = stageName, Attempt = Convert.ToInt32(stageAttempt) };
+            PhaseReference phaseReference = new() { PhaseName = phaseName, Attempt = Convert.ToInt32(phaseAttempt) };
+            JobReference jobReference = new() { JobName = jobName, Attempt = Convert.ToInt32(jobAttempt) };
+            PipelineReference pipelineReference = new()
             {
                 PipelineId = buildId,
                 StageReference = stageReference,
@@ -230,7 +248,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 JobReference = jobReference
             };
 
-            TestRunContext testRunContext = new TestRunContext(
+            TestRunContext testRunContext;
+
+            if (!_testPlanId.IsNullOrEmpty())
+            {
+                ShallowReference testPlanObject = new() { Id = _testPlanId };
+
+                testRunContext = new(
+                owner: owner,
+                platform: _platform,
+                configuration: _configuration,
+                buildId: buildId,
+                buildUri: buildUri,
+                releaseUri: releaseUri,
+                releaseEnvironmentUri: releaseEnvironmentUri,
+                runName: runName,
+                testRunSystem: _testRunSystem,
+                buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
+                targetBranchName: pullRequestTargetBranchName,
+                pipelineReference: pipelineReference,
+                testPlan: testPlanObject
+            );
+                return testRunContext;
+            }
+
+            testRunContext = new(
                 owner: owner,
                 platform: _platform,
                 configuration: _configuration,
@@ -260,9 +302,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
-        private async Task PublishTestRunDataAsync(String teamProject, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(string teamProject, TestRunContext testRunContext)
         {
-            bool isTestRunOutcomeFailed = false;
+            bool isTestRunOutcomeFailed;
 
             var connection = WorkerUtilities.GetVssConnection(_executionContext);
             var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
@@ -276,7 +318,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _testCaseResults, GetPublishOptions(), _executionContext.CancellationToken);
             }
             else
             {
@@ -310,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 foreach (var resultFile in resultFilesInput)
                 {
                     string text = File.ReadAllText(resultFile);
-                    XmlDocument xdoc = new XmlDocument();
+                    XmlDocument xdoc = new();
                     xdoc.LoadXml(text);
                     XmlNodeList nodes = xdoc.GetElementsByTagName("A");
 
@@ -350,7 +392,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             try
             {
-                CustomerIntelligenceEvent ciEvent = new CustomerIntelligenceEvent()
+                CustomerIntelligenceEvent ciEvent = new()
                 {
                     Area = _telemetryArea,
                     Feature = _telemetryFeature,
@@ -395,5 +437,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly string ResultFiles = "resultFiles";
         public static readonly string TestRunSystem = "testRunSystem";
         public static readonly string FailTaskOnFailedTests = "failTaskOnFailedTests";
+        public static readonly string ListOfAutomatedTestPoints = "listOfAutomatedTestPoints";
+        public static readonly string TestPlanId = "testPlanId";
     }
 }

@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         public ResultsCommandTests()
         {
             _mockTestRunDataPublisher = new Mock<ITestDataPublisher>();
-            _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<string>>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+            _ = _mockTestRunDataPublisher.Setup(x => x.PublishAsync(It.IsAny<TestRunContext>(), It.IsAny<List<string>>(), It.IsAny<TestCaseResult[]>(), It.IsAny<PublishOptions>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
             _mockParser = new Mock<IParser>();
             TestDataProvider mockTestRunData = MockParserData();
@@ -151,7 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _hc.SetSingleton(_mockFeatureFlagService.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
-            _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
+            _ = _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
             _hc.SetSingleton(_mockExtensionManager.Object);
 
             _mockCommandContext = new Mock<IAsyncCommandContext>();
@@ -161,8 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             {
                 Scheme = EndpointAuthorizationSchemes.OAuth
             };
-            List<string> warnings;
-            _variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out warnings);
+            _variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> warnings);
             _variables.Set("build.buildId", "1");
             if (includePipelineVariables)
             {

@@ -1,16 +1,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.TeamFoundation.TestClient.PublishTestResults;
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.TeamFoundation.Core.WebApi;
 using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.TeamFoundation.Core.WebApi;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
+using Microsoft.VisualStudio.Services.WebApi;
 using ITestResultsServer = Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.ITestResultsServer;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
@@ -20,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         void InitializePublisher(IExecutionContext executionContext, string projectName, VssConnection connection, string testRunner);
 
-        Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
+        Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, TestCaseResult[] inputTestCaseResults, PublishOptions publishOptions, CancellationToken cancellationToken = default);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
@@ -54,12 +55,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
-            _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
+            _parser = extensionManager.GetExtensions<IParser>().FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
             Trace.Leaving();
         }
 
-        public async Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, TestCaseResult[] inputTestCaseResults, PublishOptions publishOptions, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -69,6 +70,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null)
                 {
                     var testRunData = testDataProvider.GetTestRunData();
+
+                    if (!inputTestCaseResults.IsNullOrEmpty())
+                    {
+                        //Dictionary because FQN to Test Case Results is 1 to many
+                        Dictionary<string, List<TestCaseResult>> testResultByFQN = new();
+
+                        // Iterate through the list of objects
+                        foreach (TestCaseResult testResult in inputTestCaseResults)
+                        {
+                            if (!testResultByFQN.ContainsKey(testResult.AutomatedTestName))
+                            {
+                                // If not, initialize the list associated with the key
+                                testResultByFQN[testResult.AutomatedTestName] = new List<TestCaseResult>();
+                            }
+                            // Add the object to the dictionary using its Id as the key
+                            testResultByFQN[testResult.AutomatedTestName].Add(testResult);
+                        }
+
+                        int testRunDataIterator = 0;
+                        int testResultDataIterator = 0;
+
+                        for (testRunDataIterator = 0; testRunDataIterator < testRunData.Count; testRunDataIterator++)
+                        {
+                            for (testResultDataIterator = 0; testResultDataIterator < testRunData[testRunDataIterator].TestResults.Count; testResultDataIterator++)
+                            {
+                                var testResultFQN = testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestStorage +
+                                    "." + testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestName;
+
+                                if (testResultByFQN.TryGetValue(testResultFQN, out List<TestCaseResult> inputs))
+                                {
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestPoint = inputs[0].TestPoint;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseTitle = inputs[0].TestCaseTitle;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Configuration = inputs[0].Configuration;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCase = inputs[0].TestCase;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Owner = inputs[0].Owner;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].State = "5";
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseRevision = inputs[0].TestCaseRevision;
+
+                                    testResultByFQN[testResultFQN].RemoveAt(0);
+                                }
+                            }
+                        }
+                    }
+
                     //publishing run level attachment
                     Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
                     Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
@@ -84,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
 
-                    var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+                    var isTestRunOutcomeFailed = GetTestRunOutcome(testRunData, out TestRunSummary testRunSummary);
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
                     if (_calculateTestRunSummary)
@@ -119,14 +164,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private TestDataProvider ParseTestResultsFile(TestRunContext runContext, List<string> testResultFiles)
         {
-            if (_parser == null)
-            {
-                throw new ArgumentException("Unknown test runner");
-            }
-            return _parser.ParseTestResultFiles(_executionContext, runContext, testResultFiles);
+            return _parser == null
+                ? throw new ArgumentException("Unknown test runner")
+                : _parser.ParseTestResultFiles(_executionContext, runContext, testResultFiles);
         }
 
-        private bool GetTestRunOutcome(IExecutionContext executionContext, IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
+        private bool GetTestRunOutcome(IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
         {
             bool anyFailedTests = false;
             testRunSummary = new TestRunSummary();
@@ -135,7 +178,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 foreach (var testCaseResult in testRunData.TestResults)
                 {
                     testRunSummary.Total += 1;
-                    Enum.TryParse(testCaseResult.Outcome, out TestOutcome outcome);
+                    _ = Enum.TryParse(testCaseResult.Outcome, out TestOutcome outcome);
                     switch (outcome)
                     {
                         case TestOutcome.Failed:
@@ -161,19 +204,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return anyFailedTests;
         }
 
-        private async Task UploadRunDataAttachment(TestRunContext runContext, List<TestRunData> testRunData, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            await _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken);
-        }
-
-        private async Task UploadBuildDataAttachment(TestRunContext runContext, List<BuildData> buildDataList, CancellationToken cancellationToken = default(CancellationToken))
+        private async Task UploadBuildDataAttachment(TestRunContext runContext, List<BuildData> buildDataList, CancellationToken cancellationToken = default)
         {
             _executionContext.Debug("Uploading build level attachements individually");
 
             Guid projectId = await GetProjectId(_projectName);
 
             var attachFilesTasks = new List<Task>();
-            HashSet<BuildAttachment> attachments = new HashSet<BuildAttachment>(new BuildAttachmentComparer());
+            HashSet<BuildAttachment> attachments = new(new BuildAttachmentComparer());
 
             foreach (var buildData in buildDataList)
             {
@@ -188,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         }
                         else
                         {
-                            attachments.Add(attachment);
+                            _ = attachments.Add(attachment);
                             await UploadTestBuildLog(projectId, attachment, runContext, cancellationToken);
                         }
                     })
@@ -201,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         private async Task UploadTestBuildLog(Guid projectId, BuildAttachment buildAttachment, TestRunContext runContext, CancellationToken cancellationToken)
         {
-            await _testLogStore.UploadTestBuildLogAsync(projectId, runContext.BuildId, buildAttachment.TestLogType, buildAttachment.Filename, buildAttachment.Metadata, null, buildAttachment.AllowDuplicateUploads, buildAttachment.TestLogCompressionType, cancellationToken);
+            _ = await _testLogStore.UploadTestBuildLogAsync(projectId, runContext.BuildId, buildAttachment.TestLogType, buildAttachment.Filename, buildAttachment.Metadata, null, buildAttachment.AllowDuplicateUploads, buildAttachment.TestLogCompressionType, cancellationToken);
         }
 
         private async Task<Guid> GetProjectId(string projectName)

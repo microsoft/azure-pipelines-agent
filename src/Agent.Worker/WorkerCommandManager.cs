@@ -6,7 +6,6 @@ using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
-using System.Linq;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using Agent.Sdk;

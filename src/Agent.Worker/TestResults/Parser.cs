@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch (Exception ex)
             {
-                executionContext.Write("Failed to parse result files: ", ex.ToString());
+                _ = executionContext.Write("Failed to parse result files: ", ex.ToString());
             }
             return testDataProvider;
         }
