@@ -61,14 +61,23 @@ dotnet_diagnostic.IDE0008.severity = none
 # IDE0010: Add missing cases
 dotnet_diagnostic.IDE0010.severity = warning
 
+# IDE0011: Add braces
+dotnet_diagnostic.IDE0011.severity = suggestion
+
 # IDE0017: Simplify object initialization
 dotnet_diagnostic.IDE0017.severity = suggestion
 
 # IDE0018: Variable declaration can be inlined
 dotnet_diagnostic.IDE0018.severity = suggestion
 
+# IDE0022: Use block body for method
+dotnet_diagnostic.IDE0022.severity = none
+
 # IDE0027: Use expression body for accessor
 dotnet_diagnostic.IDE0027.severity = suggestion
+
+# IDE0028: Simplify collection initialization
+dotnet_diagnostic.IDE0028.severity = suggestion
 
 # IDE0032: Use auto property
 dotnet_diagnostic.IDE0032.severity = suggestion
@@ -118,6 +127,9 @@ dotnet_diagnostic.IDE0063.severity = suggestion
 # IDE0071: Simplify interpolation
 dotnet_diagnostic.IDE0071.severity = suggestion
 
+# IDE0074: Use compound assignment
+dotnet_diagnostic.IDE0074.severity = suggestion
+
 # IDE0078: Use pattern matching
 dotnet_diagnostic.IDE0078.severity = suggestion
 
@@ -129,6 +141,9 @@ dotnet_diagnostic.IDE0090.severity = suggestion
 
 # IDE1005: Delegate invocation can be simplified.
 dotnet_diagnostic.IDE1005.severity = suggestion
+
+# IDE0160: Convert to block scoped namespace
+dotnet_diagnostic.IDE0160.severity = none
 
 dotnet_code_quality.ca1711.allowed_suffixes = Flag|Flags
 
