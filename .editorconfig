@@ -113,7 +113,7 @@ dotnet_diagnostic.IDE0055.severity = warning
 dotnet_diagnostic.IDE0057.severity = suggestion
 
 # IDE0058: Remove unnecessary expression value
-dotnet_diagnostic.IDE0058.severity = suggestion
+dotnet_diagnostic.IDE0058.severity = none
 
 # IDE0059: Unnecessary assignment of a value
 dotnet_diagnostic.IDE0059.severity = suggestion
