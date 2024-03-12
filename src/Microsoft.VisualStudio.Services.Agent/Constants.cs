@@ -516,7 +516,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 /// The main idea is to avoid publishing telemetry from the customer's tasks that is installed using TFS-CLI tool.
                 /// </summary>
                 public static readonly string PublishTelemetry = "task.publishTelemetry";
-                public static readonly string TaskSDKTokenValidationEnabled = "task.tokenvalidationenabled";
             }
 
             public static List<string> ReadOnlyVariables = new List<string>(){
@@ -656,8 +655,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Task variables
                 Task.DisplayName,
                 Task.SkipTranslatorForCheckout,
-                Task.PublishTelemetry,
-                Task.TaskSDKTokenValidationEnabled
+                Task.PublishTelemetry
             };
         }
     }

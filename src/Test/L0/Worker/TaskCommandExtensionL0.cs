@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Agent.Sdk;
-using BuildXL.Cache.ContentStore.UtilitiesCore.Internal;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -187,16 +186,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void TokenValidationSuccessed()
+        public void IssueSourceValidationSuccessed()
         {
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.Variables).Returns(variables);
                 _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } }); 
                 
                 var cmd = new Command("task", "issue");
@@ -208,9 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Issue currentIssue = null; 
 
                 _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
-                var ec = _ec.Object;
-
-                ec.Variables.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, "true");
+                _ec.Setup(x => x.GetVariableValueOrDefault("ENABLE_ISSUE_SOURCE_VALIDATION")).Returns("true");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
                 Assert.Equal("test error", currentIssue.Message);
@@ -224,16 +219,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void TokenValidationFailed()
+        public void IssueSourceValidationFailedBecauseTokenWasInvalid()
         {
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.Variables).Returns(variables);
                 _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } });
 
                 var cmd = new Command("task", "issue");
@@ -243,12 +236,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("type", "error");
 
                 Issue currentIssue = null;
+                string debugMsg = null;
 
                 _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
                 _ec.Setup(x => x.WriteDebug).Returns(true);
-                var ec = _ec.Object;
-
-                ec.Variables.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, "true");
+                _ec.Setup(x => x.Write(WellKnownTags.Debug, It.IsAny<string>(), It.IsAny<bool>()))
+                   .Callback((string tag, string message, bool maskSecrets) => debugMsg = message);
+                _ec.Setup(x => x.GetVariableValueOrDefault("ENABLE_ISSUE_SOURCE_VALIDATION")).Returns("true");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
                 Assert.Equal("test error", currentIssue.Message);
@@ -256,35 +250,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("error", currentIssue.Data["type"]);
                 Assert.Equal(false, currentIssue.Data.ContainsKey("token"));
                 Assert.Equal(IssueType.Error, currentIssue.Type);
-                Assert.Equal(IssueType.Error, currentIssue.Type);
+                Assert.Equal(debugMsg, "The task provided an invalid token when using the task.issue command.");
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void TokenWasAbsent()
+        public void IssueSourceValidationFailedBecauseTokenWasAbsent()
         {
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
-                var variables = new Variables(_hc, new Dictionary<string, VariableValue>(), out List<string> _);
 
                 var testToken = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.Variables).Returns(variables);
                 _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } });
 
                 var cmd = new Command("task", "issue");
                 cmd.Data = "test error";
                 cmd.Properties.Add("type", "error");
+                cmd.Properties.Add("source", "TaskInternal");
 
                 Issue currentIssue = null;
 
                 _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
-                var ec = _ec.Object;
-
-                ec.Variables.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, "true");
+                _ec.Setup(x => x.GetVariableValueOrDefault("ENABLE_ISSUE_SOURCE_VALIDATION")).Returns("true");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
                 Assert.Equal("test error", currentIssue.Message);

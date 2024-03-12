@@ -10,8 +10,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.CircuitBreaker;
-using BuildXL.Cache.ContentStore.Interfaces.Tracing;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -134,13 +132,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 steps: message.Steps);
         }
 
-        public static bool DoesCommandHaveValidSDKToken(IExecutionContext executionContext, Command command)
+        public static bool IsCommandSDKTokenValid(IExecutionContext executionContext, Command command, out bool tokenPresent)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(command, nameof(command));
+            tokenPresent = command.Properties.TryGetValue("token", out string token);
 
-            return command.Properties.TryGetValue("token", out string token) &&
-                   token.Equals(executionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal);
+            return tokenPresent && token.Equals(executionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal);
         }
 
         internal static bool IsCommandResultGlibcError(IExecutionContext executionContext, List<string> nodeVersionOutput, out string nodeInfoLineOut)

@@ -17,6 +17,8 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
+using BuildXL.Cache.ContentStore.Interfaces.Tracing;
+using Microsoft.VisualStudio.Services.CircuitBreaker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -412,9 +414,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
-                if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsTaskSDKTokenRequired(handler, definition))
+                if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
                 {
-                    environment[Constants.TaskSDKCommandTokenEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken];
+                    if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsTaskSDKTokenRequired(handler, definition))
+                    {
+                        environment[Constants.TaskSDKCommandTokenEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken];
+                    }
                 }
 
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
