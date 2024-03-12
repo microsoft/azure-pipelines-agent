@@ -4,6 +4,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
@@ -15,7 +16,6 @@
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.10.2" />
     <PackageReference Include="CommandLineParser" Version="2.7.82" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8" Condition="$(CodeAnalysis)=='true'" />
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="19.230.0-preview" />
     <PackageReference Include="Microsoft.VisualStudio.Services.InteractiveClient" Version="19.230.0-preview" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />

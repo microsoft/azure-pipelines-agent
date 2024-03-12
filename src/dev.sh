@@ -86,7 +86,8 @@ function detect_platform_and_runtime_id ()
     fi
 }
 
-function make_build (){
+function make_build ()
+{
     TARGET=$1
 
     echo "MSBuild target = ${TARGET}"
@@ -175,6 +176,20 @@ function cmd_test ()
     cmd_test_l0
 
     cmd_test_l1
+}
+
+function cmd_lint ()
+{
+    heading "Linting source code"
+
+    "${DOTNETSDK_INSTALLDIR}/dotnet" format -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || echo "Code lint failed." && exit 1
+}
+
+function cmd_lint_verify ()
+{
+    heading "Validating linted code"
+
+    "${DOTNETSDK_INSTALLDIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || echo "Code lint failed." && exit 1
 }
 
 function cmd_package ()
@@ -390,6 +405,8 @@ case $DEV_CMD in
    "p") cmd_package;;
    "hash") cmd_hash;;
    "report") cmd_report;;
+   "lint") cmd_lint;;
+   "lint-verify") cmd_lint_verify;;
    *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
 esac
 
