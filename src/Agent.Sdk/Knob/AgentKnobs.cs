@@ -626,5 +626,17 @@ namespace Agent.Sdk.Knob
             "If true, agent will use fetch filter in checkout task.",
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
+            nameof(StoreAgentKeyInCSPContainer),
+            "Store agent key in named container (Windows).",
+            new EnvironmentKnobSource("STORE_AGENT_KEY_IN_CSP_CONTAINER"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentKeyUseCng = new Knob(
+            nameof(AgentKeyUseCng),
+            "Use CNG API to store agent key.  Note: Uses Private User Storage",
+            new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
