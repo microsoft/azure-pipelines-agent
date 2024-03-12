@@ -1,22 +1,23 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
-using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
-using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
+using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -46,6 +47,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _configuration;
         private string _runTitle;
         private bool _publishRunLevelAttachments;
+        private TestCaseResult[] _testCaseResults;
+        private string _testPlanId;
+        private bool enableAzureTestPlanFeatureState;
+        private bool publishTestResultsLibFeatureState;
+        private bool triggerCoverageMergeJobFeatureState;
 
         private bool _failTaskOnFailedTests;
 
@@ -67,10 +73,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             _telemetryProperties = new Dictionary<string, object>();
             PopulateTelemetryData();
+            LoadFeatureFlagState();
 
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
             string teamProject = context.Variables.System_TeamProject;
+
             TestRunContext runContext = CreateTestRunContext();
             var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
@@ -152,6 +160,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 // if no proper input is provided by default we publish attachments.
                 _publishRunLevelAttachments = true;
             }
+
+            if (enableAzureTestPlanFeatureState)
+            {
+                string jsonString;
+                eventProperties.TryGetValue(PublishTestResultsEventProperties.ListOfAutomatedTestPoints, out jsonString);
+                if (!string.IsNullOrEmpty(jsonString))
+                {
+                    _testCaseResults = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseResult[]>(jsonString);
+                }
+
+                string testPlanId;
+                eventProperties.TryGetValue(PublishTestResultsEventProperties.TestPlanId, out testPlanId);
+                if (!string.IsNullOrEmpty(testPlanId))
+                {
+                    _testPlanId = testPlanId;
+                }
+            }
         }
 
         private void LogPublishTestResultsFailureWarning(Exception ex)
@@ -230,7 +255,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 JobReference = jobReference
             };
 
-            TestRunContext testRunContext = new TestRunContext(
+            TestRunContext testRunContext;
+
+            if (enableAzureTestPlanFeatureState && !string.IsNullOrEmpty(_testPlanId))
+            {
+                ShallowReference testPlanObject = new() { Id = _testPlanId };
+
+                testRunContext = new(
                 owner: owner,
                 platform: _platform,
                 configuration: _configuration,
@@ -242,8 +273,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 testRunSystem: _testRunSystem,
                 buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
                 targetBranchName: pullRequestTargetBranchName,
-                pipelineReference: pipelineReference
-            );
+                pipelineReference: pipelineReference,
+                testPlan: testPlanObject);
+
+                return testRunContext;
+            }
+
+            testRunContext = new TestRunContext(
+                owner: owner,
+                platform: _platform,
+                configuration: _configuration,
+                buildId: buildId,
+                buildUri: buildUri,
+                releaseUri: releaseUri,
+                releaseEnvironmentUri: releaseEnvironmentUri,
+                runName: runName,
+                testRunSystem: _testRunSystem,
+                buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
+                targetBranchName: pullRequestTargetBranchName,
+                pipelineReference: pipelineReference);
+
             return testRunContext;
 
         }
@@ -260,15 +309,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
-        private async Task PublishTestRunDataAsync(String teamProject, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(string teamProject, TestRunContext testRunContext)
         {
             bool isTestRunOutcomeFailed = false;
 
-            var connection = WorkerUtilities.GetVssConnection(_executionContext);
-            var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
-            featureFlagService.InitializeFeatureService(_executionContext, connection);
-            var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
             _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
+            var connection = WorkerUtilities.GetVssConnection(_executionContext);
 
             //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
             if (publishTestResultsLibFeatureState)
@@ -276,7 +322,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
                 publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+                if (enableAzureTestPlanFeatureState && !_testCaseResults.IsNullOrEmpty() && !_testPlanId.IsNullOrEmpty())
+                {
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _testCaseResults, GetPublishOptions(), _executionContext.CancellationToken);
+                }
+                else
+                {
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+                }
             }
             else
             {
@@ -293,7 +346,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             await PublishEventsAsync(connection);
-            var triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
             if (triggerCoverageMergeJobFeatureState)
             {
                 TriggerCoverageMergeJob(_testResultFiles, _executionContext);
@@ -382,6 +434,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
             }
         }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
+        private void LoadFeatureFlagState()
+        {
+            var connection = WorkerUtilities.GetVssConnection(_executionContext);
+            var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            featureFlagService.InitializeFeatureService(_executionContext, connection);
+            publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            enableAzureTestPlanFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableAzureTestPlanTaskFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
+        }
     }
 
     internal static class PublishTestResultsEventProperties
@@ -395,5 +458,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly string ResultFiles = "resultFiles";
         public static readonly string TestRunSystem = "testRunSystem";
         public static readonly string FailTaskOnFailedTests = "failTaskOnFailedTests";
+        public static readonly string ListOfAutomatedTestPoints = "listOfAutomatedTestPoints";
+        public static readonly string TestPlanId = "testPlanId";
     }
 }
