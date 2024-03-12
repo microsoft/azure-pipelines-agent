@@ -243,12 +243,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 cmd.Properties.Add("type", "error");
 
                 Issue currentIssue = null;
-                string debugMsg = null;
 
                 _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
                 _ec.Setup(x => x.WriteDebug).Returns(true);
-                _ec.Setup(x => x.Write(WellKnownTags.Debug, It.IsAny<string>(), It.IsAny<bool>()))
-                   .Callback((string tag, string message, bool maskSecrets) => debugMsg = message);
                 var ec = _ec.Object;
 
                 ec.Variables.Set(Constants.Variables.Task.TaskSDKTokenValidationEnabled, "true");
@@ -259,7 +256,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("error", currentIssue.Data["type"]);
                 Assert.Equal(false, currentIssue.Data.ContainsKey("token"));
                 Assert.Equal(IssueType.Error, currentIssue.Type);
-                Assert.Equal(debugMsg, "The task provided an invalid token when using the task.issue command.");
+                Assert.Equal(IssueType.Error, currentIssue.Type);
             }
         }
 

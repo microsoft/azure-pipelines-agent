@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Agent.Sdk.Util;
+using Microsoft.VisualStudio.Services.CircuitBreaker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -371,7 +372,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
-            ValidateSDKToken(context, eventProperties);
+            if (!WorkerUtilities.DoesCommandHaveValidSDKToken(context, command))
+            {
+                command.Properties.Remove("source");
+            }
+
+            command.Properties.Remove("token");
 
             Issue taskIssue = null;
 
@@ -478,24 +484,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             issue.Message = message;
 
             return issue;
-        }
-
-        private void ValidateSDKToken(IExecutionContext context, Dictionary<string, string> commandProperties)
-        {
-            if (commandProperties.TryGetValue("token", out string token))
-            {
-                if (!token.Equals(context.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal))
-                {
-                    context.Debug("The task provided an invalid token when using the task.issue command.");
-                    commandProperties.Remove("source");
-                }
-
-                commandProperties.Remove("token");
-            }
-            else
-            {
-                commandProperties.Remove("source");
-            }
         }
     }
 
