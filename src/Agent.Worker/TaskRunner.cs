@@ -17,8 +17,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Newtonsoft.Json;
-using BuildXL.Cache.ContentStore.Interfaces.Tracing;
-using Microsoft.VisualStudio.Services.CircuitBreaker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
