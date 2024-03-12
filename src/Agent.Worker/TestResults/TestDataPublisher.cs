@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using ITestResultsServer = Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.ITestResultsServer;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -21,6 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         void InitializePublisher(IExecutionContext executionContext, string projectName, VssConnection connection, string testRunner);
 
         Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
+
+        Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, TestCaseResult[] testCaseResults, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken));
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
@@ -69,6 +72,108 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null)
                 {
                     var testRunData = testDataProvider.GetTestRunData();
+                    //publishing run level attachment
+                    Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
+                    Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
+
+                    publishTasks.Add(publishtestRunDataTask);
+
+                    //publishing build level attachment
+                    publishTasks.Add(uploadBuildDataAttachmentTask);
+
+                    await Task.WhenAll(publishTasks);
+
+                    IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
+
+                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+
+                    var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+
+                    // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
+                    if (_calculateTestRunSummary)
+                    {
+                        TestResultUtils.StoreTestRunSummaryInEnvVar(_executionContext, testRunSummary, _testRunner, "PublishTestResults");
+                    }
+
+                    // Check failed results for flaky aware
+                    // Fallback to flaky aware if there are any failures.
+                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
+
+                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    {
+                        var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
+                        if (runOutcome != null && runOutcome.HasValue)
+                        {
+                            isTestRunOutcomeFailed = runOutcome.Value;
+                        }
+                    }
+
+                    return isTestRunOutcomeFailed;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _executionContext.Warning("Failed to publish test run data: " + ex.ToString());
+            }
+            return false;
+        }
+
+        public async Task<bool> PublishAsync(TestRunContext runContext, List<string> testResultFiles, TestCaseResult[] testCaseResults, PublishOptions publishOptions, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            try
+            {
+                TestDataProvider testDataProvider = ParseTestResultsFile(runContext, testResultFiles);
+                var publishTasks = new List<Task>();
+
+                if (testDataProvider != null)
+                {
+                    var testRunData = testDataProvider.GetTestRunData();
+
+                    if (!testCaseResults.IsNullOrEmpty())
+                    {
+                        //Dictionary because FQN to Test Case Results is 1 to many
+                        Dictionary<string, List<TestCaseResult>> testResultByFQN = new();
+
+                        // Iterate through the list of objects
+                        foreach (TestCaseResult testResult in testCaseResults)
+                        {
+                            if (!testResultByFQN.ContainsKey(testResult.AutomatedTestName))
+                            {
+                                // If not, initialize the list associated with the key
+                                testResultByFQN[testResult.AutomatedTestName] = new List<TestCaseResult>();
+                            }
+                            // Add the object to the dictionary using its Id as the key
+                            testResultByFQN[testResult.AutomatedTestName].Add(testResult);
+                        }
+
+                        int testRunDataIterator = 0;
+                        int testResultDataIterator = 0;
+
+                        for (testRunDataIterator = 0; testRunDataIterator < testRunData.Count; testRunDataIterator++)
+                        {
+                            for (testResultDataIterator = 0; testResultDataIterator < testRunData[testRunDataIterator].TestResults.Count; testResultDataIterator++)
+                            {
+                                var testResultFQN = testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestStorage +
+                                    "." + testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestName;
+
+                                if (testResultByFQN.TryGetValue(testResultFQN, out List<TestCaseResult> inputs))
+                                {
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestPoint = inputs[0].TestPoint;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseTitle = inputs[0].TestCaseTitle;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Configuration = inputs[0].Configuration;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCase = inputs[0].TestCase;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Owner = inputs[0].Owner;
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].State = "5";
+                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseRevision = inputs[0].TestCaseRevision;
+
+                                    testResultByFQN[testResultFQN].RemoveAt(0);
+                                }
+                            }
+                        }
+                    }
+
                     //publishing run level attachment
                     Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
                     Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
