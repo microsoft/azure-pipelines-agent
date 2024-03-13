@@ -3,9 +3,7 @@
 
 using System;
 using System.Collections.Generic;
-using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
@@ -98,59 +96,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
 
         public static (bool, Dictionary<string, object>) ValidateInputArguments(
+            IExecutionContext context,
             string inputArgs,
             Dictionary<string, string> environment,
-            IExecutionContext context)
+            bool includeTelemetry)
         {
-            var enableValidation = AgentKnobs.ProcessHandlerSecureArguments.GetValue(context).AsBoolean();
-            context.Debug($"Enable args validation: '{enableValidation}'");
-            var enableAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(context).AsBoolean();
-            context.Debug($"Enable args validation audit: '{enableAudit}'");
-            var enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(context).AsBoolean();
-            context.Debug($"Enable telemetry: '{enableTelemetry}'");
+            context.Debug("Starting args env expansion");
+            var (expandedArgs, envExpandTelemetry) = ExpandCmdEnv(inputArgs, environment);
+            context.Debug($"Expanded args={expandedArgs}");
 
-            if (enableValidation || enableAudit || enableTelemetry)
+            context.Debug("Starting args sanitization");
+            var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
+
+            if (sanitizedArgs != inputArgs)
             {
-                context.Debug("Starting args env expansion");
-                var (expandedArgs, envExpandTelemetry) = ExpandCmdEnv(inputArgs, environment);
-                context.Debug($"Expanded args={expandedArgs}");
-
-                context.Debug("Starting args sanitization");
-                var (sanitizedArgs, sanitizeTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
-
                 Dictionary<string, object> telemetry = null;
-                if (sanitizedArgs != inputArgs)
+                if (includeTelemetry)
                 {
-                    if (enableTelemetry)
+                    telemetry = envExpandTelemetry.ToDictionary();
+                    if (sanitizeTelemetry != null)
                     {
-                        telemetry = envExpandTelemetry.ToDictionary();
-                        if (sanitizeTelemetry != null)
-                        {
-                            telemetry.AddRange(sanitizeTelemetry.ToDictionary());
-                        }
-                    }
-                    if (sanitizedArgs != expandedArgs)
-                    {
-                        if (enableAudit && !enableValidation)
-                        {
-                            context.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
-                        }
-                        if (enableValidation)
-                        {
-                            return (false, telemetry);
-                        }
-
-                        return (true, telemetry);
+                        telemetry.AddRange(sanitizeTelemetry.ToDictionary());
                     }
                 }
+                if (sanitizedArgs != expandedArgs)
+                {
+                    return (false, telemetry);
+                }
+            }
 
-                return (true, null);
-            }
-            else
-            {
-                context.Debug("Args sanitization skipped.");
-                return (true, null);
-            }
+            return (true, null);
         }
     }
 

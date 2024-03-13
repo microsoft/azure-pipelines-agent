@@ -169,7 +169,7 @@ namespace Test.L0.Worker.Handlers
 
             var mockContext = CreateMockExecContext();
 
-            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(inputArgs, testEnv, mockContext.Object);
+            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(mockContext.Object, inputArgs, testEnv, false);
 
             Assert.False(isValid);
         }
@@ -192,7 +192,7 @@ namespace Test.L0.Worker.Handlers
 
             var mockContext = CreateMockExecContext();
 
-            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(inputArgs, testEnv, mockContext.Object);
+            var (isValid, _) = ProcessHandlerHelper.ValidateInputArguments(mockContext.Object, inputArgs, testEnv, false);
 
             Assert.True(isValid);
         }
