@@ -8,7 +8,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Common;
 
-namespace Agent.Worker.Handlers.Helpers
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     public static class ProcessHandlerHelper
     {

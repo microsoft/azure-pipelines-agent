@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
-namespace Agent.Worker.Handlers.Helpers
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     public static class CmdArgsSanitizer
     {

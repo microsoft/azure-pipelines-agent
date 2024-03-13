@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
-using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
