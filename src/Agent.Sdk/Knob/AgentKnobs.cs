@@ -522,7 +522,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
-            "Enables new sanitization logic for process handler",
+            "Enables new args protect logic for process handler",
             new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new BuiltInDefaultKnobSource("false"));

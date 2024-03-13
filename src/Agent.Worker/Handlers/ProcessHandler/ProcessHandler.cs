@@ -253,7 +253,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Knob to determine if we should validate process script args. Makes sence only when ProcessHandlerSecureArguments enabled.
             bool enableNewPHLogic = AgentKnobs.ProcessHandlerEnableNewLogic.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable new PH sanitizing logic: '{enableNewPHLogic}'");
+            ExecutionContext.Debug($"Enable new PH args protect logic: '{enableNewPHLogic}'");
 
             return enableNewPHLogic
                 ? ArgsProcessingMode.Validation
