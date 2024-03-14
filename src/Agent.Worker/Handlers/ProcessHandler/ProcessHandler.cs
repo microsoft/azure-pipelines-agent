@@ -207,6 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 enableSecureArguments: enableSecureArguments,
                 enableSecureArgumentsAudit: enableSecureArgumentsAudit,
                 enableTelemetry: enableTelemetry);
+            ExecutionContext.Debug($"Args processing mode: '{argsMode}'");
 
             string cmdExeArgs;
             if (argsMode == ArgsProcessingMode.File)
