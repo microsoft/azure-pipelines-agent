@@ -209,28 +209,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 enableTelemetry: enableTelemetry);
             ExecutionContext.Debug($"Args processing mode: '{argsMode}'");
 
-            if (argsMode == ArgsProcessingMode.File)
+            switch (argsMode)
             {
-                return ProcessArgsAsScriptFile(
-                    cmdExe: cmdExe,
-                    command: command,
-                    arguments: arguments,
-                    enableSecureArguments: enableSecureArguments,
-                    enableSecureArgumentsAudit: enableSecureArgumentsAudit,
-                    enableTelemetry: enableTelemetry);
-            }
-            else
-            {
-                if (argsMode == ArgsProcessingMode.Validation)
-                {
+                case ArgsProcessingMode.File:
+                    return ProcessArgsAsScriptFile(
+                        cmdExe: cmdExe,
+                        command: command,
+                        arguments: arguments,
+                        enableSecureArguments: enableSecureArguments,
+                        enableSecureArgumentsAudit: enableSecureArgumentsAudit,
+                        enableTelemetry: enableTelemetry);
+
+                case ArgsProcessingMode.Validation:
                     ValidateScriptArgs(
                         arguments: arguments,
                         enableSecureArguments: enableSecureArguments,
                         enableSecureArgumentsAudit: enableSecureArgumentsAudit,
                         enableTelemetry: enableTelemetry);
-                }
+                    return GetBasicCmdExeArgs(command, arguments);
 
-                return GetBasicCmdExeArgs(command, arguments);
+                case ArgsProcessingMode.Basic:
+                default:
+                    return GetBasicCmdExeArgs(command, arguments);
             }
         }
 
