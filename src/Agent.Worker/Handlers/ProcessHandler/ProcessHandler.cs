@@ -209,13 +209,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 enableTelemetry: enableTelemetry);
             ExecutionContext.Debug($"Args processing mode: '{argsMode}'");
 
-            string cmdExeArgs;
             if (argsMode == ArgsProcessingMode.File)
             {
-                cmdExeArgs = ProcessArgsAsScriptFile(
+                return ProcessArgsAsScriptFile(
                     cmdExe: cmdExe,
                     command: command,
                     arguments: arguments,
+                    enableSecureArguments: enableSecureArguments,
                     enableSecureArgumentsAudit: enableSecureArgumentsAudit,
                     enableTelemetry: enableTelemetry);
             }
@@ -230,12 +230,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         enableTelemetry: enableTelemetry);
                 }
 
-                // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-                cmdExeArgs = $"/c \"{command} {arguments}";
-                cmdExeArgs += _modifyEnvironment
-                ? $" && echo {OutputDelimiter} && set \""
-                : "\"";
+                return GetBasicCmdExeArgs(command, arguments);
             }
+        }
+
+        private string GetBasicCmdExeArgs(string command, string arguments)
+        {
+            // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
+            string cmdExeArgs = $"/c \"{command} {arguments}";
+            cmdExeArgs += _modifyEnvironment
+            ? $" && echo {OutputDelimiter} && set \""
+            : "\"";
 
             return cmdExeArgs;
         }
@@ -310,6 +315,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string cmdExe,
             string command,
             string arguments,
+            bool enableSecureArguments,
             bool enableSecureArgumentsAudit,
             bool enableTelemetry)
         {
@@ -320,15 +326,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
             }
 
-            string argsScript = CreateArgsScriptFile(cmdExe, command, processedArgs, _modifyEnvironment);
-
             if (enableTelemetry)
             {
                 ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
                 PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
             }
 
-            return $"/c \"{argsScript}\"";
+            if (enableSecureArguments)
+            {
+                string argsScript = CreateArgsScriptFile(cmdExe, command, processedArgs, _modifyEnvironment);
+
+                return $"/c \"{argsScript}\"";
+            }
+
+            ExecutionContext.Debug("Args file creation skipped. Using basic args.");
+            return GetBasicCmdExeArgs(command, processedArgs);
         }
 
         private string CreateArgsScriptFile(
@@ -337,27 +349,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string arguments,
             bool modifyEnvironment)
         {
+            ExecutionContext.Debug("Creating arguments script file.");
             string scriptId = Guid.NewGuid().ToString();
             string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8], preserveCase: false);
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
 
             string agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
-            string generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
+            string createdScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
             string scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
             scriptArgs += modifyEnvironment
                 ? $" && echo {OutputDelimiter} && set \""
                 : "\"";
 
-            using (var writer = new StreamWriter(generatedScriptPath))
+            using (var writer = new StreamWriter(createdScriptPath))
             {
                 writer.WriteLine($"{cmdExe} {scriptArgs}");
             }
 
-            ExecutionContext.Debug($"Generated script file: {generatedScriptPath}");
+            ExecutionContext.Debug($"Created script file: {createdScriptPath}");
 
-            return generatedScriptPath;
+            return createdScriptPath;
         }
 
         private void FlushErrorData()
