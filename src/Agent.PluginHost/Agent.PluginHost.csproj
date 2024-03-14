@@ -11,7 +11,6 @@
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8" Condition="$(CodeAnalysis)=='true'" />
     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
   </ItemGroup>
