@@ -192,17 +192,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
 
-                var testToken = Guid.NewGuid().ToString();
+                var testCorrelationId = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } }); 
+                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.CommandCorrelationId, testCorrelationId } }); 
                 
                 var cmd = new Command("task", "issue");
                 cmd.Data = "test error";
                 cmd.Properties.Add("source", "CustomerScript");
-                cmd.Properties.Add("token", testToken);
+                cmd.Properties.Add("correlationId", testCorrelationId);
                 cmd.Properties.Add("type", "error");
 
-                Issue currentIssue = null; 
+                Issue currentIssue = null;
 
                 _ec.Setup(x => x.AddIssue(It.IsAny<Issue>())).Callback((Issue issue) => currentIssue = issue);
                 _ec.Setup(x => x.GetVariableValueOrDefault("ENABLE_ISSUE_SOURCE_VALIDATION")).Returns("true");
@@ -211,7 +211,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("test error", currentIssue.Message);
                 Assert.Equal("CustomerScript", currentIssue.Data["source"]);
                 Assert.Equal("error", currentIssue.Data["type"]);
-                Assert.Equal(false, currentIssue.Data.ContainsKey("token"));
+                Assert.Equal(false, currentIssue.Data.ContainsKey("correlationId"));
                 Assert.Equal(IssueType.Error, currentIssue.Type);
             }
         }
@@ -219,20 +219,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void IssueSourceValidationFailedBecauseTokenWasInvalid()
+        public void IssueSourceValidationFailedBecauseCorrelationIdWasInvalid()
         {
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
 
-                var testToken = Guid.NewGuid().ToString();
+                var testCorrelationId = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } });
+                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.CommandCorrelationId, testCorrelationId } });
 
                 var cmd = new Command("task", "issue");
                 cmd.Data = "test error";
                 cmd.Properties.Add("source", "CustomerScript");
-                cmd.Properties.Add("token", Guid.NewGuid().ToString());
+                cmd.Properties.Add("correlationId", Guid.NewGuid().ToString());
                 cmd.Properties.Add("type", "error");
 
                 Issue currentIssue = null;
@@ -248,24 +248,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal("test error", currentIssue.Message);
                 Assert.Equal(false, currentIssue.Data.ContainsKey("source"));
                 Assert.Equal("error", currentIssue.Data["type"]);
-                Assert.Equal(false, currentIssue.Data.ContainsKey("token"));
+                Assert.Equal(false, currentIssue.Data.ContainsKey("correlationId"));
                 Assert.Equal(IssueType.Error, currentIssue.Type);
-                Assert.Equal(debugMsg, "The task provided an invalid token when using the task.issue command.");
+                Assert.Equal(debugMsg, "The task provided an invalid correlation ID when using the task.issue command.");
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void IssueSourceValidationFailedBecauseTokenWasAbsent()
+        public void IssueSourceValidationFailedBecauseCorrelationIdWasAbsent()
         {
             using (var _hc = SetupMocks())
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
 
-                var testToken = Guid.NewGuid().ToString();
+                var testCorrelationId = Guid.NewGuid().ToString();
 
-                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.TaskSDKCommandToken, testToken } });
+                _ec.Setup(x => x.JobSettings).Returns(new Dictionary<string, string> { { WellKnownJobSettings.CommandCorrelationId, testCorrelationId } });
 
                 var cmd = new Command("task", "issue");
                 cmd.Data = "test error";

@@ -414,9 +414,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
                 {
-                    if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsTaskSDKTokenRequired(handler, definition))
+                    if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsCorrelationIdRequired(handler, definition))
                     {
-                        environment[Constants.TaskSDKCommandTokenEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken];
+                        environment[Constants.CommandCorrelationIdEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId];
                     }
                 }
 
@@ -682,7 +682,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private bool IsTaskSDKTokenRequired(IHandler handler, Definition task)
+        private bool IsCorrelationIdRequired(IHandler handler, Definition task)
         {
             var psSdkVer = task.GetPowerShellSDKVersion();
             var nodeSdkVer = task.GetNodeSDKVersion();

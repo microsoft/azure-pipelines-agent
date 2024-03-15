@@ -32,7 +32,7 @@ namespace Agent.Sdk
         public static readonly string HasMultipleCheckouts = "HasMultipleCheckouts";
         public static readonly string FirstRepositoryCheckedOut = "FirstRepositoryCheckedOut";
         public static readonly string WorkspaceIdentifier = "WorkspaceIdentifier";
-        public static readonly string TaskSDKCommandToken = "TaskSDKCommandToken";
+        public static readonly string CommandCorrelationId = "CommandCorrelationId";
     }
 
     public class AgentTaskPluginExecutionContext : ITraceWriter, IKnobValueContext

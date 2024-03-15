@@ -395,17 +395,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void ProcessIssueSource(IExecutionContext context, Command command)
         {
-            if (!WorkerUtilities.IsCommandSDKTokenValid(context, command, out bool tokenPresent))
+            if (!WorkerUtilities.IsCommandCorrelationIdValid(context, command, out bool correlationIdPresent))
             {
                 _ = command.Properties.Remove("source");
 
-                if (tokenPresent)
+                if (correlationIdPresent)
                 {
-                    context.Debug("The task provided an invalid token when using the task.issue command.");
+                    context.Debug("The task provided an invalid correlation ID when using the task.issue command.");
                 }
             }
 
-            _ = command.Properties.Remove("token");
+            _ = command.Properties.Remove("correlationId");
         }
 
         private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties)

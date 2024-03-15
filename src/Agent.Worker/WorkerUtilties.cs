@@ -132,13 +132,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 steps: message.Steps);
         }
 
-        public static bool IsCommandSDKTokenValid(IExecutionContext executionContext, Command command, out bool tokenPresent)
+        public static bool IsCommandCorrelationIdValid(IExecutionContext executionContext, Command command, out bool correlationIdPresent)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(command, nameof(command));
-            tokenPresent = command.Properties.TryGetValue("token", out string token);
+            correlationIdPresent = command.Properties.TryGetValue("correlationId", out string correlationId);
 
-            return tokenPresent && token.Equals(executionContext.JobSettings[WellKnownJobSettings.TaskSDKCommandToken], StringComparison.Ordinal);
+            return correlationIdPresent && correlationId.Equals(executionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId], StringComparison.Ordinal);
         }
 
         internal static bool IsCommandResultGlibcError(IExecutionContext executionContext, List<string> nodeVersionOutput, out string nodeInfoLineOut)
