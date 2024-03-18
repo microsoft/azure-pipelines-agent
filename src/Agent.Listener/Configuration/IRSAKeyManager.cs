@@ -1,9 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Listener.Configuration;
+using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -17,11 +23,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     public interface IRSAKeyManager : IAgentService
     {
         /// <summary>
-        /// Creates a new <c>RSACryptoServiceProvider</c> instance for the current agent. If a key file is found then the current
+        /// Creates a new <c>RSA</c> instance for the current agent. If a key file is found then the current
         /// key is returned to the caller.
         /// </summary>
-        /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
-        RSACryptoServiceProvider CreateKey();
+        /// <returns>An <c>RSA</c> instance representing the key for the agent</returns>
+        RSA CreateKey(bool enableAgentKeyStoreInNamedContainer, bool useCng);
 
         /// <summary>
         /// Deletes the RSA key managed by the key manager.
@@ -33,7 +39,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         /// </summary>
         /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
         /// <exception cref="CryptographicException">No key exists in the store</exception>
-        RSACryptoServiceProvider GetKey();
+        RSA GetKey();
+    }
+
+    public static class IRSAKeyManagerExtensions
+    {
+        public static async Task<(bool useNamedContainer, bool useCng)> GetStoreAgentTokenInNamedContainerFF(this IRSAKeyManager _, IHostContext hostContext, global::Agent.Sdk.ITraceWriter trace, AgentSettings agentSettings, VssCredentials creds, CancellationToken cancellationToken = default)
+        {
+            var useNamedContainer = AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+            var useCng = AgentKnobs.AgentKeyUseCng.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
+            if (useNamedContainer || useCng)
+            {
+                return (useNamedContainer, useCng);
+            }
+
+            var featureFlagProvider = hostContext.GetService<IFeatureFlagProvider>();
+            var enableAgentKeyStoreInNamedContainerFF = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.StoreAgentTokenInNamedContainer", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
+            var useCngFF = (await featureFlagProvider.GetFeatureFlagWithCred(hostContext, "DistributedTask.Agent.UseCng", trace, agentSettings, creds, cancellationToken)).EffectiveState == "On";
+
+            return (enableAgentKeyStoreInNamedContainerFF, useCngFF);
+        }
     }
 
     // Newtonsoft 10 is not working properly with dotnet RSAParameters class
@@ -44,6 +70,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
     [Serializable]
     internal class RSAParametersSerializable : ISerializable
     {
+        private const string containerNameMemberName = "ContainerName";
+        private const string useCngMemberName = "UseCng";
+        private bool _useCng;
+        private string _containerName;
         private RSAParameters _rsaParameters;
 
         public RSAParameters RSAParameters
@@ -54,14 +84,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSAParametersSerializable(RSAParameters rsaParameters)
+        public RSAParametersSerializable(string containerName, bool useCng, RSAParameters rsaParameters)
         {
+            _containerName = containerName;
+            _useCng = useCng;
             _rsaParameters = rsaParameters;
         }
 
         private RSAParametersSerializable()
         {
         }
+
+        public string ContainerName { get { return _containerName; } set { _containerName = value; } }
+
+        public bool UseCng { get { return _useCng; } set { _useCng = value; } }
 
         public byte[] D { get { return _rsaParameters.D; } set { _rsaParameters.D = value; } }
 
@@ -81,6 +117,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public RSAParametersSerializable(SerializationInfo information, StreamingContext context)
         {
+            bool hasContainerNameMember = false;
+            bool hasUseCngMember = false;
+            var e = information.GetEnumerator();
+            while (e.MoveNext())
+            {
+                if (e.Name == containerNameMemberName)
+                {
+                    hasContainerNameMember = true;
+                }
+
+                if (e.Name == useCngMemberName)
+                {
+                    hasUseCngMember = true;
+                }
+            }
+
+            _containerName = "";
+            _useCng = false;
+
+            if (hasContainerNameMember)
+            {
+                _containerName = (string)information.GetValue(containerNameMemberName, typeof(string));
+            }
+
+            if (hasUseCngMember)
+            {
+                _useCng = (bool)information.GetValue(useCngMemberName, typeof(bool));
+            }
+
             _rsaParameters = new RSAParameters()
             {
                 D = (byte[])information.GetValue("d", typeof(byte[])),
@@ -96,6 +161,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
+            info.AddValue(containerNameMemberName, _containerName);
+            info.AddValue(useCngMemberName, _useCng);
             info.AddValue("d", _rsaParameters.D);
             info.AddValue("dp", _rsaParameters.DP);
             info.AddValue("dq", _rsaParameters.DQ);

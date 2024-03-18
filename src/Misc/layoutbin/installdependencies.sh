@@ -255,18 +255,21 @@ then
             fi
         fi
     else
-        # we might on OpenSUSE
+        # we might on OpenSUSE, check is it sles even if it's suse 
         OSTYPE=$(grep ^ID_LIKE $filepath | cut -f2 -d=)
-        if [ -z $OSTYPE ]
+        if ([[ -z $OSTYPE ]] || [[ $OSTYPE == *"suse"* ]])
         then
             OSTYPE=$(grep ^ID $filepath | cut -f2 -d=)
         fi
         echo $OSTYPE
 
         # is_sles=1 if it is a SLES OS
-        [ -n $OSTYPE ] && ([ $OSTYPE == '"sles"' ] || [ $OSTYPE == '"sles_sap"' ]) && is_sles=1
+        if ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"sles"* ]] || [[ $OSTYPE == *"sles_sap"* ]]))
+        then
+            is_sles=1
+        fi
 
-        if  [[ -n $OSTYPE && ( $OSTYPE == '"suse"'  || $is_sles == 1) ]]
+        if  ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"suse"* ]]  || [[$is_sles == 1]]))
         then
             echo "The current OS is SUSE based"
             command -v zypper
