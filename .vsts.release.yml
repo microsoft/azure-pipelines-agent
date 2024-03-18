@@ -75,6 +75,10 @@ extends:
       - job: Set_variables
         displayName: Set release-specific variables
         steps:
+        # There's no need to clone the repo since no sources are used.
+        - checkout: none
+          displayName: Skip repo clone
+
         - pwsh: |
             $isBuildStageOnly = [System.Convert]::ToBoolean('${{ parameters.buildStageOnly }}')
             $buildReason = '$(Build.Reason)'
