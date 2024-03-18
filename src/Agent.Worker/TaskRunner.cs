@@ -685,7 +685,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private bool IsCorrelationIdRequired(IHandler handler, Definition task)
         {
             Trace.Entering();
-
             var isIdRequired = false;
 
             if (handler is INodeHandler)
@@ -699,14 +698,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    var minVer = new TaskVersion() { Major = 4, Minor = 10, Patch = 0 };
+                    var minVer = new TaskVersion() { Major = 4, Minor = 10, Patch = 1 };
                     isIdRequired = (nodeSdkVer >= minVer) && !((nodeSdkVer.Major == 5) && nodeSdkVer.IsTest);
                     Trace.Info($"Node SDK version: {nodeSdkVer}. Correlation ID is required: {isIdRequired}.");
                 }
             }
             else if (handler is IPowerShell3Handler)
             {
-                Trace.Info("Current handler is PowerShell. Trying to determing the SDK version.");
+                Trace.Info("Current handler is PowerShell3. Trying to determing the SDK version.");
                 var psSdkVer = task.GetPowerShellSDKVersion();
                 if (psSdkVer == null)
                 {
@@ -714,9 +713,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    var minVer = new TaskVersion() { Major = 0, Minor = 20, Patch = 0 };
+                    var minVer = new TaskVersion() { Major = 0, Minor = 20, Patch = 1 };
                     isIdRequired = psSdkVer >= minVer;
-                    Trace.Info($"Node SDK version: {psSdkVer}. Correlation ID is required: {isIdRequired}.");
+                    Trace.Info($"PowerShell SDK version: {psSdkVer}. Correlation ID is required: {isIdRequired}.");
                 }
             }
             else
