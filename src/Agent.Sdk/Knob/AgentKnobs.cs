@@ -149,6 +149,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("USE_LATEST_GIT_VERSION"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AgentTerminalEncoding = new Knob(
+            nameof(AgentTerminalEncoding),
+            "If the correct encoding name is specified, the encoding from the environment will be used instead of default UTF-8",
+            new EnvironmentKnobSource("AGENT_TERMINAL_ENCODING"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
             nameof(TfVCUseSecureParameterPassing),
             "If true, don't pass auth token in TFVC parameters",
@@ -454,7 +460,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new BuiltInDefaultKnobSource("false"));
-       
+
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -600,7 +606,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
-      
+
         public static readonly Knob EnableNewSecretMasker = new Knob(
             nameof(EnableNewSecretMasker),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
