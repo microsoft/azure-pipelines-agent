@@ -44,10 +44,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules, "submodules value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -74,10 +79,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { "SUBmodules", "submodules value" },
                     });
 
+                _executionContext.Inputs["FETCHfilter"] = "fetch filter value";
+                _executionContext.Inputs["FETCHtags"] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -170,10 +180,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { "unexpected", "unexpected value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -201,10 +216,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules, "submodules value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -279,7 +299,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Endpoints = new List<ServiceEndpoint>(),
                 Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                   
+
                 },
                 Repositories = new List<Pipelines.RepositoryResource>(),
                 Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase)

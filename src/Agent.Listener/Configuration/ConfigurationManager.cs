@@ -180,11 +180,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteError(StringUtil.Loc("FailedToConnect"));
                 }
             }
-
+            
             // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
             RSAParameters publicKey;
             var keyManager = HostContext.GetService<IRSAKeyManager>();
-            using (var rsa = keyManager.CreateKey())
+            var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
+            var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
+            var useCng = ffResult.useCng;
+            using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
             {
                 publicKey = rsa.ExportParameters(false);
             }

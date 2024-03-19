@@ -1,3 +1,4 @@
+# This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
 parameters:
 
 - name: jobName
@@ -43,9 +44,6 @@ parameters:
 - name: codeCoverage
   type: boolean
 
-- name: componentDetection
-  type: boolean
-
 - name: sign
   type: boolean
 
@@ -87,15 +85,26 @@ jobs:
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
     CheckoutBranch: ${{ parameters.branch }}
-
+  templateContext:
+    outputs:
+    - ${{ if or(parameters.unitTests, parameters.functionalTests) }}:
+      - output: buildArtifacts
+        displayName: 'Publish Test logs'
+        condition: always()
+        PathtoPublish: src/Test/TestLogs
+        ArtifactName: ${{ parameters.os }}-${{ parameters.arch }}-$(System.JobId)
+    - ${{ if eq(parameters.publishArtifact, true) }}:
+      - output: buildArtifacts
+        displayName: 'Publish Hash Artifact'
+        PathtoPublish: _package
+        ArtifactName: agent
+    - ${{ if eq(parameters.publishArtifact, true) }}:
+      - output: buildArtifacts
+        displayName: 'Publish Agent Artifact'
+        PathtoPublish: _package_hash
+        ArtifactName: hash
   steps:
 
-  # Component detection
-  - ${{ if parameters.componentDetection }}:
-    - task: ms.vss-governance-buildtask.governance-build-task-component-detection.ComponentGovernanceComponentDetection@0
-      displayName: 'Component Detection'
-
-  # Clean
   - checkout: self
     clean: true
 
@@ -113,9 +122,17 @@ jobs:
 
   # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
   - ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'osx')) }}:
-    - script: sudo apt-get update && sudo apt-get -y install unzip
+    - script: sudo dnf -y update && sudo dnf -y install unzip
       displayName: Install unzip
       retryCountOnTaskFailure: 5
+
+  # Install nuget
+  - ${{ if eq(parameters.os, 'win') }}:
+    - task: NuGetToolInstaller@1
+      displayName: Install NuGet for signing tests
+
+  # Set up auth for nuget for when new packages need to be consumed
+  - task: NuGetAuthenticate@1
 
   # Build agent layout
   - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
@@ -148,20 +165,15 @@ jobs:
       displayName: Unit tests
       timeoutInMinutes: 5
 
-  # Install nuget
-  - ${{ if eq(parameters.os, 'win') }}:
-    - task: NuGetToolInstaller@1
-      displayName: Install NuGet for signing tests
-
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
     - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-         version: '6.0.418'
-         packageType: sdk
-         performMultiLevelLookup: true
+          version: '6.0.418'
+          packageType: sdk
+          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
@@ -174,15 +186,6 @@ jobs:
         testRunner: VSTest
         testResultsFiles: '**/*.trx'
         testRunTitle: 'Agent Tests - ${{ parameters.os }}-${{ parameters.arch }}'
-      condition: always()
-
-    # Upload test log
-    - task: PublishBuildArtifacts@1.200.0
-      displayName: Publish Test logs
-      inputs:
-        pathToPublish: src/Test/TestLogs
-        artifactName: ${{ parameters.os }}-${{ parameters.arch }}-$(System.JobId)
-        artifactType: container
       condition: always()
 
   # Code coverage
@@ -208,7 +211,7 @@ jobs:
 
   - ${{ if parameters.sign }}:
     # Signing steps
-    - template: signing.yml
+    - template: /.azure-pipelines/signing.yml@self
       parameters:
         layoutRoot: ${{ variables.layoutRoot }}
         isWindows: ${{ eq(parameters.os, 'win') }}
@@ -218,7 +221,7 @@ jobs:
 
     # Package .NET Core Windows dependency (VC++ Redistributable)
     - ${{ if eq(parameters.os, 'win') }}:
-      - template: package-vcredist.yml
+      - template: /.azure-pipelines/package-vcredist.yml@self
         parameters:
           layoutRoot: ${{ variables.layoutRoot }}
           flavor: ${{ parameters.arch }}
@@ -232,23 +235,6 @@ jobs:
       workingDirectory: src
       displayName: Hash Package
 
-    # Upload agent package zip as build artifact
-    - task: PublishBuildArtifacts@1.200.0
-      displayName: Publish Artifact
-      inputs:
-        pathToPublish: _package
-        artifactName: agent
-        artifactType: container
-
-    # Publish agent package hash too
-    - task: PublishBuildArtifacts@1.200.0
-      displayName: Publish Artifact
-      inputs:
-        pathToPublish: _package_hash
-        artifactName: hash
-        artifactType: container
-
-  # Signing verification
   - ${{ if parameters.verifySigning }}:
 
     # Verify all binaries are signed (generate report)

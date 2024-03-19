@@ -454,7 +454,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new BuiltInDefaultKnobSource("false"));
-       
+
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -600,7 +600,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
-      
+
         public static readonly Knob EnableNewSecretMasker = new Knob(
             nameof(EnableNewSecretMasker),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
@@ -619,6 +619,24 @@ namespace Agent.Sdk.Knob
             "If true, agent will log the task name in user agent.",
             new RuntimeKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
             new EnvironmentKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseFetchFilterInCheckoutTask = new Knob(
+            nameof(UseFetchFilterInCheckoutTask),
+            "If true, agent will use fetch filter in checkout task.",
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
+            nameof(StoreAgentKeyInCSPContainer),
+            "Store agent key in named container (Windows).",
+            new EnvironmentKnobSource("STORE_AGENT_KEY_IN_CSP_CONTAINER"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentKeyUseCng = new Knob(
+            nameof(AgentKeyUseCng),
+            "Use CNG API to store agent key.  Note: Uses Private User Storage",
+            new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
