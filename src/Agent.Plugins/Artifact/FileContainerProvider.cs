@@ -161,6 +161,7 @@ namespace Agent.Plugins
                 {
                     BlobstoreClientSettings clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                         connection,
+                        context,
                         Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
                         tracer,
                         cancellationToken);
