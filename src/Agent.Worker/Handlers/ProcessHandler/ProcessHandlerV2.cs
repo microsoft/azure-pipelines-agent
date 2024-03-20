@@ -352,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
 
-            string agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
+            string agentTemp = HostContext.GetDirectory(WellKnownDirectory.Temp);
             string createdScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
             string scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
