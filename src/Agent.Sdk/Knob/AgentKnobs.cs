@@ -527,6 +527,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseProcessHandlerV2 = new Knob(
+            nameof(UseProcessHandlerV2),
+            "Enables new Process handler (v2)",
+            new RuntimeKnobSource("AGENT_USE_PROCESS_HANDLER_V2"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
             nameof(DisableDrainQueuesAfterTask),
             "Forces the agent to disable draining queues after each task",

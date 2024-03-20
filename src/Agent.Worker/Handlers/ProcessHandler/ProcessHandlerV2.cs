@@ -12,13 +12,10 @@ using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
-    [ServiceLocator(Default = typeof(ProcessHandler))]
-    public interface IProcessHandler : IHandler
-    {
-        ProcessHandlerData Data { get; set; }
-    }
+    [ServiceLocator(Default = typeof(ProcessHandlerV2))]
+    public interface IProcessHandlerV2 : IProcessHandler { }
 
-    public sealed class ProcessHandler : Handler, IProcessHandler
+    public sealed class ProcessHandlerV2 : Handler, IProcessHandlerV2
     {
         private const string OutputDelimiter = "##ENV_DELIMITER_d8c0672b##";
         private readonly object _outputLock = new object();
@@ -26,7 +23,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
-        private string _generatedScriptPath;
 
         public ProcessHandlerData Data { get; set; }
 
@@ -132,73 +128,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 cmdExe = "cmd.exe";
             }
 
-            bool enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
-            bool enableNewPHLogic = AgentKnobs.ProcessHandlerEnableNewLogic.GetValue(ExecutionContext).AsBoolean();
-            ExecutionContext.Debug($"Enable new PH sanitizing logic: '{enableNewPHLogic}'");
-
-            bool enableFileArgs = disableInlineExecution && enableSecureArguments && !enableNewPHLogic;
-            if (enableFileArgs)
-            {
-                bool enableSecureArgumentsAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
-                ExecutionContext.Debug($"Enable secure arguments audit: '{enableSecureArgumentsAudit}'");
-                bool enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
-                ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
-
-                if ((disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments)) || enableTelemetry)
-                {
-                    var (processedArgs, telemetry) = ProcessHandlerHelper.ExpandCmdEnv(arguments, Environment);
-
-                    if (disableInlineExecution && enableSecureArgumentsAudit)
-                    {
-                        ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
-                    }
-                    if (enableFileArgs)
-                    {
-                        GenerateScriptFile(cmdExe, command, processedArgs);
-                    }
-                    if (enableTelemetry)
-                    {
-                        ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
-                        PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
-                    }
-                }
-            }
-            else if (enableNewPHLogic)
-            {
-                bool shouldThrow = false;
-                try
-                {
-                    var (isValid, telemetry) = ProcessHandlerHelper.ValidateInputArguments(arguments, Environment, ExecutionContext);
-
-                    // If args are not valid - we'll throw exception.
-                    shouldThrow = !isValid;
-
-                    if (telemetry != null)
-                    {
-                        PublishTelemetry(telemetry, "ProcessHandler");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
-
-                    var telemetry = new Dictionary<string, string>
-                    {
-                        ["UnexpectedError"] = ex.Message,
-                        ["ErrorStackTrace"] = ex.StackTrace
-                    };
-                    PublishTelemetry(telemetry, "ProcessHandler");
-
-                    shouldThrow = false;
-                }
-                if (shouldThrow)
-                {
-                    throw new InvalidScriptArgsException(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
-                }
-            }
-
-            string cmdExeArgs = PrepareCmdExeArgs(command, arguments, enableFileArgs);
+            string cmdExeArgs = GetCmdExeArgs(cmdExe, command, arguments, disableInlineExecution);
 
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
@@ -249,47 +179,195 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        private string PrepareCmdExeArgs(string command, string arguments, bool enableFileArgs)
+        private enum ArgsProcessingMode
         {
-            string cmdExeArgs;
-            if (enableFileArgs)
+            Basic,
+            File,
+            Validation
+        }
+
+        private string GetCmdExeArgs(
+            string cmdExe,
+            string command,
+            string arguments,
+            bool disableInlineExecution)
+        {
+            bool enableSecureArguments = AgentKnobs.ProcessHandlerSecureArguments.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable secure arguments: '{enableSecureArguments}'");
+            bool enableSecureArgumentsAudit = AgentKnobs.ProcessHandlerSecureArgumentsAudit.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable secure arguments audit: '{enableSecureArgumentsAudit}'");
+            bool enableTelemetry = AgentKnobs.ProcessHandlerTelemetry.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable telemetry: '{enableTelemetry}'");
+
+            var argsMode = DetermineArgsProcessingMode(
+                disableInlineExecution: disableInlineExecution,
+                enableSecureArguments: enableSecureArguments,
+                enableSecureArgumentsAudit: enableSecureArgumentsAudit,
+                enableTelemetry: enableTelemetry);
+            ExecutionContext.Debug($"Args processing mode: '{argsMode}'");
+
+            switch (argsMode)
             {
-                cmdExeArgs = $"/c \"{_generatedScriptPath}\"";
+                case ArgsProcessingMode.File:
+                    return ProcessArgsAsScriptFile(
+                        cmdExe: cmdExe,
+                        command: command,
+                        arguments: arguments,
+                        enableSecureArguments: enableSecureArguments,
+                        enableSecureArgumentsAudit: enableSecureArgumentsAudit,
+                        enableTelemetry: enableTelemetry);
+
+                case ArgsProcessingMode.Validation:
+                    ValidateScriptArgs(
+                        arguments: arguments,
+                        enableSecureArguments: enableSecureArguments,
+                        enableSecureArgumentsAudit: enableSecureArgumentsAudit,
+                        enableTelemetry: enableTelemetry);
+                    return GetBasicCmdExeArgs(command, arguments);
+
+                case ArgsProcessingMode.Basic:
+                default:
+                    return GetBasicCmdExeArgs(command, arguments);
             }
-            else
-            {
-                // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
-                cmdExeArgs = $"/c \"{command} {arguments}";
-                cmdExeArgs += _modifyEnvironment
-                ? $" && echo {OutputDelimiter} && set \""
-                : "\"";
-            }
+        }
+
+        private string GetBasicCmdExeArgs(string command, string arguments)
+        {
+            // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
+            string cmdExeArgs = $"/c \"{command} {arguments}";
+            cmdExeArgs += _modifyEnvironment
+            ? $" && echo {OutputDelimiter} && set \""
+            : "\"";
 
             return cmdExeArgs;
         }
 
-        private void GenerateScriptFile(string cmdExe, string command, string arguments)
+        private ArgsProcessingMode DetermineArgsProcessingMode(
+            bool disableInlineExecution,
+            bool enableSecureArguments,
+            bool enableSecureArgumentsAudit,
+            bool enableTelemetry)
         {
-            var scriptId = Guid.NewGuid().ToString();
+            bool shouldProtectArgs = disableInlineExecution && (enableSecureArgumentsAudit || enableSecureArguments || enableTelemetry);
+            if (!shouldProtectArgs)
+            {
+                return ArgsProcessingMode.Basic;
+            }
+
+            // Knob to determine if we should validate process script args. Makes sence only when ProcessHandlerSecureArguments enabled.
+            bool enableNewPHLogic = AgentKnobs.ProcessHandlerEnableNewLogic.GetValue(ExecutionContext).AsBoolean();
+            ExecutionContext.Debug($"Enable new PH args protect logic: '{enableNewPHLogic}'");
+
+            return enableNewPHLogic
+                ? ArgsProcessingMode.Validation
+                : ArgsProcessingMode.File;
+        }
+
+        private void ValidateScriptArgs(
+            string arguments,
+            bool enableSecureArguments,
+            bool enableSecureArgumentsAudit,
+            bool enableTelemetry)
+        {
+            bool shouldThrow = false;
+            try
+            {
+                var (isValid, telemetry) = ProcessHandlerHelper.ValidateInputArgumentsV2(ExecutionContext, arguments, Environment, enableTelemetry);
+
+                if (!isValid)
+                {
+                    shouldThrow = enableSecureArguments;
+
+                    if (!shouldThrow && enableSecureArgumentsAudit)
+                    {
+                        ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+                    }
+                }
+                if (enableTelemetry && telemetry != null)
+                {
+                    PublishTelemetry(telemetry, "ProcessHandler");
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Error($"Failed to validate process handler input arguments. Publishing telemetry. Ex: {ex}");
+
+                var telemetry = new Dictionary<string, string>
+                {
+                    ["UnexpectedError"] = ex.Message,
+                    ["ErrorStackTrace"] = ex.StackTrace
+                };
+                PublishTelemetry(telemetry, "ProcessHandler");
+
+                shouldThrow = false;
+            }
+
+            if (shouldThrow)
+            {
+                throw new InvalidScriptArgsException(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+            }
+        }
+
+        private string ProcessArgsAsScriptFile(
+            string cmdExe,
+            string command,
+            string arguments,
+            bool enableSecureArguments,
+            bool enableSecureArgumentsAudit,
+            bool enableTelemetry)
+        {
+            var (processedArgs, telemetry) = ProcessHandlerHelper.ExpandCmdEnv(arguments, Environment);
+
+            if (enableSecureArgumentsAudit)
+            {
+                ExecutionContext.Warning($"The following arguments will be executed: '{processedArgs}'");
+            }
+
+            if (enableTelemetry)
+            {
+                ExecutionContext.Debug($"Agent PH telemetry: {JsonConvert.SerializeObject(telemetry.ToDictionary(), Formatting.None)}");
+                PublishTelemetry(telemetry.ToDictionary(), "ProcessHandler");
+            }
+
+            if (enableSecureArguments)
+            {
+                string argsScript = CreateArgsScriptFile(cmdExe, command, processedArgs, _modifyEnvironment);
+
+                return $"/c \"{argsScript}\"";
+            }
+
+            ExecutionContext.Debug("Args file creation skipped. Using basic args.");
+            return GetBasicCmdExeArgs(command, processedArgs);
+        }
+
+        private string CreateArgsScriptFile(
+            string cmdExe,
+            string command,
+            string arguments,
+            bool modifyEnvironment)
+        {
+            ExecutionContext.Debug("Creating arguments script file.");
+            string scriptId = Guid.NewGuid().ToString();
             string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8], preserveCase: false);
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
 
-            var agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
-            _generatedScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
+            string agentTemp = ExecutionContext.GetVariableValueOrDefault(Constants.Variables.Agent.TempDirectory);
+            string createdScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
-            var scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
+            string scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
+            scriptArgs += modifyEnvironment
+                ? $" && echo {OutputDelimiter} && set \""
+                : "\"";
 
-            scriptArgs += _modifyEnvironment
-            ? $" && echo {OutputDelimiter} && set \""
-            : "\"";
-
-            using (var writer = new StreamWriter(_generatedScriptPath))
+            using (var writer = new StreamWriter(createdScriptPath))
             {
                 writer.WriteLine($"{cmdExe} {scriptArgs}");
             }
 
-            ExecutionContext.Debug($"Generated script file: {_generatedScriptPath}");
+            ExecutionContext.Debug($"Created script file: {createdScriptPath}");
+
+            return createdScriptPath;
         }
 
         private void FlushErrorData()
