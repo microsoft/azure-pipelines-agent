@@ -11,7 +11,6 @@ using System.Text;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System.IO;
 using Agent.Sdk.Knob;
-using BuildXL.Cache.ContentStore.Interfaces.Results;
 using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build

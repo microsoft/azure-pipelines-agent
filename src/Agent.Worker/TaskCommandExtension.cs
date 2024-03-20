@@ -397,7 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (!WorkerUtilities.IsCommandCorrelationIdValid(context, command, out bool correlationIdPresent))
             {
-                _ = command.Properties.Remove("source");
+                _ = command.Properties.Remove(TaskWellKnownItems.IssueSourceProperty);
 
                 if (correlationIdPresent)
                 {
