@@ -14,6 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         public static readonly string IsPrimaryRepository = "system.isprimaryrepository";
         public static readonly string IsTriggeringRepository = "system.istriggeringrepository";
+        public static readonly string IsDefaultWorkingDirectoryRepository = "system.isdefaultworkingdirectoryrepository";
         public static readonly string DefaultPrimaryRepositoryName = "self";
         public static readonly string GitStandardBranchPrefix = "refs/heads/";
 
@@ -60,6 +61,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         /// <summary>
+        /// This method returns the repo from the list that is considered the default working directory repository.
+        /// If the list only contains 1 repo, then that is the default working directory repository.
+        /// If the list contains more than one, then we look for the repository marked as the default working directory repo.
+        /// It returns null, if no default working directory repository can be found.
+        /// </summary>
+        public static RepositoryResource GetDefaultWorkingDirectoryRepository(IList<RepositoryResource> repositories)
+        {
+            return GetWellKnownRepository(repositories, RepositoryUtil.IsDefaultWorkingDirectoryRepository, true);
+        }
+
+        /// <summary>
         /// This method returns the repo from the list that is considered the triggering repository.
         /// If the list only contains 1 repo, then that is the triggering repository.
         /// If the list contains more than one, then we look for the repository marked as the triggering repo.
@@ -71,6 +83,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         private static RepositoryResource GetWellKnownRepository(IList<RepositoryResource> repositories, string repositoryFlagName)
+        {
+            return GetWellKnownRepository(repositories, repositoryFlagName, false);
+        }
+
+        private static RepositoryResource GetWellKnownRepository(IList<RepositoryResource> repositories, string repositoryFlagName, bool returnNullIfNoneFound)
         {
             if (repositories == null || !repositories.Any())
             {
@@ -84,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             // Look for any repository marked with the expected flag name
             var repo = repositories.Where(r => r.Properties.Get<bool>(repositoryFlagName, false)).FirstOrDefault();
-            if (repo != null)
+            if (returnNullIfNoneFound || repo != null)
             {
                 return repo;
             }
@@ -93,6 +110,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 // return the "self" repo or null
                 return GetRepository(repositories, DefaultPrimaryRepositoryName);
             }
+        }
+
+        public static bool IsWellKnownRepository(RepositoryResource repository, string repositoryFlagName)
+        {
+            if (repository == null)
+            {
+                return false;
+            }
+
+            // Look for flag in repository
+            return repository.Properties.Get<bool>(repositoryFlagName, false);
         }
 
         /// <summary>

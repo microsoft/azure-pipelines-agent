@@ -63,8 +63,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             if (RepositoryUtil.HasMultipleCheckouts(context.JobSettings))
             {
                 // If there are multiple checkouts, set the default directory to the sources root folder (_work/1/s)
-                defaultPathRoot = context.Variables.Get(Constants.Variables.Build.SourcesDirectory);
-                Trace.Info($"The Default Path Root of Build JobExtension is build.sourcesDirectory: {defaultPathRoot}");
+                defaultPathRoot = context.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                Trace.Info($"The Default Path Root of Build JobExtension is system.defaultworkingdirectory: {defaultPathRoot}");
             }
             else if (repoInfo.PrimaryRepository != null)
             {
@@ -174,11 +174,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             // Get default value for RepoLocalPath variable
             string selfRepoPath = GetDefaultRepoLocalPathValue(executionContext, steps, trackingConfig, repoInfo);
 
+            // Get the default value for working directory
+            string defaultWorkingDirectoryPath = GetDefaultWorkingDirectoryRepoLocalPathValue(executionContext, steps, trackingConfig);
+
             // Set the directory variables.
             executionContext.Output(StringUtil.Loc("SetBuildVars"));
             executionContext.SetVariable(Constants.Variables.Agent.BuildDirectory, pipelineWorkspaceDirectory, isFilePath: true);
             executionContext.SetVariable(Constants.Variables.System.ArtifactsDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
-            executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
+            executionContext.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, Path.Combine(_workDirectory, defaultWorkingDirectoryPath), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Common.TestResultsDirectory, Path.Combine(_workDirectory, trackingConfig.TestResultsDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.BinariesDirectory, Path.Combine(_workDirectory, trackingConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
@@ -386,6 +389,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             return selfRepoPath;
         }
 
+        private string GetDefaultWorkingDirectoryRepoLocalPathValue(IExecutionContext executionContext, IList<Pipelines.JobStep> steps, TrackingConfig trackingConfig)
+        {
+            string defaultWorkingDirectoryRepoPath = null;
+
+            if (RepositoryUtil.HasMultipleCheckouts(executionContext.JobSettings))
+            {
+                // get checkout task for default working director repo
+                var defaultWorkingDirectoryCheckoutTask = GetDefaultWorkingDirectoryCheckoutTask(steps);
+
+                // Check if a task was found
+                if (defaultWorkingDirectoryCheckoutTask != null && defaultWorkingDirectoryCheckoutTask.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string defaultWorkingDirectoryRepoAlias))
+                {
+                    defaultWorkingDirectoryRepoPath = trackingConfig.RepositoryTrackingInfo
+                        .Where(repo => string.Equals(repo.Identifier, defaultWorkingDirectoryRepoAlias, StringComparison.OrdinalIgnoreCase))
+                        .Select(props => props.SourcesDirectory).FirstOrDefault();
+                }
+            }
+            // For single checkout jobs and multicheckout jobs with default paths set defaultWorkingDirectoryRepoPath to the default sources directory
+            if (defaultWorkingDirectoryRepoPath == null)
+            {
+                defaultWorkingDirectoryRepoPath = trackingConfig.SourcesDirectory;
+            }
+
+            return defaultWorkingDirectoryRepoPath;
+        }
+
         private bool IsCheckoutToCustomPath(TrackingConfig trackingConfig, RepositoryInfo repoInfo, TaskStep selfCheckoutTask)
         {
             string path;
@@ -405,6 +434,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     .Where(task => task.IsCheckoutTask()
                         && task.Inputs.TryGetValue(PipelineConstants.CheckoutTaskInputs.Repository, out string repositoryAlias)
                         && RepositoryUtil.IsPrimaryRepositoryName(repositoryAlias)).FirstOrDefault();
+        }
+
+        public static TaskStep GetDefaultWorkingDirectoryCheckoutTask(IList<JobStep> steps)
+        {
+            return steps.Select(x => x as TaskStep)
+                    .Where(task => task.IsCheckoutTask()
+                        && task.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.WorkspaceRepo, out string isDefaultWorkingDirectoryCheckout) 
+                        && StringUtil.ConvertToBoolean(isDefaultWorkingDirectoryCheckout)).FirstOrDefault();
         }
 
         private class RepositoryInfo
