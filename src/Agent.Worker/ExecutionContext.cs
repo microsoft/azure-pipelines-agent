@@ -961,10 +961,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
-        public static void Error(this IExecutionContext context, string message)
+        public static void Error(this IExecutionContext context, string message, Dictionary<string, string> properties = null)
         {
             ArgUtil.NotNull(context, nameof(context));
-            context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
+
+            var issue = new Issue() { Type = IssueType.Error, Message = message };
+
+            if (properties != null)
+            {
+                foreach (var property in properties.Keys)
+                {
+                    issue.Data[property] = properties[property];
+                }
+            }
+
+            context.AddIssue(issue);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().
