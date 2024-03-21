@@ -956,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(ex, nameof(ex));
 
-            context.Error(ex.Message);
+            context.Error(ex.Message, new Dictionary<string, string> { { TaskWellKnownItems.IssueSourceProperty, Constants.TaskInternalIssueSource } });
             context.Debug(ex.ToString());
         }
 
