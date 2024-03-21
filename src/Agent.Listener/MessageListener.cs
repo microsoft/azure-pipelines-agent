@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     [ServiceLocator(Default = typeof(MessageListener))]
     public interface IMessageListener : IAgentService
     {
-        Task<Boolean> CreateSessionAsync(CancellationToken token);
+        Task<int> CreateSessionAsync(CancellationToken token);
         Task DeleteSessionAsync();
         Task<TaskAgentMessage> GetNextMessageAsync(CancellationToken token);
         Task KeepAlive(CancellationToken token);
@@ -52,7 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentServer = HostContext.GetService<IAgentServer>();
         }
 
-        public async Task<Boolean> CreateSessionAsync(CancellationToken token)
+        public async Task<int> CreateSessionAsync(CancellationToken token)
         {
             Trace.Entering();
 
@@ -108,7 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         encounteringError = false;
                     }
 
-                    return true;
+                    return Constants.Agent.ReturnCode.Success;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
@@ -133,7 +133,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     if (!IsSessionCreationExceptionRetriable(ex))
                     {
                         _term.WriteError(StringUtil.Loc("SessionCreateFailed", ex.Message));
-                        return false;
+                        if (ex is TaskAgentSessionConflictException)
+                        {
+                            return Constants.Agent.ReturnCode.SessionConflict;
+                        }
+                        return Constants.Agent.ReturnCode.TerminatedError;
                     }
 
                     if (!encounteringError) //print the message only on the first error
@@ -211,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Error(ex);
 
                     // don't retry if SkipSessionRecover = true, DT service will delete agent session to stop agent from taking more jobs.
-                    if (ex is TaskAgentSessionExpiredException && !_settings.SkipSessionRecover && await CreateSessionAsync(token))
+                    if (ex is TaskAgentSessionExpiredException && !_settings.SkipSessionRecover && (await CreateSessionAsync(token) == Constants.Agent.ReturnCode.Success))
                     {
                         Trace.Info($"{nameof(TaskAgentSessionExpiredException)} received, recovered by recreate session.");
                     }
