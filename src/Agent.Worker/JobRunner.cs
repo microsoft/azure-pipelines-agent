@@ -20,6 +20,7 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Agent.Worker.Audit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -106,6 +107,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Create the job execution context.
                 jobContext = HostContext.CreateService<IExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
+
+                if (AgentKnobs.EnableTaskAuditLogs.GetValue(jobContext).AsBoolean())
+                {
+                    HostContext.GetService<ITaskAuditLogsService>().Initialize(message, jobConnection);
+                }
 
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();

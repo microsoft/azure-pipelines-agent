@@ -533,6 +533,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableTaskAuditLogs = new(
+            nameof(EnableTaskAuditLogs),
+            "Enables audit messages from agent for pipelines tasks",
+            new RuntimeKnobSource("AZP_ENABLE_TASK_AUDIT_LOGS"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
             nameof(DisableDrainQueuesAfterTask),
             "Forces the agent to disable draining queues after each task",

@@ -96,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public HostContext(HostType hostType, string logFile = null)
         {
-            var useNewSecretMasker =  AgentKnobs.EnableNewSecretMasker.GetValue(this).AsBoolean();
+            var useNewSecretMasker = AgentKnobs.EnableNewSecretMasker.GetValue(this).AsBoolean();
             _secretMasker = useNewSecretMasker ? new LoggedSecretMasker(_newSecretMasker) : new LegacyLoggedSecretMasker(_legacySecretMasker);
             // Validate args.
             if (hostType == HostType.Undefined)
@@ -469,18 +469,22 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// </summary>
         public T GetService<T>() where T : class, IAgentService
         {
+            var serviceType = typeof(T);
+
             // Return the cached instance if one already exists.
-            object instance;
-            if (_serviceInstances.TryGetValue(typeof(T), out instance))
+            if (_serviceInstances.TryGetValue(serviceType, out var instance))
             {
                 return instance as T;
             }
 
             // Otherwise create a new instance and try to add it to the cache.
-            _serviceInstances.TryAdd(typeof(T), CreateService<T>());
+            if (!_serviceInstances.TryAdd(serviceType, CreateService<T>()))
+            {
+                throw new InvalidOperationException($"Failed to add service instance of type {serviceType.FullName} to the cache.");
+            }
 
             // Return the instance from the cache.
-            return _serviceInstances[typeof(T)] as T;
+            return _serviceInstances[serviceType] as T;
         }
 
         public void SetDefaultCulture(string name)

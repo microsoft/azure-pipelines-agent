@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Agent.Sdk.Util;
+using Agent.Worker.Audit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -33,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             InstallWorkerCommand(new TaskSetTaskVariableCommand());
             InstallWorkerCommand(new TaskSetEndpointCommand());
             InstallWorkerCommand(new TaskPrepandPathCommand());
+            InstallWorkerCommand(new TaskAuditLogCommand());
         }
     }
 
@@ -676,6 +678,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var data = command.Data;
             context.Debug(data);
+        }
+    }
+
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskAuditLogCommand : IWorkerCommand
+    {
+        public string Name => "logAudit";
+        public List<string> Aliases => new() { "audit" };
+
+        public void Execute(IExecutionContext context, Command command)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
+            if (!AgentKnobs.EnableTaskAuditLogs.GetValue(context).AsBoolean())
+            {
+                var trace = context.GetHostContext().GetTrace(nameof(TaskAuditLogCommand));
+                trace.Info("Task logAudit command is disabled. Skipping.");
+                return;
+            }
+
+            var commandProperties = command.Properties;
+            if (!commandProperties.TryGetValue("taskId", out string taskIdStr)
+                || !Guid.TryParse(taskIdStr, out var taskId))
+            {
+                taskId = Guid.Empty;
+            }
+            if (!commandProperties.TryGetValue("taskVersion", out string taskVersion)
+                || string.IsNullOrEmpty(taskVersion))
+            {
+                taskVersion = "*";
+            }
+            if (!commandProperties.TryGetValue("action", out string actionStr)
+                || !Enum.TryParse<TaskAuditLog.TaskAuditLogAction>(actionStr, true, out var action))
+            {
+                action = TaskAuditLog.TaskAuditLogAction.Unknown;
+            }
+
+            var contextVariables = context.Variables;
+            var log = new TaskAuditLog()
+            {
+                Message = command.Data,
+                TaskId = taskId,
+                TaskVersion = taskVersion,
+                AuditAction = action,
+                PipelineId = contextVariables.GetInt(Constants.Variables.System.DefinitionId),
+                ProjectName = contextVariables.System_TeamProject,
+                PipelineName = contextVariables.Get(Constants.Variables.System.DefinitionName),
+                StageName = contextVariables.System_StageName,
+                JobName = contextVariables.System_JobName,
+                BuildId = contextVariables.Build_BuildId,
+                BuildNumber = contextVariables.Get(Constants.Variables.Build.Number),
+                ReleaseId = contextVariables.GetInt(Constants.Variables.Release.ReleaseId),
+                ReleaseName = contextVariables.Release_ReleaseName,
+            };
+
+            var hostContext = context.GetHostContext();
+            var commandContext = hostContext.CreateService<IAsyncCommandContext>();
+            commandContext.InitializeCommandContext(context, "TaskCommand_LogAudit");
+
+            var logsService = hostContext.GetService<ITaskAuditLogsService>();
+            commandContext.Task = logsService.SendLog(log);
+
+            context.AsyncCommands.Add(commandContext);
         }
     }
 
