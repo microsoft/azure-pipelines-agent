@@ -412,6 +412,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
+                if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
+                {
+                    if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsCorrelationIdRequired(handler, definition))
+                    {
+                        environment[Constants.CommandCorrelationIdEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId];
+                    }
+                }
+
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
 
                 //Start Resource utility monitors
@@ -672,6 +680,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ExecutionContext.Debug($"ExecutionHandler telemetry wasn't published, because one of the variables has unexpected value.");
                 ExecutionContext.Debug(ex.ToString());
             }
+        }
+
+        private bool IsCorrelationIdRequired(IHandler handler, Definition task)
+        {
+            Trace.Entering();
+            var isIdRequired = false;
+
+            if (handler is INodeHandler)
+            {
+                Trace.Info("Current handler is Node. Trying to determing the SDK version.");
+                var nodeSdkVer = task.GetNodeSDKVersion();
+
+                if (nodeSdkVer == null)
+                {
+                    Trace.Error("Unable to determine the Node SDK version.");
+                }
+                else
+                {
+                    var minVer = new TaskVersion() { Major = 4, Minor = 10, Patch = 1 };
+                    isIdRequired = (nodeSdkVer >= minVer) && !((nodeSdkVer.Major == 5) && nodeSdkVer.IsTest);
+                    Trace.Info($"Node SDK version: {nodeSdkVer}. Correlation ID is required: {isIdRequired}.");
+                }
+            }
+            else if (handler is IPowerShell3Handler)
+            {
+                Trace.Info("Current handler is PowerShell3. Trying to determing the SDK version.");
+                var psSdkVer = task.GetPowerShellSDKVersion();
+                if (psSdkVer == null)
+                {
+                    Trace.Error("Unable to determine the PowerShell SDK version.");
+                }
+                else
+                {
+                    var minVer = new TaskVersion() { Major = 0, Minor = 20, Patch = 1 };
+                    isIdRequired = psSdkVer >= minVer;
+                    Trace.Info($"PowerShell SDK version: {psSdkVer}. Correlation ID is required: {isIdRequired}.");
+                }
+            }
+            else
+            {
+                Trace.Info($"Current handler is {handler.GetType()}. Correlation ID is not allowed.");
+            }
+
+            Trace.Leaving();
+            return isIdRequired;
         }
     }
 }

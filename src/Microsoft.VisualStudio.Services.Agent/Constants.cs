@@ -88,6 +88,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
         public const string projectName = "projectName";
+        public const string CommandCorrelationIdEnvVar = "COMMAND_CORRELATION_ID";
+        public const string TaskInternalIssueSource = "TaskInternal";
 
         // Environment variable set on hosted Azure Pipelines images to
         // store the version of the image
