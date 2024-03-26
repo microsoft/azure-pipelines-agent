@@ -88,11 +88,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 MessageListener listener = new MessageListener();
                 listener.Initialize(tc);
 
-                int result = await listener.CreateSessionAsync(tokenSource.Token);
+                Constants.Agent.CreateSessionResult result = await listener.CreateSessionAsync(tokenSource.Token);
                 trace.Info("result: {0}", result);
 
                 // Assert.
-                Assert.Equal(Constants.Agent.ReturnCode.Success, result);
+                Assert.Equal(Constants.Agent.CreateSessionResult.Success, result);
                 _agentServer
                     .Verify(x => x.CreateAgentSessionAsync(
                         _settings.PoolId,
@@ -132,8 +132,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 MessageListener listener = new MessageListener();
                 listener.Initialize(tc);
 
-                int result = await listener.CreateSessionAsync(tokenSource.Token);
-                Assert.Equal(Constants.Agent.ReturnCode.Success, result);
+                Constants.Agent.CreateSessionResult result = await listener.CreateSessionAsync(tokenSource.Token);
+                Assert.Equal(Constants.Agent.CreateSessionResult.Success, result);
 
                 _agentServer
                     .Setup(x => x.DeleteAgentSessionAsync(
@@ -179,8 +179,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 MessageListener listener = new MessageListener();
                 listener.Initialize(tc);
 
-                int result = await listener.CreateSessionAsync(tokenSource.Token);
-                Assert.Equal(Constants.Agent.ReturnCode.Success, result);
+                Constants.Agent.CreateSessionResult result = await listener.CreateSessionAsync(tokenSource.Token);
+                Assert.Equal(Constants.Agent.CreateSessionResult.Success, result);
 
                 var arMessages = new TaskAgentMessage[]
                 {

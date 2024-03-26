@@ -327,10 +327,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Info(nameof(RunAsync));
                 _listener = HostContext.GetService<IMessageListener>();
-                int returnCode = await _listener.CreateSessionAsync(HostContext.AgentShutdownToken);
-                if (returnCode != Constants.Agent.ReturnCode.Success)
+                Constants.Agent.CreateSessionResult createSessionResult = await _listener.CreateSessionAsync(HostContext.AgentShutdownToken);
+                if (createSessionResult == Constants.Agent.CreateSessionResult.SessionConflict)
                 {
-                    return returnCode;
+                    return Constants.Agent.ReturnCode.SessionConflict;
+                }
+                else if (createSessionResult == Constants.Agent.CreateSessionResult.Failure)
+                {
+                    return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
                 HostContext.WritePerfCounter("SessionCreated");
