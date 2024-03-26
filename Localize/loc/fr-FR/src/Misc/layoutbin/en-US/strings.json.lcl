@@ -181,6 +181,15 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";AgentOutOfMemoryFailure" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Le worker de l’agent s’est arrêté avec le code 137, ce qui signifie qu’il est arrivé à court de mémoire. Assurez-vous que la mémoire de l’hôte de l’agent (conteneur) est suffisante.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";AgentReplaced" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Successfully replaced the agent]]></Val>
