@@ -5,6 +5,7 @@ LAYOUT_DIR=$3
 L1_MODE=$4
 
 INCLUDE_NODE6=${INCLUDE_NODE6:-true}
+INCLUDE_NODE10=${INCLUDE_NODE10:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
@@ -174,8 +175,10 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin
         acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.lib" node/bin
     fi
-    acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin
-    acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin
+    if [[ "$INCLUDE_NODE10" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin
+        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin
+    fi
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
@@ -190,7 +193,10 @@ else
         if [[ "$INCLUDE_NODE6" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.gz" node fix_nested_dir
         fi
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
+
+        if [[ "$INCLUDE_NODE10" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
+        fi
 
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
@@ -208,7 +214,9 @@ else
         if [[ "$INCLUDE_NODE6" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.gz" node fix_nested_dir
         fi
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
+        if [[ "$INCLUDE_NODE10" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
+        fi
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
     fi
