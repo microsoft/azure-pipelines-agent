@@ -768,7 +768,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    if (PlatformUtil.RunningOnLinux)
+                    if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD)
                     {
                         bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
 

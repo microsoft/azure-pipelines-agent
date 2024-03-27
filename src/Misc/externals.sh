@@ -149,6 +149,18 @@ function acquireExternalTool() {
     fi
 }
 
+function linkExternalTool() {
+    local source_file=$1 # E.g. /usr/local/bin/node
+    local target_dir="$LAYOUT_DIR/externals/$2" # E.g. $LAYOUT_DIR/externals/node/bin
+    local target_name=$3 # E.g. node
+    if [ -d "$target_dir" ]; then
+        rm -rf "$target_dir" || checkRC 'rm'
+    fi
+
+    mkdir -p "$target_dir" || checkRC 'mkdir'
+    ln -s "$source_file" "$target_dir/$target_name" || checkRC 'ln'
+}
+
 if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     # Download external tools for Windows.
 
@@ -195,6 +207,15 @@ else
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+    elif [[ "$PACKAGERUNTIME" == "freebsd-x64" ]]; then
+        # Create a link to node only for FreeBSD.
+
+        if [[ "$INCLUDE_NODE6" == "true" ]]; then
+            linkExternalTool /usr/local/bin/node node/bin node
+        fi
+        linkExternalTool /usr/local/bin/node node10/bin node
+        linkExternalTool /usr/local/bin/node node16/bin node
+        linkExternalTool /usr/local/bin/node node20_1/bin node
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# $FreeBSD$
+#
+# PROVIDE: {{Name}}
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name={{Name}}
+rcvar={{Name}}_enable
+{{Name}}_chdir="{{AgentRoot}}"
+{{Name}}_env_file="{{AgentRoot}}/.env_file"
+
+load_rc_config $name
+
+: ${{{Name}}_enable:="NO"}
+
+pidfile="{{AgentRoot}}/${name}.pid"
+
+command=/usr/sbin/daemon
+command_args="-f -P $pidfile -r -t \"{{Description}}\" -u {{User}} ./runsvc.sh"
+
+run_rc_command "$1"
