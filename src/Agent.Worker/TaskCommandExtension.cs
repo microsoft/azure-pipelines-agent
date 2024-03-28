@@ -371,6 +371,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
+            if (AgentKnobs.EnableIssueSourceValidation.GetValue(context).AsBoolean())
+            {
+                ProcessIssueSource(context, command);
+            }
+
             Issue taskIssue = null;
 
             String issueType;
@@ -386,6 +391,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             context.AddIssue(taskIssue);
+        }
+
+        private void ProcessIssueSource(IExecutionContext context, Command command)
+        {
+            if (!WorkerUtilities.IsCommandCorrelationIdValid(context, command, out bool correlationIdPresent))
+            {
+                _ = command.Properties.Remove(TaskWellKnownItems.IssueSourceProperty);
+
+                if (correlationIdPresent)
+                {
+                    context.Debug("The task provided an invalid correlation ID when using the task.issue command.");
+                }
+            }
+
+            _ = command.Properties.Remove("correlationId");
         }
 
         private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties)

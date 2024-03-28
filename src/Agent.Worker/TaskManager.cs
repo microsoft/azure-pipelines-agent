@@ -8,6 +8,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -410,6 +411,68 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public DefinitionData Data { get; set; }
         public string Directory { get; set; }
         public string ZipPath { get; set; }
+
+        public TaskVersion GetPowerShellSDKVersion()
+        {
+            var modulePath = Path.Combine(Directory, "ps_modules", "VstsTaskSdk", "VstsTaskSdk.psd1");
+            if (!File.Exists(modulePath))
+            {
+                return null;
+            }
+
+            var versionLine = File.ReadAllLines(modulePath).FirstOrDefault(x => x.Contains("ModuleVersion"));
+            if (string.IsNullOrEmpty(versionLine))
+            {
+                return null;
+            }
+
+            var verRegex = new Regex(@"\d+\.\d+\.\d+");
+            if (!verRegex.IsMatch(versionLine))
+            {
+                return null;
+            }
+
+            var version = new TaskVersion(verRegex.Match(versionLine).Value)
+            {
+                IsTest = new Regex("(?i)(preview|test)").IsMatch(versionLine)
+            };
+
+            return version;
+        }
+
+        public TaskVersion GetNodeSDKVersion()
+        {
+            var modulePath = Path.Combine(Directory, "node_modules", "azure-pipelines-task-lib", "package.json");
+            if (!File.Exists(modulePath))
+            {
+                return null;
+            }
+
+            string versionProp;
+            try
+            {
+                var file = File.ReadAllText(modulePath);
+                JObject json = JObject.Parse(file);
+                versionProp = json["version"].ToString();
+            }
+            catch
+            {
+                return null;
+            }
+
+            var verRegex = new Regex(@"\d+\.\d+\.\d+");
+            if (!verRegex.IsMatch(versionProp))
+            {
+                return null;
+            }
+
+            var version = new TaskVersion(verRegex.Match(versionProp).Value)
+            {
+                IsTest = new Regex("(?i)(preview|test)").IsMatch(versionProp)
+            };
+
+            return version;
+        }
     }
 
     public sealed class DefinitionData
