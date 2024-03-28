@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 
 using Xunit;
-using Agent.Worker.Handlers.Helpers;
 using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 
 namespace Test.L0.Worker.Handlers
 {
