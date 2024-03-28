@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Xunit;
@@ -10,17 +11,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
 {
     public sealed class WindowsProcessUtilL0
     {
-        [Fact]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public void Test_GetProcessList()
+        public void Test_GetProcessList(bool useInteropToFindParentProcess)
         {
             using TestHostContext hc = new TestHostContext(this);
             Tracing trace = hc.GetTrace();
 
-            // This test is based on the current process.
+            // Arrange: This test is based on the current process.
             Process currentProcess = Process.GetCurrentProcess();
 
             // The first three processes in the list.
@@ -31,10 +34,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
             string[] vsExpectedProcessNames = { currentProcess.ProcessName, "vstest.console", "ServiceHub.TestWindowStoreHost" };
 
             // Act.
-            string[] actualProcessNames =
-                WindowsProcessUtil
-                    .GetProcessList(currentProcess)
-                    .Take(expectedProcessNames.Length)
+            (List<Process> processes, Dictionary<string, string> telemetryErrors) = 
+                WindowsProcessUtil.GetProcessList(currentProcess, useInteropToFindParentProcess);
+
+            string[] actualProcessNames = processes.Take(expectedProcessNames.Length)
                     .Select(process => process.ProcessName)
                     .ToArray();
 
@@ -47,6 +50,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
             {
                 Assert.Equal(expectedProcessNames, actualProcessNames);
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void Test_GetParentProcessId_ViaInterop()
+        {
+            using TestHostContext hc = new TestHostContext(this);
+            Tracing trace = hc.GetTrace();
+
+            // Arrange: This test is based on the current process.
+            Process currentProcess = Process.GetCurrentProcess();
+
+            // Act.
+            int? parentProcessId = WindowsProcessUtil.GetParentProcessId(currentProcess.Handle);
+
+            // Assert.
+            Assert.NotNull(parentProcessId);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public void Test_GetParentProcess_ViaInterop()
+        {
+            using TestHostContext hc = new TestHostContext(this);
+            Tracing trace = hc.GetTrace();
+
+            // Arrange: This test is based on the current process.
+            Process currentProcess = Process.GetCurrentProcess();
+
+            // Act.
+            (Process parentProcess, Dictionary<string, string> telemetryErrors) = WindowsProcessUtil.GetParentProcess(currentProcess);
+
+            // Assert.
+            Assert.NotNull(parentProcess);
+            Assert.Equal(0, telemetryErrors.Count);
         }
     }
 }
