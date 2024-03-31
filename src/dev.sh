@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/.helpers.sh"
 
 REPO_ROOT="${SCRIPT_DIR}/.."
 DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
-DOTNETSDK_VERSION="6.0.413"
+DOTNETSDK_VERSION="6.0.418"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
@@ -31,6 +31,7 @@ DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
 PACKAGE_TYPE=${PACKAGE_TYPE:-agent} # agent or pipelines-agent
 if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
     export INCLUDE_NODE6="false"
+    export INCLUDE_NODE10="false"
 fi
 
 pushd "$SCRIPT_DIR"

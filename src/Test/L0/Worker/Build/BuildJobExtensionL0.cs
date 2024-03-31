@@ -182,8 +182,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             _ec.Setup(x => x.JobSettings).Returns(jobSettings);
 
             _ec.Setup(x =>
-                x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
-                .Callback((string varName, string varValue, bool isSecret, bool isOutput, bool isFilePath, bool isReadOnly) => { _variables.Set(varName, varValue, false); });
+                x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
+                .Callback((string varName, string varValue, bool isSecret, bool isOutput, bool isFilePath, bool isReadOnly, bool preserveCase) => { _variables.Set(varName, varValue, false); });
 
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });

@@ -22,5 +22,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         public const string EnableFlakyCheckInAgentFeatureFlag = "TestManagement.Agent.PTR.EnableFlakyCheck";
 
         public static readonly string EnableXUnitHeirarchicalParsing = "TestManagement.PublishTestResultsTask.EnableXUnitHeirarchicalParsing";
+
+        public static readonly string JUnitTestCaseAttachmentsEnabled = "TestManagement.Server.JUnitTestCaseAttachmentsEnabled";
+
+        public static readonly string EnableAzureTestPlanTaskFeatureFlag = "TestManagement.Server.EnableAzureTestPlanTaskFlow";
     }
 }

@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.FeatureAvailability;
 using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Agent.Listener.Configuration
@@ -24,35 +25,50 @@ namespace Agent.Listener.Configuration
         /// <param name="featureFlagName">The name of the feature flag to get the status of.</param>
         /// <param name="traceWriter">Trace writer for output</param>
         /// <returns>The status of the feature flag.</returns>
-        /// <exception cref="VssUnauthorizedException">Thrown if token is not suitable for retriving feature flag status</exception>
         /// <exception cref="InvalidOperationException">Thrown if agent is not configured</exception>
-        public Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter);
+        public Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter, CancellationToken ctk = default);
 
+        public Task<FeatureFlag> GetFeatureFlagWithCred(IHostContext context, string featureFlagName, ITraceWriter traceWriter, AgentSettings settings, VssCredentials creds, CancellationToken ctk = default);
     }
-
+    
     public class FeatureFlagProvider : AgentService, IFeatureFlagProvider
     {
 
-        public async Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName, ITraceWriter traceWriter)
+        public async Task<FeatureFlag> GetFeatureFlagAsync(IHostContext context, string featureFlagName,
+            ITraceWriter traceWriter, CancellationToken ctk = default)
         {
             traceWriter.Verbose(nameof(GetFeatureFlagAsync));
             ArgUtil.NotNull(featureFlagName, nameof(featureFlagName));
 
             var credMgr = context.GetService<ICredentialManager>();
-            var configManager = context.GetService<IConfigurationManager>();
-
             VssCredentials creds = credMgr.LoadCredentials();
-            ArgUtil.NotNull(creds, nameof(creds));
-            
+            var configManager = context.GetService<IConfigurationManager>();
             AgentSettings settings = configManager.LoadSettings();
-            using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter);
+
+            return await GetFeatureFlagWithCred(context, featureFlagName, traceWriter, settings, creds, ctk);
+        }
+
+        public async Task<FeatureFlag> GetFeatureFlagWithCred(IHostContext context, string featureFlagName,
+            ITraceWriter traceWriter, AgentSettings settings, VssCredentials creds, CancellationToken ctk)
+        {
+            var agentCertManager = context.GetService<IAgentCertificateManager>();
+
+            ArgUtil.NotNull(creds, nameof(creds));
+
+            using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter, agentCertManager.SkipServerCertificateValidation);
             var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {
-                return await client.GetFeatureFlagByNameAsync(featureFlagName);
-            } catch(VssServiceException e)
+                return await client.GetFeatureFlagByNameAsync(featureFlagName, checkFeatureExists: false, ctk);
+            }
+            catch (VssServiceException e)
             {
-                Trace.Warning("Unable to retrive feature flag status: " + e.ToString());
+                Trace.Warning("Unable to retrieve feature flag status: " + e.ToString());
+                return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
+            }
+            catch (VssUnauthorizedException e)
+            {
+                Trace.Warning("Unable to retrieve feature flag with following exception: " + e.ToString());
                 return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
             }
         }

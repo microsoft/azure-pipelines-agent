@@ -3,10 +3,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Plugins.Repository;
@@ -46,10 +44,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules, "submodules value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -76,10 +79,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { "SUBmodules", "submodules value" },
                     });
 
+                _executionContext.Inputs["FETCHfilter"] = "fetch filter value";
+                _executionContext.Inputs["FETCHtags"] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -172,10 +180,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { "unexpected", "unexpected value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -203,10 +216,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                         { Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules, "submodules value" },
                     });
 
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter] = "fetch filter value";
+                _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags] = "fetch tags value";
+
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 Assert.Equal("clean value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Clean]);
                 Assert.Equal("fetch depth value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth]);
+                Assert.Equal("fetch filter value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter]);
+                Assert.Equal("fetch tags value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags]);
                 Assert.Equal("lfs value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Lfs]);
                 Assert.Equal("persist credentials value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.PersistCredentials]);
                 Assert.Equal("submodules value", _executionContext.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.Submodules]);
@@ -281,7 +299,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Endpoints = new List<ServiceEndpoint>(),
                 Inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                   
+
                 },
                 Repositories = new List<Pipelines.RepositoryResource>(),
                 Variables = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase)
@@ -338,10 +356,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
             }
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public async Task RepositoryPlugin_InvalidPathInput()
+        public async Task RepositoryPlugin_InvalidPathInputDirectlyToBuildDirectory_DontAllowWorkingDirectoryRepository()
         {
             using (TestHostContext tc = new TestHostContext(this))
             {
@@ -350,11 +365,109 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 var repository = _executionContext.Repositories.Single();
                 var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
                 Directory.CreateDirectory(currentPath);
-                _executionContext.Inputs["Path"] = "..";
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}1";
 
                 var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("should resolve to a directory under"));
 
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_InvalidPathInputDirectlyToWorkingDirectory_AllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..";
+
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
+                Assert.True(ex.Message.Contains("should resolve to a directory under"));
+
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_InvalidPathInput_DontAllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc);
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}foo";
+
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
+                Assert.True(ex.Message.Contains("should resolve to a directory under"));
+
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_ValidPathInput_AllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}foo";
+
+
+                await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                Assert.NotEqual(actualPath, currentPath);
+                Assert.Equal(actualPath, Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "test", "foo"));
+                Assert.True(Directory.Exists(actualPath));
+                Assert.False(Directory.Exists(currentPath));
+
+                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                File.Copy(tc.TraceFileName, temp);
+                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_InvalidPathInput_AllowWorkingDirectoryRepositorie()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}..{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}foo";
+
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
+                Assert.True(ex.Message.Contains("should resolve to a directory under"));
                 var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
                 File.Copy(tc.TraceFileName, temp);
                 Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
@@ -440,12 +553,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
             return repo;
         }
 
-        private void Setup(TestHostContext hostContext)
+        private void Setup(TestHostContext hostContext, string allowWorkDirectory = "false")
         {
-            Setup(hostContext, new List<Pipelines.RepositoryResource>() { GetRepository(hostContext, "myRepo", "s") });
+            Setup(hostContext, new List<Pipelines.RepositoryResource>() { GetRepository(hostContext, "myRepo", "s") }, allowWorkDirectory);
         }
 
-        private void Setup(TestHostContext hostContext, List<Pipelines.RepositoryResource> repos)
+        private void Setup(TestHostContext hostContext, List<Pipelines.RepositoryResource> repos, string allowWorkDirectory = "false")
         {
             _executionContext = new AgentTaskPluginExecutionContext(hostContext.GetTrace())
             {
@@ -468,6 +581,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                     {
                         "agent.tempdirectory",
                         hostContext.GetDirectory(WellKnownDirectory.Temp)
+                    },
+                    {
+                        "AZP_AGENT_ALLOW_WORK_DIRECTORY_REPOSITORIES",
+                        allowWorkDirectory
                     }
                 },
                 JobSettings = new Dictionary<string, string>()

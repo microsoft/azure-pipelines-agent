@@ -2,11 +2,14 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+
 using Newtonsoft.Json;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -405,7 +408,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         // Cleanup the comment file.
                         if (File.Exists(commentFile))
                         {
-                            File.Delete(commentFile);
+                            try
+                            {
+                               await IOUtil.DeleteFileWithRetry(commentFile, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                Trace.Warning($"Unable to delete comment file, ex:{ex.GetType()}");
+                                Trace.Error(ex);
+                            }
                         }
                     }
                 }

@@ -137,6 +137,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             // OPTIONS
             dockerOptions.Add($"--name {container.ContainerDisplayName}");
             dockerOptions.Add($"--label {DockerInstanceLabel}");
+
+            if (AgentKnobs.AddDockerInitOption.GetValue(context).AsBoolean())
+            {
+                dockerOptions.Add("--init");
+            }
+
             if (!string.IsNullOrEmpty(container.ContainerNetwork))
             {
                 dockerOptions.Add($"--network {container.ContainerNetwork}");

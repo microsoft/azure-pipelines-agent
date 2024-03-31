@@ -16,6 +16,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -63,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
-        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false);
+        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
         void AddIssue(Issue issue);
         void Progress(int percentage, string currentOperation = null);
@@ -86,6 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         /// <returns></returns>
         void CancelForceTaskCompletion();
+        void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -118,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private string _buildLogsFile;
         private FileStream _buildLogsData;
         private StreamWriter _buildLogsWriter;
+        private bool emittedHostNode20FallbackTelemetry = false;
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
@@ -335,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Result.Value;
         }
 
-        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false)
+        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
 
@@ -349,11 +353,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
 
                 ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
-                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly));
+                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly), preserveCase: preserveCase);
             }
             else
             {
-                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly);
+                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly, preserveCase: preserveCase);
             }
         }
 
@@ -491,6 +495,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.CommandCorrelationId] = Guid.NewGuid().ToString();
             if (checkouts != null && checkouts.Count > 0)
             {
                 JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
@@ -776,6 +781,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configuration = HostContext.GetService<IConfigurationStore>();
             _record.WorkerName = configuration.GetSettings().AgentName;
+            _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
         }
@@ -889,6 +895,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             this._forceCompleteCancellationTokenSource = new CancellationTokenSource();
         }
 
+        public void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost)
+        {
+            if (!emittedHostNode20FallbackTelemetry)
+            {
+                PublishTelemetry(new Dictionary<string, string>
+                        {
+                            {  "HostNode20to16Fallback", node20ResultsInGlibCErrorHost.ToString() }
+                        });
+
+                emittedHostNode20FallbackTelemetry = true;
+            }
+        }
+
+        // This overload is to handle specific types some other way.
+        private void PublishTelemetry<T>(
+            Dictionary<string, T> telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            // JsonConvert.SerializeObject always converts to base object.
+            PublishTelemetry((object)telemetryData, feature);
+        }
+
+        private void PublishTelemetry(
+            object telemetryData,
+            string feature = "TaskHandler"
+        )
+        {
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(this, cmd);
+        }
+
         public void Dispose()
         {
             _cancellationTokenSource?.Dispose();
@@ -910,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(ex, nameof(ex));
 
-            context.Error(ex.Message);
+            context.Error(ex.Message, new Dictionary<string, string> { { TaskWellKnownItems.IssueSourceProperty, Constants.TaskInternalIssueSource } });
             context.Debug(ex.ToString());
         }
 
@@ -919,6 +965,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
+        }
+
+        public static void Error(this IExecutionContext context, string message, Dictionary<string, string> properties)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(properties, nameof(properties));
+
+            var issue = new Issue() { Type = IssueType.Error, Message = message };
+
+            foreach (var property in properties.Keys)
+            {
+                issue.Data[property] = properties[property];
+            }
+
+            context.AddIssue(issue);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

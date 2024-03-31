@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
             File.WriteAllBytes(path1, content1);
             File.WriteAllBytes(path2, content2);
 
-            using (var hasher = new SHA256Managed())
+            using (var hasher = SHA256.Create())
             {
                 hash1 = hasher.ComputeHash(content1);
                 hash2 = hasher.ComputeHash(content2);

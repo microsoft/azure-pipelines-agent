@@ -371,6 +371,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
+            if (AgentKnobs.EnableIssueSourceValidation.GetValue(context).AsBoolean())
+            {
+                ProcessIssueSource(context, command);
+            }
+
             Issue taskIssue = null;
 
             String issueType;
@@ -386,6 +391,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             context.AddIssue(taskIssue);
+        }
+
+        private void ProcessIssueSource(IExecutionContext context, Command command)
+        {
+            if (!WorkerUtilities.IsCommandCorrelationIdValid(context, command, out bool correlationIdPresent))
+            {
+                _ = command.Properties.Remove(TaskWellKnownItems.IssueSourceProperty);
+
+                if (correlationIdPresent)
+                {
+                    context.Debug("The task provided an invalid correlation ID when using the task.issue command.");
+                }
+            }
+
+            _ = command.Properties.Remove("correlationId");
         }
 
         private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties)
@@ -599,6 +619,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
             }
 
+            String preserveCaseValue;
+            Boolean preserveCase = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.PreserveCase, out preserveCaseValue))
+            {
+                Boolean.TryParse(preserveCaseValue, out preserveCase);
+            }
+
             if (context.Variables.IsReadOnly(name))
             {
                 // Check FF. If it is on then throw, otherwise warn
@@ -631,7 +658,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
             if (checker.CheckSettableVariable(context, name))
             {
-                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly);
+                context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, preserveCase: preserveCase);
             }
         }
     }
@@ -686,6 +713,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(isReadOnlyValue, out isReadOnly);
             }
 
+            String preserveCaseValue;
+            Boolean preserveCase = false;
+            if (eventProperties.TryGetValue(TaskSetVariableEventProperties.PreserveCase, out preserveCaseValue))
+            {
+                Boolean.TryParse(preserveCaseValue, out preserveCase);
+            }
+
             if (context.TaskVariables.IsReadOnly(name))
             {
                 // Check FF. If it is on then throw, otherwise warn
@@ -710,7 +744,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            context.TaskVariables.Set(name, data, secret: isSecret, readOnly: isReadOnly);
+            context.TaskVariables.Set(name, data, secret: isSecret, readOnly: isReadOnly, preserveCase: preserveCase);
         }
     }
 
@@ -827,6 +861,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public static readonly String IsSecret = "issecret";
         public static readonly String IsOutput = "isoutput";
         public static readonly String IsReadOnly = "isreadonly";
+        public static readonly String PreserveCase = "preservecase";
     }
 
     internal static class TaskCompleteEventProperties

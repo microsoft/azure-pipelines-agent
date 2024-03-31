@@ -93,9 +93,14 @@ exports.getHashes = function() {
 
     const hashes = {};
     for (const hashFileName of hashFiles) {
+        const hashFilePath = path.join(hashesDirPath, hashFileName);
+        if (fs.statSync(hashFilePath).isDirectory()) {
+            console.log(`Skipping directory ${hashFilePath}`);
+           continue;
+        }
         const agentPackageFileName = hashFileName.replace('.sha256', '');
 
-        const hashFileContent = fs.readFileSync(path.join(hashesDirPath, hashFileName), 'utf-8').trim();
+        const hashFileContent = fs.readFileSync(hashFilePath, 'utf-8').trim();
         // Last 64 characters are the sha256 hash value
         const hashStringLength = 64;
         const hash = hashFileContent.slice(hashFileContent.length - hashStringLength);

@@ -77,10 +77,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
 
                 var configManager = context.GetService<IConfigurationManager>();
                 AgentSettings settings = configManager.LoadSettings();
+                var agentCertManager = context.GetService<IAgentCertificateManager>();
 
-                using var vsConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace);
+                using var vsConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, Trace, agentCertManager.SkipServerCertificateValidation);
                 _ciService.Initialize(vsConnection);
-                await PublishEventsAsync(context, ciEvent);
+                /// This endpoint is not accepting data on some old Azure DevOps OnPremise versions
+                try
+                {
+                    await PublishEventsAsync(context, ciEvent);
+                } catch (VssUnauthorizedException)
+                {
+                    Trace.Warning("Unable to publish telemetry data");
+                }
+                
 
             }
             // We never want to break pipelines in case of telemetry failure.
@@ -92,7 +101,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
 
         private async Task PublishEventsAsync(IHostContext context, CustomerIntelligenceEvent ciEvent)
         {
-            await _ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            try
+            {
+                await _ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
+            } catch (VssUnauthorizedException) {
+                Trace.Warning("Unable to publish telemetry data");
+            }
         }
     }
     internal static class WellKnownEventTrackProperties

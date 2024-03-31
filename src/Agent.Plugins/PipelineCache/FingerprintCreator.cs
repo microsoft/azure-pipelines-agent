@@ -104,7 +104,7 @@ namespace Agent.Plugins.PipelineCache
 
         internal class MatchedFile
         {
-            private static readonly SHA256Managed s_sha256 = new SHA256Managed();
+            private static readonly SHA256 s_sha256 = SHA256.Create();
 
             public MatchedFile(string displayPath, long fileLength, string hash)
             {

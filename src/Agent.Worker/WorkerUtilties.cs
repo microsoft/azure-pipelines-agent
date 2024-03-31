@@ -131,5 +131,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 workspaceOptions: message.Workspace,
                 steps: message.Steps);
         }
+
+        public static bool IsCommandCorrelationIdValid(IExecutionContext executionContext, Command command, out bool correlationIdPresent)
+        {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(command, nameof(command));
+            correlationIdPresent = command.Properties.TryGetValue("correlationId", out string correlationId);
+
+            return correlationIdPresent && correlationId.Equals(executionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId], StringComparison.Ordinal);
+        }
+
+        internal static bool IsCommandResultGlibcError(IExecutionContext executionContext, List<string> nodeVersionOutput, out string nodeInfoLineOut)
+        {
+            nodeInfoLineOut = "";
+
+            if (nodeVersionOutput.Count > 0)
+            {
+                foreach (var nodeInfoLine in nodeVersionOutput)
+                {
+                    // detect example error from node 20 attempting to run on Ubuntu18:
+                    // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by /__a/externals/node20/bin/node)
+                    // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found (required by /__a/externals/node20/bin/node)
+                    // /__a/externals/node20/bin/node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.25' not found (required by /__a/externals/node20/bin/node)
+                    if (nodeInfoLine.Contains("version `GLIBC_2.28' not found")
+                        || nodeInfoLine.Contains("version `GLIBC_2.25' not found")
+                        || nodeInfoLine.Contains("version `GLIBC_2.27' not found"))
+                    {
+                        nodeInfoLineOut = nodeInfoLine;
+
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }

@@ -18,6 +18,8 @@ using Azure.Identity;
 using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.Win32;
 using Newtonsoft.Json;
@@ -406,21 +408,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
             {
-                string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
-                defaultWorkingDirectory = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(defaultWorkingDirectory));
-                if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                if (AgentKnobs.MountWorkspace.GetValue(executionContext).AsBoolean())
                 {
-                    throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                    string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
+                    workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
+                    string mountWorkspace = container.TranslateToHostPath(workspace);
+                    executionContext.Debug($"Workspace {workspace}");
+                    executionContext.Debug($"Mount Workspace {mountWorkspace}");
+                    container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
                 }
-
-                string workingDirectory = IOUtil.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), container.ImageOS);
-                string mountWorkingDirectory = container.TranslateToHostPath(workingDirectory);
-                executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
-                executionContext.Debug($"Working Directory {workingDirectory}");
-                executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
-                if (!string.IsNullOrEmpty(workingDirectory))
+                else
                 {
-                    container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
+                    string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
+                    defaultWorkingDirectory = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(defaultWorkingDirectory));
+                    if (string.IsNullOrEmpty(defaultWorkingDirectory))
+                    {
+                        throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
+                    }
+
+                    string workingDirectory = IOUtil.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), container.ImageOS);
+                    string mountWorkingDirectory = container.TranslateToHostPath(workingDirectory);
+                    executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
+                    executionContext.Debug($"Working Directory {workingDirectory}");
+                    executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
+                    if (!string.IsNullOrEmpty(workingDirectory))
+                    {
+                        container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
+                    }
                 }
 
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
@@ -754,6 +768,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    if (PlatformUtil.RunningOnLinux)
+                    {
+                        bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
+
+                        if (!useNode20InUnsupportedSystem)
+                        {
+                            var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                            string node20TestCmd = $"bash -c \"{node20} -v\"";
+                            List<string> nodeVersionOutput = await DockerExec(executionContext, container.ContainerId, node20TestCmd, noExceptionOnError: true);
+
+                            container.NeedsNode16Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, nodeVersionOutput, out string nodeInfoLine);
+
+                            if (container.NeedsNode16Redirect)
+                            {
+                                PublishTelemetry(
+                                    executionContext,
+                                    new Dictionary<string, string>
+                                    {
+                                        {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
+                                    }
+                                );
+                            }
+                        }
+
+                    }
+
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
@@ -897,7 +938,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command)
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError=false)
         {
             Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
             List<string> output = new List<string>();
@@ -915,7 +956,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (exitCode != 0)
             {
                 Trace.Error(message);
-                throw new InvalidOperationException(message);
+                if(!noExceptionOnError)
+                {
+                    throw new InvalidOperationException(message);
+                }
             }
             Trace.Info(message);
             return output;
@@ -931,12 +975,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (PlatformUtil.RunningOnWindows)
             {
+                #pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
                 // service CExecSvc is Container Execution Agent.
                 ServiceController[] scServices = ServiceController.GetServices();
                 if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
                 {
                     throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
                 }
+                #pragma warning restore CA1416
             }
             else
             {
@@ -983,6 +1029,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
+        }
+
+        private void PublishTelemetry(
+            IExecutionContext executionContext,
+            object telemetryData,
+            string feature = nameof(ContainerOperationProvider))
+        {
+            var cmd = new Command("telemetry", "publish")
+            {
+                Data = JsonConvert.SerializeObject(telemetryData, Formatting.None)
+            };
+            cmd.Properties.Add("area", "PipelinesTasks");
+            cmd.Properties.Add("feature", feature);
+
+            var publishTelemetryCmd = new TelemetryCommandExtension();
+            publishTelemetryCmd.Initialize(HostContext);
+            publishTelemetryCmd.ProcessCommand(executionContext, cmd);
         }
     }
 }

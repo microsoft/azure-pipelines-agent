@@ -657,6 +657,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.Warning("Unable turn off git auto garbage collection, git fetch operation may trigger auto garbage collection which will affect the performance of fetching.");
             }
 
+            SetGitFeatureFlagsConfiguration(executionContext, _gitCommandManager, targetPath);
+
             // always remove any possible left extraheader setting from git config.
             if (await _gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
             {
@@ -1226,6 +1228,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             {
                 timer.Stop();
                 executionContext.Output($"Total time for executing maintenance for repository '{repositoryPath}': {timer.Elapsed.TotalSeconds} seconds.");
+            }
+        }
+
+        public async void SetGitFeatureFlagsConfiguration(
+            IExecutionContext executionContext,
+            IGitCommandManager gitCommandManager,
+            string targetPath)
+        {
+            if (AgentKnobs.UseGitSingleThread.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.threads", "1");
+            }
+
+            if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.windowmemory", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.deltaCacheSize", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.packSizeLimit", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "http.postBuffer", "524288000");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitwindowsize", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitlimit", "256m");
+            }
+
+            if (AgentKnobs.UseGitLongPaths.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.longpaths", "true");
             }
         }
 

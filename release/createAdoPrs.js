@@ -9,16 +9,16 @@ const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
 
 const opt = require('node-getopt').create([
-    ['',  'dryrun',               'Dry run only, do not actually commit new release'],
-    ['h', 'help',                 'Display this help'],
-  ])
-  .setHelp(
-    'Usage: node createAdoPrs.js [OPTION] <version>\n' +
-    '\n' +
-    '[[OPTIONS]]\n'
-  )
-  .bindHelp()     // bind option 'help' to default action
-  .parseSystem(); // parse command line
+    ['', 'dryrun', 'Dry run only, do not actually commit new release'],
+    ['h', 'help', 'Display this help'],
+])
+    .setHelp(
+        'Usage: node createAdoPrs.js [OPTION] <version>\n' +
+        '\n' +
+        '[[OPTIONS]]\n'
+    )
+    .bindHelp()     // bind option 'help' to default action
+    .parseSystem(); // parse command line
 
 const orgUrl = 'dev.azure.com/mseng';
 const httpsOrgUrl = `https://${orgUrl}`;
@@ -134,6 +134,8 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     const prLink = `${httpsOrgUrl}/${project}/_git/${repo}/pullrequest/${PR.pullRequestId}`;
     console.log(`Link to the PR: ${prLink}`);
+
+    return [PR.pullRequestId, prLink];
 }
 
 /**
@@ -174,7 +176,7 @@ async function main() {
         const commitMessage = `Agent Release ${agentVersion}`;
         const title = 'Update Agent';
 
-        await openPR(
+        const [adoPrId, adoPrLink] = await openPR(
             'AzureDevOps',
             project, sourceBranch, targetBranch, commitMessage, title,
             `Update agent to version ${agentVersion}`,
@@ -185,7 +187,7 @@ async function main() {
             ]
         );
 
-        await openPR(
+        const [ccPrId, ccPrLink] = await openPR(
             'AzureDevOps.ConfigChange',
             project, sourceBranch, targetBranch, commitMessage, title,
             `Update agent publish script to version ${agentVersion}`,
@@ -195,6 +197,12 @@ async function main() {
                 )
             ]
         );
+
+        console.log(`##vso[task.setvariable variable=AdoPrId;isOutput=true]${adoPrId}`);
+        console.log(`##vso[task.setvariable variable=AdoPrLink;isOutput=true]${adoPrLink}`);
+
+        console.log(`##vso[task.setvariable variable=CcPrId;isOutput=true]${ccPrId}`);
+        console.log(`##vso[task.setvariable variable=CcPrLink;isOutput=true]${ccPrLink}`);
 
         console.log('Done.');
     } catch (err) {

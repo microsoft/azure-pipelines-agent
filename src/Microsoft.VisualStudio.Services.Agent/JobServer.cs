@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Agent.Sdk.Util;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -160,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             BlobIdentifier blobId = VsoHash.CalculateBlobIdentifierWithBlocks(blob).BlobId;
 
-            // Since we read this while calculating the hash, the position needs to be reset before we send this 
+            // Since we read this while calculating the hash, the position needs to be reset before we send this
             blob.Position = 0;
 
             using (var blobClient = CreateArtifactsClient(_connection, default(CancellationToken)))
@@ -172,8 +173,19 @@ namespace Microsoft.VisualStudio.Services.Agent
         public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, Guid planId, Guid jobId, CancellationToken cancellationToken)
         {
             int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
-            var (dedupClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                    .CreateDedupClientAsync(verbose, (str) => Trace.Info(str), this._connection, maxParallelism, cancellationToken);
+            var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
+                _connection, 
+                client: null, 
+                DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => Trace.Info(str)), cancellationToken);
+            var (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
+                .CreateDedupClient(
+                    _connection,
+                    WellKnownDomainIds.DefaultDomainId,
+                    maxParallelism,
+                    clientSettings.GetRedirectTimeout(),
+                    verbose,
+                    (str) => Trace.Info(str),
+                    cancellationToken);
 
             var results = await BlobStoreUtils.UploadToBlobStore(verbose, itemPath, (level, uri, type) =>
                 new TimelineRecordAttachmentTelemetryRecord(level, uri, type, nameof(UploadAttachmentToBlobStore), planId, jobId, Guid.Empty), (str) => Trace.Info(str), dedupClient, clientTelemetry, cancellationToken);

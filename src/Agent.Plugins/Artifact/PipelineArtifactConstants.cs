@@ -3,6 +3,7 @@
 
 namespace Agent.Plugins
 {
+    // Use PipelineArtifactContants.cs from ADO, once the latest libs are available.
     public class PipelineArtifactConstants
     {
         public const string AzurePipelinesAgent = "AzurePipelinesAgent";
@@ -18,5 +19,6 @@ namespace Agent.Plugins
         public const string FileShareArtifact = "filepath";
         public const string CustomPropertiesPrefix = "user-";
         public const string HashType = "HashType";
+        public const string DomainId = "DomainId";
     }
 }

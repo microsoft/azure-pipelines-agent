@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Security;
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -19,6 +20,7 @@ using Microsoft.Win32;
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     [ServiceLocator(Default = typeof(NativeWindowsServiceHelper))]
+    [SupportedOSPlatform("windows")]
     public interface INativeWindowsServiceHelper : IAgentService
     {
         string GetUniqueBuildGroupName();
@@ -82,6 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         bool IsManagedServiceAccount(string accountName);
     }
 
+    [SupportedOSPlatform("windows")]
     public class NativeWindowsServiceHelper : AgentService, INativeWindowsServiceHelper
     {
         private const string AgentServiceLocalGroupPrefix = "VSTS_AgentService_G";

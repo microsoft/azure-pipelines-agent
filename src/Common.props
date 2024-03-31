@@ -1,8 +1,9 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
-    <RuntimeFrameworkVersion>6.0.21</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>6.0.26</RuntimeFrameworkVersion>
     <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
     <NoWarn>NU1701;NU1603</NoWarn>
@@ -10,9 +11,10 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.222-private</VssApiVersion>
+    <VssApiVersion>0.5.238-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -37,8 +39,11 @@
     <OSArchitecture>X86</OSArchitecture>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX'">
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-x64'">
     <OSArchitecture>X64</OSArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-x64'">
@@ -52,10 +57,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm64'">
     <OSArchitecture>ARM64</OSArchitecture>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\rules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
   <PropertyGroup>

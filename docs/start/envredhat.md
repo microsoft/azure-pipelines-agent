@@ -46,3 +46,13 @@ The agent distributes [Team Explorer Everywhere (TEE)](https://www.visualstudio.
 
 But, if you are using TfsVc, install Oracle Java 1.8+ as TEE uses Java.
 
+## RHEL Universal Base Images (UBI) packages
+
+```bash
+yum install -y git unzip libicu
+```
+
+UBI 8 will require `glibc-langpack-en` to be installed:
+```bash
+yum -y install glibc-langpack-en
+```
