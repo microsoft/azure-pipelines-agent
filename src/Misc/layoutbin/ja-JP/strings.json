@@ -18,7 +18,7 @@
   "AgentMachinePoolNameLabel": "エージェント プール",
   "AgentName": "エージェント名",
   "AgentNameLog": "エージェント名: `{0}`",
-  "AgentOutOfMemoryFailure": "The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.",
+  "AgentOutOfMemoryFailure": "エージェント ワーカーがコード 137 で終了しました。これはメモリ不足を意味しています。エージェント (コンテナー) ホストに十分なメモリが構成されていることを確認します。",
   "AgentReplaced": "エージェントが正常に置き換えられました",
   "agentRootFolderCheckError": "エージェント ルート フォルダーのアクセス規則を確認できません。詳細については、ログを確認してください。",
   "agentRootFolderInsecure": "セキュリティ警告! グループ {0} は、エージェント フォルダーの書き込み/変更にアクセスできます。詳細については、ログを確認してください。",

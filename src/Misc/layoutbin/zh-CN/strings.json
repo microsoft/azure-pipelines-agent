@@ -18,7 +18,7 @@
   "AgentMachinePoolNameLabel": "代理池",
   "AgentName": "代理名称",
   "AgentNameLog": "代理名称: \"{0}\"",
-  "AgentOutOfMemoryFailure": "The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.",
+  "AgentOutOfMemoryFailure": "代理辅助角色已退出，代码为 137，这意味着内存不足。确保代理(容器)主机配置了足够的内存。",
   "AgentReplaced": "已成功替换代理",
   "agentRootFolderCheckError": "无法检查代理根文件夹的访问规则。有关更多详细信息，请查看日志。",
   "agentRootFolderInsecure": "安全警告! 组 {0} 有权写入/修改代理文件夹。有关更多详细信息，请查看日志。",

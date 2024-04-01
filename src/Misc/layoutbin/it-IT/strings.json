@@ -18,7 +18,7 @@
   "AgentMachinePoolNameLabel": "pool di agenti",
   "AgentName": "nome agente",
   "AgentNameLog": "Nome agente: '{0}'",
-  "AgentOutOfMemoryFailure": "The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.",
+  "AgentOutOfMemoryFailure": "Il ruolo di lavoro agente è terminato con il codice 137, quindi la memoria è esaurita. Verificare che nell'host dell'agente (contenitore) sia configurata memoria sufficiente.",
   "AgentReplaced": "L'agente è stato sostituito",
   "agentRootFolderCheckError": "Impossibile controllare le regole di accesso della cartella radice dell'agente. Esaminare il log per altri dettagli.",
   "agentRootFolderInsecure": "Avviso di sicurezza. Il gruppo {0} ha accesso per scrivere/modificare la cartella dell'agente. Esaminare il log per altri dettagli.",

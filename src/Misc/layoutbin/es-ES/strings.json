@@ -18,7 +18,7 @@
   "AgentMachinePoolNameLabel": "grupo de agentes",
   "AgentName": "nombre del agente",
   "AgentNameLog": "Nombre del agente: '{0}'",
-  "AgentOutOfMemoryFailure": "The agent worker exited with code 137, which means it ran out of memory. Make sure the agent (container) host has sufficient memory configured.",
+  "AgentOutOfMemoryFailure": "El trabajo del agente se cerró con el código 137, lo que significa que se quedó sin memoria. Asegúrese de que el host del agente (contenedor) tenga suficiente memoria configurada.",
   "AgentReplaced": "El agente se reemplazó correctamente",
   "agentRootFolderCheckError": "No se pueden comprobar las reglas de acceso de la carpeta raíz del agente. Examine el registro para obtener más detalles.",
   "agentRootFolderInsecure": "Advertencia de seguridad: El grupo {0} tiene acceso para escribir o modificar la carpeta del agente. Examine el registro para obtener más detalles.",
