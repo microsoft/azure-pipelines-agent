@@ -117,10 +117,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         private ProcessInvoker _invoker;
         public bool DisableWorkerCommands { get; set; }
 
+        public static TimeSpan? CustomSigintTimeout;
+        public static TimeSpan? CustomSigtermTimeout;
+
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
-            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands);
+            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands, CustomSigintTimeout, CustomSigtermTimeout);
         }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;

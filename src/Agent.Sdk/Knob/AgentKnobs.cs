@@ -258,6 +258,20 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_RETRY_LIMIT"),
             new BuiltInDefaultKnobSource("3"));
 
+        public static readonly Knob ProccessSigintTimeout = new Knob(
+            nameof(ProccessSigintTimeout),
+            "Attempts to download a task when starting a job",
+            new RuntimeKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new BuiltInDefaultKnobSource("7500"));
+
+        public static readonly Knob ProccessSigtermTimeout = new Knob(
+            nameof(ProccessSigtermTimeout),
+            "Attempts to download a task when starting a job",
+            new RuntimeKnobSource("PROCESS_SIGTERM_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new BuiltInDefaultKnobSource("2500"));
+
         // HTTP
         public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
         public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(

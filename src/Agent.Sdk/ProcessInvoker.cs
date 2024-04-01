@@ -31,8 +31,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private readonly TaskCompletionSource<bool> _processExitedCompletionSource = new TaskCompletionSource<bool>();
         private readonly ConcurrentQueue<string> _errorData = new ConcurrentQueue<string>();
         private readonly ConcurrentQueue<string> _outputData = new ConcurrentQueue<string>();
-        private readonly TimeSpan _sigintTimeout = TimeSpan.FromMilliseconds(7500);
-        private readonly TimeSpan _sigtermTimeout = TimeSpan.FromMilliseconds(2500);
+        private readonly TimeSpan _defaultSigintTimeout = TimeSpan.FromMilliseconds(7500);
+        private readonly TimeSpan _defaultSigtermTimeout = TimeSpan.FromMilliseconds(2500);
+        private readonly TimeSpan _sigintTimeout;
+        private readonly TimeSpan _sigtermTimeout;
 
         private ITraceWriter Trace { get; set; }
 
@@ -67,10 +69,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
 
-        public ProcessInvoker(ITraceWriter trace, bool disableWorkerCommands = false)
+        public ProcessInvoker(ITraceWriter trace, bool disableWorkerCommands = false, TimeSpan? sigintTimeout = null, TimeSpan? sigtermTimeout = null)
         {
             this.Trace = trace;
             this.DisableWorkerCommands = disableWorkerCommands;
+            this._sigintTimeout = sigintTimeout ?? _defaultSigintTimeout;
+            this._sigtermTimeout = sigtermTimeout ?? _defaultSigtermTimeout;
         }
 
         public Task<int> ExecuteAsync(
@@ -231,6 +235,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
             Trace.Info($"  High priority process: '{highPriorityProcess}'");
             Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
+            Trace.Info($"  Sigint timeout: '{_sigintTimeout}'");
+            Trace.Info($"  Sigterm timeout: '{_sigtermTimeout}'");
 
             _proc = new Process();
             _proc.StartInfo.FileName = fileName;
