@@ -58,6 +58,18 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Guid AppStorePromoteTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd976");
             public static readonly Guid AppStoreReleaseTask = new Guid("2e371150-da5e-11e5-83da-0943b1acc572");
             public static readonly Guid IpaResignTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd977");
+
+            // ms.advancedsecurity-tasks
+            public static readonly Guid AdvancedSecurityPublishTask = new Guid("a95ad3e1-3950-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlAnalyze = new Guid("a9efc1ef-3900-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlAutobuild = new Guid("a63ec2fb-3600-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlInit = new Guid("a34f8529-3300-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityDependencyScanning = new Guid("f97aace4-962a-441b-9141-b842d806b9c7");
+
+            // advancedsecurity.iac-tasks
+            public static readonly Guid TemplateAnalyzerSarif = new Guid("2ff4011a-8c38-46ae-9654-29d7d45ce875");
+            public static readonly Guid TerrascanSarif = new Guid("f1af679c-4cbf-4952-98c9-c772c8eb9920");
+            public static readonly Guid TrivySarif = new Guid("93e29b44-e118-445d-b809-ae3c7907bee7");
         }
 
         public static List<Guid> RequiredForTelemetry = new()
@@ -69,7 +81,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             MicrosoftExtensionTaskIds.GooglePlayStatusUpdateTask,
             MicrosoftExtensionTaskIds.AppStorePromoteTask,
             MicrosoftExtensionTaskIds.AppStoreReleaseTask,
-            MicrosoftExtensionTaskIds.IpaResignTask
+            MicrosoftExtensionTaskIds.IpaResignTask,
+            MicrosoftExtensionTaskIds.AdvancedSecurityPublishTask,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlAnalyze,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlAutobuild,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlInit,
+            MicrosoftExtensionTaskIds.AdvancedSecurityDependencyScanning,
+            MicrosoftExtensionTaskIds.TemplateAnalyzerSarif,
+            MicrosoftExtensionTaskIds.TerrascanSarif,
+            MicrosoftExtensionTaskIds.TrivySarif
         };
     }
 

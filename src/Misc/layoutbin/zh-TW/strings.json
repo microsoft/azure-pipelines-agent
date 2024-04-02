@@ -18,6 +18,7 @@
   "AgentMachinePoolNameLabel": "代理程式集區",
   "AgentName": "代理程式名稱",
   "AgentNameLog": "代理程式名稱: '{0}'",
+  "AgentOutOfMemoryFailure": "代理程式背景工作角色已結束，代碼為 137，這表示記憶體不足。請確定代理程式 (容器) 主機已設定足夠的記憶體。",
   "AgentReplaced": "已成功取代代理程式",
   "agentRootFolderCheckError": "無法檢查代理程式根資料夾的存取規則。如需詳細資料，請檢查記錄。",
   "agentRootFolderInsecure": "安全性警告! 群組 {0} 具有寫入/修改代理程式資料夾的存取。如需詳細資料，請檢查記錄。",

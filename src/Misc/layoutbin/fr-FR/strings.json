@@ -18,6 +18,7 @@
   "AgentMachinePoolNameLabel": "pool d'agents",
   "AgentName": "nom de l’agent",
   "AgentNameLog": "Nom de l’agent : «{0}»",
+  "AgentOutOfMemoryFailure": "Le worker de l’agent s’est arrêté avec le code 137, ce qui signifie qu’il est arrivé à court de mémoire. Assurez-vous que la mémoire de l’hôte de l’agent (conteneur) est suffisante.",
   "AgentReplaced": "Agent remplacé",
   "agentRootFolderCheckError": "Impossible de vérifier les règles d’accès du dossier racine de l’agent. Pour plus d’informations, consultez le journal.",
   "agentRootFolderInsecure": "Avertissement de sécurité ! Le groupe {0} a accès à l’écriture/modification du dossier de l’agent. Pour plus d’informations, consultez le journal.",
