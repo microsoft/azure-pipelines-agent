@@ -269,7 +269,7 @@ namespace Agent.Sdk.Knob
             nameof(ProccessSigtermTimeout),
             "Attempts to download a task when starting a job",
             new RuntimeKnobSource("PROCESS_SIGTERM_TIMEOUT"),
-            new EnvironmentKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGTERM_TIMEOUT"),
             new BuiltInDefaultKnobSource("2500"));
 
         // HTTP
