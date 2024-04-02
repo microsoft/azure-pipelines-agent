@@ -108,15 +108,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
 
                 // Set sigint and sigterm values using the knob for every process running by the ProcessInvokerWrapper.
-                if (int.TryParse(AgentKnobs.ProccessSigintTimeout.GetValue(jobContext).AsString(), out int processSigint))
-                {
-                    ProcessInvokerWrapper.CustomSigintTimeout = TimeSpan.FromMilliseconds(processSigint);
-                }
-
-                if (int.TryParse(AgentKnobs.ProccessSigtermTimeout.GetValue(jobContext).AsString(), out int processSigterm))
-                {
-                    ProcessInvokerWrapper.CustomSigtermTimeout = TimeSpan.FromMilliseconds(processSigterm);
-                }
+                ProcessInvokerWrapper.CustomSigintTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigintTimeout.GetValue(jobContext).AsInt());
+                ProcessInvokerWrapper.CustomSigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(jobContext).AsInt());
 
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
