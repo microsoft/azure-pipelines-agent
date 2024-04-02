@@ -16,6 +16,9 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
+        TimeSpan SigintTimeout { get; set; }
+        TimeSpan SigtermTimeout { get; set; }
+        bool TryUseGracefulShutdown { get; set; }
 
         Task<int> ExecuteAsync(
             string workingDirectory,
@@ -117,13 +120,15 @@ namespace Microsoft.VisualStudio.Services.Agent
         private ProcessInvoker _invoker;
         public bool DisableWorkerCommands { get; set; }
 
-        public static TimeSpan? CustomSigintTimeout;
-        public static TimeSpan? CustomSigtermTimeout;
+        public TimeSpan SigintTimeout { get; set; } = TimeSpan.FromMilliseconds(7500);
+        public TimeSpan SigtermTimeout { get; set; } = TimeSpan.FromMilliseconds(2500);
+        public bool TryUseGracefulShutdown { get; set; }
 
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
-            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands, CustomSigintTimeout, CustomSigtermTimeout);
+            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands, SigintTimeout, SigtermTimeout);
+            _invoker.TryUseGracefulShutdown = TryUseGracefulShutdown;
         }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;

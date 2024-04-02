@@ -65,6 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         }
 
         public bool DisableWorkerCommands { get; set; }
+        public bool TryUseGracefulShutdown { get; set; }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
@@ -237,6 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
             Trace.Info($"  Sigint timeout: '{_sigintTimeout}'");
             Trace.Info($"  Sigterm timeout: '{_sigtermTimeout}'");
+            Trace.Info($"  Try to use graceful shutdown: {TryUseGracefulShutdown}");
 
             _proc = new Process();
             _proc.StartInfo.FileName = fileName;
@@ -455,6 +457,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
+            bool gracefulShoutdown = !killProcessOnCancel && TryUseGracefulShutdown;
+
             ArgUtil.NotNull(_proc, nameof(_proc));
             if (!killProcessOnCancel)
             {
@@ -462,6 +466,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigint_succeed)
                 {
                     Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
+                    return;
+                }
+
+                if (gracefulShoutdown)
+                {
                     return;
                 }
 

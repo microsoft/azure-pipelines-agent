@@ -107,8 +107,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext = HostContext.CreateService<IExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
 
-                SetProcessInvokerTimeouts(jobContext);
-
                 Trace.Info("Starting the job execution context.");
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
@@ -634,29 +632,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
-            }
-        }
-
-        private void SetProcessInvokerTimeouts(IExecutionContext context)
-        {
-            // Set sigint and sigterm values using the knob for every process running by the ProcessInvokerWrapper.
-
-            if (int.TryParse(AgentKnobs.ProccessSigintTimeout.GetValue(context).AsString(), out int sigintTimeout))
-            {
-                ProcessInvokerWrapper.CustomSigintTimeout = TimeSpan.FromMilliseconds(sigintTimeout);
-            }
-            else
-            {
-                throw new ArgumentException($"{AgentKnobs.ProccessSigintTimeout.Name} variable has an incorrect value");
-            }
-
-            if (int.TryParse(AgentKnobs.ProccessSigtermTimeout.GetValue(context).AsString(), out int sigtermTimeout))
-            {
-                ProcessInvokerWrapper.CustomSigtermTimeout = TimeSpan.FromMilliseconds(sigtermTimeout);
-            }
-            else
-            {
-                throw new ArgumentException($"{AgentKnobs.ProccessSigtermTimeout.Name} variable has an incorrect value");
             }
         }
     }
