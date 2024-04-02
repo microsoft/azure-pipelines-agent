@@ -31,6 +31,7 @@ DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
 PACKAGE_TYPE=${PACKAGE_TYPE:-agent} # agent or pipelines-agent
 if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
     export INCLUDE_NODE6="false"
+    export INCLUDE_NODE10="false"
 fi
 
 pushd "$SCRIPT_DIR"
