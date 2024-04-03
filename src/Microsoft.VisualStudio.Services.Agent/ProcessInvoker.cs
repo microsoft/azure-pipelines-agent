@@ -141,8 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public override void Initialize(IHostContext hostContext)
         {
             base.Initialize(hostContext);
-            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands, SigintTimeout, SigtermTimeout);
-            _invoker.TryUseGracefulShutdown = TryUseGracefulShutdown;
+            _invoker = new ProcessInvoker(Trace, DisableWorkerCommands);
         }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
