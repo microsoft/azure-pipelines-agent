@@ -33,8 +33,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private readonly ConcurrentQueue<string> _outputData = new ConcurrentQueue<string>();
         private readonly TimeSpan _defaultSigintTimeout = TimeSpan.FromMilliseconds(7500);
         private readonly TimeSpan _defaultSigtermTimeout = TimeSpan.FromMilliseconds(2500);
-        private readonly TimeSpan _sigintTimeout;
-        private readonly TimeSpan _sigtermTimeout;
 
         private ITraceWriter Trace { get; set; }
 
@@ -66,6 +64,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public bool DisableWorkerCommands { get; set; }
         public bool TryUseGracefulShutdown { get; set; }
+        public TimeSpan SigintTimeout { get; set; }
+        public TimeSpan SigtermTimeout { get; set; }
 
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
@@ -74,8 +74,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             this.Trace = trace;
             this.DisableWorkerCommands = disableWorkerCommands;
-            this._sigintTimeout = sigintTimeout ?? _defaultSigintTimeout;
-            this._sigtermTimeout = sigtermTimeout ?? _defaultSigtermTimeout;
+            this.SigintTimeout = sigintTimeout ?? _defaultSigintTimeout;
+            this.SigtermTimeout = sigtermTimeout ?? _defaultSigtermTimeout;
         }
 
         public Task<int> ExecuteAsync(
@@ -236,8 +236,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
             Trace.Info($"  High priority process: '{highPriorityProcess}'");
             Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
-            Trace.Info($"  Sigint timeout: '{_sigintTimeout}'");
-            Trace.Info($"  Sigterm timeout: '{_sigtermTimeout}'");
+            Trace.Info($"  Sigint timeout: '{SigtermTimeout}'");
+            Trace.Info($"  Sigterm timeout: '{SigtermTimeout}'");
             Trace.Info($"  Try to use graceful shutdown: {TryUseGracefulShutdown}");
 
             _proc = new Process();
@@ -457,12 +457,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
-            bool gracefulShoutdown = !killProcessOnCancel && TryUseGracefulShutdown;
+            bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
             ArgUtil.NotNull(_proc, nameof(_proc));
             if (!killProcessOnCancel)
             {
-                bool sigint_succeed = await SendSIGINT(_sigintTimeout);
+                bool sigint_succeed = await SendSIGINT(SigintTimeout);
                 if (sigint_succeed)
                 {
                     Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
@@ -474,7 +474,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     return;
                 }
 
-                bool sigterm_succeed = await SendSIGTERM(_sigtermTimeout);
+                bool sigterm_succeed = await SendSIGTERM(SigtermTimeout);
                 if (sigterm_succeed)
                 {
                     Trace.Info("Process terminate successfully through Ctrl+Break/SIGTERM.");

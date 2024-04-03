@@ -120,9 +120,23 @@ namespace Microsoft.VisualStudio.Services.Agent
         private ProcessInvoker _invoker;
         public bool DisableWorkerCommands { get; set; }
 
-        public TimeSpan SigintTimeout { get; set; } = TimeSpan.FromMilliseconds(7500);
-        public TimeSpan SigtermTimeout { get; set; } = TimeSpan.FromMilliseconds(2500);
-        public bool TryUseGracefulShutdown { get; set; }
+        public TimeSpan SigintTimeout
+        {
+            get => _invoker.SigintTimeout;
+            set => _invoker.SigintTimeout = value;
+        }
+
+        public TimeSpan SigtermTimeout
+        {
+            get => _invoker.SigtermTimeout;
+            set => _invoker.SigtermTimeout = value;
+        }
+
+        public bool TryUseGracefulShutdown
+        {
+            get => _invoker.TryUseGracefulShutdown;
+            set => _invoker.TryUseGracefulShutdown = value;
+        }
 
         public override void Initialize(IHostContext hostContext)
         {
