@@ -657,5 +657,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
             new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob RsaKeyGetConfigFromFF = new Knob(
+            nameof(RsaKeyGetConfigFromFF),
+            "Get config from FF.",
+            new EnvironmentKnobSource("RSAKEYGETCONFIGFROMFF"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
