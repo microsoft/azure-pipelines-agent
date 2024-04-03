@@ -236,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
             Trace.Info($"  High priority process: '{highPriorityProcess}'");
             Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
-            Trace.Info($"  Sigint timeout: '{SigtermTimeout}'");
+            Trace.Info($"  Sigint timeout: '{SigintTimeout}'");
             Trace.Info($"  Sigterm timeout: '{SigtermTimeout}'");
             Trace.Info($"  Try to use graceful shutdown: {TryUseGracefulShutdown}");
 
