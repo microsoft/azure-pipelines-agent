@@ -656,5 +656,12 @@ namespace Agent.Sdk.Knob
             "Use CNG API to store agent key.  Note: Uses Private User Storage",
             new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseInteropToFindParentProcess = new Knob(
+            nameof(UseInteropToFindParentProcess),
+            "Uses native Windows function to find parent processes of a process.",
+            new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

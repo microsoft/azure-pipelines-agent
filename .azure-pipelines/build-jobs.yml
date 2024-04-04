@@ -82,7 +82,7 @@ jobs:
   - template: /.azure-pipelines/build-job.yml@self
     parameters:
       jobName: ${{ parameters.jobName }}_alternate
-      displayName: ${{ parameters.displayName }} (without Node 6)
+      displayName: ${{ parameters.displayName }} (without Node 6, Node 10)
       pool: ${{ parameters.pool }}
       container: ${{ parameters.container }}
       timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
