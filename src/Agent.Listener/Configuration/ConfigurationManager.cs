@@ -189,9 +189,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
-                var result = keyManager.GetStoreAgentTokenConfig();
-                var enableAgentKeyStoreInNamedContainer = result.useNamedContainer;
-                var useCng = result.useCng;
+                var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
+                var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
+                var useCng = ffResult.useCng;
                 using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
                 {
                     publicKey = rsa.ExportParameters(false);
@@ -201,9 +201,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
-                var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
-                var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
-                var useCng = ffResult.useCng;
+                var result = keyManager.GetStoreAgentTokenConfig();
+                var enableAgentKeyStoreInNamedContainer = result.useNamedContainer;
+                var useCng = result.useCng;
                 using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
                 {
                     publicKey = rsa.ExportParameters(false);
