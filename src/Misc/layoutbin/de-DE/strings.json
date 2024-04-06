@@ -18,6 +18,7 @@
   "AgentMachinePoolNameLabel": "Agentpool",
   "AgentName": "Agent-Name",
   "AgentNameLog": "Agentname: „{0}“",
+  "AgentOutOfMemoryFailure": "Der Agent-Worker wurde mit Code 137 beendet, was bedeutet, dass nicht genügend Arbeitsspeicher verfügbar war. Stellen Sie sicher, dass für den Agenthost (Containerhost) ausreichend Arbeitsspeicher konfiguriert ist.",
   "AgentReplaced": "Der Agent wurde erfolgreich ersetzt.",
   "agentRootFolderCheckError": "Die Zugriffsregeln für den Stammordner des Agents können nicht überprüft werden. Weitere Informationen finden Sie im Protokoll.",
   "agentRootFolderInsecure": "Sicherheitswarnung! Die Gruppe „{0}“ hat Zugriff zum Schreiben/Ändern des Agentordners. Weitere Informationen finden Sie im Protokoll.",

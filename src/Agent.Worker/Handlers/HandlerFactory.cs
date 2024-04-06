@@ -93,7 +93,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (data is ProcessHandlerData)
             {
                 // Process.
-                handler = HostContext.CreateService<IProcessHandler>();
+                if (AgentKnobs.UseProcessHandlerV2.GetValue(executionContext).AsBoolean())
+                {
+                    Trace.Info("Using ProcessHandlerV2");
+                    handler = HostContext.CreateService<IProcessHandlerV2>();
+                }
+                else
+                {
+                    handler = HostContext.CreateService<IProcessHandler>();
+                }
+
                 (handler as IProcessHandler).Data = data as ProcessHandlerData;
             }
             else if (data is PowerShellHandlerData)

@@ -534,9 +534,15 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
-            "Enables new sanitization logic for process handler",
+            "Enables new args protect logic for process handler",
             new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseProcessHandlerV2 = new Knob(
+            nameof(UseProcessHandlerV2),
+            "Enables new Process handler (v2)",
+            new RuntimeKnobSource("AGENT_USE_PROCESS_HANDLER_V2"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
@@ -649,6 +655,13 @@ namespace Agent.Sdk.Knob
             nameof(AgentKeyUseCng),
             "Use CNG API to store agent key.  Note: Uses Private User Storage",
             new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseInteropToFindParentProcess = new Knob(
+            nameof(UseInteropToFindParentProcess),
+            "Uses native Windows function to find parent processes of a process.",
+            new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
