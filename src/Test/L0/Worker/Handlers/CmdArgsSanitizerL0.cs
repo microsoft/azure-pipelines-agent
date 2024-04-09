@@ -3,7 +3,7 @@
 
 using Xunit;
 using System.Collections.Generic;
-using Agent.Worker.Handlers.Helpers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 
 namespace Test.L0.Worker.Handlers
 {
