@@ -47,7 +47,7 @@ The only exception is the Windows version of the agent for TFS 2015 since it is 
 ## Latest and Pre-release labels for releases
 
 Releases have labels **Latest** and **Pre-release**. Please make a note that the labels mean:
-- **Latest** - this is current agent release, available for all customers or partially (in case if this is active release, which is under roll out right now).
+- **Latest** - this is the current release of the agent, available to all clients or partially available (in case it is an active release that is currently under deployment).
 - **Pre-release** - Next version, release process of the agent version was started and it's already available for some of the users. And will be available soon for the rest.
 
 Each new version of agent is released for users by groups during several days. And usually it becomes available for all users within 6-8 days after start of release. The release has label "Pre-release" during all these days. So it's expected behavior if specific release is used by builds in pipelines but it's marked as "Pre-release".
