@@ -84,12 +84,13 @@ then
                 exit 1
             fi
 
+            package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
             # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0            
             apt install -y libssl3 || apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0 || \
-                    (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb \
-                    && dpkg -i libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb)
+                    (wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" \
+                    && dpkg -i $package)
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -120,9 +121,10 @@ then
                 # debian 10 uses libssl1.1
                 # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
+                package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
                 apt-get install -y libssl3 || apt-get install -y libssl1.1 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.0.0 || \
-                   (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb \
-                   && dpkg -i libssl1.1_1.1.1f-1ubuntu2.17_amd64.deb)
+                   (wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" \
+                   && dpkg -i $package)
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
