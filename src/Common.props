@@ -2,7 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
     <RuntimeFrameworkVersion>6.0.26</RuntimeFrameworkVersion>
-    <RuntimeIdentifier>$(PackageRuntime)</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(BuildingInsideVisualStudio)' != 'true'">$(PackageRuntime)</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <AssetTargetFallback>portable-net45+win8</AssetTargetFallback>
     <NoWarn>NU1701;NU1603</NoWarn>
@@ -10,9 +11,10 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.232-private</VssApiVersion>
+    <VssApiVersion>0.5.238-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -57,8 +59,9 @@
     <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\rules.ruleset</CodeAnalysisRuleSet>
+  <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' == 'true'">
+    <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X86'">win-x86</RuntimeIdentifier>
   </PropertyGroup>
 
   <PropertyGroup>

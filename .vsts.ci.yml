@@ -1,3 +1,4 @@
+# This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
 parameters:
 - name: testProxyAgent
   type: boolean
@@ -47,9 +48,8 @@ pr:
     - 'docs/*'
 
 extends:
-  template: .azure-pipelines/pipeline.yml
+  template: /.azure-pipelines/pipeline.yml@self
   parameters:
-    componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     testProxyAgent: ${{ parameters.testProxyAgent }}

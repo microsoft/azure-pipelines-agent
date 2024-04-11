@@ -54,14 +54,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public sealed class NodeHandler : Handler, INodeHandler
     {
         private readonly INodeHandlerHelper nodeHandlerHelper;
-        private const string nodeFolder = "node";
         private const string node10Folder = "node10";
+        internal const string NodeFolder = "node";
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
         private static readonly string nodeLTS = Node16Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
-        private string[] possibleNodeFolders = { nodeFolder, node10Folder, Node16Folder, Node20_1Folder };
+        private string[] possibleNodeFolders = { NodeFolder, node10Folder, Node16Folder, Node20_1Folder };
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -215,6 +215,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 outputEncoding = Encoding.UTF8;
             }
 
+            var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+
             try
             {
                 // Execute the process. Exit code 0 should always be returned.
@@ -243,6 +245,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     await step;
                 }
             }
+            catch (ProcessExitCodeException ex)
+            {
+                if (enableResourceUtilizationWarnings && ex.ExitCode == 137)
+                {
+                    ExecutionContext.Error(StringUtil.Loc("AgentOutOfMemoryFailure"));
+                }
+
+                throw;
+            }
             finally
             {
                 StepHost.OutputDataReceived -= OnDataReceived;
@@ -269,7 +280,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool taskHasNode20_1Data = Data is Node20_1HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
-            string nodeFolder = NodeHandler.nodeFolder;
+            string nodeFolder = NodeHandler.NodeFolder;
 
             if (taskHasNode20_1Data)
             {
@@ -305,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
 
-                if(node20ResultsInGlibCError)
+                if (node20ResultsInGlibCError)
                 {
                     nodeFolder = NodeHandler.Node16Folder;
                     Node16FallbackWarning(inContainer);
@@ -321,7 +332,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = NodeHandler.node10Folder;
             }
-            if (nodeFolder == NodeHandler.nodeFolder &&
+            if (nodeFolder == NodeHandler.NodeFolder &&
                 AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean() == true)
             {
                 ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));

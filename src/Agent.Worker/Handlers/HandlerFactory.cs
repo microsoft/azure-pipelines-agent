@@ -76,20 +76,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else if (data is PowerShell3HandlerData)
             {
+                #pragma warning disable CA1416 // PowerShell handlers are Windows only
                 // PowerShell3.
                 handler = HostContext.CreateService<IPowerShell3Handler>();
                 (handler as IPowerShell3Handler).Data = data as PowerShell3HandlerData;
+                #pragma warning restore CA1416
             }
             else if (data is PowerShellExeHandlerData)
             {
+                #pragma warning disable CA1416 // PowerShell handlers are Windows only
                 // PowerShellExe.
                 handler = HostContext.CreateService<IPowerShellExeHandler>();
                 (handler as IPowerShellExeHandler).Data = data as PowerShellExeHandlerData;
+                #pragma warning restore CA1416
             }
             else if (data is ProcessHandlerData)
             {
                 // Process.
-                handler = HostContext.CreateService<IProcessHandler>();
+                if (AgentKnobs.UseProcessHandlerV2.GetValue(executionContext).AsBoolean())
+                {
+                    Trace.Info("Using ProcessHandlerV2");
+                    handler = HostContext.CreateService<IProcessHandlerV2>();
+                }
+                else
+                {
+                    handler = HostContext.CreateService<IProcessHandler>();
+                }
+
                 (handler as IProcessHandler).Data = data as ProcessHandlerData;
             }
             else if (data is PowerShellHandlerData)

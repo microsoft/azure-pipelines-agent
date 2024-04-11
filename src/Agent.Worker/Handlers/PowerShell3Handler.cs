@@ -3,16 +3,19 @@
 
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     [ServiceLocator(Default = typeof(PowerShell3Handler))]
+    [SupportedOSPlatform("windows")]
     public interface IPowerShell3Handler : IHandler
     {
         PowerShell3HandlerData Data { get; set; }
     }
 
+    [SupportedOSPlatform("windows")]
     public sealed class PowerShell3Handler : Handler, IPowerShell3Handler
     {
         public PowerShell3HandlerData Data { get; set; }

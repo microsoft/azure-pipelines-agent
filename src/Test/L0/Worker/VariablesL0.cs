@@ -30,12 +30,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var variables = new Variables(hc, copy, out warnings);
 
                 // Act.
-                KeyValuePair<string, string>[] publicVariables = variables.Public.ToArray();
+                Variable[] publicVariables = variables.Public.ToArray();
 
                 // Assert.
                 Assert.Equal(0, warnings.Count);
                 Assert.Equal(1, publicVariables.Length);
-                Assert.Equal("MyPublicVariable", publicVariables[0].Key);
+                Assert.Equal("MyPublicVariable", publicVariables[0].Name);
                 Assert.Equal("My public value", publicVariables[0].Value);
                 Assert.Equal("My secret value", variables.Get("MySecretName"));
             }
@@ -391,12 +391,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var variables = new Variables(hc, copy, out warnings);
 
                 // Act.
-                KeyValuePair<string, string>[] publicVariables = variables.Public.ToArray();
+                Variable[] publicVariables = variables.Public.ToArray();
 
                 // Assert.
                 Assert.Equal(0, warnings.Count);
                 Assert.Equal(1, publicVariables.Length);
-                Assert.Equal("MyPublicVariable", publicVariables[0].Key);
+                Assert.Equal("MyPublicVariable", publicVariables[0].Name);
                 Assert.Equal("My public value", publicVariables[0].Value);
             }
         }

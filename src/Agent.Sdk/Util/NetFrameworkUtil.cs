@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
+    [SupportedOSPlatform("windows")]
     public static class NetFrameworkUtil
     {
         private static List<Version> _versions;

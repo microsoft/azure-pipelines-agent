@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
-using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -272,7 +271,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private void GenerateScriptFile(string cmdExe, string command, string arguments)
         {
             var scriptId = Guid.NewGuid().ToString();
-            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8]);
+            string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8], preserveCase: false);
 
             System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
 
@@ -363,13 +362,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     ExecutionContext.Output(line);
                 }
             }
-        }
-    }
-
-    public class InvalidScriptArgsException : Exception
-    {
-        public InvalidScriptArgsException(string message) : base(message)
-        {
         }
     }
 }

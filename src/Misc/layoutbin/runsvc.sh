@@ -12,8 +12,16 @@ fi
 
 # insert anything to setup env when running as a service
 
+# fallback on Node16 if Node20 is not supported by the host
+./externals/node20_1/bin/node --version
+if [ $? == 0 ]; then
+    NODE_VER="node20_1"
+else    
+    NODE_VER="node16"
+fi
+
 # run the host process which keep the listener alive
-./externals/node16/bin/node ./bin/AgentService.js &
+./externals/"$NODE_VER"/bin/node ./bin/AgentService.js &
 PID=$!
 wait $PID
 trap - TERM INT

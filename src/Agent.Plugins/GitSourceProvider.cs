@@ -340,6 +340,8 @@ namespace Agent.Plugins.Repository
             // default fetchTags to true unless it's specifically set to false
             bool fetchTags = StringUtil.ConvertToBoolean(executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.FetchTags), true);
 
+            string fetchFilter = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter);
+
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
             executionContext.Debug($"sourceBranch={sourceBranch}");
@@ -349,6 +351,7 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"checkoutNestedSubmodules={checkoutNestedSubmodules}");
             executionContext.Debug($"exposeCred={exposeCred}");
             executionContext.Debug($"fetchDepth={fetchDepth}");
+            executionContext.Debug($"fetchFilter={fetchFilter}");
             executionContext.Debug($"fetchTags={fetchTags}");
             executionContext.Debug($"gitLfsSupport={gitLfsSupport}");
             executionContext.Debug($"acceptUntrustedCerts={acceptUntrustedCerts}");
@@ -388,7 +391,7 @@ namespace Agent.Plugins.Repository
             foreach (var variable in executionContext.Variables)
             {
                 // Add the variable using the formatted name.
-                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key);
+                string formattedKey = VarUtil.ConvertToEnvVariableFormat(variable.Key, preserveCase: false);
                 gitEnv[formattedKey] = variable.Value?.Value ?? string.Empty;
             }
 
@@ -404,7 +407,7 @@ namespace Agent.Plugins.Repository
 
             // Make sure the build machine met all requirements for the git repository
             // For now, the requirement we have are:
-            // 1. git version greater than 2.9  and git-lfs version greater than 2.1 for on-prem tfsgit
+            // 1. git version greater than 2.9 and git-lfs version greater than 2.1 for on-prem tfsgit
             // 2. git version greater than 2.14.2 if use SChannel for SSL backend (Windows only)
             RequirementCheck(executionContext, repository, gitCommandManager);
             string username = string.Empty;
@@ -684,17 +687,7 @@ namespace Agent.Plugins.Repository
                 executionContext.Warning("Unable turn off git auto garbage collection, git fetch operation may trigger auto garbage collection which will affect the performance of fetching.");
             }
 
-            if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(executionContext).AsBoolean())
-            {
-                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.threads", "1");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "http.postBuffer", "524288000");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitwindowsize", "256m");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitlimit", "256m");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.windowmemory", "256m");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.deltaCacheSize", "256m");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.packSizeLimit", "256m");
-                await gitCommandManager.GitConfig(executionContext, targetPath, "core.longpaths", "true");
-            }
+            SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
 
             // always remove any possible left extraheader setting from git config.
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
@@ -875,6 +868,7 @@ namespace Agent.Plugins.Repository
             string refFetchedByCommit = null;
 
             executionContext.Debug($"fetchDepth : {fetchDepth}");
+            executionContext.Debug($"fetchFilter : {fetchFilter}");
             executionContext.Debug($"fetchByCommit : {fetchByCommit}");
             executionContext.Debug($"sourceVersion : {sourceVersion}");
             executionContext.Debug($"fetchTags : {fetchTags}");
@@ -905,7 +899,7 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -917,7 +911,7 @@ namespace Agent.Plugins.Repository
             if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
             {
                 List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
-                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
                 if (exitCode_fetch != 0)
                 {
                     throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -1312,6 +1306,32 @@ namespace Agent.Plugins.Repository
             if (!string.IsNullOrEmpty(clientCertPrivateKeyAskPassFile))
             {
                 IOUtil.DeleteFile(clientCertPrivateKeyAskPassFile);
+            }
+        }
+
+        public async void SetGitFeatureFlagsConfiguration(
+            AgentTaskPluginExecutionContext executionContext,
+            IGitCliManager gitCommandManager,
+            string targetPath)
+        {
+            if (AgentKnobs.UseGitSingleThread.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.threads", "1");
+            }
+
+            if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.windowmemory", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.deltaCacheSize", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "pack.packSizeLimit", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "http.postBuffer", "524288000");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitwindowsize", "256m");
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.packedgitlimit", "256m");
+            }
+
+            if (AgentKnobs.UseGitLongPaths.GetValue(executionContext).AsBoolean())
+            {
+                await gitCommandManager.GitConfig(executionContext, targetPath, "core.longpaths", "true");
             }
         }
 

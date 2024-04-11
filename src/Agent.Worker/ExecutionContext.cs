@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
-        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false);
+        void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
         void AddIssue(Issue issue);
         void Progress(int percentage, string currentOperation = null);
@@ -339,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Result.Value;
         }
 
-        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false)
+        public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
 
@@ -353,11 +353,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
 
                 ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
-                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly));
+                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly), preserveCase: preserveCase);
             }
             else
             {
-                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly);
+                Variables.Set(name, value, secret: isSecret, readOnly: isReadOnly, preserveCase: preserveCase);
             }
         }
 
@@ -495,6 +495,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.CommandCorrelationId] = Guid.NewGuid().ToString();
             if (checkouts != null && checkouts.Count > 0)
             {
                 JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
@@ -780,6 +781,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configuration = HostContext.GetService<IConfigurationStore>();
             _record.WorkerName = configuration.GetSettings().AgentName;
+            _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
         }
@@ -954,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(ex, nameof(ex));
 
-            context.Error(ex.Message);
+            context.Error(ex.Message, new Dictionary<string, string> { { TaskWellKnownItems.IssueSourceProperty, Constants.TaskInternalIssueSource } });
             context.Debug(ex.ToString());
         }
 
@@ -963,6 +965,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
+        }
+
+        public static void Error(this IExecutionContext context, string message, Dictionary<string, string> properties)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(properties, nameof(properties));
+
+            var issue = new Issue() { Type = IssueType.Error, Message = message };
+
+            foreach (var property in properties.Keys)
+            {
+                issue.Data[property] = properties[property];
+            }
+
+            context.AddIssue(issue);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

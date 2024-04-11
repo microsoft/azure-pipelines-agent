@@ -18,7 +18,12 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Agent.Plugins.Repository
 {
-    public class GitCliManager
+    public interface IGitCliManager
+    {
+        Task<int> GitConfig(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey, string configValue);
+    }
+
+    public class GitCliManager : IGitCliManager
     {
         private static Encoding _encoding
         {
@@ -77,27 +82,57 @@ namespace Agent.Plugins.Repository
             return gitLfsVersion >= requiredVersion;
         }
 
+        public (string gitPath, string gitLfsPath) GetInternalGitPaths(
+            AgentTaskPluginExecutionContext context,
+            bool useLatestGitVersion)
+        {
+            string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
+            ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
+
+            string gitPath;
+
+            if (useLatestGitVersion)
+            {
+                gitPath = Path.Combine(agentHomeDir, "externals", "ff_git", "cmd", $"git.exe");
+            }
+            else
+            {
+                gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
+            }
+
+            context.Debug($@"The useLatestGitVersion property is set to ""{useLatestGitVersion}"" therefore the Git path is ""{gitPath}""");
+
+            string gitLfsPath;
+
+            if (PlatformUtil.BuiltOnX86)
+            {
+                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", "mingw32", "bin", "git-lfs.exe");
+            }
+            else
+            {
+                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", "mingw64", "bin", "git-lfs.exe");
+            }
+
+            return (gitPath, gitLfsPath);
+        }
+
         public virtual async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
         {
             // There is no built-in git for OSX/Linux
             gitPath = null;
+            gitLfsPath = null;
 
             // Resolve the location of git.
             if (useBuiltInGit && PlatformUtil.RunningOnWindows)
             {
-                string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
-                ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
+                context.Debug("Git paths are resolving from internal dependencies");
 
-                if (AgentKnobs.FixPossibleGitOutOfMemoryProblem.GetValue(context).AsBoolean())
-                {
-                    gitPath = Path.Combine(agentHomeDir, "externals", "ff_git", "cmd", $"git.exe");
-                }
-                else
-                {
-                    gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
-                }
+                var (resolvedGitPath, resolvedGitLfsPath) = GetInternalGitPaths(
+                    context,
+                    AgentKnobs.UseLatestGitVersion.GetValue(context).AsBoolean());
 
-                gitLfsPath = Path.Combine(agentHomeDir, "externals", "git", PlatformUtil.BuiltOnX86 ? "mingw32" : "mingw64", "bin", "git-lfs.exe");
+                gitPath = resolvedGitPath;
+                gitLfsPath = resolvedGitLfsPath;
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));
@@ -163,7 +198,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, string fetchFilter, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             context.Debug($"Fetch git repository at: {repositoryPath} remote: {remoteName}.");
             if (refSpec != null && refSpec.Count > 0)
@@ -201,8 +236,50 @@ namespace Agent.Plugins.Repository
             // add --unshallow to convert the shallow repository to a complete repository
             string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty);
 
+            // parse filter and only include valid options
+            List<string> filters = new List<String>();
+
+            if (AgentKnobs.UseFetchFilterInCheckoutTask.GetValue(context).AsBoolean())
+            {
+                List<string> splitFilter = fetchFilter.Split('+').Where(filter => !String.IsNullOrWhiteSpace(filter)).ToList();
+
+                foreach (string filter in splitFilter)
+                {
+                    List<string> parsedFilter = filter.Split(':')
+                        .Where(filter => !String.IsNullOrWhiteSpace(filter))
+                        .Select(filter => filter.Trim())
+                        .ToList();
+
+                    if (parsedFilter.Count == 2)
+                    {
+                        switch (parsedFilter[0].ToLower())
+                        {
+                            case "tree":
+                                // currently only supporting treeless filter
+                                if (int.TryParse(parsedFilter[1], out int treeSize) && treeSize == 0)
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{treeSize}");
+                                }
+                                break;
+
+                            case "blob":
+                                // currently only supporting blobless filter
+                                if (parsedFilter[1].Equals("none", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{parsedFilter[1]}");
+                                }
+                                break;
+
+                            default:
+                                // either invalid or unsupported git object
+                                break;
+                        }
+                    }
+                }
+            }
+
             //define options for fetch
-            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
+            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {String.Join(" ", filters.Select(filter => "--filter=" + filter))} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -222,6 +299,8 @@ namespace Agent.Plugins.Repository
                     { "RefSpec", string.Join(" ", refSpec) },
                     { "RemoteName", remoteName },
                     { "FetchDepth", $"{fetchDepth}" },
+                    { "FetchFilter", $"{String.Join(" ", filters)}" },
+                    { "FetchTags", $"{fetchTags}" },
                     { "ExitCode", $"{fetchExitCode}" },
                     { "Options", options }
                 });

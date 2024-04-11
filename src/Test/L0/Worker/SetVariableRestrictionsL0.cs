@@ -266,8 +266,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.GetHostContext()).Returns(hc);
             _ec.Setup(x => x.Variables).Returns(_variables);
-            _ec.Setup(x => x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
-                .Callback<string, string, bool, bool, bool, bool>((name, value, secret, b2, b3, readOnly) => _variables.Set(name, value, secret, readOnly));
+            _ec.Setup(x => x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
+                .Callback<string, string, bool, bool, bool, bool, bool>((name, value, secret, b2, b3, readOnly, preserveCase) => _variables.Set(name, value, secret, readOnly, preserveCase));
             _ec.Setup(x => x.AddIssue(It.IsAny<Issue>()))
                 .Callback<Issue>((issue) =>
                     {

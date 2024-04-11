@@ -5,17 +5,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Text;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
     [ServiceLocator(Default = typeof(SystemDControlManager))]
+    [SupportedOSPlatform("linux")]
     public interface ILinuxServiceControlManager : IAgentService
     {
         void GenerateScripts(AgentSettings settings);
     }
 
+    
+    [SupportedOSPlatform("linux")]
     public class SystemDControlManager : ServiceControlManager, ILinuxServiceControlManager
     {
         // This is the name you would see when you do `systemctl list-units | grep vsts`

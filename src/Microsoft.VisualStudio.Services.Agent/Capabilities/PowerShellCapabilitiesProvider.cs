@@ -6,11 +6,13 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Capabilities
 {
+    [SupportedOSPlatform("windows")]
     public sealed class PowerShellCapabilitiesProvider : AgentService, ICapabilitiesProvider
     {
         public Type ExtensionType => typeof(ICapabilitiesProvider);
