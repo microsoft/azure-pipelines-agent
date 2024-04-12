@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Framework.Common;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -103,6 +104,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool highPriorityProcess,
             bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken);
+
+        Task<int> ExecuteAsync(ProcessInvokerParams inputParams, CancellationToken cancellationToken);
     }
 
     // The implementation of the process invoker does not hook up DataReceivedEvent and ErrorReceivedEvent of Process,
@@ -303,22 +306,31 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
-            _invoker.ErrorDataReceived += this.ErrorDataReceived;
-            _invoker.OutputDataReceived += this.OutputDataReceived;
-            return await _invoker.ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: requireExitCodeZero,
-                outputEncoding: outputEncoding,
-                killProcessOnCancel: killProcessOnCancel,
-                redirectStandardIn: redirectStandardIn,
-                inheritConsoleHandler: inheritConsoleHandler,
-                keepStandardInOpen: keepStandardInOpen,
-                highPriorityProcess: highPriorityProcess,
-                continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
+            return await ExecuteAsync(
+                inputParams: new()
+                {
+                    WorkingDirectory = workingDirectory,
+                    FileName = fileName,
+                    Arguments = arguments,
+                    Environment = environment,
+                    RequireExitCodeZero = requireExitCodeZero,
+                    OutputEncoding = outputEncoding,
+                    KillProcessOnCancel = killProcessOnCancel,
+                    RedirectStandardIn = redirectStandardIn,
+                    InheritConsoleHandler = inheritConsoleHandler,
+                    KeepStandardInOpen = keepStandardInOpen,
+                    HighPriorityProcess = highPriorityProcess,
+                    ContinueAfterCancelProcessTreeKillAttempt = continueAfterCancelProcessTreeKillAttempt,
+                },
                 cancellationToken: cancellationToken);
+        }
+
+        public async Task<int> ExecuteAsync(ProcessInvokerParams inputParams, CancellationToken cancellationToken)
+        {
+            _invoker.ErrorDataReceived += ErrorDataReceived;
+            _invoker.OutputDataReceived += OutputDataReceived;
+
+            return await _invoker.ExecuteAsync(inputParams, cancellationToken);
         }
 
         public void Dispose()

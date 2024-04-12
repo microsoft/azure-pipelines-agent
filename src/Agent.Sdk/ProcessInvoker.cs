@@ -78,22 +78,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             string fileName,
             string arguments,
             IDictionary<string, string> environment,
-            CancellationToken cancellationToken)
-        {
-            return ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: false,
-                cancellationToken: cancellationToken);
-        }
-
-        public Task<int> ExecuteAsync(
-            string workingDirectory,
-            string fileName,
-            string arguments,
-            IDictionary<string, string> environment,
             bool requireExitCodeZero,
             CancellationToken cancellationToken)
         {
@@ -138,106 +122,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             CancellationToken cancellationToken)
         {
             return ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: requireExitCodeZero,
-                outputEncoding: outputEncoding,
-                killProcessOnCancel: killProcessOnCancel,
-                redirectStandardIn: null,
-                cancellationToken: cancellationToken);
+                inputParams: new()
+                {
+                    WorkingDirectory = workingDirectory,
+                    FileName = fileName,
+                    Arguments = arguments,
+                    Environment = environment,
+                    RequireExitCodeZero = requireExitCodeZero,
+                    OutputEncoding = outputEncoding,
+                    KillProcessOnCancel = killProcessOnCancel,
+                },
+                cancellationToken
+            );
         }
 
-        public Task<int> ExecuteAsync(
-            string workingDirectory,
-            string fileName,
-            string arguments,
-            IDictionary<string, string> environment,
-            bool requireExitCodeZero,
-            Encoding outputEncoding,
-            bool killProcessOnCancel,
-            InputQueue<string> redirectStandardIn,
-            CancellationToken cancellationToken)
-        {
-            return ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: requireExitCodeZero,
-                outputEncoding: outputEncoding,
-                killProcessOnCancel: killProcessOnCancel,
-                redirectStandardIn: redirectStandardIn,
-                inheritConsoleHandler: false,
-                cancellationToken: cancellationToken);
-        }
-
-        public Task<int> ExecuteAsync(
-            string workingDirectory,
-            string fileName,
-            string arguments,
-            IDictionary<string, string> environment,
-            bool requireExitCodeZero,
-            Encoding outputEncoding,
-            bool killProcessOnCancel,
-            InputQueue<string> redirectStandardIn,
-            bool inheritConsoleHandler,
-            CancellationToken cancellationToken)
-        {
-            return ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: requireExitCodeZero,
-                outputEncoding: outputEncoding,
-                killProcessOnCancel: killProcessOnCancel,
-                redirectStandardIn: redirectStandardIn,
-                inheritConsoleHandler: inheritConsoleHandler,
-                keepStandardInOpen: false,
-                highPriorityProcess: false,
-                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                cancellationToken: cancellationToken);
-        }
-
-        public async Task<int> ExecuteAsync(
-            string workingDirectory,
-            string fileName,
-            string arguments,
-            IDictionary<string, string> environment,
-            bool requireExitCodeZero,
-            Encoding outputEncoding,
-            bool killProcessOnCancel,
-            InputQueue<string> redirectStandardIn,
-            bool inheritConsoleHandler,
-            bool keepStandardInOpen,
-            bool highPriorityProcess,
-            bool continueAfterCancelProcessTreeKillAttempt,
-            CancellationToken cancellationToken)
+        public async Task<int> ExecuteAsync(ProcessInvokerParams inputParams, CancellationToken cancellationToken)
         {
             ArgUtil.Null(_proc, nameof(_proc));
-            ArgUtil.NotNullOrEmpty(fileName, nameof(fileName));
+            ArgUtil.NotNullOrEmpty(inputParams.FileName, nameof(inputParams.FileName));
 
             Trace.Info("Starting process:");
-            Trace.Info($"  File name: '{fileName}'");
-            Trace.Info($"  Arguments: '{arguments}'");
-            Trace.Info($"  Working directory: '{workingDirectory}'");
-            Trace.Info($"  Require exit code zero: '{requireExitCodeZero}'");
-            Trace.Info($"  Encoding web name: {outputEncoding?.WebName} ; code page: '{outputEncoding?.CodePage}'");
-            Trace.Info($"  Force kill process on cancellation: '{killProcessOnCancel}'");
-            Trace.Info($"  Redirected STDIN: '{redirectStandardIn != null}'");
-            Trace.Info($"  Persist current code page: '{inheritConsoleHandler}'");
-            Trace.Info($"  Keep redirected STDIN open: '{keepStandardInOpen}'");
-            Trace.Info($"  High priority process: '{highPriorityProcess}'");
-            Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{continueAfterCancelProcessTreeKillAttempt}'");
+            Trace.Info($"  File name: '{inputParams.FileName}'");
+            Trace.Info($"  Arguments: '{inputParams.Arguments}'");
+            Trace.Info($"  Working directory: '{inputParams.WorkingDirectory}'");
+            Trace.Info($"  Require exit code zero: '{inputParams.RequireExitCodeZero}'");
+            Trace.Info($"  Encoding web name: {inputParams.OutputEncoding?.WebName} ; code page: '{inputParams.OutputEncoding?.CodePage}'");
+            Trace.Info($"  Force kill process on cancellation: '{inputParams.KillProcessOnCancel}'");
+            Trace.Info($"  Redirected STDIN: '{inputParams.RedirectStandardIn != null}'");
+            Trace.Info($"  Persist current code page: '{inputParams.InheritConsoleHandler}'");
+            Trace.Info($"  Keep redirected STDIN open: '{inputParams.KeepStandardInOpen}'");
+            Trace.Info($"  High priority process: '{inputParams.HighPriorityProcess}'");
+            Trace.Info($"  ContinueAfterCancelProcessTreeKillAttempt: '{inputParams.ContinueAfterCancelProcessTreeKillAttempt}'");
 
             _proc = new Process();
-            _proc.StartInfo.FileName = fileName;
-            _proc.StartInfo.Arguments = arguments;
-            _proc.StartInfo.WorkingDirectory = workingDirectory;
+            _proc.StartInfo.FileName = inputParams.FileName;
+            _proc.StartInfo.Arguments = inputParams.Arguments;
+            _proc.StartInfo.WorkingDirectory = inputParams.WorkingDirectory;
             _proc.StartInfo.UseShellExecute = false;
-            _proc.StartInfo.CreateNoWindow = !inheritConsoleHandler;
+            _proc.StartInfo.CreateNoWindow = !inputParams.InheritConsoleHandler;
             _proc.StartInfo.RedirectStandardInput = true;
             _proc.StartInfo.RedirectStandardError = true;
             _proc.StartInfo.RedirectStandardOutput = true;
@@ -264,13 +186,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 StringUtil.EnsureRegisterEncodings();
             }
 
-            if (outputEncoding != null)
+            if (inputParams.OutputEncoding != null)
             {
-                _proc.StartInfo.StandardErrorEncoding = outputEncoding;
-                _proc.StartInfo.StandardOutputEncoding = outputEncoding;
+                _proc.StartInfo.StandardErrorEncoding = inputParams.OutputEncoding;
+                _proc.StartInfo.StandardOutputEncoding = inputParams.OutputEncoding;
             }
 
             // Copy the environment variables.
+            var environment = inputParams.Environment;
             if (environment != null && environment.Count > 0)
             {
                 foreach (KeyValuePair<string, string> kvp in environment)
@@ -291,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             _proc.Start();
 
             // Decrease invoked process priority, in platform specifc way, relative to parent
-            if (!highPriorityProcess)
+            if (!inputParams.HighPriorityProcess)
             {
                 DecreaseProcessPriority(_proc);
             }
@@ -310,9 +233,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             if (_proc.StartInfo.RedirectStandardInput)
             {
-                if (redirectStandardIn != null)
+                if (inputParams.RedirectStandardIn != null)
                 {
-                    StartWriteStream(redirectStandardIn, _proc.StandardInput, keepStandardInOpen);
+                    StartWriteStream(inputParams.RedirectStandardIn, _proc.StandardInput, inputParams.KeepStandardInOpen);
                 }
                 else
                 {
@@ -324,7 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
             using (var registration = cancellationToken.Register(async () =>
             {
-                await CancelAndKillProcessTree(killProcessOnCancel);
+                await CancelAndKillProcessTree(inputParams.KillProcessOnCancel);
 
                 // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
                 afterCancelKillProcessTreeAttemptSignal.Set();
@@ -337,7 +260,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     Task outputSignal = _outputProcessEvent.WaitAsync();
                     Task[] tasks;
 
-                    if (continueAfterCancelProcessTreeKillAttempt)
+                    if (inputParams.ContinueAfterCancelProcessTreeKillAttempt)
                     {
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
                     }
@@ -376,9 +299,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             cancellationToken.ThrowIfCancellationRequested();
 
             // Wait for process to finish.
-            if (_proc.ExitCode != 0 && requireExitCodeZero)
+            if (_proc.ExitCode != 0 && inputParams.RequireExitCodeZero)
             {
-                throw new ProcessExitCodeException(exitCode: _proc.ExitCode, fileName: fileName, arguments: arguments);
+                throw new ProcessExitCodeException(exitCode: _proc.ExitCode, fileName: inputParams.FileName, arguments: inputParams.Arguments);
             }
 
             return _proc.ExitCode;
