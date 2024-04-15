@@ -216,6 +216,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+            var sigintTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigintTimeout.GetValue(ExecutionContext).AsInt());
+            var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
+            var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
 
             try
             {
@@ -231,6 +234,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                   killProcessOnCancel: false,
                                                   inheritConsoleHandler: !ExecutionContext.Variables.Retain_Default_Encoding,
                                                   continueAfterCancelProcessTreeKillAttempt: _continueAfterCancelProcessTreeKillAttempt,
+                                                  sigintTimeout: sigintTimeout,
+                                                  sigtermTimeout: sigtermTimeout,
+                                                  useGracefulShutdown: useGracefulShutdown,
                                                   cancellationToken: ExecutionContext.CancellationToken);
 
                 // Wait for either the node exit or force finish through ##vso command
