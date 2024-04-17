@@ -486,7 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    node = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
+                    node = container.TranslateToContainerPath(NodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false));
 
                     // if on Mac OS X, require container to have node
                     if (PlatformUtil.RunningOnMacOS)
