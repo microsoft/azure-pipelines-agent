@@ -434,7 +434,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
-                    System.Diagnostics.Debugger.Launch();
                 }
                 else
                 {
