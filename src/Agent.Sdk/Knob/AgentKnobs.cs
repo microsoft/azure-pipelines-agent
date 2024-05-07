@@ -690,5 +690,12 @@ namespace Agent.Sdk.Knob
             "Get config from FF.",
             new EnvironmentKnobSource("RSAKEYGETCONFIGFROMFF"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableResourceUtilizationWarnings = new Knob(
+            nameof(DisableResourceUtilizationWarnings),
+            "If true, agent will not throw warnings related to high resource utilization",
+            new RuntimeKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
