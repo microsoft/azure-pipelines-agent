@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net6</TargetFramework>
-    <RuntimeFrameworkVersion>6.0.26</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>6.0.29</RuntimeFrameworkVersion>
     <RuntimeIdentifier Condition="'$(BuildingInsideVisualStudio)' != 'true'">$(PackageRuntime)</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
@@ -51,6 +51,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-musl-x64'">
     <OSArchitecture>X64</OSArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-musl-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_LINUX' AND '$(PackageRuntime)' == 'linux-arm'">
     <OSArchitecture>ARM</OSArchitecture>

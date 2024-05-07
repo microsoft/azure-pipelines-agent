@@ -60,6 +60,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             return (enableAgentKeyStoreInNamedContainerFF, useCngFF);
         }
+
+        public static (bool useNamedContainer, bool useCng) GetStoreAgentTokenConfig(this IRSAKeyManager _)
+        {
+            var useNamedContainer = AgentKnobs.StoreAgentKeyInCSPContainer.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+            var useCng = AgentKnobs.AgentKeyUseCng.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
+            return (useNamedContainer, useCng);
+        }
     }
 
     // Newtonsoft 10 is not working properly with dotnet RSAParameters class
