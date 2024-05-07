@@ -57,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            _featureFlagService.InitializeFeatureService(_executionContext, connection);
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
             Trace.Leaving();

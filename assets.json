@@ -88,5 +88,11 @@
         "platform": "linux-musl-x64",
         "version": "<AGENT_VERSION>",
         "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz"
+    },
+    {
+        "name": "vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz",
+        "platform": "linux-musl-arm64",
+        "version": "<AGENT_VERSION>",
+        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz"
     }
 ]

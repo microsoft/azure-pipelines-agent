@@ -19,8 +19,8 @@ NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE20_VERSION="20.11.1"
-MINGIT_VERSION="2.39.1"
-FF_MINGIT_VERSION="2.43.0"
+MINGIT_VERSION="2.43.0"
+FF_MINGIT_VERSION="2.44.0"
 LFS_VERSION="3.3.0"
 
 get_abs_path() {
@@ -201,6 +201,15 @@ else
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+    elif [[ "$PACKAGERUNTIME" == "linux-musl-arm64" ]]; then
+        ARCH="linux-arm64-musl"
+
+        if [[ "$INCLUDE_NODE10" == "true" ]]; then
+            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10/bin fix_nested_dir
+        fi
+
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
