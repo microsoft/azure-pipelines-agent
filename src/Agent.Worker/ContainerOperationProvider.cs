@@ -1,23 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.ServiceProcess;
-using System.Threading;
-using System.Threading.Tasks;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Azure.Core;
 using Azure.Identity;
 using Microsoft.Identity.Client;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
@@ -27,7 +16,15 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using static System.Formats.Asn1.AsnWriter;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.ServiceProcess;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
