@@ -13,6 +13,7 @@
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="6.0.1" />
 	  <PackageReference Include="System.Security.Principal.Windows" Version="6.0.0-preview.5.21301.5" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
   </ItemGroup>
 </Project>
