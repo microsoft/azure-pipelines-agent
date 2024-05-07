@@ -214,7 +214,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
                     ArgUtil.NotNull(systemConnection, nameof(systemConnection));
                     VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
-                    // wwe might have to strip something? alternatively systemConnection.url
                     var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
                     using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
