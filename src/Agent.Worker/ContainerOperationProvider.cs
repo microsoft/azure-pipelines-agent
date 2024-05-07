@@ -15,15 +15,19 @@ using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Azure.Core;
 using Azure.Identity;
+using Microsoft.Identity.Client;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.Work.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -165,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationToken cancellationToken = executionContext.CancellationToken;
             Trace.Entering();
             // Check environment variable for debugging
-            var envVar = System.Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
+            var envVar = Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
             // Future: Set this client id. This is the MSI client ID.
             ChainedTokenCredential credential = envVar == "1"
                 ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
@@ -176,6 +180,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }), cancellationToken);
 
             return accessToken.Token.ToString();
+        }
+
+        private async Task<string> GetAccessTokenUsingWorkloadIdentityFederation(IExecutionContext executionContext, ServiceEndpoint registryEndpoint)
+        {
+            ArgumentNullException.ThrowIfNull(executionContext);
+            ArgumentNullException.ThrowIfNull(registryEndpoint);
+
+            CancellationToken cancellationToken = executionContext.CancellationToken;
+            Trace.Entering();
+            // Check environment variable for debugging
+            var envVar = Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
+
+            var tenantId = string.Empty;
+            if(!registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantId", out tenantId) ?? false)
+            {
+                throw new InvalidOperationException("Could not read tenantId");
+            }
+
+            var clientId = string.Empty;
+            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue("servicePrincipalId", out clientId) ?? false)
+            {
+                throw new InvalidOperationException("Could not read servicePrincipalId");
+            }
+
+            var resourceId = string.Empty;
+            if (!registryEndpoint.Data?.TryGetValue("activeDirectoryServiceEndpointResourceId", out resourceId) ?? false)
+            {
+                throw new InvalidOperationException("Could not read activeDirectoryServiceEndpointResourceId");
+            }
+
+            var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
+                .WithClientAssertion(async (AssertionRequestOptions options) =>
+                {
+                    var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
+                    ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+                    VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
+                    // wwe might have to strip something? alternatively systemConnection.url
+                    var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
+                    using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
+                    TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+
+                    var idToken = await taskClient.CreateOidcTokenAsync(
+                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team project ID"),
+                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                        planId: new Guid(executionContext.Variables.System_PlanId),
+                        jobId: new Guid(executionContext.Variables.System_JobId),
+                        serviceConnectionId: registryEndpoint.Id,
+                        claims: null,
+                        cancellationToken: cancellationToken
+                    );
+
+                    return idToken.OidcToken;
+                })
+                .Build();
+
+            var authenticationResult = await app.AcquireTokenForClient(new string[] { $"{resourceId}/.default" }).ExecuteAsync(cancellationToken);
+            return authenticationResult.AccessToken;
         }
 
         private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer, string loginServer)
@@ -299,6 +361,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         username = Guid.Empty.ToString("D");
                         string AADToken = await GetMSIAccessToken(executionContext);
                         executionContext.Debug("Successfully retrieved AAD token using the MSI authentication scheme.");
+                        // change to getting password from string
+                        password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
+                    }
+                    else if (string.Equals(authType, "WorkloadIdentityFederation", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string tenantId = string.Empty;
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantid", out tenantId);
+                        username = Guid.Empty.ToString("D");
+                        string AADToken = await GetAccessTokenUsingWorkloadIdentityFederation(executionContext, registryEndpoint);
+                        executionContext.Debug("Successfully retrieved AAD token using the workload identity federation authentication scheme.");
                         // change to getting password from string
                         password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                     }
