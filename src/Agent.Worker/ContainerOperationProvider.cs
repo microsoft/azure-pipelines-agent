@@ -38,6 +38,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public class ContainerOperationProvider : AgentService, IContainerOperationProvider
     {
         private const string _nodeJsPathLabel = "com.azure.dev.pipelines.agent.handler.node.path";
+        private const string c_tenantId = "tenantid";
+        private const string c_clientId = "servicePrincipalId";
+        private const string c_activeDirectoryServiceEndpointResourceId = "activeDirectoryServiceEndpointResourceId";
+        private const string c_workloadIdentityFederationScheme = "WorkloadIdentityFederation";
+        private const string c_managedServiceIdentityScheme = "ManagedServiceIdentity";
+
         private IDockerCommandManager _dockerManger;
         private string _containerNetwork;
 
@@ -186,25 +192,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             CancellationToken cancellationToken = executionContext.CancellationToken;
             Trace.Entering();
-            // Check environment variable for debugging
-            var envVar = Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
 
             var tenantId = string.Empty;
-            if(!registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantId", out tenantId) ?? false)
+            if(!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
             {
-                throw new InvalidOperationException("Could not read tenantId");
+                throw new InvalidOperationException($"Could not read {c_tenantId}");
             }
 
             var clientId = string.Empty;
-            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue("servicePrincipalId", out clientId) ?? false)
+            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_clientId, out clientId) ?? false)
             {
-                throw new InvalidOperationException("Could not read servicePrincipalId");
+                throw new InvalidOperationException($"Could not read {c_clientId}");
             }
 
             var resourceId = string.Empty;
-            if (!registryEndpoint.Data?.TryGetValue("activeDirectoryServiceEndpointResourceId", out resourceId) ?? false)
+            if (!registryEndpoint.Data?.TryGetValue(c_activeDirectoryServiceEndpointResourceId, out resourceId) ?? false)
             {
-                throw new InvalidOperationException("Could not read activeDirectoryServiceEndpointResourceId");
+                throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
             }
 
             var app = ConfidentialClientApplicationBuilder.Create(clientId)
@@ -349,10 +353,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
 
                     registryServer = $"https://{loginServer}";
-                    if (string.Equals(authType, "ManagedServiceIdentity", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(authType, c_managedServiceIdentityScheme, StringComparison.OrdinalIgnoreCase))
                     {
                         string tenantId = string.Empty;
-                        registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantid", out tenantId);
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId);
                         // Documentation says to pass username through this way
                         username = Guid.Empty.ToString("D");
                         string AADToken = await GetMSIAccessToken(executionContext);
@@ -360,14 +364,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // change to getting password from string
                         password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                     }
-                    else if (string.Equals(authType, "WorkloadIdentityFederation", StringComparison.OrdinalIgnoreCase))
+                    else if (string.Equals(authType, c_workloadIdentityFederationScheme, StringComparison.OrdinalIgnoreCase))
                     {
                         string tenantId = string.Empty;
-                        registryEndpoint.Authorization?.Parameters?.TryGetValue("tenantid", out tenantId);
+                        registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId);
                         username = Guid.Empty.ToString("D");
                         string AADToken = await GetAccessTokenUsingWorkloadIdentityFederation(executionContext, registryEndpoint);
                         executionContext.Debug("Successfully retrieved AAD token using the workload identity federation authentication scheme.");
-                        // change to getting password from string
                         password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                     }
                     else
