@@ -49,6 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             _resultReader = GetTestResultReader(_testRunner, publishRunLevelAttachments);
             _testRunPublisher = HostContext.GetService<ITestRunPublisher>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            _featureFlagService.InitializeFeatureService(_executionContext, connection);
             _testRunPublisher.InitializePublisher(_executionContext, connection, projectName, _resultReader);
             _testResultsServer = HostContext.GetService<ITestResultsServer>();
             _testResultsServer.InitializeServer(connection, _executionContext);
