@@ -223,7 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
                     var idToken = await taskClient.CreateOidcTokenAsync(
-                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team project ID"),
+                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
                         hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
                         planId: new Guid(executionContext.Variables.System_PlanId),
                         jobId: new Guid(executionContext.Variables.System_JobId),
