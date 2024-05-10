@@ -33,14 +33,16 @@ const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
 function createIntegrationFiles(agentVersion) {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
 
-    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    util.fillAgentParameters(
-        path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
-        xmlFilePath,
-        agentVersion
-    );
-    clearEmptyHashValueLine(xmlFilePath);
-    clearEmptyXmlNodes(xmlFilePath);
+    for (const agentPackageXml of ['InstallAgentPackage', 'UpdateAgentPackage']) {
+        const xmlFilePath = path.join(INTEGRATION_DIR, `${agentPackageXml}.xml`);
+        util.fillAgentParameters(
+            path.join(__dirname, '..', 'src', 'Misc', `${agentPackageXml}.template.xml`),
+            xmlFilePath,
+            agentVersion
+        );
+        clearEmptyHashValueLine(xmlFilePath);
+        clearEmptyXmlNodes(xmlFilePath);
+    }
 
     const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1');
     util.fillAgentParameters(
