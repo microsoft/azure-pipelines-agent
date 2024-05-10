@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -447,6 +448,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
                             finallyStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
                             postJobSteps.Add(finallyStep);
+                        }
+                    }
+
+                    if (AgentKnobs.Rosetta2Warning.GetValue(jobContext).AsBoolean())
+                    {
+                        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        {
+                            if (await PlatformUtil.IsRunningOnAppleSiliconAsX64Async(timeout.Token))
+                            {
+                                jobContext.Warning(StringUtil.Loc("Rosetta2Warning"));
+                            }
                         }
                     }
 
