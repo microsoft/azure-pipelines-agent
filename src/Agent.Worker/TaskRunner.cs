@@ -420,7 +420,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
+                var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean()
+                    && !AgentKnobs.DisableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean(); ;
 
                 //Start Resource utility monitors
                 IResourceMetricsManager resourceDiagnosticManager = null;
@@ -433,6 +434,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
                     _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
+                }
+                else
+                {
+                    ExecutionContext.Debug(StringUtil.Loc("ResourceUtilizationWarningsIsDisabled"));
                 }
 
                 // Run the task.
@@ -631,11 +636,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishTelemetry(Definition taskDefinition, HandlerData handlerData)
         {
-            if (!IsTelemetryPublishRequired())
-            {
-                return;
-            }
-
             ArgUtil.NotNull(Task, nameof(Task));
             ArgUtil.NotNull(Task.Reference, nameof(Task.Reference));
             ArgUtil.NotNull(taskDefinition.Data, nameof(taskDefinition.Data));

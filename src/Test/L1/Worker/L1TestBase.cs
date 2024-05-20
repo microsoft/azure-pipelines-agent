@@ -200,6 +200,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             // Use different working directories for each test
             var config = GetMockedService<FakeConfigurationStore>(); // TODO: Need to update this. can hack it for now.
             config.WorkingDirectoryName = testName;
+            
+            // Reset node knobs in case if tests cruns in the pipeline or machine set node envs
+            ResetNodeKnobs();
         }
 
         public string GetWorkingDirectory([CallerMemberName] string testName = "")
@@ -345,6 +348,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+
+        private void ResetNodeKnobs()
+        {
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
         }
 
         protected virtual void Dispose(bool disposing)

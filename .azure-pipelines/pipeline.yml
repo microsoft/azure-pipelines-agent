@@ -51,6 +51,9 @@ parameters:
 - name: alpine_x64
   type: boolean
   default: true
+- name: alpine_arm64
+  type: boolean
+  default: true
 - name: macOS_x64
   type: boolean
   default: true
@@ -234,6 +237,26 @@ extends:
             #container: alpine
             os: linux-musl
             arch: x64
+            branch: ${{ parameters.branch }}
+            unitTests: ${{ parameters.test }}
+            functionalTests: false
+            sign: false
+            publishArtifacts: ${{ parameters.publishArtifacts }}
+            buildAlternatePackage: false
+
+  # Alpine (ARM64)
+      - ${{ if parameters.alpine_arm64 }}:
+        - template: /.azure-pipelines/build-jobs.yml@self
+          parameters:
+            jobName: build_alpine_arm64
+            displayName: Alpine (ARM64)
+            pool:
+              name: 1ES-ABTT-Shared-ARM-64-Pool
+              vmImage: abtt-mariner_arm64
+              os: linux
+            # container: # arm64v8/alpine (N/A)
+            os: linux-musl
+            arch: arm64
             branch: ${{ parameters.branch }}
             unitTests: ${{ parameters.test }}
             functionalTests: false

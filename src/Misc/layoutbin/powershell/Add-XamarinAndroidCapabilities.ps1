@@ -2,7 +2,7 @@
 param()
 
 if (!(Add-CapabilityFromRegistry -Name 'Xamarin.Android' -Hive 'LocalMachine' -View 'Registry32' -KeyName 'Software\Novell\Mono for Android' -ValueName 'InstalledVersion')) {
-    foreach ($vsver in @(16, 15)) {
+    foreach ($vsver in @(17, 16, 15)) {
         $vs = Get-VisualStudio -MajorVersion $vsver
         if ($vs -and $vs.installationPath) {
             # End with "\" for consistency with old ShellFolder values.

@@ -90,7 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Change the current job context to the step context.
                 var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.SetContext(step.ExecutionContext);
-                
+
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
                 List<string> expansionWarnings;
@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             {
                                 if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
                                 {
-                                    PublishTelemetry (jobContext, TaskResult.Failed.ToString(), "120");
+                                    PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "120");
                                     jobContext.Result = TaskResult.Failed;
                                     jobContext.Variables.Agent_JobStatus = jobContext.Result;
                                 }
@@ -154,7 +154,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (jobContext.Result != TaskResult.Failed)
                         {
                             // mark job as failed
-                            PublishTelemetry (jobContext, jobContext.Result.ToString(), "121");
+                            PublishTelemetry(jobContext, jobContext.Result.ToString(), "121");
                             jobContext.Result = TaskResult.Failed;
                             jobContext.Variables.Agent_JobStatus = jobContext.Result;
                         }
@@ -275,7 +275,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                 {
-                    PublishTelemetry (step.ExecutionContext, TaskResult.Failed.ToString(), "122");
+                    PublishTelemetry(step.ExecutionContext, TaskResult.Failed.ToString(), "122");
                     Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Failed;
@@ -319,7 +319,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
                             HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
-                        PublishTelemetry (step.ExecutionContext, TaskResult.Failed.ToString(), "123");
+                        PublishTelemetry(step.ExecutionContext, TaskResult.Failed.ToString(), "123");
                         Trace.Error($"Caught Agent shutdown exception from async command {command.Name}: {ex}");
                         step.ExecutionContext.Error(ex);
 
@@ -380,10 +380,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (step.ExecutionContext.Variables.Retain_Default_Encoding != true && Console.InputEncoding.CodePage != 65001)
                 {
-                    using (var p = HostContext.CreateService<IProcessInvoker>())
+                    using var pi = HostContext.CreateService<IProcessInvoker>();
+
+                    using var timeoutTokenSource = new CancellationTokenSource();
+                    // 1 minute should be enough to switch to UTF8 code page
+                    timeoutTokenSource.CancelAfter(TimeSpan.FromSeconds(60));
+
+                    // Join main and timeout cancellation tokens
+                    using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                        step.ExecutionContext.CancellationToken,
+                        timeoutTokenSource.Token);
+
+                    try
                     {
                         // Use UTF8 code page
-                        int exitCode = await p.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                        int exitCode = await pi.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                                                 fileName: WhichUtil.Which("chcp", true, Trace),
                                                 arguments: "65001",
                                                 environment: null,
@@ -393,7 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                 redirectStandardIn: null,
                                                 inheritConsoleHandler: true,
                                                 continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                                                cancellationToken: step.ExecutionContext.CancellationToken);
+                                                cancellationToken: linkedTokenSource.Token);
                         if (exitCode == 0)
                         {
                             Trace.Info("Successfully returned to code page 65001 (UTF8)");
@@ -402,6 +413,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             Trace.Warning($"'chcp 65001' failed with exit code {exitCode}");
                         }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        if (!timeoutTokenSource.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+
+                        Trace.Warning("'chcp 65001' cancelled by timeout");
                     }
                 }
             }

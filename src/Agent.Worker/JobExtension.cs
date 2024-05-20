@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -169,13 +170,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var taskManager = HostContext.GetService<ITaskManager>();
                     await taskManager.DownloadAsync(context, message.Steps);
 
-                    if (!AgentKnobs.DisableNode6Tasks.GetValue(context).AsBoolean())
+                    if (!AgentKnobs.DisableNode6Tasks.GetValue(context).AsBoolean() && !PlatformUtil.RunningOnAlpine)
                     {
                         Trace.Info("Downloading Node 6 runner.");
                         var nodeUtil = new NodeJsUtil(HostContext);
                         await nodeUtil.DownloadNodeRunnerAsync(context, register.Token);
-                    } 
-          
+                    }
+
                     // Parse all Task conditions.
                     Trace.Info("Parsing all task's condition inputs.");
                     var expression = HostContext.GetService<IExpressionManager>();
@@ -447,6 +448,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             ServiceEndpoint systemConnection = context.Endpoints.Single(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
                             finallyStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
                             postJobSteps.Add(finallyStep);
+                        }
+                    }
+
+                    if (AgentKnobs.Rosetta2Warning.GetValue(jobContext).AsBoolean())
+                    {
+                        using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        {
+                            if (await PlatformUtil.IsRunningOnAppleSiliconAsX64Async(timeout.Token))
+                            {
+                                jobContext.Warning(StringUtil.Loc("Rosetta2Warning"));
+                            }
                         }
                     }
 

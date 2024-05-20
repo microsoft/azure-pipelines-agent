@@ -258,6 +258,27 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_RETRY_LIMIT"),
             new BuiltInDefaultKnobSource("3"));
 
+        public static readonly Knob ProccessSigintTimeout = new Knob(
+            nameof(ProccessSigintTimeout),
+            "Timeout for SIGINT signal during a process cancelation",
+            new RuntimeKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new BuiltInDefaultKnobSource("7500"));
+
+        public static readonly Knob ProccessSigtermTimeout = new Knob(
+            nameof(ProccessSigtermTimeout),
+            "Timeout for SIGTERM signal during a process cancelation",
+            new RuntimeKnobSource("PROCESS_SIGTERM_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGTERM_TIMEOUT"),
+            new BuiltInDefaultKnobSource("2500"));
+
+        public static readonly Knob UseGracefulProcessShutdown = new Knob(
+            nameof(UseGracefulProcessShutdown),
+            "Attemts to use only graceful process shutdown unless hard required",
+            new RuntimeKnobSource("USE_GRACEFUL_PROCESS_SHUTDOWN"),
+            new EnvironmentKnobSource("USE_GRACEFUL_PROCESS_SHUTDOWN"),
+            new BuiltInDefaultKnobSource("false"));
+
         // HTTP
         public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
         public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(
@@ -534,9 +555,15 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
-            "Enables new sanitization logic for process handler",
+            "Enables new args protect logic for process handler",
             new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseProcessHandlerV2 = new Knob(
+            nameof(UseProcessHandlerV2),
+            "Enables new Process handler (v2)",
+            new RuntimeKnobSource("AGENT_USE_PROCESS_HANDLER_V2"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
@@ -656,6 +683,27 @@ namespace Agent.Sdk.Knob
             "Uses native Windows function to find parent processes of a process.",
             new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
             new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob RsaKeyGetConfigFromFF = new Knob(
+            nameof(RsaKeyGetConfigFromFF),
+            "Get config from FF.",
+            new EnvironmentKnobSource("RSAKEYGETCONFIGFROMFF"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableResourceUtilizationWarnings = new Knob(
+            nameof(DisableResourceUtilizationWarnings),
+            "If true, agent will not throw warnings related to high resource utilization",
+            new RuntimeKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob Rosetta2Warning = new Knob(
+            nameof(Rosetta2Warning),
+            "Log warning when X64 Agent is used on a Apple Silicon device.",
+            new RuntimeKnobSource("ROSETTA2_WARNING"),
+            new EnvironmentKnobSource("ROSETTA2_WARNING"),
+            new PipelineFeatureSource("Rosetta2Warning"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

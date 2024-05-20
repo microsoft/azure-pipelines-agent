@@ -1,9 +1,14 @@
-# Node 6 and Agent Packages
+# Agent Packages and Node versions
 
-Agent tasks can be implemented in PowerShell or Node. The agent currently ships with two versions of Node that tasks can target: 6 & 10.
+Agent tasks can be implemented in PowerShell or Node. The agent ships with multiple versions of Node that tasks can target.
 
-Node 6 has long since passed out of the upstream maintenance window, however many Pipelines tasks depend on it. Azure DevOps is currently in the process of migrating all offically supported tasks to Node 10. Third party tasks will need to be updated by their maintainers to migrate to Node 10.
+As new Node versions are released, [tasks](https://github.com/microsoft/azure-pipelines-tasks) are updated to use new Node versions. The runtimes are included with the agent.
 
-For these reasons, packages of the agent (named vsts-agent-*) that include Node 6 will continue to be made available for the forseeable future. Node 6 dependent tasks will continue be supported in hosted pools.
+As Node versions exit out of the upstream maintenance window, some Pipelines tasks still depend on it. Azure DevOps updates supported tasks to a supported Node version. Third party tasks may still need older Node versions to run.
 
-However, because Node 6 is no longer maintained, many customers do not want it installed on their systems. For customers who know for sure they are not using Node 6 dependent tasks, we provide alternate packages (pipelines-agent-*) that only include Node 10. In the future, once all officially supported tasks have been updated for Node 10, these packages will become the primarily recommended ones.
+To accommodate this, we have 2 flavors of packages:
+
+| Packages             | Node versions | Description                |
+|----------------------|---------------|----------------------------|
+| `vsts-agent-*`       | 6, 10, 16, 20 | Includes all Node versions that can be used as task execution handler |
+| `pipelines-agents-*` | 16, 20        | Includes only recent Node versions. The goal for these packages is to not include any end-of-life version of Node. |

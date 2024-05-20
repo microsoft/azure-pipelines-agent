@@ -32,6 +32,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                bool killProcessOnCancel,
                                bool inheritConsoleHandler,
                                bool continueAfterCancelProcessTreeKillAttempt,
+                               TimeSpan sigintTimeout,
+                               TimeSpan sigtermTimeout,
+                               bool useGracefulShutdown,
                                CancellationToken cancellationToken);
     }
 
@@ -66,12 +69,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
                                             bool continueAfterCancelProcessTreeKillAttempt,
+                                            TimeSpan sigintTimeout,
+                                            TimeSpan sigtermTimeout,
+                                            bool useGracefulShutdown,
                                             CancellationToken cancellationToken)
         {
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
+                processInvoker.SigintTimeout = sigintTimeout;
+                processInvoker.SigtermTimeout = sigtermTimeout;
+                processInvoker.TryUseGracefulShutdown = useGracefulShutdown;
 
                 return await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                          fileName: fileName,
@@ -139,6 +148,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
                                             bool continueAfterCancelProcessTreeKillAttempt,
+                                            TimeSpan sigintTimeout,
+                                            TimeSpan sigtermTimeout,
+                                            bool useGracefulShutdown,
                                             CancellationToken cancellationToken)
         {
             // make sure container exist.
@@ -204,6 +216,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
                 outputEncoding = null; // Let .NET choose the default.
+
+                processInvoker.SigintTimeout = sigintTimeout;
+                processInvoker.SigtermTimeout = sigtermTimeout;
+                processInvoker.TryUseGracefulShutdown = useGracefulShutdown;
 
                 if (PlatformUtil.RunningOnWindows)
                 {

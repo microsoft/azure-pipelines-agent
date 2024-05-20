@@ -30,6 +30,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseNodeForNodeHandlerEnvVarNotSet()
         {
+            ResetNodeKnobs();
+
             var agentUseNode10 = Environment.GetEnvironmentVariable("AGENT_USE_NODE10");
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             using (TestHostContext thc = CreateTestHostContext())
@@ -67,6 +69,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
         {
+            ResetNodeKnobs();
+
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -161,6 +165,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandlerHostContextVarUnset()
         {
+            ResetNodeKnobs();
+
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -458,6 +464,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Returns(Array.Empty<string>);
 
             return nodeHandlerHelper;
+        }
+
+        private void ResetNodeKnobs()
+        {
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
         }
     }
 }
