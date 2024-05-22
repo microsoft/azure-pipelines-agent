@@ -19,11 +19,11 @@ steps:
   - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
     inputs:
       ConnectedServiceName: PipelinesAgentAndTasksESRP
-      AppRegistrationClientId: 'e0799447-c9d7-4e86-8f20-1e94bfee48f5'
-      AppRegistrationTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-      AuthAKVName: 'agents-signing-cert'
-      AuthCertName: 'agent-tasks-auth-cert'
-      AuthSignCertName: 'AgentCertificate'
+      AppRegistrationClientId: $(AppRegistrationClientId)
+      AppRegistrationTenantId: $(AppRegistrationTenantId)
+      AuthAKVName: $(AuthAKVName)
+      AuthCertName: $(AuthCertName)
+      AuthSignCertName: $(AuthSignCertName)
       FolderPath: '${{ parameters.layoutRoot }}/bin'
       Pattern: AgentService.exe
       signConfigType: inlineSignParams
@@ -48,11 +48,11 @@ steps:
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
     ConnectedServiceName: PipelinesAgentAndTasksESRP
-    AppRegistrationClientId: 'e0799447-c9d7-4e86-8f20-1e94bfee48f5'
-    AppRegistrationTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-    AuthAKVName: 'agents-signing-cert'
-    AuthCertName: 'agent-tasks-auth-cert'
-    AuthSignCertName: 'AgentCertificate'
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}/bin'
     Pattern: |
       Agent.*.dll
@@ -103,11 +103,11 @@ steps:
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
     ConnectedServiceName: PipelinesAgentAndTasksESRP
-    AppRegistrationClientId: 'e0799447-c9d7-4e86-8f20-1e94bfee48f5'
-    AppRegistrationTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-    AuthAKVName: 'agents-signing-cert'
-    AuthCertName: 'agent-tasks-auth-cert'
-    AuthSignCertName: 'AgentCertificate'
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\powershell\**\*.ps1
@@ -158,11 +158,11 @@ steps:
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
     ConnectedServiceName: PipelinesAgentAndTasksESRP
-    AppRegistrationClientId: 'e0799447-c9d7-4e86-8f20-1e94bfee48f5'
-    AppRegistrationTenantId: '72f988bf-86f1-41af-91ab-2d7cd011db47'
-    AuthAKVName: 'agents-signing-cert'
-    AuthCertName: 'agent-tasks-auth-cert'
-    AuthSignCertName: 'AgentCertificate'
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\**\*.dll
