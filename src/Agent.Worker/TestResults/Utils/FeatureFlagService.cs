@@ -48,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             {
                 var exceptionMessage = StringUtil.Format("Failed to get FF {0} Value. Error: {1}", featureFlagName, ex.ToString());
                 _executionContext.Warning(exceptionMessage);
-                Trace.Warning(exceptionMessage);
+                Trace.Error(exceptionMessage);
             }
             return false;
         }
