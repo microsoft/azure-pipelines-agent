@@ -44,9 +44,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 }
                 _executionContext.Debug(StringUtil.Format("{0} is off", featureFlagName));
             }
-            catch
+            catch (Exception Ex)
             {
-                _executionContext.Debug(StringUtil.Format("Failed to get FF {0} Value.", featureFlagName));
+                var exceptionMessage = StringUtil.Format("Failed to get FF {0} Value. Error: {1}", featureFlagName, Ex.ToString());
+                _executionContext.Warning(exceptionMessage);
+                Trace.Warning(exceptionMessage);
             }
             return false;
         }
