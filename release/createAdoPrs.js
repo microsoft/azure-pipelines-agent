@@ -33,14 +33,16 @@ const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
 function createIntegrationFiles(agentVersion) {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
 
-    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    util.fillAgentParameters(
-        path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
-        xmlFilePath,
-        agentVersion
-    );
-    clearEmptyHashValueLine(xmlFilePath);
-    clearEmptyXmlNodes(xmlFilePath);
+    for (const agentPackageXml of ['InstallAgentPackage', 'UpdateAgentPackage']) {
+        const xmlFilePath = path.join(INTEGRATION_DIR, `${agentPackageXml}.xml`);
+        util.fillAgentParameters(
+            path.join(__dirname, '..', 'src', 'Misc', `${agentPackageXml}.template.xml`),
+            xmlFilePath,
+            agentVersion
+        );
+        clearEmptyHashValueLine(xmlFilePath);
+        clearEmptyXmlNodes(xmlFilePath);
+    }
 
     const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1');
     util.fillAgentParameters(
@@ -74,7 +76,7 @@ function clearEmptyHashValueLine(filePath) {
  * @param {string} commitMessage commit message
  * @param {string} title pull request title
  * @param {string} description pull reqest description
- * @param {string} targetsToCommit files to add in pull request
+ * @param {string[]} targetsToCommit files to add in pull request
  */
 async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, title, description, targetsToCommit) {
     console.log(`Creating PR from "${sourceBranch}" into "${targetBranch}" in the "${project}/${repo}" repo`);
@@ -183,7 +185,10 @@ async function main() {
             [
                 path.join(
                     'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'InstallAgentPackage.xml'
-                )
+                ),
+                path.join(
+                    'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'UpdateAgentPackage.xml'
+                ),
             ]
         );
 

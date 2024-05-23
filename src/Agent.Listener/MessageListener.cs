@@ -27,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         Task<Boolean> CreateSessionAsync(CancellationToken token);
         Task DeleteSessionAsync();
         Task<TaskAgentMessage> GetNextMessageAsync(CancellationToken token);
+        Task KeepAlive(CancellationToken token);
         Task DeleteMessageAsync(TaskAgentMessage message);
     }
 
@@ -286,6 +287,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
+        public async Task KeepAlive(CancellationToken token)
+        {
+           
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await _agentServer.GetAgentMessageAsync(_settings.PoolId, _session.SessionId, null, token);
+                    Trace.Info($"Sent GetAgentMessage to keep alive agent {_settings.AgentId}, session '{_session.SessionId}'.");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Verbose("Unable to sent GetAgentMessage to keep alive", ex.Message);
+                }
+
+                await HostContext.Delay(TimeSpan.FromSeconds(30), token);
+            }
+        }
         private TaskAgentMessage DecryptMessage(TaskAgentMessage message)
         {
             if (_session.EncryptionKey == null ||

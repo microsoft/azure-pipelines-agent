@@ -24,5 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
         public static readonly string EnableXUnitHeirarchicalParsing = "TestManagement.PublishTestResultsTask.EnableXUnitHeirarchicalParsing";
 
         public static readonly string JUnitTestCaseAttachmentsEnabled = "TestManagement.Server.JUnitTestCaseAttachmentsEnabled";
+
+        public static readonly string EnableAzureTestPlanTaskFeatureFlag = "TestManagement.Server.EnableAzureTestPlanTaskFlow";
     }
 }

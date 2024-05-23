@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Agent.Sdk.Knob;
@@ -90,6 +91,43 @@ namespace Agent.Sdk
                 }
 
                 return false;
+            }
+        }
+
+        public static async Task<bool> IsRunningOnAppleSiliconAsX64Async(CancellationToken cancellationToken)
+        {
+            if (RunningOnMacOS)
+            {
+                try
+                {
+                    // See https://stackoverflow.com/questions/65259300/detect-apple-silicon-from-command-line
+                    var cpuBrand = await ExecuteShCommand("sysctl -n machdep.cpu.brand_string", cancellationToken);
+                    var processArchitecture = await ExecuteShCommand("uname -m", cancellationToken);
+                    return cpuBrand.Contains("Apple") && processArchitecture.Contains("x86_64");
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<string> ExecuteShCommand(string command, CancellationToken cancellationToken)
+        {
+            using (var invoker = new ProcessInvoker(new NullTraceWriter()))
+            {
+                var stdout = new StringBuilder();
+                invoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) => stdout.Append(e.Data);
+                await invoker.ExecuteAsync(
+                    string.Empty,
+                    "/bin/sh",
+                    $"-c \"{command}\"",
+                    null,
+                    cancellationToken);
+
+                return stdout.ToString();
             }
         }
 

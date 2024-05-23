@@ -132,6 +132,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 steps: message.Steps);
         }
 
+        public static bool IsCommandCorrelationIdValid(IExecutionContext executionContext, Command command, out bool correlationIdPresent)
+        {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(command, nameof(command));
+            correlationIdPresent = command.Properties.TryGetValue("correlationId", out string correlationId);
+
+            return correlationIdPresent && correlationId.Equals(executionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId], StringComparison.Ordinal);
+        }
+
         internal static bool IsCommandResultGlibcError(IExecutionContext executionContext, List<string> nodeVersionOutput, out string nodeInfoLineOut)
         {
             nodeInfoLineOut = "";

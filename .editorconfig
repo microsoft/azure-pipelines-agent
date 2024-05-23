@@ -37,6 +37,18 @@ dotnet_analyzer_diagnostic.category-Style.severity = error
 
 # Code style rules
 
+# IDE0001: Simplify Names
+dotnet_diagnostic.IDE0001.severity = suggestion
+
+# IDE0002: Simplify Member Access
+dotnet_diagnostic.IDE0002.severity = suggestion
+
+# IDE0003: Remove qualification
+dotnet_diagnostic.IDE0003.severity = suggestion
+
+# IDE0004: Remove Unnecessary Cast
+dotnet_diagnostic.IDE0004.severity = warning
+
 # Remove unnecessary using directives
 dotnet_diagnostic.IDE0005.severity = warning
 
@@ -45,6 +57,93 @@ dotnet_diagnostic.IDE0007.severity = none
 
 # Use explicit type instead of 'var'
 dotnet_diagnostic.IDE0008.severity = none
+
+# IDE0010: Add missing cases
+dotnet_diagnostic.IDE0010.severity = warning
+
+# IDE0011: Add braces
+dotnet_diagnostic.IDE0011.severity = suggestion
+
+# IDE0017: Simplify object initialization
+dotnet_diagnostic.IDE0017.severity = suggestion
+
+# IDE0018: Variable declaration can be inlined
+dotnet_diagnostic.IDE0018.severity = suggestion
+
+# IDE0022: Use block body for method
+dotnet_diagnostic.IDE0022.severity = none
+
+# IDE0027: Use expression body for accessor
+dotnet_diagnostic.IDE0027.severity = suggestion
+
+# IDE0028: Simplify collection initialization
+dotnet_diagnostic.IDE0028.severity = suggestion
+
+# IDE0032: Use auto property
+dotnet_diagnostic.IDE0032.severity = suggestion
+
+# IDE0040: Add accessibility modifiers
+dotnet_diagnostic.IDE0040.severity = warning
+
+# IDE0042: Deconstruct variable declaration
+dotnet_diagnostic.IDE0042.severity = suggestion
+
+# IDE0044: Add readonly modifier
+dotnet_diagnostic.IDE0044.severity = warning
+
+# IDE0045: Use conditional expression for assignment
+dotnet_diagnostic.IDE0045.severity = suggestion
+
+# IDE0046: Convert to conditional expression
+dotnet_diagnostic.IDE0046.severity = suggestion
+
+# IDE0047: Remove unnecessary parentheses
+dotnet_diagnostic.IDE0047.severity = suggestion
+
+# IDE0049: Simplify Names
+dotnet_diagnostic.IDE0049.severity = suggestion
+
+# IDE0034: Simplify 'default' expression
+dotnet_diagnostic.IDE0034.severity = suggestion
+
+# IDE0055: Formatting rule
+dotnet_diagnostic.IDE0055.severity = warning
+
+# IDE0057: Substring can be simplified
+dotnet_diagnostic.IDE0057.severity = suggestion
+
+# IDE0058: Remove unnecessary expression value
+dotnet_diagnostic.IDE0058.severity = none
+
+# IDE0059: Unnecessary assignment of a value
+dotnet_diagnostic.IDE0059.severity = suggestion
+
+# IDE0060: Remove unused parameter
+dotnet_diagnostic.IDE0060.severity = warning
+
+# IDE0063: Use simple 'using' statement
+dotnet_diagnostic.IDE0063.severity = suggestion
+
+# IDE0071: Simplify interpolation
+dotnet_diagnostic.IDE0071.severity = suggestion
+
+# IDE0074: Use compound assignment
+dotnet_diagnostic.IDE0074.severity = suggestion
+
+# IDE0078: Use pattern matching
+dotnet_diagnostic.IDE0078.severity = suggestion
+
+# IDE0083: Use pattern matching
+dotnet_diagnostic.IDE0083.severity = suggestion
+
+# IDE0090: Use 'new(...)'
+dotnet_diagnostic.IDE0090.severity = suggestion
+
+# IDE1005: Delegate invocation can be simplified.
+dotnet_diagnostic.IDE1005.severity = suggestion
+
+# IDE0160: Convert to block scoped namespace
+dotnet_diagnostic.IDE0160.severity = none
 
 dotnet_code_quality.ca1711.allowed_suffixes = Flag|Flags
 

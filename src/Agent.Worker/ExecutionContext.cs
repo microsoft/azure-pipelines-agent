@@ -495,6 +495,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.CommandCorrelationId] = Guid.NewGuid().ToString();
             if (checkouts != null && checkouts.Count > 0)
             {
                 JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
@@ -780,6 +781,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configuration = HostContext.GetService<IConfigurationStore>();
             _record.WorkerName = configuration.GetSettings().AgentName;
+            _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
         }
@@ -954,7 +956,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(ex, nameof(ex));
 
-            context.Error(ex.Message);
+            context.Error(ex.Message, new Dictionary<string, string> { { TaskWellKnownItems.IssueSourceProperty, Constants.TaskInternalIssueSource } });
             context.Debug(ex.ToString());
         }
 
@@ -963,6 +965,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
+        }
+
+        public static void Error(this IExecutionContext context, string message, Dictionary<string, string> properties)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(properties, nameof(properties));
+
+            var issue = new Issue() { Type = IssueType.Error, Message = message };
+
+            foreach (var property in properties.Keys)
+            {
+                issue.Data[property] = properties[property];
+            }
+
+            context.AddIssue(issue);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

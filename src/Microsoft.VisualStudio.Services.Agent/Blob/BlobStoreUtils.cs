@@ -33,8 +33,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             bool enableReporting = false)
         {
             // Create chunks and identifier
-            traceOutput(StringUtil.Loc("BuildingFileTree"));
-            var fileNodes = await GenerateHashes(itemPaths, cancellationToken);
+            traceOutput(StringUtil.Loc("BuildingFileTree"));            
+            var fileNodes = await GenerateHashes(itemPaths, dedupClient.HashType, cancellationToken);
             var rootNode = CreateNodeToUpload(fileNodes.Where(x => x.Success).Select(y => y.Node));
 
             // If there are multiple paths to one DedupId (duplicate files)
@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             });
         }
 
-        private static async Task<List<BlobFileInfo>> GenerateHashes(IReadOnlyList<string> filePaths, CancellationToken cancellationToken)
+        private static async Task<List<BlobFileInfo>> GenerateHashes(IReadOnlyList<string> filePaths, HashType hashType, CancellationToken cancellationToken)
         {
             var nodes = new BlobFileInfo[filePaths.Count];
             var queue = NonSwallowingActionBlock.Create<int>(
@@ -120,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     var itemPath = filePaths[i];
                     try
                     {
-                        var dedupNode = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, false, ChunkerHelper.DefaultChunkHashType, cancellationToken);
+                        var dedupNode = await ChunkerHelper.CreateFromFileAsync(FileSystem.Instance, itemPath, false, hashType, cancellationToken);
                         nodes[i] = new BlobFileInfo
                         {
                             Path = itemPath,

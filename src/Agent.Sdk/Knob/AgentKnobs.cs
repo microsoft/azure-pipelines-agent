@@ -149,6 +149,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("USE_LATEST_GIT_VERSION"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AgentTerminalEncoding = new Knob(
+            nameof(AgentTerminalEncoding),
+            "If the correct encoding name is specified, the encoding from the environment will be used instead of default UTF-8",
+            new EnvironmentKnobSource("AGENT_TERMINAL_ENCODING"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob TfVCUseSecureParameterPassing = new Knob(
             nameof(TfVCUseSecureParameterPassing),
             "If true, don't pass auth token in TFVC parameters",
@@ -252,6 +258,27 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_TASK_DOWNLOAD_RETRY_LIMIT"),
             new BuiltInDefaultKnobSource("3"));
 
+        public static readonly Knob ProccessSigintTimeout = new Knob(
+            nameof(ProccessSigintTimeout),
+            "Timeout for SIGINT signal during a process cancelation",
+            new RuntimeKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGINT_TIMEOUT"),
+            new BuiltInDefaultKnobSource("7500"));
+
+        public static readonly Knob ProccessSigtermTimeout = new Knob(
+            nameof(ProccessSigtermTimeout),
+            "Timeout for SIGTERM signal during a process cancelation",
+            new RuntimeKnobSource("PROCESS_SIGTERM_TIMEOUT"),
+            new EnvironmentKnobSource("PROCESS_SIGTERM_TIMEOUT"),
+            new BuiltInDefaultKnobSource("2500"));
+
+        public static readonly Knob UseGracefulProcessShutdown = new Knob(
+            nameof(UseGracefulProcessShutdown),
+            "Attemts to use only graceful process shutdown unless hard required",
+            new RuntimeKnobSource("USE_GRACEFUL_PROCESS_SHUTDOWN"),
+            new EnvironmentKnobSource("USE_GRACEFUL_PROCESS_SHUTDOWN"),
+            new BuiltInDefaultKnobSource("false"));
+
         // HTTP
         public const string LegacyHttpVariableName = "AZP_AGENT_USE_LEGACY_HTTP";
         public static readonly Knob UseLegacyHttpHandler = new DeprecatedKnob(
@@ -320,6 +347,12 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource("0"));
 
         // Misc
+        public static readonly Knob EnableIssueSourceValidation = new Knob(
+            nameof(EnableIssueSourceValidation),
+            "When true, enable issue source validation for the task.issue command.",
+            new RuntimeKnobSource("ENABLE_ISSUE_SOURCE_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableAgentDowngrade = new Knob(
             nameof(DisableAgentDowngrade),
             "Disable agent downgrades. Upgrades will still be allowed.",
@@ -454,7 +487,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new BuiltInDefaultKnobSource("false"));
-       
+
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -522,9 +555,15 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
-            "Enables new sanitization logic for process handler",
+            "Enables new args protect logic for process handler",
             new RuntimeKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
             new EnvironmentKnobSource("AZP_75787_ENABLE_NEW_PH_LOGIC"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseProcessHandlerV2 = new Knob(
+            nameof(UseProcessHandlerV2),
+            "Enables new Process handler (v2)",
+            new RuntimeKnobSource("AGENT_USE_PROCESS_HANDLER_V2"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
@@ -600,7 +639,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
-      
+
         public static readonly Knob EnableNewSecretMasker = new Knob(
             nameof(EnableNewSecretMasker),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
@@ -619,6 +658,52 @@ namespace Agent.Sdk.Knob
             "If true, agent will log the task name in user agent.",
             new RuntimeKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
             new EnvironmentKnobSource("AZP_AGENT_LOG_TASKNAME_IN_USERAGENT"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseFetchFilterInCheckoutTask = new Knob(
+            nameof(UseFetchFilterInCheckoutTask),
+            "If true, agent will use fetch filter in checkout task.",
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
+            nameof(StoreAgentKeyInCSPContainer),
+            "Store agent key in named container (Windows).",
+            new EnvironmentKnobSource("STORE_AGENT_KEY_IN_CSP_CONTAINER"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentKeyUseCng = new Knob(
+            nameof(AgentKeyUseCng),
+            "Use CNG API to store agent key.  Note: Uses Private User Storage",
+            new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseInteropToFindParentProcess = new Knob(
+            nameof(UseInteropToFindParentProcess),
+            "Uses native Windows function to find parent processes of a process.",
+            new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob RsaKeyGetConfigFromFF = new Knob(
+            nameof(RsaKeyGetConfigFromFF),
+            "Get config from FF.",
+            new EnvironmentKnobSource("RSAKEYGETCONFIGFROMFF"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableResourceUtilizationWarnings = new Knob(
+            nameof(DisableResourceUtilizationWarnings),
+            "If true, agent will not throw warnings related to high resource utilization",
+            new RuntimeKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob Rosetta2Warning = new Knob(
+            nameof(Rosetta2Warning),
+            "Log warning when X64 Agent is used on a Apple Silicon device.",
+            new RuntimeKnobSource("ROSETTA2_WARNING"),
+            new EnvironmentKnobSource("ROSETTA2_WARNING"),
+            new PipelineFeatureSource("Rosetta2Warning"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -11,6 +11,7 @@
 | Linux ARM      | [vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz) | <HASH> |
 | Linux ARM64    | [vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz) | <HASH> |
 | Linux musl x64 | [vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz) | <HASH> |
+| Linux musl ARM64 | [vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz](https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz) | <HASH> |
 
 After Download:
 
@@ -65,16 +66,25 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alpine x64
 
+***Note:*** Node 6 does not exist for Alpine.
+
 ``` bash
 ~/$ mkdir myagent && cd myagent
 ~/myagent$ tar xzf ~/Downloads/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz
 ```
 
+## Alpine ARM64
+
 ***Note:*** Node 6 does not exist for Alpine.
+
+``` bash
+~/$ mkdir myagent && cd myagent
+~/myagent$ tar xzf ~/Downloads/vsts-agent-linux-musl-ARM64-<AGENT_VERSION>.tar.gz
+```
 
 ## Alternate Agent Downloads
 
-Alternate packages below do not include Node 6 and are only suitable for users who do not use Node 6 dependent tasks. 
+Alternate packages below do not include Node 6 & 10 and are only suitable for users who do not use Node 6 & 10 dependent tasks.
 See [notes](docs/node6.md) on Node version support for more details.
 
 |             | Package | SHA-256 |
