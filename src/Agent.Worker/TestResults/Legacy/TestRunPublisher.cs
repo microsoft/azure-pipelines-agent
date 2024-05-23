@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
     {
         #region Private
         const int BATCH_SIZE = 1000;
-        const int PUBLISH_TIMEOUT = 300;
+        const int PUBLISH_TIMEOUT = 600;
         const int TCM_MAX_FILECONTENT_SIZE = 100 * 1024 * 1024; //100 MB
         const int TCM_MAX_FILESIZE = 75 * 1024 * 1024; // 75 MB
         private IExecutionContext _executionContext;

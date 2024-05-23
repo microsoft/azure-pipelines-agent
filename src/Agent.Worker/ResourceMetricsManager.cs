@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
     {
         const int ACTIVE_MODE_INTERVAL = 5000;
-        const int WARNING_MESSAGE_INTERVAL = 10000;
+        const int WARNING_MESSAGE_INTERVAL = 5000;
         const int AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD = 5;
         const int AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD = 5;
         const int CPU_UTILIZATION_PERCENTAGE_THRESHOLD = 95;
@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async Task RunDiskSpaceUtilizationMonitor() 
+        public async Task RunDiskSpaceUtilizationMonitor()
         {
             while (!_context.CancellationToken.IsCancellationRequested)
             {
@@ -103,7 +103,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (freeDiskSpacePercentage <= AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD)
                     {
                         _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold", diskInfo.VolumeRoot, AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD, $"{usedDiskSpacePercentage:0.00}"));
-                        
                         break;
                     }
                 }
@@ -132,7 +131,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (freeMemoryPercentage <= AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD)
                     {
                         _context.Warning(StringUtil.Loc("ResourceMonitorMemorySpaceIsLowerThanThreshold", AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD, $"{usedMemoryPercentage:0.00}"));
-                        
                         break;
                     }
                 }
@@ -215,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private Process _currentProcess;
 
         private double GetCpuInfo()
-        {            
+        {
             TimeSpan totalCpuTime = _currentProcess.TotalProcessorTime;
             TimeSpan elapsedTime = DateTime.Now - _currentProcess.StartTime;
 
@@ -316,7 +314,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     processStartInfoOutput = process.StandardOutput.ReadToEnd();
                 }
-                    
+
                 var processStartInfoOutputString = processStartInfoOutput.Split("\n");
 
                 var pageSize = Int32.Parse(processStartInfoOutputString[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);

@@ -198,7 +198,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
-        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
+        public async Task<int> GitFetch(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName, int fetchDepth, string fetchFilter, bool fetchTags, List<string> refSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {
             context.Debug($"Fetch git repository at: {repositoryPath} remote: {remoteName}.");
             if (refSpec != null && refSpec.Count > 0)
@@ -236,8 +236,50 @@ namespace Agent.Plugins.Repository
             // add --unshallow to convert the shallow repository to a complete repository
             string depth = fetchDepth > 0 ? $"--depth={fetchDepth}" : (File.Exists(Path.Combine(repositoryPath, ".git", "shallow")) ? "--unshallow" : string.Empty);
 
+            // parse filter and only include valid options
+            List<string> filters = new List<String>();
+
+            if (AgentKnobs.UseFetchFilterInCheckoutTask.GetValue(context).AsBoolean())
+            {
+                List<string> splitFilter = fetchFilter.Split('+').Where(filter => !String.IsNullOrWhiteSpace(filter)).ToList();
+
+                foreach (string filter in splitFilter)
+                {
+                    List<string> parsedFilter = filter.Split(':')
+                        .Where(filter => !String.IsNullOrWhiteSpace(filter))
+                        .Select(filter => filter.Trim())
+                        .ToList();
+
+                    if (parsedFilter.Count == 2)
+                    {
+                        switch (parsedFilter[0].ToLower())
+                        {
+                            case "tree":
+                                // currently only supporting treeless filter
+                                if (int.TryParse(parsedFilter[1], out int treeSize) && treeSize == 0)
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{treeSize}");
+                                }
+                                break;
+
+                            case "blob":
+                                // currently only supporting blobless filter
+                                if (parsedFilter[1].Equals("none", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    filters.Add($"{parsedFilter[0]}:{parsedFilter[1]}");
+                                }
+                                break;
+
+                            default:
+                                // either invalid or unsupported git object
+                                break;
+                        }
+                    }
+                }
+            }
+
             //define options for fetch
-            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
+            string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {String.Join(" ", filters.Select(filter => "--filter=" + filter))} {string.Join(" ", refSpec)}";
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -257,6 +299,8 @@ namespace Agent.Plugins.Repository
                     { "RefSpec", string.Join(" ", refSpec) },
                     { "RemoteName", remoteName },
                     { "FetchDepth", $"{fetchDepth}" },
+                    { "FetchFilter", $"{String.Join(" ", filters)}" },
+                    { "FetchTags", $"{fetchTags}" },
                     { "ExitCode", $"{fetchExitCode}" },
                     { "Options", options }
                 });

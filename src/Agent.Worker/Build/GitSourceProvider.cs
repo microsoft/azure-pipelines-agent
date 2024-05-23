@@ -657,6 +657,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.Warning("Unable turn off git auto garbage collection, git fetch operation may trigger auto garbage collection which will affect the performance of fetching.");
             }
 
+            // Force Git to HTTP/1.1. Otherwise IIS will reject large pushes to Azure Repos due to the large content-length header
+            // This is caused by these header limits - https://docs.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/headerlimits/
+            int exitCode_configHttp = await _gitCommandManager.GitConfig(executionContext, targetPath, "http.version", "HTTP/1.1");
+            if (exitCode_configHttp != 0)
+            {
+                executionContext.Warning($"Forcing Git to HTTP/1.1 failed with exit code: {exitCode_configHttp}");
+            }
+
             SetGitFeatureFlagsConfiguration(executionContext, _gitCommandManager, targetPath);
 
             // always remove any possible left extraheader setting from git config.

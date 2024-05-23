@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
@@ -37,6 +39,25 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             base.Initialize(hostContext);
             Console.CancelKeyPress += Console_CancelKeyPress;
+
+            var terminalEncoding = Encoding.UTF8;
+            var endEncodingName = AgentKnobs.AgentTerminalEncoding.GetValue(hostContext).AsString();
+
+            try
+            {
+                if (!string.IsNullOrEmpty(endEncodingName))
+                {
+                    terminalEncoding = Encoding.GetEncoding(endEncodingName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Error($@"Encoding ""{endEncodingName}"" not found:");
+                Trace.Error(ex);
+            }
+
+            Console.OutputEncoding = terminalEncoding;
+            Console.InputEncoding = terminalEncoding;
         }
 
         private void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
