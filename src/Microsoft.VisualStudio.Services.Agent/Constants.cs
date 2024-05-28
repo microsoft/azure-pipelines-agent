@@ -123,6 +123,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string Tools = "tools";
         }
 
+        public static class AsyncExecution
+        {
+            public static class Commands
+            {
+                public static class Names
+                {
+                    public static readonly string DetectDockerContainer = "DetectDockerContainer";
+                    public static readonly string GetAzureVMMetada = "GetAzureVMMetada";
+                    public static readonly string WindowsPreinstalledGitTelemetry = "WindowsPreinstalledGitTelemetry";
+                }
+            }
+        }
+
         public static class Agent
         {
             public static readonly TimeSpan ExitOnUnloadTimeout = TimeSpan.FromSeconds(30);
