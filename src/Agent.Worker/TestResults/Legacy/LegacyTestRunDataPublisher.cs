@@ -409,9 +409,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
             {
                 var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
-                featureFlagService.InitializeFeatureService(_executionContext, connection);
-                _calculateTestRunSummary = featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-                _isFlakyCheckEnabled = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
+                _calculateTestRunSummary = featureFlagService.GetFeatureFlagStateByName(_executionContext, TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid, connection);
+                _isFlakyCheckEnabled = featureFlagService.GetFeatureFlagStateByName(_executionContext, TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid, connection);
             }
         }
     }
