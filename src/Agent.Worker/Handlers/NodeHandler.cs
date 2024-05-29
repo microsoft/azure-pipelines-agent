@@ -129,6 +129,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string target = Data.Target;
             ArgUtil.NotNullOrEmpty(target, nameof(target));
             target = Path.Combine(TaskDirectory, target);
+
+            // Ensure the slashes are normalized, it's possible that the subpath inside the task is using /
+            // and the TaskDirectory is using \ on Windows.
+            target = Path.GetFullPath(target);
             ArgUtil.File(target, nameof(target));
 
             // Resolve the working directory.
