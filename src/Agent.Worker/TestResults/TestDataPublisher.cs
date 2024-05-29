@@ -38,9 +38,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private IParser _parser;
 
         private VssConnection _connection;
-        private IFeatureFlagService _featureFlagService;
         private string _testRunner;
         private bool _calculateTestRunSummary;
+        private bool _isFlakyCheckEnabled;
         private TestRunDataPublisherHelper _testRunPublisherHelper;
         private ITestResultsServer _testResultsServer;
 
@@ -56,10 +56,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testResultsServer = HostContext.GetService<ITestResultsServer>();
             _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
-            _featureFlagService = HostContext.GetService<IFeatureFlagService>();
-            _featureFlagService.InitializeFeatureService(_executionContext, connection);
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
+            LoadFeatureFlagState();
             Trace.Leaving();
         }
 
@@ -86,8 +85,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-
                     var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
@@ -98,9 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     // Check failed results for flaky aware
                     // Fallback to flaky aware if there are any failures.
-                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
-
-                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    if (isTestRunOutcomeFailed && _isFlakyCheckEnabled)
                     {
                         var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
                         if (runOutcome != null && runOutcome.HasValue)
@@ -188,8 +183,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-
                     var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
@@ -200,9 +193,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     // Check failed results for flaky aware
                     // Fallback to flaky aware if there are any failures.
-                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
-
-                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    if (isTestRunOutcomeFailed && _isFlakyCheckEnabled)
                     {
                         var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
                         if (runOutcome != null && runOutcome.HasValue)
@@ -326,6 +317,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
 
             return proj.Id;
+        }
+
+        private void LoadFeatureFlagState()
+        {
+            using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
+            {
+                var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
+                featureFlagService.InitializeFeatureService(_executionContext, connection);
+                _calculateTestRunSummary = featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+                _isFlakyCheckEnabled = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
+            }
         }
     }
 }
