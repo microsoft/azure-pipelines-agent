@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private IParser _parser;
 
         private VssConnection _connection;
+        private IFeatureFlagService _featureFlagService;
         private string _testRunner;
         private bool _calculateTestRunSummary;
         private bool _isFlakyCheckEnabled;
@@ -56,6 +57,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testResultsServer = HostContext.GetService<ITestResultsServer>();
             _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
+            _featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            _featureFlagService.InitializeFeatureService(_executionContext, connection);
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
             LoadFeatureFlagState();
