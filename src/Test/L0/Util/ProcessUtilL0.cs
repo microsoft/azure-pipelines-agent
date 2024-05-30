@@ -18,6 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void Test_GetProcessList(bool useInteropToFindParentProcess)
         {
             using TestHostContext hc = new TestHostContext(this);
@@ -57,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void Test_GetParentProcessId_ViaInterop()
         {
             using TestHostContext hc = new TestHostContext(this);
@@ -77,6 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void Test_GetParentProcess_ViaInterop()
         {
             using TestHostContext hc = new TestHostContext(this);

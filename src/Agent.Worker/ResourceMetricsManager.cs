@@ -267,7 +267,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 memoryInfo.UsedMemoryMB = (totalMemory - freeMemory) / 1024;
             }
 
-            if (PlatformUtil.RunningOnLinux)
+            if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD)
             {
                 // Some compact Linux distributions like UBI may not have "free" utility installed, or it may have a custom output
                 // We don't want to break currently existing pipelines with ADO warnings
@@ -275,8 +275,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    processStartInfo.FileName = "free";
-                    processStartInfo.Arguments = "-m";
+                    if (PlatformUtil.RunningOnLinux)
+                    {
+                        processStartInfo.FileName = "free";
+                        processStartInfo.Arguments = "-m";
+                    }
+                    else
+                    {
+                        processStartInfo.FileName = "vmstat";
+                        processStartInfo.Arguments = "-h";
+                    }
+
                     processStartInfo.RedirectStandardOutput = true;
 
                     using (var process = Process.Start(processStartInfo))
