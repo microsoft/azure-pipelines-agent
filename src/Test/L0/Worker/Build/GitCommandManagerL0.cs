@@ -31,20 +31,9 @@ public class TestGitCommandManagerL0
 
         GitCommandManager gitCliManager = new();
         gitCliManager.Initialize(tc);
-        var (resolvedGitPath, resolvedGitLfsPath) = gitCliManager.GetInternalGitPaths(
-            executionContext.Object,
-            gitFeatureFlagStatus);
+        var (resolvedGitPath, resolvedGitLfsPath) = gitCliManager.GetInternalGitPaths();
 
-        string gitPath;
-
-        if (gitFeatureFlagStatus)
-        {
-            gitPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Externals), "ff_git", "cmd", "git.exe");
-        }
-        else
-        {
-            gitPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", "git.exe");
-        }
+        string gitPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Externals), "git", "cmd", "git.exe");
 
         var binPath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
         var rootPath = new DirectoryInfo(binPath).Parent.FullName;
