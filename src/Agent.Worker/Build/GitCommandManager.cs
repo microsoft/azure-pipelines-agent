@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch);
 
-        (string resolvedGitPath, string resolvedGitLfsPath) GetInternalGitPaths(IExecutionContext context);
+        (string resolvedGitPath, string resolvedGitLfsPath) GetInternalGitPaths();
 
         // setup git execution info, git location, version, useragent, execpath
         Task LoadGitExecutionInfo(IExecutionContext context, bool useBuiltInGit, Dictionary<string, string> gitEnv = null);
