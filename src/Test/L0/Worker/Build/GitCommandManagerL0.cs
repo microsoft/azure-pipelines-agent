@@ -11,21 +11,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build;
 
 public class TestGitCommandManagerL0
 {
-    public static IEnumerable<object[]> UseNewGitVersionFeatureFlagsData => new List<object[]>
-    {
-        new object[] { true },
-        new object[] { false },
-    };
-    
-    [Theory]
+    [Fact]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker")]
     [Trait("SkipOn", "darwin")]
     [Trait("SkipOn", "linux")]
-    [MemberData(nameof(UseNewGitVersionFeatureFlagsData))]
-    public void TestGetInternalGitPaths(bool gitFeatureFlagStatus)
+    public void TestGetInternalGitPaths()
     {
-        using var tc = new TestHostContext(this, $"GitFeatureFlagStatus_{gitFeatureFlagStatus}");
+        using var tc = new TestHostContext(this);
         var trace = tc.GetTrace();
         var executionContext = new Mock<IExecutionContext>();
 

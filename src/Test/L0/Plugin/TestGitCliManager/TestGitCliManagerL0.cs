@@ -33,18 +33,11 @@ namespace Test.L0.Plugin.TestGitCliManager
             return Tuple.Create(argUtilInstanced, context);
         }
 
-        public static IEnumerable<object[]> UseNewGitVersionFeatureFlagsData => new List<object[]>
-        {
-            new object[] { true },
-            new object[] { false },
-        };
-
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        [MemberData(nameof(UseNewGitVersionFeatureFlagsData))]
         public void TestGetInternalGitPaths()
         {
             using var hostContext = new TestHostContext(this);
