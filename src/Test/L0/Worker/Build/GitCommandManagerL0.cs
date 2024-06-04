@@ -2,7 +2,6 @@
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Moq;
-using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Xunit;
