@@ -91,11 +91,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
+    public class ExecutionContext : AgentService, IExecutionContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
-        private readonly TimelineRecord _record = new TimelineRecord();
+        protected readonly TimelineRecord _record = new();
+        protected ExecutionTargetInfo _defaultStepTarget;
+        protected ExecutionTargetInfo _currentStepTarget;
+        protected IPagingLogger _logger;
+        protected bool _outputForward = false;
+        protected Guid _mainTimelineId;
+        protected int _childTimelineRecordOrder = 0;
+        protected CancellationTokenSource _cancellationTokenSource;
+        protected IExecutionContext _parentExecutionContext;
+
         private readonly Dictionary<Guid, TimelineRecord> _detailRecords = new Dictionary<Guid, TimelineRecord>();
         private readonly object _loggerLock = new object();
         private readonly List<IAsyncCommandContext> _asyncCommands = new List<IAsyncCommandContext>();
@@ -103,19 +112,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly List<TaskRestrictions> _restrictions = new List<TaskRestrictions>();
         private readonly string _buildLogsFolderName = "buildlogs";
         private IAgentLogPlugin _logPlugin;
-        private IPagingLogger _logger;
         private IJobServerQueue _jobServerQueue;
-        private IExecutionContext _parentExecutionContext;
-        private bool _outputForward = false;
-        private Guid _mainTimelineId;
         private Guid _detailTimelineId;
-        private int _childTimelineRecordOrder = 0;
-        private CancellationTokenSource _cancellationTokenSource;
         private CancellationTokenSource _forceCompleteCancellationTokenSource = new CancellationTokenSource();
         private TaskCompletionSource<int> _forceCompleted = new TaskCompletionSource<int>();
         private bool _throttlingReported = false;
-        private ExecutionTargetInfo _defaultStepTarget;
-        private ExecutionTargetInfo _currentStepTarget;
         private bool _disableLogUploads;
         private string _buildLogsFolderPath;
         private string _buildLogsFile;
@@ -130,17 +131,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Task ForceCompleted => _forceCompleted.Task;
         public CancellationToken CancellationToken => _cancellationTokenSource.Token;
         public CancellationToken ForceCompleteCancellationToken => _forceCompleteCancellationTokenSource.Token;
-        public List<ServiceEndpoint> Endpoints { get; private set; }
-        public List<SecureFile> SecureFiles { get; private set; }
-        public List<Pipelines.RepositoryResource> Repositories { get; private set; }
-        public Dictionary<string, string> JobSettings { get; private set; }
-        public Variables Variables { get; private set; }
-        public Variables TaskVariables { get; private set; }
+        public List<ServiceEndpoint> Endpoints { get; protected set; }
+        public List<SecureFile> SecureFiles { get; protected set; }
+        public List<Pipelines.RepositoryResource> Repositories { get; protected set; }
+        public Dictionary<string, string> JobSettings { get; protected set; }
+        public Variables Variables { get; protected set; }
+        public Variables TaskVariables { get; protected set; }
         public HashSet<string> OutputVariables => _outputvariables;
-        public bool WriteDebug { get; private set; }
-        public List<string> PrependPath { get; private set; }
-        public List<ContainerInfo> Containers { get; private set; }
-        public List<ContainerInfo> SidecarContainers { get; private set; }
+        public bool WriteDebug { get; protected set; }
+        public List<string> PrependPath { get; protected set; }
+        public List<ContainerInfo> Containers { get; protected set; }
+        public List<ContainerInfo> SidecarContainers { get; protected set; }
         public List<TaskRestrictions> Restrictions => _restrictions;
         public List<IAsyncCommandContext> AsyncCommands => _asyncCommands;
 
@@ -172,7 +173,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public PlanFeatures Features { get; private set; }
+        public PlanFeatures Features { get; protected set; }
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -761,7 +762,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Trace;
         }
 
-        private void InitializeTimelineRecord(Guid timelineId, Guid timelineRecordId, Guid? parentTimelineRecordId, string recordType, string displayName, string refName, int? order)
+        protected internal void InitializeTimelineRecord(Guid timelineId, Guid timelineRecordId, Guid? parentTimelineRecordId, string recordType, string displayName, string refName, int? order)
         {
             _mainTimelineId = timelineId;
             _record.Id = timelineRecordId;
@@ -937,13 +938,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Dispose()
         {
-            _cancellationTokenSource?.Dispose();
-            _forceCompleteCancellationTokenSource?.Dispose();
+            Dispose(true);
 
-            _buildLogsWriter?.Dispose();
-            _buildLogsWriter = null;
-            _buildLogsData?.Dispose();
-            _buildLogsData = null;
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _cancellationTokenSource?.Dispose();
+                _forceCompleteCancellationTokenSource?.Dispose();
+
+                _buildLogsWriter?.Dispose();
+                _buildLogsWriter = null;
+                _buildLogsData?.Dispose();
+                _buildLogsData = null;
+            }
         }
     }
 

@@ -22,8 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public interface IJobExtension : IExtension
     {
         HostTypes HostType { get; }
-        Task<List<IStep>> InitializeJob(IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message);
-        Task FinalizeJob(IExecutionContext jobContext);
+        Task<List<IStep>> InitializeJob(IJobExecutionContext jobContext, Pipelines.AgentJobRequestMessage message);
+        Task FinalizeJob(IJobExecutionContext jobContext);
         string GetRootedPath(IExecutionContext context, string path);
         void ConvertLocalPath(IExecutionContext context, string localPath, out string repoName, out string sourcePath);
     }
@@ -56,14 +56,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // download all required tasks.
         // make sure all task's condition inputs are valid.
         // build up three list of steps for jobrunner. (pre-job, job, post-job)
-        public async Task<List<IStep>> InitializeJob(IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message)
+        public async Task<List<IStep>> InitializeJob(IJobExecutionContext jobContext, Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
             ArgUtil.NotNull(jobContext, nameof(jobContext));
             ArgUtil.NotNull(message, nameof(message));
 
             // create a new timeline record node for 'Initialize job'
-            IExecutionContext context = jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("InitializeJob"), $"{nameof(JobExtension)}_Init");
+            ITaskExecutionContext context = jobContext.CreateTaskExecutionContext(Guid.NewGuid(), StringUtil.Loc("InitializeJob"), $"{nameof(JobExtension)}_Init");
 
             List<IStep> preJobSteps = new List<IStep>();
             List<IStep> jobSteps = new List<IStep>();
@@ -393,7 +393,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             ITaskRunner taskStep = step as ITaskRunner;
                             ArgUtil.NotNull(taskStep, step.DisplayName);
-                            taskStep.ExecutionContext = jobContext.CreateChild(
+                            taskStep.ExecutionContext = jobContext.CreateTaskExecutionContext(
                                 Guid.NewGuid(),
                                 StringUtil.Loc("PreJob", taskStep.DisplayName),
                                 taskStep.Task.Name,
@@ -408,7 +408,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         ITaskRunner taskStep = step as ITaskRunner;
                         ArgUtil.NotNull(taskStep, step.DisplayName);
-                        taskStep.ExecutionContext = jobContext.CreateChild(
+                        taskStep.ExecutionContext = jobContext.CreateTaskExecutionContext(
                             taskStep.Task.Id,
                             taskStep.DisplayName,
                             taskStep.Task.Name,
@@ -438,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             ITaskRunner taskStep = step as ITaskRunner;
                             ArgUtil.NotNull(taskStep, step.DisplayName);
-                            taskStep.ExecutionContext = jobContext.CreateChild(
+                            taskStep.ExecutionContext = jobContext.CreateTaskExecutionContext(
                                 Guid.NewGuid(),
                                 StringUtil.Loc("PostJob", taskStep.DisplayName),
                                 taskStep.Task.Name,
@@ -546,13 +546,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public async Task FinalizeJob(IExecutionContext jobContext)
+        public async Task FinalizeJob(IJobExecutionContext jobContext)
         {
             Trace.Entering();
             ArgUtil.NotNull(jobContext, nameof(jobContext));
 
             // create a new timeline record node for 'Finalize job'
-            IExecutionContext context = jobContext.CreateChild(Guid.NewGuid(), StringUtil.Loc("FinalizeJob"), $"{nameof(JobExtension)}_Final");
+            ITaskExecutionContext context = jobContext.CreateTaskExecutionContext(Guid.NewGuid(), StringUtil.Loc("FinalizeJob"), $"{nameof(JobExtension)}_Final");
             using (var register = jobContext.CancellationToken.Register(() => { context.CancelToken(); }))
             {
                 try

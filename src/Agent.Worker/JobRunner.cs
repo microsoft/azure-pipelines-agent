@@ -96,7 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _jobServerQueue.Start(message);
             HostContext.WritePerfCounter($"WorkerJobServerQueueStarted_{message.RequestId.ToString()}");
 
-            IExecutionContext jobContext = null;
+            IJobExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
             VssConnection taskConnection = null;
             VssConnection legacyTaskConnection = null;
@@ -104,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             try
             {
                 // Create the job execution context.
-                jobContext = HostContext.CreateService<IExecutionContext>();
+                jobContext = HostContext.CreateService<IJobExecutionContext>();
                 jobContext.InitializeJob(message, jobRequestCancellationToken);
 
                 Trace.Info("Starting the job execution context.");
