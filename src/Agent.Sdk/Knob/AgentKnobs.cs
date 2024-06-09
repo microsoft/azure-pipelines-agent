@@ -553,6 +553,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNewNodeHandlerTelemetry = new Knob(
+            nameof(UseNewNodeHandlerTelemetry),
+            "Enables new approach to publish node handler information to the telemetry",
+            new RuntimeKnobSource("AZP_USENEWNODEHANDLERTELEMETRY"),
+            new EnvironmentKnobSource("AZP_USENEWNODEHANDLERTELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
             "Enables new args protect logic for process handler",

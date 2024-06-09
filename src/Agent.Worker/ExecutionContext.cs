@@ -89,6 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <returns></returns>
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
+        void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -933,6 +934,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var publishTelemetryCmd = new TelemetryCommandExtension();
             publishTelemetryCmd.Initialize(HostContext);
             publishTelemetryCmd.ProcessCommand(this, cmd);
+        }
+
+        public void PublishTaskRunnerTelemetry(Dictionary<string,string> taskRunnerData)
+        {
+            PublishTelemetry(taskRunnerData);
         }
 
         public void Dispose()
