@@ -58,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 bool isSelfRepo = RepositoryUtil.IsPrimaryRepositoryName(repository.Alias);
                 bool hasMultipleCheckouts = RepositoryUtil.HasMultipleCheckouts(context.JobSettings);
+                bool isDefaultWorkingDirectoryRepo = RepositoryUtil.IsWellKnownRepository(repository, RepositoryUtil.IsDefaultWorkingDirectoryRepository);
 
                 var directoryManager = context.GetHostContext().GetService<IBuildDirectoryManager>();
                 string _workDirectory = context.GetHostContext().GetDirectory(WellKnownDirectory.Work);
@@ -91,6 +92,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         context.SetVariable(Constants.Variables.Build.RepoLocalPath, repositoryPath, isFilePath: true);
                         context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, repositoryPath, isFilePath: true);
                     }
+                }
+
+                // Set the default working directory to the new location of this repo if this repo was marked as the one being the default working directory
+                if (isDefaultWorkingDirectoryRepo)
+                {
+                    string buildDirectory = context.Variables.Get(Constants.Variables.Pipeline.Workspace);
+                    string repoRelativePath = directoryManager.GetRelativeRepositoryPath(buildDirectory, repositoryPath, context);
+                    string repoLocation = Path.Combine(_workDirectory, repoRelativePath);
+
+                    context.SetVariable(Constants.Variables.System.DefaultWorkingDirectory, repoLocation, isFilePath: true);
                 }
             }
 

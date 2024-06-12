@@ -434,10 +434,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.NotNull(ec.JobSettings);
                 Assert.Equal(Boolean.FalseString, ec.JobSettings[WellKnownJobSettings.HasMultipleCheckouts]);
                 Assert.Equal("repo1", ec.JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut]);
+                Assert.False(ec.JobSettings.ContainsKey(WellKnownJobSettings.DefaultWorkingDirectoryRepository));
                 Assert.Equal(Boolean.TrueString, repo1.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository));
+                Assert.Equal(Boolean.FalseString, repo1.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void InitializeJob_should_mark_default_workdirectory_repository()
+        {
+            // Note: the primary repository is defined as the first repository that is checked out in the job
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange: Create a job request message.
+                TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
+                TimelineReference timeline = new TimelineReference();
+                JobEnvironment environment = new JobEnvironment();
+                environment.SystemConnection = new ServiceEndpoint();
+                List<TaskInstance> tasks = new List<TaskInstance>();
+                tasks.Add(new TaskInstance() { Id = Pipelines.PipelineConstants.CheckoutTask.Id, Version = Pipelines.PipelineConstants.CheckoutTask.Version, Inputs = { { Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, "repo1" }, { Pipelines.PipelineConstants.CheckoutTaskInputs.WorkspaceRepo, "true" } } });
+                Guid JobId = Guid.NewGuid();
+                string jobName = "some job name";
+                var jobRequest = Pipelines.AgentJobRequestMessageUtil.Convert(new AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, environment, tasks));
+                var repo1 = new Pipelines.RepositoryResource() { Alias = "repo1" };
+                jobRequest.Resources.Repositories.Add(repo1);
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+
+                ec.Initialize(hc);
+
+                // Act.
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Assert.
+                Assert.NotNull(ec.JobSettings);
+                Assert.Equal(Boolean.FalseString, ec.JobSettings[WellKnownJobSettings.HasMultipleCheckouts]);
+                Assert.Equal("repo1", ec.JobSettings[WellKnownJobSettings.DefaultWorkingDirectoryRepository]);
+                Assert.Equal(Boolean.TrueString, repo1.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository));
+                Assert.Equal(Boolean.TrueString, repo1.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+            }
+        }
 
         [Fact]
         [Trait("Level", "L0")]
@@ -480,9 +521,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.NotNull(ec.JobSettings);
                 Assert.Equal(Boolean.TrueString, ec.JobSettings[WellKnownJobSettings.HasMultipleCheckouts]);
                 Assert.Equal("repo2", ec.JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut]);
+                Assert.False(ec.JobSettings.ContainsKey(WellKnownJobSettings.DefaultWorkingDirectoryRepository));
                 Assert.Equal(Boolean.FalseString, repo1.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
                 Assert.Equal(Boolean.TrueString, repo2.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
                 Assert.Equal(Boolean.FalseString, repo3.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo1.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo2.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo3.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void InitializeJob_should_mark_default_workdirectory_repository_in_multicheckout()
+        {
+            // Note: the primary repository is defined as the first repository that is checked out in the job
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange: Create a job request message.
+                TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
+                TimelineReference timeline = new TimelineReference();
+                JobEnvironment environment = new JobEnvironment();
+                environment.SystemConnection = new ServiceEndpoint();
+                List<TaskInstance> tasks = new List<TaskInstance>();
+                tasks.Add(new TaskInstance() { Id = Pipelines.PipelineConstants.CheckoutTask.Id, Version = Pipelines.PipelineConstants.CheckoutTask.Version, Inputs = { { Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, "self" } } });
+                tasks.Add(new TaskInstance() { Id = Pipelines.PipelineConstants.CheckoutTask.Id, Version = Pipelines.PipelineConstants.CheckoutTask.Version, Inputs = { { Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, "repo2" }, { Pipelines.PipelineConstants.CheckoutTaskInputs.WorkspaceRepo, "true" } } });
+                tasks.Add(new TaskInstance() { Id = Pipelines.PipelineConstants.CheckoutTask.Id, Version = Pipelines.PipelineConstants.CheckoutTask.Version, Inputs = { { Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, "repo3" } } });
+                Guid JobId = Guid.NewGuid();
+                string jobName = "some job name";
+                var jobRequest = Pipelines.AgentJobRequestMessageUtil.Convert(new AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, environment, tasks));
+                var repo1 = new Pipelines.RepositoryResource() { Alias = "self" };
+                var repo2 = new Pipelines.RepositoryResource() { Alias = "repo2" };
+                var repo3 = new Pipelines.RepositoryResource() { Alias = "repo3" };
+                jobRequest.Resources.Repositories.Add(repo1);
+                jobRequest.Resources.Repositories.Add(repo2);
+                jobRequest.Resources.Repositories.Add(repo3);
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+
+
+                ec.Initialize(hc);
+
+                // Act.
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Assert.
+                Assert.NotNull(ec.JobSettings);
+                Assert.Equal(Boolean.TrueString, ec.JobSettings[WellKnownJobSettings.HasMultipleCheckouts]);
+                Assert.Equal("self", ec.JobSettings[WellKnownJobSettings.FirstRepositoryCheckedOut]);
+                Assert.Equal("repo2", ec.JobSettings[WellKnownJobSettings.DefaultWorkingDirectoryRepository]);
+                Assert.Equal(Boolean.TrueString, repo1.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo2.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo3.Properties.Get<string>(RepositoryUtil.IsPrimaryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo1.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.TrueString, repo2.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
+                Assert.Equal(Boolean.FalseString, repo3.Properties.Get<string>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, Boolean.FalseString));
             }
         }
 

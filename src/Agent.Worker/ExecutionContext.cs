@@ -509,6 +509,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
                     }
                 }
+
+                var defaultWorkingDirectoryCheckout = Build.BuildJobExtension.GetDefaultWorkingDirectoryCheckoutTask(message.Steps);
+                if (Repositories != null && defaultWorkingDirectoryCheckout != null && defaultWorkingDirectoryCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string defaultWorkingDirectoryRepoAlias))
+                {
+                    var defaultWorkingDirectoryRepo = Repositories.Find(r => String.Equals(r.Alias, defaultWorkingDirectoryRepoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (defaultWorkingDirectoryRepo != null)
+                    {
+                        defaultWorkingDirectoryRepo.Properties.Set<bool>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, true);
+                        JobSettings[WellKnownJobSettings.DefaultWorkingDirectoryRepository] = defaultWorkingDirectoryRepoAlias;
+
+                        Trace.Info($"Will set the path of the following repository to be the System.DefaultWorkingDirectory: {defaultWorkingDirectoryRepoAlias}");
+                    }
+                }
             }
 
             // Variables (constructor performs initial recursive expansion)

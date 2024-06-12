@@ -19,6 +19,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -326,6 +327,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             try
             {
                 Trace.Info(nameof(RunAsync));
+
+                if (PlatformUtil.RunningOnWindows && AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean())
+                {
+                    string psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
+                    bool containsPwshLocations = PsModulePathUtil.ContainsPowershellCoreLocations(psModulePath);
+
+                    if (containsPwshLocations)
+                    {
+                        _term.WriteLine(StringUtil.Loc("PSModulePathLocations"));
+                    }
+                }
+
                 _listener = HostContext.GetService<IMessageListener>();
                 if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
                 {

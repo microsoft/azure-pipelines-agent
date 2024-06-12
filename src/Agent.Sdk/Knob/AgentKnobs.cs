@@ -677,13 +677,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseInteropToFindParentProcess = new Knob(
-            nameof(UseInteropToFindParentProcess),
-            "Uses native Windows function to find parent processes of a process.",
-            new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
-            new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob RsaKeyGetConfigFromFF = new Knob(
             nameof(RsaKeyGetConfigFromFF),
             "Get config from FF.",
@@ -703,6 +696,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("ROSETTA2_WARNING"),
             new EnvironmentKnobSource("ROSETTA2_WARNING"),
             new PipelineFeatureSource("Rosetta2Warning"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CheckPsModulesLocations = new Knob(
+            nameof(CheckPsModulesLocations),
+            "Checks if the PSModulePath environment variable contains locations specific to PowerShell Core.",
+            new EnvironmentKnobSource("AZP_AGENT_CHECK_PSMODULES_LOCATIONS"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
