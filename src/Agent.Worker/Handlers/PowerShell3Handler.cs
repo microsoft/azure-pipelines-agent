@@ -4,6 +4,7 @@
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
@@ -39,6 +40,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             AddTaskVariablesToEnvironment();
             AddPrependPathToEnvironment();
             RemovePSModulePathFromEnvironment();
+
+            if (PsModulePathContainsPowershellCoreLocations())
+            {
+                ExecutionContext.Error(StringUtil.Loc("PSModulePathLocations"));
+            }
 
             // Resolve the target script.
             ArgUtil.NotNullOrEmpty(Data.Target, nameof(Data.Target));
