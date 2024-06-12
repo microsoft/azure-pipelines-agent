@@ -142,13 +142,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("USE_GIT_SINGLE_THREAD"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseLatestGitVersion = new Knob(
-            nameof(UseLatestGitVersion),
-            "When true, set path to the latest git version",
-            new RuntimeKnobSource("USE_LATEST_GIT_VERSION"),
-            new EnvironmentKnobSource("USE_LATEST_GIT_VERSION"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob AgentTerminalEncoding = new Knob(
             nameof(AgentTerminalEncoding),
             "If the correct encoding name is specified, the encoding from the environment will be used instead of default UTF-8",

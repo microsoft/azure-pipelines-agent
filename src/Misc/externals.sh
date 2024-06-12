@@ -19,8 +19,7 @@ NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE20_VERSION="20.13.1"
-MINGIT_VERSION="2.39.1"
-FF_MINGIT_VERSION="2.43.0"
+MINGIT_VERSION="2.45.2"
 LFS_VERSION="3.3.0"
 
 get_abs_path() {
@@ -168,7 +167,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
     fi
 
-    acquireExternalTool "$CONTAINER_URL/mingit/${FF_MINGIT_VERSION}/MinGit-${FF_MINGIT_VERSION}-${BIT}-bit.zip" ff_git
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr

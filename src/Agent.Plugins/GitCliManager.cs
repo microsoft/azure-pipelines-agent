@@ -82,25 +82,12 @@ namespace Agent.Plugins.Repository
             return gitLfsVersion >= requiredVersion;
         }
 
-        public (string gitPath, string gitLfsPath) GetInternalGitPaths(
-            AgentTaskPluginExecutionContext context,
-            bool useLatestGitVersion)
+        public (string gitPath, string gitLfsPath) GetInternalGitPaths(AgentTaskPluginExecutionContext context)
         {
             string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
             ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
 
-            string gitPath;
-
-            if (useLatestGitVersion)
-            {
-                gitPath = Path.Combine(agentHomeDir, "externals", "ff_git", "cmd", $"git.exe");
-            }
-            else
-            {
-                gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
-            }
-
-            context.Debug($@"The useLatestGitVersion property is set to ""{useLatestGitVersion}"" therefore the Git path is ""{gitPath}""");
+            string gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
 
             string gitLfsPath;
 
@@ -127,12 +114,7 @@ namespace Agent.Plugins.Repository
             {
                 context.Debug("Git paths are resolving from internal dependencies");
 
-                var (resolvedGitPath, resolvedGitLfsPath) = GetInternalGitPaths(
-                    context,
-                    AgentKnobs.UseLatestGitVersion.GetValue(context).AsBoolean());
-
-                gitPath = resolvedGitPath;
-                gitLfsPath = resolvedGitLfsPath;
+                (gitPath, gitLfsPath) = GetInternalGitPaths(context);
 
                 // Prepend the PATH.
                 context.Output(StringUtil.Loc("Prepending0WithDirectoryContaining1", "Path", Path.GetFileName(gitPath)));
