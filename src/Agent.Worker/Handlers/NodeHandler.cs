@@ -544,22 +544,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             var systemVersion = PlatformUtil.GetSystemVersion();
             string expectedHandler = "";
-            if (Data is Node20_1HandlerData)
+            expectedHandler = Data switch
             {
-                expectedHandler = "Node20";
-            }
-            else if (Data is Node16HandlerData)
-            {
-                expectedHandler = "Node16";
-            }
-            else if (Data is Node10HandlerData)
-            {
-                expectedHandler = "Node10";
-            }
-            else
-            {
-                expectedHandler = "Node6";
-            }
+                Node20_1HandlerData => "Node20",
+                Node16HandlerData => "Node16",
+                Node10HandlerData => "Node10",
+                _ => "Node6",
+            };
 
             Dictionary<string, string> telemetryData = new Dictionary<string, string>
             {
