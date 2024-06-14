@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
@@ -16,7 +17,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             return (int)(Math.Pow(retryNumber + 1, 2) * 1000);
         }
-
 
         public RetryHelper(IExecutionContext executionContext, int maxRetries = 3)
         {
@@ -47,19 +47,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     catch (Exception ex)
                     {
-                        if (!shouldRetryOnException(ex) || ExhaustedRetryCount(retryCounter))
+                        if (!shouldRetryOnException(ex) || ExhaustedRetryCount(retryCounter, action.Method))
                         {
                             throw;
                         }
 
-                        Warning($"Intermittent failure attempting to call the restapis {action.Method}. Retry attempt {retryCounter}. Exception: {ex.Message} ");
+                        Warning($"Intermittent failure attempting to call the method {action.Method}. Retry attempt {retryCounter}. Exception: {ex.Message} ");
                         var delay = timeDelayInterval(retryCounter);
                         await Task.Delay(delay);
                     }
                     retryCounter++;
                 }
             } while (true);
-
         }
 
         /// <summary>
@@ -87,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Debug($"Invoking Method: {action.Method}. Attempt count: {retryCounter}");
                         await action();
 
-                        if (ExecutionContext.Result != TaskResult.Failed || ExhaustedRetryCount(retryCounter))
+                        if (ExecutionContext.Result != TaskResult.Failed || ExhaustedRetryCount(retryCounter, action.Method))
                         {
                             return;
                         }
@@ -100,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     catch (Exception ex)
                     {
-                        if (!ShouldRetryStepOnException(ex) || ExhaustedRetryCount(retryCounter))
+                        if (!ShouldRetryStepOnException(ex) || ExhaustedRetryCount(retryCounter, action.Method))
                         {
                             throw;
                         }
@@ -115,11 +114,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             } while (true);
         }
 
-        private bool ExhaustedRetryCount(int retryCount)
+        private bool ExhaustedRetryCount(int retryCount, MethodInfo methodInfo)
         {
             if (retryCount >= MaxRetries)
             {
-                Debug($"Failure attempting to call the restapi and retry counter is exhausted");
+                Debug($"Failure attempting to call the {methodInfo} and retry counter is exhausted");
                 return true;
             }
             return false;
