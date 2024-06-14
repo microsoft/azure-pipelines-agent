@@ -56,6 +56,10 @@ Each new version of agent is released for users by groups during several days. A
 
 Troubleshooting tips are [located here](docs/troubleshooting.md)
 
+## Feature flags
+
+Feature flags are [located here](docs/featureflags.md)
+
 ## Contribute
 
 For developers that want to contribute, [read here](docs/contribute.md) on how to build and test.
