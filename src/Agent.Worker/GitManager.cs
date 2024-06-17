@@ -23,6 +23,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private const int timeout = 180;
         private const int defaultFileStreamBufferSize = 4096;
+        private const int retryDelay = 10000;
+        private const int retryLimit = 3;
 
         public async Task DownloadAsync(IExecutionContext executionContext, string version = "2.39.4")
         {
@@ -54,8 +56,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($@"Git zip file will be downloaded and saved as ""{downloadGitPath}""");
 
-            int retryDelay = 10000;
-            int retryLimit = 3;
             int retryCount = 0;
 
             while (true)
