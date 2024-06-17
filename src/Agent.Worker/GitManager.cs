@@ -99,9 +99,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
             }
 
-            ZipFile.ExtractToDirectory(downloadGitPath, gitExternalsPath);
-            File.WriteAllText(downloadGitPath, DateTime.UtcNow.ToString());
-            Trace.Info("Git has been extracted and cleaned up");
+            try
+            {
+                ZipFile.ExtractToDirectory(downloadGitPath, gitExternalsPath);
+                File.WriteAllText(downloadGitPath, DateTime.UtcNow.ToString());
+                Trace.Info("Git has been extracted and cleaned up");
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex);
+            }
         }
     }
 
