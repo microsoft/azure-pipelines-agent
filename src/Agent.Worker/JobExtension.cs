@@ -280,7 +280,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     string gitVersion = null;
 
-                    if (AgentKnobs.UseGit2_39_1.GetValue(jobContext).AsBoolean())
+                    if (AgentKnobs.UseGit2_39_4.GetValue(jobContext).AsBoolean())
                     {
                         gitVersion = "2.39.4";
                     }

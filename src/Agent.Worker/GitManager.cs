@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [ServiceLocator(Default = typeof(GitManager))]
     public interface IGitManager : IAgentService
     {
-        Task DownloadAsync(IExecutionContext executionContext, string version = "2.39.1");
+        Task DownloadAsync(IExecutionContext executionContext, string version = "2.39.4");
     }
 
     public class GitManager : AgentService, IGitManager
@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private const int timeout = 180;
         private const int defaultFileStreamBufferSize = 4096;
 
-        public async Task DownloadAsync(IExecutionContext executionContext, string version = "2.39.1")
+        public async Task DownloadAsync(IExecutionContext executionContext, string version = "2.39.4")
         {
             Trace.Entering();
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -109,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     {
         private static readonly string baseUrl = "https://vstsagenttools.blob.core.windows.net/tools/mingit";
         private static readonly string bit = PlatformUtil.BuiltOnX86 ? "32" : "64";
-        internal static Uri GetDownloadUrl(string version = "2.39.1")
+        internal static Uri GetDownloadUrl(string version = "2.39.4")
         {
             return new Uri($"{baseUrl}/{version}/MinGit-{version}-{bit}-bit.zip");
         }

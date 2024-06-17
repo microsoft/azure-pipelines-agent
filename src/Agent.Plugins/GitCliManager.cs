@@ -87,17 +87,18 @@ namespace Agent.Plugins.Repository
             string agentHomeDir = context.Variables.GetValueOrDefault("agent.homedirectory")?.Value;
             ArgUtil.NotNullOrEmpty(agentHomeDir, nameof(agentHomeDir));
 
-            string gitPath;
+            string gitPath = null;
 
-            if (AgentKnobs.UseGit2_39_1.GetValue(context).AsBoolean())
+            if (AgentKnobs.UseGit2_39_4.GetValue(context).AsBoolean())
             {
-                gitPath = Path.Combine(agentHomeDir, "externals", "git-2.39.1", "cmd", $"git.exe");
+                gitPath = Path.Combine(agentHomeDir, "externals", "git-2.39.4", "cmd", $"git.exe");
             }
             else if (AgentKnobs.UseGit2_42_0_2.GetValue(context).AsBoolean())
             {
                 gitPath = Path.Combine(agentHomeDir, "externals", "git-2.42.0.2", "cmd", $"git.exe");
             }
-            else
+
+            if (gitPath is null || !Directory.Exists(gitPath))
             {
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
             }

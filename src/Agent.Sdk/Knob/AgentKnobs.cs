@@ -107,11 +107,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("system.prefergitfrompath"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseGit2_39_1 = new Knob(
-            nameof(UseGit2_39_1),
-            "If true, Git v2.39.1 will be used instead of the default version.",
-            new RuntimeKnobSource("USE_GIT_2_39_1"),
-            new EnvironmentKnobSource("USE_GIT_2_39_1"),
+        public static readonly Knob UseGit2_39_4 = new Knob(
+            nameof(UseGit2_39_4),
+            "If true, Git v2.39.4 will be used instead of the default version.",
+            new RuntimeKnobSource("USE_GIT_2_39_4"),
+            new EnvironmentKnobSource("USE_GIT_2_39_4"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseGit2_42_0_2 = new Knob(
