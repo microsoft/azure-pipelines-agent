@@ -26,8 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             var externalsPath = hostContext.GetDirectory(WellKnownDirectory.Externals);
 
-            Assert.True(Directory.Exists(Path.Combine(externalsPath, "git-2.39.1")));
-            Assert.True(File.Exists(Path.Combine(externalsPath, "git-2.39.1", "cmd", "git.exe")));
+            Assert.True(Directory.Exists(Path.Combine(externalsPath, "git-2.39.4")));
+            Assert.True(File.Exists(Path.Combine(externalsPath, "git-2.39.4", "cmd", "git.exe")));
         }
     }
 }

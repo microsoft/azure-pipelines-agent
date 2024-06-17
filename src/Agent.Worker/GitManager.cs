@@ -21,11 +21,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public class GitManager : AgentService, IGitManager
     {
-        public const string defaultGitVersion = "2.39.4";
         private const int timeout = 180;
         private const int defaultFileStreamBufferSize = 4096;
         private const int retryDelay = 10000;
         private const int retryLimit = 3;
+
+        public const string defaultGitVersion = "2.39.4";
 
         public async Task DownloadAsync(IExecutionContext executionContext, string version = defaultGitVersion)
         {
