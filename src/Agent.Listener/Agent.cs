@@ -216,10 +216,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Info($"Set agent startup type - {startType}");
                 HostContext.StartupType = startType;
 
-                RuntimeMode runtimeMode = command.GetDebugMode() ? RuntimeMode.DEBUG : RuntimeMode.DEFAULT;
-                Trace.Info($"Set agent runtime mode - {runtimeMode}");
-                HostContext.RuntimeMode = runtimeMode;
-
+                bool debugModeEnabled = command.GetDebugMode();
+                settings.DebugMode = command.GetDebugMode();
+                store.SaveSettings(settings);
+                if (debugModeEnabled)
+                {
+                    Trace.Warning("Agent is running in debug mode, don't use it in production");
+                }
                 if (PlatformUtil.RunningOnWindows)
                 {
                     if (store.IsAutoLogonConfigured())

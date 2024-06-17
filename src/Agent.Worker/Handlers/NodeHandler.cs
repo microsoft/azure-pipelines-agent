@@ -224,7 +224,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
             var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
 
-            if (HostContext.RuntimeMode == RuntimeMode.DEBUG)
+            var configStore = HostContext.GetService<IConfigurationStore>();
+            var agentSettings = configStore.GetSettings();
+            if (agentSettings.DebugMode)
             {
                 var debugTask = AgentKnobs.DebugTask.GetValue(ExecutionContext).AsString();
                 if (!string.IsNullOrEmpty(debugTask))
@@ -235,6 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     }
                 }
             }
+            
 
             try
             {
