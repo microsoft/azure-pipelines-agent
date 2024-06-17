@@ -100,6 +100,7 @@ namespace Agent.Plugins.Repository
 
             if (gitPath is null || !Directory.Exists(gitPath))
             {
+                context.Debug("gitPath is null or does not exist. Falling back to default git path.");
                 gitPath = Path.Combine(agentHomeDir, "externals", "git", "cmd", $"git.exe");
             }
 
