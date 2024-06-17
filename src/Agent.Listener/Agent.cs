@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 HostContext.StartupType = startType;
 
                 bool debugModeEnabled = command.GetDebugMode();
-                settings.DebugMode = command.GetDebugMode();
+                settings.DebugMode = debugModeEnabled;
                 store.SaveSettings(settings);
                 if (debugModeEnabled)
                 {
