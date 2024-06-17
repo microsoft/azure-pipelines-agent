@@ -107,6 +107,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("system.prefergitfrompath"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseGit2_39_1 = new Knob(
+            nameof(UseGit2_39_1),
+            "If true, Git v2.39.1 will be used instead of the default version.",
+            new RuntimeKnobSource("USE_GIT_2_39_1"),
+            new EnvironmentKnobSource("USE_GIT_2_39_1"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableGitPrompt = new Knob(
             nameof(DisableGitPrompt),
             "If true, git will not prompt on the terminal (e.g., when asking for HTTP authentication).",

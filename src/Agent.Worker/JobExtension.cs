@@ -239,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Output("Finished checking job knob settings.");
 
                     // Ensure that we send git telemetry before potential path env changes during the pipeline execution
-                    var isSelfHosted =  StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
+                    var isSelfHosted = StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
                     if (PlatformUtil.RunningOnWindows && isSelfHosted)
                     {
                         try
@@ -276,6 +276,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             prepareStep.Condition = ExpressionManager.Succeeded;
                             preJobSteps.Add(prepareStep);
                         }
+                    }
+
+                    bool useGit2391Value = AgentKnobs.UseGit2_39_1.GetValue(jobContext).AsBoolean();
+
+                    if (useGit2391Value)
+                    {
+                        context.Debug("Downloading Git v2.39.1");
+                        var gitManager = HostContext.GetService<IGitManager>();
+                        await gitManager.DownloadAsync(context);
                     }
 
                     // build up 3 lists of steps, pre-job, job, post-job
