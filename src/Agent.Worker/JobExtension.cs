@@ -278,13 +278,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    bool useGit2391Value = AgentKnobs.UseGit2_39_1.GetValue(jobContext).AsBoolean();
+                    string gitVersion = null;
 
-                    if (useGit2391Value)
+                    if (AgentKnobs.UseGit2_39_1.GetValue(jobContext).AsBoolean())
                     {
-                        context.Debug("Downloading Git v2.39.1");
+                        gitVersion = "2.39.4";
+                    }
+                    else if (AgentKnobs.UseGit2_42_0_2.GetValue(jobContext).AsBoolean())
+                    {
+                        gitVersion = "2.42.0.2";
+                    }
+
+                    if (gitVersion is not null)
+                    {
+                        context.Debug($"Downloading Git v{gitVersion}");
                         var gitManager = HostContext.GetService<IGitManager>();
-                        await gitManager.DownloadAsync(context);
+                        await gitManager.DownloadAsync(context, gitVersion);
                     }
 
                     // build up 3 lists of steps, pre-job, job, post-job

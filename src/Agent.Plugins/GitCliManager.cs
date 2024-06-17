@@ -89,11 +89,13 @@ namespace Agent.Plugins.Repository
 
             string gitPath;
 
-            bool useGit2391Value = AgentKnobs.UseGit2_39_1.GetValue(context).AsBoolean();
-
-            if (useGit2391Value)
+            if (AgentKnobs.UseGit2_39_1.GetValue(context).AsBoolean())
             {
                 gitPath = Path.Combine(agentHomeDir, "externals", "git-2.39.1", "cmd", $"git.exe");
+            }
+            else if (AgentKnobs.UseGit2_42_0_2.GetValue(context).AsBoolean())
+            {
+                gitPath = Path.Combine(agentHomeDir, "externals", "git-2.42.0.2", "cmd", $"git.exe");
             }
             else
             {
