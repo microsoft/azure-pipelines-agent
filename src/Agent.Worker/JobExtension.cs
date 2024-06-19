@@ -276,24 +276,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             prepareStep.Condition = ExpressionManager.Succeeded;
                             preJobSteps.Add(prepareStep);
                         }
-                    }
 
-                    string gitVersion = null;
+                        string gitVersion = null;
 
-                    if (AgentKnobs.UseGit2_39_4.GetValue(jobContext).AsBoolean())
-                    {
-                        gitVersion = "2.39.4";
-                    }
-                    else if (AgentKnobs.UseGit2_42_0_2.GetValue(jobContext).AsBoolean())
-                    {
-                        gitVersion = "2.42.0.2";
-                    }
+                        if (AgentKnobs.UseGit2_39_4.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.39.4";
+                        }
+                        else if (AgentKnobs.UseGit2_42_0_2.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.42.0.2";
+                        }
 
-                    if (gitVersion is not null)
-                    {
-                        context.Debug($"Downloading Git v{gitVersion}");
-                        var gitManager = HostContext.GetService<IGitManager>();
-                        await gitManager.DownloadAsync(context, gitVersion);
+                        if (gitVersion is not null)
+                        {
+                            context.Debug($"Downloading Git v{gitVersion}");
+                            var gitManager = HostContext.GetService<IGitManager>();
+                            await gitManager.DownloadAsync(context, gitVersion);
+                        }
                     }
 
                     // build up 3 lists of steps, pre-job, job, post-job

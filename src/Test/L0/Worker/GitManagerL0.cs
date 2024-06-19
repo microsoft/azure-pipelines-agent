@@ -14,6 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public async void DownloadAsync()
         {
             using var tokenSource = new CancellationTokenSource();
