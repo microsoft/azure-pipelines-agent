@@ -291,8 +291,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            var vsoRegex = new Regex("##vso", RegexOptions.IgnoreCase);
-            return vsoRegex.Replace(input, "**vso");
+            return _vsoCommandRegex.Replace(input, "**vso");
         }
+
+        private static readonly Regex _vsoCommandRegex = new("##vso", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     }
 }
