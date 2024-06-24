@@ -27,6 +27,7 @@
   "AgentWithSameNameAlreadyExistInPool": "池 {0} 已包含一个名为 {1} 的代理。",
   "AllowContainerUserRunDocker": "允许用户“{0}”在没有 SUDO 的情况下运行任何 docker 命令。",
   "AlreadyConfiguredError": "无法配置代理，因为它已配置。若要重新配置代理，请先运行“config.cmd remove”或“./config.sh remove”。",
+  "ApkAddShadowFailed": "The user ID is outside the range of the 'adduser' command. The alternative command 'useradd' cannot be used because the 'shadow' package is not preinstalled and the attempt to install this package failed. Check network availability or use a docker image with the 'shadow' package preinstalled.",
   "ArgumentNeeded": "必须指定 “{0}”。",
   "ArtifactCustomPropertiesNotJson": "项目自定义属性不是有效的 JSON:“{0}”",
   "ArtifactCustomPropertyInvalid": "项目自定义属性必须以“user-”作为前缀。无效属性:“{0}”",

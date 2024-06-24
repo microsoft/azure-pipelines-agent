@@ -27,6 +27,7 @@
   "AgentWithSameNameAlreadyExistInPool": "El grupo {0} ya contiene un agente con el nombre {1}.",
   "AllowContainerUserRunDocker": "Permitir al usuario '{0}' ejecutar cualquier comando de Docker sin SUDO.",
   "AlreadyConfiguredError": "No se puede configurar el agente porque ya está configurado. Para volver a configurar el agente, ejecute primero 'config.cmd remove' o './config.sh remove'.",
+  "ApkAddShadowFailed": "The user ID is outside the range of the 'adduser' command. The alternative command 'useradd' cannot be used because the 'shadow' package is not preinstalled and the attempt to install this package failed. Check network availability or use a docker image with the 'shadow' package preinstalled.",
   "ArgumentNeeded": "'{0}' debe especificarse.",
   "ArtifactCustomPropertiesNotJson": "Las propiedades personalizadas del artefacto no son JSON válidas: '{0}'",
   "ArtifactCustomPropertyInvalid": "Las propiedades personalizadas del artefacto deben tener el prefijo 'user-'. Propiedad no válida: '{0}'",

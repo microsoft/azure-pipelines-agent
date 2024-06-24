@@ -27,6 +27,7 @@
   "AgentWithSameNameAlreadyExistInPool": "集區 {0} 已經包含名為 {1} 的代理程式。",
   "AllowContainerUserRunDocker": "允許使用者 '{0}' 執行所有 Docker 命令，而不需使用 SUDO。",
   "AlreadyConfiguredError": "無法設定代理程式，因為它已設定。若要重新設定代理程式，請先執行 'config.cmd remove' 或 './config.sh remove'。",
+  "ApkAddShadowFailed": "The user ID is outside the range of the 'adduser' command. The alternative command 'useradd' cannot be used because the 'shadow' package is not preinstalled and the attempt to install this package failed. Check network availability or use a docker image with the 'shadow' package preinstalled.",
   "ArgumentNeeded": "必須指定 '{0}'。",
   "ArtifactCustomPropertiesNotJson": "成品自訂屬性不是有效的 JSON: '{0}'",
   "ArtifactCustomPropertyInvalid": "成品自訂屬性的首碼必須是 'user-'。不正確屬性: '{0}'",

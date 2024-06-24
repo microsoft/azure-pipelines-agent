@@ -27,6 +27,7 @@
   "AgentWithSameNameAlreadyExistInPool": "{0} 풀에 {1} 이름을 가진 에이전트가 이미 포함되어 있습니다.",
   "AllowContainerUserRunDocker": "사용자 '{0}'이(가) SUDO 없이 모든 Docker 명령을 실행할 수 있도록 허용합니다.",
   "AlreadyConfiguredError": "에이전트가 이미 구성되어 있으므로 구성할 수 없습니다. 에이전트를 다시 구성하려면 먼저 'config.cmd remove' 또는 './config.sh remove'를 실행합니다.",
+  "ApkAddShadowFailed": "The user ID is outside the range of the 'adduser' command. The alternative command 'useradd' cannot be used because the 'shadow' package is not preinstalled and the attempt to install this package failed. Check network availability or use a docker image with the 'shadow' package preinstalled.",
   "ArgumentNeeded": "'{0}'을(를) 지정해야 합니다.",
   "ArtifactCustomPropertiesNotJson": "아티팩트 사용자 지정 속성이 유효한 JSON이 아닙니다: '{0}'",
   "ArtifactCustomPropertyInvalid": "아티팩트 사용자 지정 속성에는 'user-' 접두사가 있어야 합니다. 잘못된 속성: '{0}'",
