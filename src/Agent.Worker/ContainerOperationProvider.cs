@@ -296,6 +296,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
             }
+
+            // Mark retrieved password as secret
+            HostContext.SecretMasker.AddValue(AcrPassword);
+
             return AcrPassword;
         }
 
