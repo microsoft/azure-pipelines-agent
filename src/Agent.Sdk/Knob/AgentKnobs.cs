@@ -718,12 +718,10 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseDockerStdinPasswordOnWindows = new Knob(
-            nameof(CheckPsModulesLocations),
+            nameof(UseDockerStdinPasswordOnWindows),
             "If true, use --password-stdin for docker login on Windows.",
-            new EnvironmentKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new EnvironmentKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
-            new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
