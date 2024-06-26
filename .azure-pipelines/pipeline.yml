@@ -111,6 +111,7 @@ extends:
             nugetMultiFeedWarnLevel: none
           timeoutInMinutes: 300
           steps:
+          - template: /.azure-pipelines/get-pat.yml@self
           - bash: |
               cd ./.azure-pipelines/scripts/
               npm install axios minimist
@@ -123,7 +124,7 @@ extends:
               node ./run-and-verify.js \
                   --projectUrl "$(CANARY_PROJECT_URL)" \
                   --pipelineId "$(CANARY_PIPELINE_ID)" \
-                  --token "$(CANARY_PAT)" \
+                  --token "$(ACCESS_TOKEN)" \
                   --templateParameters "{ \"branch\": \"${branch}\" }"
             displayName: Test Proxy Agent
 
@@ -274,7 +275,7 @@ extends:
             displayName: macOS (x64)
             pool:
               name: Azure Pipelines
-              image: macOS-11
+              image: macOS-12
               os: macOS
             os: osx
             arch: x64

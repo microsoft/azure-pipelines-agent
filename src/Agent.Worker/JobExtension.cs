@@ -239,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Output("Finished checking job knob settings.");
 
                     // Ensure that we send git telemetry before potential path env changes during the pipeline execution
-                    var isSelfHosted =  StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
+                    var isSelfHosted = StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
                     if (PlatformUtil.RunningOnWindows && isSelfHosted)
                     {
                         try
@@ -275,6 +275,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
                             prepareStep.Condition = ExpressionManager.Succeeded;
                             preJobSteps.Add(prepareStep);
+                        }
+
+                        string gitVersion = null;
+
+                        if (AgentKnobs.UseGit2_39_4.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.39.4";
+                        }
+                        else if (AgentKnobs.UseGit2_42_0_2.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.42.0.2";
+                        }
+
+                        if (gitVersion is not null)
+                        {
+                            context.Debug($"Downloading Git v{gitVersion}");
+                            var gitManager = HostContext.GetService<IGitManager>();
+                            await gitManager.DownloadAsync(context, gitVersion);
                         }
                     }
 

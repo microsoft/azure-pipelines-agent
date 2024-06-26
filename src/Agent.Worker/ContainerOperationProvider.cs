@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
 
             var tenantId = string.Empty;
-            if(!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
+            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
             {
                 throw new InvalidOperationException($"Could not read {c_tenantId}");
             }
@@ -712,7 +712,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Func<string, string, string, string> addUserWithIdAndGroup;
                     Func<string, string, string> addUserToGroup;
 
+                    bool useShadowIfAlpine = false;
+
                     if (isAlpineBasedImage)
+                    {
+                        List<string> shadowInfoOutput = await DockerExec(executionContext, container.ContainerId, "apk list --installed | grep shadow");
+                        bool shadowPreinstalled = false;
+
+                        foreach (string shadowInfoLine in shadowInfoOutput)
+                        {
+                            if (shadowInfoLine.Contains("{shadow}", StringComparison.Ordinal))
+                            {
+                                Trace.Info("The 'shadow' package is preinstalled and therefore will be used.");
+                                shadowPreinstalled = true;
+                                break;
+                            }
+                        }
+
+                        bool userIdIsOutsideAdduserCommandRange = Int64.Parse(container.CurrentUserId) > 256000;
+
+                        if (userIdIsOutsideAdduserCommandRange && !shadowPreinstalled)
+                        {
+                            Trace.Info("User ID is outside the range of the 'adduser' command, therefore the 'shadow' package will be installed and used.");
+
+                            try
+                            {
+                                await DockerExec(executionContext, container.ContainerId, "apk add shadow");
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                throw new InvalidOperationException(StringUtil.Loc("ApkAddShadowFailed"));
+                            }
+                        }
+
+                        useShadowIfAlpine = shadowPreinstalled || userIdIsOutsideAdduserCommandRange;
+                    }
+
+                    if (isAlpineBasedImage && !useShadowIfAlpine)
                     {
                         addGroup = (groupName) => $"addgroup {groupName}";
                         addGroupWithId = (groupName, groupId) => $"addgroup -g {groupId} {groupName}";
@@ -1013,7 +1049,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError=false)
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError = false)
         {
             Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
             List<string> output = new List<string>();
@@ -1031,7 +1067,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (exitCode != 0)
             {
                 Trace.Error(message);
-                if(!noExceptionOnError)
+                if (!noExceptionOnError)
                 {
                     throw new InvalidOperationException(message);
                 }
@@ -1050,14 +1086,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (PlatformUtil.RunningOnWindows)
             {
-                #pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
+#pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
                 // service CExecSvc is Container Execution Agent.
                 ServiceController[] scServices = ServiceController.GetServices();
                 if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
                 {
                     throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
                 }
-                #pragma warning restore CA1416
+#pragma warning restore CA1416
             }
             else
             {
