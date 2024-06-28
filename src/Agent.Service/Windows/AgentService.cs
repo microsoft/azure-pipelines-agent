@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -352,6 +351,6 @@ namespace AgentService
         private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate HandlerRoutine, bool Add);
 
         // Delegate type to be used as the Handler Routine for SetConsoleCtrlHandler
-        delegate Boolean ConsoleCtrlDelegate(uint CtrlType);
+        private delegate bool ConsoleCtrlDelegate(uint CtrlType);
     }
 }
