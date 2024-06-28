@@ -157,14 +157,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     var processInvokerOutput = message.Data;
 
-                    var cpuInfoNice = int.Parse(processInvokerOutput.Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[2]);
-                    var cpuInfoIdle = int.Parse(processInvokerOutput.Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[4]);
-                    var cpuInfoIOWait = int.Parse(processInvokerOutput.Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[5]);
+                    var cpuInfoIdle = double.Parse(processInvokerOutput.Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
 
                     lock (_cpuInfoLock)
                     {
                         _cpuInfo.Updated = DateTime.Now;
-                        _cpuInfo.Usage = (double)(cpuInfoNice + cpuInfoIdle) * 100 / (cpuInfoNice + cpuInfoIdle + cpuInfoIOWait);
+                        _cpuInfo.Usage = 100 - cpuInfoIdle;
                     }
                 };
 
@@ -173,8 +171,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Error($"Error on receiving CPU info: {message.Data}");
                 };
 
-                var filePath = "grep";
-                var arguments = "\"cpu \" /proc/stat";
+                var filePath = "/bin/bash";
+                var arguments = "-c \"top -bn1 | grep Cpu \"";
                 await processInvoker.ExecuteAsync(
                         workingDirectory: string.Empty,
                         fileName: filePath,
