@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Agent.Sdk.Knob;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 
@@ -132,7 +133,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         if (enableAudit && !enableValidation)
                         {
-                            context.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+                            var issue = new Issue
+                            {
+                                Type = IssueType.Warning,
+                                Message = StringUtil.Loc("ProcessHandlerInvalidScriptArgs"),
+                            };
+                            issue.Data.Add("auditAction", "1"); // ShellTasksValidation = 1
+                            context.AddIssue(issue);
                         }
                         if (enableValidation)
                         {

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -288,7 +289,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                     if (!shouldThrow && enableSecureArgumentsAudit)
                     {
-                        ExecutionContext.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+                        var issue = new Issue
+                        {
+                            Type = IssueType.Warning,
+                            Message = StringUtil.Loc("ProcessHandlerInvalidScriptArgs"),
+                        };
+                        issue.Data.Add("auditAction", "1"); // ShellTasksValidation = 1
+                        ExecutionContext.AddIssue(issue);
                     }
                 }
                 if (enableTelemetry && telemetry != null)

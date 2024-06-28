@@ -371,7 +371,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var eventProperties = command.Properties;
             var data = command.Data;
 
-            if (AgentKnobs.EnableIssueSourceValidation.GetValue(context).AsBoolean())
+            if (AgentKnobs.EnableIssueSourceValidation.GetValue(context).AsBoolean()
+                || AgentKnobs.EnableTaskIssueAudit.GetValue(context).AsBoolean())
             {
                 ProcessIssueSource(context, command);
             }
