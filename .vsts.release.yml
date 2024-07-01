@@ -313,6 +313,8 @@ extends:
               artifactName: hash
               downloadPath: $(Build.SourcesDirectory)/_hashes
 
+          - template: /.azure-pipelines/get-pat.yml@self
+
           - bash: |
               set -x
               cd release
@@ -323,7 +325,7 @@ extends:
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
               USERNAME: $(User)
-              PAT: $(AdoPAT)
+              PAT: $(ACCESS_TOKEN)
               USEREMAIL: $(Email)
 
       - stage: S_Notifications
