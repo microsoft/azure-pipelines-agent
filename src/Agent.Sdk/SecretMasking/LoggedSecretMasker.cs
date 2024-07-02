@@ -4,36 +4,26 @@
 using System;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
 using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace Agent.Sdk.SecretMasking
 {
     /// <summary>
     /// Extended secret masker service, that allows to log origins of secrets
     /// </summary>
-    public class LoggedSecretMasker : ILoggedSecretMasker
+    public class LoggedSecretMasker : SecretMasker, ILoggedSecretMasker
     {
-        private ISecretMasker _secretMasker;
         private ITraceWriter _trace;
-
 
         private void Trace(string msg)
         {
             this._trace?.Info(msg);
         }
 
-        public LoggedSecretMasker(ISecretMasker secretMasker)
-        {
-            this._secretMasker = secretMasker;
-        }
-
         public void SetTrace(ITraceWriter trace)
         {
             this._trace = trace;
-        }
-
-        public void AddValue(string pattern)
-        {
-            this._secretMasker.AddValue(pattern);
         }
 
         /// <summary>
@@ -52,17 +42,13 @@ namespace Agent.Sdk.SecretMasking
 
             AddValue(value);
         }
-        public void AddRegex(string pattern)
-        {
-            this._secretMasker.AddRegex(pattern);
-        }
 
         /// <summary>
         /// Overloading of AddRegex method with additional logic for logging origin of provided secret
         /// </summary>
         /// <param name="pattern"></param>
         /// <param name="origin"></param>
-        public void AddRegex(string pattern, string origin)
+        public void AddRegex(string pattern, string origin, string moniker, ISet<string> sniffLiterals, RegexOptions regexOptions)
         {
             this.Trace($"Setting up regex for origin: {origin}.");
             if (pattern == null)
@@ -71,28 +57,28 @@ namespace Agent.Sdk.SecretMasking
                 return;
             }
 
-            AddRegex(pattern);
+            AddRegex(pattern, moniker, sniffLiterals, regexOptions);
         }
 
         // We don't allow to skip secrets longer than 5 characters.
         // Note: the secret that will be ignored is of length n-1.
         public static int MinSecretLengthLimit => 6;
 
-        public int MinSecretLength
+        public override int MinSecretLength
         {
             get
             {
-                return _secretMasker.MinSecretLength;
+                return base.MinSecretLength;
             }
             set
             {
                 if (value > MinSecretLengthLimit)
                 {
-                    _secretMasker.MinSecretLength = MinSecretLengthLimit;
+                    base.MinSecretLength = MinSecretLengthLimit;
                 }
                 else
                 {
-                    _secretMasker.MinSecretLength = value;
+                    base.MinSecretLength = value;
                 }
             }
         }
@@ -100,14 +86,8 @@ namespace Agent.Sdk.SecretMasking
         public void RemoveShortSecretsFromDictionary()
         {
             this._trace?.Info("Removing short secrets from masking dictionary");
-            _secretMasker.RemoveShortSecretsFromDictionary();
+            base.RemoveShortSecretsFromDictionary();
         }
-
-        public void AddValueEncoder(ValueEncoder encoder)
-        {
-            this._secretMasker.AddValueEncoder(encoder);
-        }
-
 
         /// <summary>
         /// Overloading of AddValueEncoder method with additional logic for logging origin of provided secret
@@ -127,16 +107,17 @@ namespace Agent.Sdk.SecretMasking
             AddValueEncoder(encoder);
         }
 
-        public ISecretMasker Clone()
-        {
-            return new LoggedSecretMasker(this._secretMasker.Clone());
-        }
-
-        public string MaskSecrets(string input)
-        {
-            return this._secretMasker.MaskSecrets(input);
-        }
-
         ISecretMaskerVSO ISecretMaskerVSO.Clone() => this.Clone();
+
+        public IDictionary<string, string> GetTelemetry()
+        {
+            var result = new Dictionary<string, string>
+            {
+                { nameof(ElapsedMaskingTime), ElapsedMaskingTime.ToString() },
+            };
+
+            result["Redactions"] = string.Join(',', ReplacementTokens);
+            return result;
+        }
     }
 }

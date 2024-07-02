@@ -5,15 +5,16 @@ using Agent.Sdk.SecretMasking;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
 using ValueEncoders = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoders;
 using Xunit;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public sealed class SecretMaskerL0
     {
-        private ISecretMasker initSecretMasker()
+        private SecretMasker InitBasicSecretMasker()
         {
             var testSecretMasker = new SecretMasker();
-            testSecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
+            testSecretMasker.AddRegex(AdditionalMaskingPatterns.UrlSecretPattern);
 
             return testSecretMasker;
         }
@@ -23,11 +24,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsSimpleUrlNotMasked()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
                "https://simpledomain@example.com",
                testSecretMasker.MaskSecrets("https://simpledomain@example.com"));
+
+            ValidateTelemetry(testSecretMasker);
         }
 
         [Fact]
@@ -35,11 +38,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsComplexUrlNotMasked()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
                 "https://url.com:443/~user/foo=bar+42-18?what=this.is.an.example....~~many@&param=value",
                 testSecretMasker.MaskSecrets("https://url.com:443/~user/foo=bar+42-18?what=this.is.an.example....~~many@&param=value"));
+
+            ValidateTelemetry(testSecretMasker);
         }
 
         [Fact]
@@ -47,10 +52,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsUserInfoMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://user:***@example.com",
+               "https://user:+++@example.com",
                testSecretMasker.MaskSecrets("https://user:pass@example.com"));
         }
 
@@ -59,11 +64,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsUserInfoWithSpecialCharactersMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://user:***@example.com",
+               "https://user:+++@example.com",
                testSecretMasker.MaskSecrets(@"https://user:pass4';.!&*()=,$-+~@example.com"));
+
+            ValidateTelemetry(testSecretMasker, expectedRedactions: 1);
         }
 
         [Fact]
@@ -71,11 +78,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsUserInfoWithDigitsInNameMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://username123:***@example.com",
+               "https://username123:+++@example.com",
                testSecretMasker.MaskSecrets(@"https://username123:password@example.com"));
+
+            ValidateTelemetry(testSecretMasker, expectedRedactions: 1);
         }
 
         [Fact]
@@ -83,23 +92,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsUserInfoWithLongPasswordAndNameMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://username_loooooooooooooooooooooooooooooooooooooooooong:***@example.com",
+               "https://username_loooooooooooooooooooooooooooooooooooooooooong:+++@example.com",
                testSecretMasker.MaskSecrets(@"https://username_loooooooooooooooooooooooooooooooooooooooooong:password_looooooooooooooooooooooooooooooooooooooooooooooooong@example.com"));
+
+            ValidateTelemetry(testSecretMasker, expectedRedactions: 1);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        public void IsUserInfoWithEncodedCharactersdInNameMaskedCorrectly()
+        public void IsUserInfoWithEncodedCharactersInNameMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://username%10%A3%F6:***@example.com",
+               "https://username%10%A3%F6:+++@example.com",
                testSecretMasker.MaskSecrets(@"https://username%10%A3%F6:password123@example.com"));
+
+            ValidateTelemetry(testSecretMasker, expectedRedactions: 1);
         }
 
         [Fact]
@@ -107,13 +120,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void IsUserInfoWithEncodedAndEscapedCharactersdInNameMaskedCorrectly()
         {
-            var testSecretMasker = initSecretMasker();
+            using var testSecretMasker = InitBasicSecretMasker();
 
             Assert.Equal(
-               "https://username%AZP2510%AZP25A3%AZP25F6:***@example.com",
+               "https://username%AZP2510%AZP25A3%AZP25F6:+++@example.com",
                testSecretMasker.MaskSecrets(@"https://username%AZP2510%AZP25A3%AZP25F6:password123@example.com"));
+
+            ValidateTelemetry(testSecretMasker, expectedRedactions: 1);
         }
-        
+
         [Fact]
         [Trait("Level","L0")]
         [Trait("Category", "SecretMasker")]
@@ -140,9 +155,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             secretMasker1.AddValueEncoder(x => x.Replace("_", "_masker-1-encoder-3"));
 
             // Assert masker 1 values.
-            Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-regex-1___")); // original regex
-            Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-regex-2___")); // original regex
-            Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-regex-3___")); // new regex
+            Assert.Equal("+++", secretMasker1.MaskSecrets("masker-1-regex-1___")); // original regex
+            Assert.Equal("+++", secretMasker1.MaskSecrets("masker-1-regex-2___")); // original regex
+            Assert.Equal("+++", secretMasker1.MaskSecrets("masker-1-regex-3___")); // new regex
             Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-value-1_")); // original value
             Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-value-2_")); // original value
             Assert.Equal("***", secretMasker1.MaskSecrets("masker-1-value-3_")); // new value
@@ -157,9 +172,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal("***masker-2-encoder-1", secretMasker1.MaskSecrets("masker-1-value-1_masker-2-encoder-1")); // separate encoder storage from copy
 
             // Assert masker 2 values.
-            Assert.Equal("***", secretMasker2.MaskSecrets("masker-1-regex-1___")); // copied regex
-            Assert.Equal("***", secretMasker2.MaskSecrets("masker-1-regex-2___")); // copied regex
-            Assert.Equal("***", secretMasker2.MaskSecrets("masker-2-regex-1___")); // new regex
+            Assert.Equal("+++", secretMasker2.MaskSecrets("masker-1-regex-1___")); // copied regex
+            Assert.Equal("+++", secretMasker2.MaskSecrets("masker-1-regex-2___")); // copied regex
+            Assert.Equal("+++", secretMasker2.MaskSecrets("masker-2-regex-1___")); // new regex
             Assert.Equal("***", secretMasker2.MaskSecrets("masker-1-value-1_")); // copied value
             Assert.Equal("***", secretMasker2.MaskSecrets("masker-1-value-2_")); // copied value
             Assert.Equal("***", secretMasker2.MaskSecrets("masker-2-value-1_")); // new value
@@ -430,8 +445,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
              var input = "abcdefg";
              var result = secretMasker.MaskSecrets(input);
 
-             // a naive replacement would replace "def" first, and never find "bcd", resulting in "abc***g"
-             // or it would replace "bcd" first, and never find "def", resulting in "a***efg"
+             // a naive replacement would replace "def" first, and never find "bcd", resulting in "abc+++g"
+             // or it would replace "bcd" first, and never find "def", resulting in "a+++efg"
 
              Assert.Equal("a***g", result);
          }
@@ -581,7 +596,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
              var input = "abcdefgh123";
              var result = secretMasker.MaskSecrets(input);
 
-             Assert.Equal("abc***3", result);
+             Assert.Equal("abc+++3", result);
          }
 
          [Fact]
@@ -622,5 +637,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
              Assert.Equal("ab***cd***", result);
          }
+
+        private static void ValidateTelemetry(SecretMasker testSecretMasker, int expectedRedactions = 0, bool usesMoniker = false)
+        {
+            Assert.True(testSecretMasker.ElapsedMaskingTime > 0);
+
+            if (expectedRedactions > 0)
+            {
+                Assert.NotEmpty(testSecretMasker.ReplacementTokens);
+
+                if (!usesMoniker)
+                {
+                    Assert.True(testSecretMasker.ReplacementTokens.First() == "+++");
+                }
+                else
+                {
+                    Assert.False(testSecretMasker.ReplacementTokens.First() == "+++");
+                }
+            }
+        }
+
     }
 }

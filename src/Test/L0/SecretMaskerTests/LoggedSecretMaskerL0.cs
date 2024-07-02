@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_MaskingSecrets()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = 0
             };
@@ -39,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = 0
             };
@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue2()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -92,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Skipping_ShortSecrets()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = 3
             };
@@ -108,7 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker);
+            using var lsm = new LoggedSecretMasker();
             var expectedMinSecretsLengthValue = LoggedSecretMasker.MinSecretLengthLimit;
 
             lsm.MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit + 1;
@@ -121,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_NegativeValue_Passed()
         {
-            var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new LoggedSecretMasker()
             {
                 MinSecretLength = -2
             };

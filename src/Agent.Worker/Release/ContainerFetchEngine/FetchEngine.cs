@@ -383,7 +383,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
             return FileSystemManager.JoinPath(RootDestinationDir, localRelativePath);
         }
 
-        public IConatinerFetchEngineLogger ExecutionLogger { get; set; }
+        public IContainerFetchEngineLogger ExecutionLogger { get; set; }
         private string RootDestinationDir { get; }
         private string RootItemPath { get; }
 

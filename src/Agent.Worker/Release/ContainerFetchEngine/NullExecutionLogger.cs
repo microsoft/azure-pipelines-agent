@@ -3,7 +3,7 @@
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine
 {
-    public class NullExecutionLogger : IConatinerFetchEngineLogger
+    public class NullExecutionLogger : IContainerFetchEngineLogger
     {
         public void Warning(string message)
         {
