@@ -220,6 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string GitUseSChannel = "gituseschannel";
                     public const string Help = "help";
                     public const string DisableLogUploads = "disableloguploads";
+                    public const string ReStreamLogsToFiles = "restreamlogstofiles";
                     public const string MachineGroup = "machinegroup";
                     public const string Replace = "replace";
                     public const string NoRestart = "norestart";
