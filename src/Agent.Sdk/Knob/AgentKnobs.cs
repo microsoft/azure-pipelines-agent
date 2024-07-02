@@ -569,8 +569,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseNewNodeHandlerTelemetry = new Knob(
             nameof(UseNewNodeHandlerTelemetry),
             "Enables new approach to publish node handler information to the telemetry",
-            new RuntimeKnobSource("USENEWNODEHANDLERTELEMETRY"),
-            new EnvironmentKnobSource("USENEWNODEHANDLERTELEMETRY"),
+            new PipelineFeatureSource("USENEWNODEHANDLERTELEMETRY"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
