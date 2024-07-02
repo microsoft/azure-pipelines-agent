@@ -132,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return new CancellationToken();
         }
 
-        protected internal virtual bool GetFeatureFlagState(string featureFlagName, Guid serviceInstaceGuid)
+        protected internal virtual bool GetFeatureFlagState(string featureFlagName, Guid serviceInstanceGuid)
         {
             var featureFlagValue = false;
 
@@ -140,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
                 featureFlagService.InitializeFeatureService(_executionContext, connection);
-                featureFlagValue = featureFlagService.GetFeatureFlagState(featureFlagName, serviceInstaceGuid);
+                featureFlagValue = featureFlagService.GetFeatureFlagState(featureFlagName, serviceInstanceGuid);
             }
 
             return featureFlagValue;
