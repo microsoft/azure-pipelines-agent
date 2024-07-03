@@ -582,7 +582,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseProcessHandlerV2 = new Knob(
             nameof(UseProcessHandlerV2),
             "Enables new Process handler (v2)",
-            new RuntimeKnobSource("AGENT_USE_PROCESS_HANDLER_V2"),
+            new PipelineFeatureSource("UseProcessHandlerV2"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableDrainQueuesAfterTask = new Knob(
