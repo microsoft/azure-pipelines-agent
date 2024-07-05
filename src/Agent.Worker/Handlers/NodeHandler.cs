@@ -13,6 +13,10 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
+using Microsoft.TeamFoundation.Common.Internal;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Newtonsoft.Json;
+using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -220,6 +224,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
             var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
 
+            var configStore = HostContext.GetService<IConfigurationStore>();
+            var agentSettings = configStore.GetSettings();
+            if (agentSettings.DebugMode)
+            {
+                var debugTask = AgentKnobs.DebugTask.GetValue(ExecutionContext).AsString();
+                if (!string.IsNullOrEmpty(debugTask))
+                {
+                    if (string.Equals(Task?.Id.ToString("D"), debugTask, StringComparison.OrdinalIgnoreCase) || string.Equals(Task?.Name, debugTask, StringComparison.OrdinalIgnoreCase))
+                    {
+                        arguments = $"--inspect-brk {arguments}";
+                    }
+                }
+            }
+            
+
             try
             {
                 // Execute the process. Exit code 0 should always be returned.
@@ -380,6 +399,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
+            if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
+            {
+                try
+                {
+                    PublishHandlerTelemetry(nodeFolder);
+                }
+                catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
+                {
+                    ExecutionContext.Debug($"NodeHandler ExecutionHandler telemetry wasn't published, because one of the variables has unexpected value.");
+                    ExecutionContext.Debug(ex.ToString());
+                }
+            }
 
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
@@ -522,6 +553,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             return outputs;
+        }
+
+        private void PublishHandlerTelemetry(string realHandler)
+        {
+            var systemVersion = PlatformUtil.GetSystemVersion();
+            string expectedHandler = "";
+            expectedHandler = Data switch
+            {
+                Node20_1HandlerData => "Node20",
+                Node16HandlerData => "Node16",
+                Node10HandlerData => "Node10",
+                _ => "Node6",
+            };
+
+            Dictionary<string, string> telemetryData = new Dictionary<string, string>
+            {
+                { "TaskName", Task.Name },
+                { "TaskId", Task.Id.ToString() },
+                { "Version", Task.Version },
+                { "OS", PlatformUtil.GetSystemId() ?? "" },
+                { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
+                { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                { "ExpectedExecutionHandler", expectedHandler },
+                { "RealExecutionHandler", realHandler },
+                { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
+                { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
+                { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
+                { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
+                { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},
+                { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)}
+            };
+            ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
         }
     }
 }

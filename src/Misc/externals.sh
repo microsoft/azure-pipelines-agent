@@ -19,9 +19,8 @@ NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE20_VERSION="20.13.1"
-MINGIT_VERSION="2.43.0"
-FF_MINGIT_VERSION="2.44.0"
-LFS_VERSION="3.3.0"
+MINGIT_VERSION="2.45.2"
+LFS_VERSION="3.4.0"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -36,15 +35,20 @@ else
 fi
 
 function failed() {
-   local error=${1:-Undefined error}
-   echo "Failed: $error" >&2
-   exit 1
+    local error=${1:-Undefined error}
+    local command_identifier=$2
+    echo "Failed: $error" >&2
+    if [[ $command_identifier == 'download_node_alpine_arm64' ]]; then
+        echo "Node for Alpine ARM64 not found in blob storage. If the version of Node (for tasks execution) has been updated, it should be built for Alpine ARM64 and uploaded to blob storage. Read documentation about the agent release for more info."
+    fi
+    exit 1
 }
 
 function checkRC() {
     local rc=$?
+    local command_identifier=$2
     if [ $rc -ne 0 ]; then
-        failed "${1} failed with return code $rc"
+        failed "${1} failed with return code $rc" $command_identifier
     fi
 }
 
@@ -56,6 +60,7 @@ function acquireExternalTool() {
                             # of the nested TEE-CLC-14.0.4 directory are moved up one directory, and then the empty directory
                             # TEE-CLC-14.0.4 is removed.
     local dont_uncompress=$4
+    local tool_name=$5
 
     # Extract the portion of the URL after the protocol. E.g. vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local relative_url="${download_source#*://}"
@@ -84,7 +89,7 @@ function acquireExternalTool() {
             #      -S Show error. With -s, make curl show errors when they occur
             #      -L Follow redirects (H)
             #      -o FILE    Write to FILE instead of stdout
-            curl --retry 10 -fkSL -o "$partial_target" "$download_source" 2>"${download_target}_download.log" || checkRC 'curl'
+            curl --retry 10 -fkSL -o "$partial_target" "$download_source" 2>"${download_target}_download.log" || checkRC 'curl' "download_${tool_name}"
 
             # Move the partial file to the download target.
             mv "$partial_target" "$download_target" || checkRC 'mv'
@@ -162,7 +167,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "$CONTAINER_URL/vstsom/m122_887c6659/vstsom.zip" vstsom
     fi
 
-    acquireExternalTool "$CONTAINER_URL/mingit/${FF_MINGIT_VERSION}/MinGit-${FF_MINGIT_VERSION}-${BIT}-bit.zip" ff_git
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
@@ -205,11 +209,11 @@ else
         ARCH="linux-arm64-musl"
 
         if [[ "$INCLUDE_NODE10" == "true" ]]; then
-            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10/bin fix_nested_dir
+            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10/bin fix_nested_dir false node_alpine_arm64
         fi
 
-        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir
-        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;

@@ -107,6 +107,20 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("system.prefergitfrompath"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseGit2_39_4 = new Knob(
+            nameof(UseGit2_39_4),
+            "If true, Git v2.39.4 will be used instead of the default version.",
+            new RuntimeKnobSource("USE_GIT_2_39_4"),
+            new EnvironmentKnobSource("USE_GIT_2_39_4"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseGit2_42_0_2 = new Knob(
+            nameof(UseGit2_42_0_2),
+            "If true, Git v2.42.0.2 will be used instead of the default version.",
+            new RuntimeKnobSource("USE_GIT_2_42_0_2"),
+            new EnvironmentKnobSource("USE_GIT_2_42_0_2"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableGitPrompt = new Knob(
             nameof(DisableGitPrompt),
             "If true, git will not prompt on the terminal (e.g., when asking for HTTP authentication).",
@@ -140,13 +154,6 @@ namespace Agent.Sdk.Knob
             "When true, spawn only one thread searching for best delta matches",
             new RuntimeKnobSource("USE_GIT_SINGLE_THREAD"),
             new EnvironmentKnobSource("USE_GIT_SINGLE_THREAD"),
-            new BuiltInDefaultKnobSource("false"));
-
-        public static readonly Knob UseLatestGitVersion = new Knob(
-            nameof(UseLatestGitVersion),
-            "When true, set path to the latest git version",
-            new RuntimeKnobSource("USE_LATEST_GIT_VERSION"),
-            new EnvironmentKnobSource("USE_LATEST_GIT_VERSION"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob AgentTerminalEncoding = new Knob(
@@ -204,6 +211,12 @@ namespace Agent.Sdk.Knob
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob DebugTask = new Knob(
+            nameof(DebugTask),
+            "If the agent executes a task which ID or name matches the value provided, it will run the task so that it will wait for debugger to attach",
+            new EnvironmentKnobSource("VSTSAGENT_DEBUG_TASK"),
             new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob DumpJobEventLogs = new Knob(
@@ -559,6 +572,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_75787_ENABLE_COLLECT"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNewNodeHandlerTelemetry = new Knob(
+            nameof(UseNewNodeHandlerTelemetry),
+            "Enables new approach to publish node handler information to the telemetry",
+            new PipelineFeatureSource("USENEWNODEHANDLERTELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ProcessHandlerEnableNewLogic = new Knob(
             nameof(ProcessHandlerEnableNewLogic),
             "Enables new args protect logic for process handler",
@@ -639,6 +658,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob CheckIfTaskNodeRunnerIsDeprecated = new Knob(
+            nameof(CheckIfTaskNodeRunnerIsDeprecated),
+            "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
+            new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob MountWorkspace = new Knob(
             nameof(MountWorkspace),
             "If true, the agent will mount the Pipeline.Workspace directory instead of the Working directory for steps which target a Docker container.",
@@ -684,13 +709,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_KEY_USE_CNG"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseInteropToFindParentProcess = new Knob(
-            nameof(UseInteropToFindParentProcess),
-            "Uses native Windows function to find parent processes of a process.",
-            new RuntimeKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
-            new EnvironmentKnobSource("AZP_AGENT_USE_INTEROP_TO_FIND_PARENT_PROCESS"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob RsaKeyGetConfigFromFF = new Knob(
             nameof(RsaKeyGetConfigFromFF),
             "Get config from FF.",
@@ -710,6 +728,19 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("ROSETTA2_WARNING"),
             new EnvironmentKnobSource("ROSETTA2_WARNING"),
             new PipelineFeatureSource("Rosetta2Warning"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CheckPsModulesLocations = new Knob(
+            nameof(CheckPsModulesLocations),
+            "Checks if the PSModulePath environment variable contains locations specific to PowerShell Core.",
+            new EnvironmentKnobSource("AZP_AGENT_CHECK_PSMODULES_LOCATIONS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseDockerStdinPasswordOnWindows = new Knob(
+            nameof(UseDockerStdinPasswordOnWindows),
+            "If true, use --password-stdin for docker login on Windows.",
+            new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
+            new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

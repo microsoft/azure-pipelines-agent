@@ -100,7 +100,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
-            var action = new Func<Task<int>>(async () => PlatformUtil.RunningOnWindows
+            var useDockerStdinPasswordOnWindows = AgentKnobs.UseDockerStdinPasswordOnWindows.GetValue(context).AsBoolean();
+
+            var action = new Func<Task<int>>(async () => PlatformUtil.RunningOnWindows && !useDockerStdinPasswordOnWindows
                 // Wait for 17.07 to switch using stdin for docker registry password.
                 ? await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken)
                 : await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken)

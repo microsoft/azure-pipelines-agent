@@ -132,6 +132,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public int MaxDedupParallelism { get; set; }
+        
+        [DataMember(EmitDefaultValue = false)]
+        public bool DebugMode { get; set; }
     }
 
     [DataContract]

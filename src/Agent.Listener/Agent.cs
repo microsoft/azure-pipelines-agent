@@ -19,6 +19,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -215,6 +216,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Info($"Set agent startup type - {startType}");
                 HostContext.StartupType = startType;
 
+                bool debugModeEnabled = command.GetDebugMode();
+                settings.DebugMode = debugModeEnabled;
+                store.SaveSettings(settings);
+                if (debugModeEnabled)
+                {
+                    Trace.Warning("Agent is running in debug mode, don't use it in production");
+                }
                 if (PlatformUtil.RunningOnWindows)
                 {
                     if (store.IsAutoLogonConfigured())
@@ -326,6 +334,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             try
             {
                 Trace.Info(nameof(RunAsync));
+
+                if (PlatformUtil.RunningOnWindows && AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean())
+                {
+                    string psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
+                    bool containsPwshLocations = PsModulePathUtil.ContainsPowershellCoreLocations(psModulePath);
+
+                    if (containsPwshLocations)
+                    {
+                        _term.WriteLine(StringUtil.Loc("PSModulePathLocations"));
+                    }
+                }
+
                 _listener = HostContext.GetService<IMessageListener>();
                 if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
                 {

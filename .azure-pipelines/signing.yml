@@ -16,9 +16,14 @@ steps:
     displayName: Remove signatures from the third party packages
     condition: ne(variables['DISABLE_SIGNATURE_REMOVAL'], 'true')
 
-  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+  - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
     inputs:
-      ConnectedServiceName: VSTSAgentESRP
+      ConnectedServiceName: PipelinesAgentAndTasksESRP
+      AppRegistrationClientId: $(AppRegistrationClientId)
+      AppRegistrationTenantId: $(AppRegistrationTenantId)
+      AuthAKVName: $(AuthAKVName)
+      AuthCertName: $(AuthCertName)
+      AuthSignCertName: $(AuthSignCertName)
       FolderPath: '${{ parameters.layoutRoot }}/bin'
       Pattern: AgentService.exe
       signConfigType: inlineSignParams
@@ -40,9 +45,14 @@ steps:
         ]
     displayName: Sign Agent Assemblies (Strong Name Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: VSTSAgentESRP
+    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}/bin'
     Pattern: |
       Agent.*.dll
@@ -90,9 +100,14 @@ steps:
       ]
   displayName: Sign Agent Assemblies (Authenticode Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: VSTSAgentESRP
+    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\powershell\**\*.ps1
@@ -140,9 +155,14 @@ steps:
       ]
   displayName: Sign PowerShell Scripts (Authenticode Signing)
 
-- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@2
+- task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: VSTSAgentESRP
+    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    AppRegistrationClientId: $(AppRegistrationClientId)
+    AppRegistrationTenantId: $(AppRegistrationTenantId)
+    AuthAKVName: $(AuthAKVName)
+    AuthCertName: $(AuthCertName)
+    AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
       bin\**\*.dll

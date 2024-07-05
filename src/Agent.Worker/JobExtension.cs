@@ -238,6 +238,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     context.Output("Finished checking job knob settings.");
 
+                    // Ensure that we send git telemetry before potential path env changes during the pipeline execution
+                    var isSelfHosted = StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
+                    if (PlatformUtil.RunningOnWindows && isSelfHosted)
+                    {
+                        try
+                        {
+                            var windowsPreinstalledGitCommand = jobContext.AsyncCommands.Find(c => c != null && c.Name == Constants.AsyncExecution.Commands.Names.WindowsPreinstalledGitTelemetry);
+                            if (windowsPreinstalledGitCommand != null)
+                            {
+                                await windowsPreinstalledGitCommand.WaitAsync();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the error
+                            Trace.Info($"Caught exception from async command WindowsPreinstalledGitTelemetry: {ex}");
+                        }
+                    }
+
                     if (PlatformUtil.RunningOnWindows)
                     {
                         // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
@@ -256,6 +275,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             prepareStep.AccessToken = systemConnection.Authorization.Parameters["AccessToken"];
                             prepareStep.Condition = ExpressionManager.Succeeded;
                             preJobSteps.Add(prepareStep);
+                        }
+
+                        string gitVersion = null;
+
+                        if (AgentKnobs.UseGit2_39_4.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.39.4";
+                        }
+                        else if (AgentKnobs.UseGit2_42_0_2.GetValue(jobContext).AsBoolean())
+                        {
+                            gitVersion = "2.42.0.2";
+                        }
+
+                        if (gitVersion is not null)
+                        {
+                            context.Debug($"Downloading Git v{gitVersion}");
+                            var gitManager = HostContext.GetService<IGitManager>();
+                            await gitManager.DownloadAsync(context, gitVersion);
                         }
                     }
 

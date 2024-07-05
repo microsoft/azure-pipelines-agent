@@ -544,6 +544,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                    TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
         }
 
+        public bool GetDebugMode()
+        {
+            return TestFlag(Run?.DebugMode, Constants.Agent.CommandLine.Flags.DebugMode);
+        }
+
         public bool GetDeploymentPool()
         {
             return TestFlag(Configure?.DeploymentPool, Constants.Agent.CommandLine.Flags.DeploymentPool);

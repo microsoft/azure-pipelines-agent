@@ -89,6 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <returns></returns>
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
+        void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -507,6 +508,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (repo != null)
                     {
                         repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+
+                var defaultWorkingDirectoryCheckout = Build.BuildJobExtension.GetDefaultWorkingDirectoryCheckoutTask(message.Steps);
+                if (Repositories != null && defaultWorkingDirectoryCheckout != null && defaultWorkingDirectoryCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string defaultWorkingDirectoryRepoAlias))
+                {
+                    var defaultWorkingDirectoryRepo = Repositories.Find(r => String.Equals(r.Alias, defaultWorkingDirectoryRepoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (defaultWorkingDirectoryRepo != null)
+                    {
+                        defaultWorkingDirectoryRepo.Properties.Set<bool>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, true);
+                        JobSettings[WellKnownJobSettings.DefaultWorkingDirectoryRepository] = defaultWorkingDirectoryRepoAlias;
+
+                        Trace.Info($"Will set the path of the following repository to be the System.DefaultWorkingDirectory: {defaultWorkingDirectoryRepoAlias}");
                     }
                 }
             }
@@ -933,6 +947,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var publishTelemetryCmd = new TelemetryCommandExtension();
             publishTelemetryCmd.Initialize(HostContext);
             publishTelemetryCmd.ProcessCommand(this, cmd);
+        }
+
+        public void PublishTaskRunnerTelemetry(Dictionary<string,string> taskRunnerData)
+        {
+            PublishTelemetry(taskRunnerData);
         }
 
         public void Dispose()
