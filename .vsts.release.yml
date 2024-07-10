@@ -46,6 +46,8 @@ parameters:
 variables:
   - name: OneES_JobScannedCount
     value: 1
+  - name: ONEES_ENFORCED_CODEQL_ENABLED # Disable CodeQL
+    value: false
 
 extends:
   template: /.azure-pipelines/pipeline.yml@self

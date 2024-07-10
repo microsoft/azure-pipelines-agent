@@ -61,11 +61,6 @@ parameters:
   type: boolean
   default: true
 
-variables:
-  - name: ONEES_ENFORCED_CODEQL_ENABLED # Disable CodeQL
-    value: false
-
-
 resources:
   repositories:
   - repository: 1ESPipelineTemplates

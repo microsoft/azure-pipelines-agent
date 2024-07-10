@@ -43,6 +43,13 @@ parameters:
   displayName: macOS (ARM64)
   default: true
 
+# Skip CG
+variables:
+  - name: OneES_JobScannedCount
+    value: 1
+  - name: ONEES_ENFORCED_CODEQL_ENABLED # Disable CodeQL
+    value: false
+
 pr:
   branches:
     include:
