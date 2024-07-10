@@ -64,14 +64,6 @@ parameters:
   - agent
   - pipelines-agent
 
-- name: disableSdl
-  type: boolean
-  default: false
-
-- name: justificationForDisablingSdl
-  type: string
-  default: ''
-
 jobs:
 
 - job: ${{ parameters.jobName }}
@@ -82,13 +74,6 @@ jobs:
   ${{ if ne(parameters.container, '') }}:
     container: ${{ parameters.container }}
 
-  ${{ if eq(parameters.disableSdl, true) }}:
-    parameters:
-      sdl:
-        codeql:
-          compiled:
-            enabled: false
-            justificationForDisabling: ${{ parameters.justificationForDisablingSdl}}
   variables:
     PACKAGE_TYPE: ${{ parameters.packageType }}
     ${{ if eq(parameters.os, 'win') }}:

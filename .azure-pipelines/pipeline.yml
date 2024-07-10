@@ -74,6 +74,10 @@ extends:
     featureFlags:
       autoBaseline: false
     sdl:
+      codeql:
+        compiled:
+          enabled: false
+          justificationForDisabling: "CodeQL conflicting with signing on osx (see ICM 520690622)"
       # do not fail on CG
       componentgovernance:
         failOnAlert: false
