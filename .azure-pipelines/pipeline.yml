@@ -74,6 +74,7 @@ extends:
     featureFlags:
       autoBaseline: false
     sdl:
+      enableAllTools: true
       codeql:
         compiled:
           enabled: false
