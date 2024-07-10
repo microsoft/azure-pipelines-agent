@@ -72,12 +72,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 context.SecretMasker.AddValue(Configure.SslClientCert, WellKnownSecretAliases.ConfigureSslClientCert);
                 context.SecretMasker.AddValue(Configure.Token, WellKnownSecretAliases.ConfigureToken);
                 context.SecretMasker.AddValue(Configure.WindowsLogonPassword, WellKnownSecretAliases.ConfigureWindowsLogonPassword);
+                context.SecretMasker.AddValue(Configure.TenantId, WellKnownSecretAliases.ConfigureTenantId);
+                context.SecretMasker.AddValue(Configure.ClientId, WellKnownSecretAliases.ConfigureClientId);
+                context.SecretMasker.AddValue(Configure.ClientSecret, WellKnownSecretAliases.ConfigureClientSecret);
             }
 
             if (Remove != null)
             {
                 context.SecretMasker.AddValue(Remove.Password, WellKnownSecretAliases.RemovePassword);
                 context.SecretMasker.AddValue(Remove.Token, WellKnownSecretAliases.RemoveToken);
+                context.SecretMasker.AddValue(Configure.TenantId, WellKnownSecretAliases.RemoveTenantId);
+                context.SecretMasker.AddValue(Configure.ClientId, WellKnownSecretAliases.RemoveClientId);
+                context.SecretMasker.AddValue(Configure.ClientSecret, WellKnownSecretAliases.RemoveClientSecret);
             }
 
             PrintArguments();
