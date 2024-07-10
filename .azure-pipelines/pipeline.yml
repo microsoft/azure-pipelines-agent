@@ -275,7 +275,6 @@ extends:
       - ${{ if parameters.macOS_x64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
-            disableSdl: true
             jobName: build_osx
             displayName: macOS (x64)
             pool:
@@ -295,7 +294,6 @@ extends:
       - ${{ if parameters.macOS_arm64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
-            disableSdl: true
             jobName: build_osx_arm64
             displayName: macOS (ARM64)
             pool:
