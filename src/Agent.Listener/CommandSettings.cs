@@ -81,9 +81,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 context.SecretMasker.AddValue(Remove.Password, WellKnownSecretAliases.RemovePassword);
                 context.SecretMasker.AddValue(Remove.Token, WellKnownSecretAliases.RemoveToken);
-                context.SecretMasker.AddValue(Configure.TenantId, WellKnownSecretAliases.RemoveTenantId);
-                context.SecretMasker.AddValue(Configure.ClientId, WellKnownSecretAliases.RemoveClientId);
-                context.SecretMasker.AddValue(Configure.ClientSecret, WellKnownSecretAliases.RemoveClientSecret);
+                context.SecretMasker.AddValue(Remove.TenantId, WellKnownSecretAliases.RemoveTenantId);
+                context.SecretMasker.AddValue(Remove.ClientId, WellKnownSecretAliases.RemoveClientId);
+                context.SecretMasker.AddValue(Remove.ClientSecret, WellKnownSecretAliases.RemoveClientSecret);
             }
 
             PrintArguments();
