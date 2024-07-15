@@ -85,7 +85,7 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     if (!fs.existsSync(repoPath)) {
         const gitUrl = `https://${process.env.PAT}@${orgUrl}/${project}/_git/${repo}`;
-        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, opt.dryrun);
+        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, opt.options.dryrun);
     }
 
     for (const targetToCommit of targetsToCommit) {
@@ -105,12 +105,12 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
     }
 
     for (const targetToCommit of targetsToCommit) {
-        util.execInForeground(`${GIT} add ${targetToCommit}`, repoPath, opt.dryrun);
+        util.execInForeground(`${GIT} add ${targetToCommit}`, repoPath, opt.options.dryrun);
     }
 
-    util.execInForeground(`${GIT} checkout -b ${sourceBranch}`, repoPath);
-    util.execInForeground(`${GIT} commit -m "${commitMessage}"`, repoPath);
-    util.execInForeground(`${GIT} push --force origin ${sourceBranch}`, repoPath);
+    util.execInForeground(`${GIT} checkout -b ${sourceBranch}`, repoPath, opt.options.dryrun);
+    util.execInForeground(`${GIT} commit -m "${commitMessage}"`, repoPath, opt.options.dryrun);
+    util.execInForeground(`${GIT} push --force origin ${sourceBranch}`, repoPath, opt.options.dryrun);
 
     const prefix = 'refs/heads/';
 
@@ -129,6 +129,8 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     if (PR) {
         console.log('PR already exists');
+    } else if (opt.options.dryrun) {
+        return [-1, 'test']; // return without creating PR for test runs
     } else {
         console.log('PR does not exist; creating PR');
         PR = await gitApi.createPullRequest(pullRequest, repo, project);
@@ -167,8 +169,8 @@ async function main() {
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(agentVersion);
-        util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, opt.dryrun);
-        util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, opt.dryrun);
+        util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, opt.options.dryrun);
+        util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, opt.options.dryrun);
 
         const sprint = await getCurrentSprint();
 

@@ -1,5 +1,12 @@
 # This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
 
+trigger:
+  paths:
+    include:
+    - release
+    - .azure-pipelines
+    - .vsts.release.yml
+
 schedules:
 - cron: '0 6 * * 2'
   displayName: Scheduled weekly run
@@ -88,11 +95,15 @@ extends:
             Write-Host "isRelease = $isRelease"
             Write-Host "##vso[task.setVariable variable=isRelease;isOutput=true]$isRelease"
 
+            $isTestRun = ($buildReason -eq 'IndividualCI' -or $buildReason -eq 'PullRequest')
+            Write-Host "isTestRun = $isTestRun"
+            Write-Host "##vso[task.setVariable variable=isTestRun;isOutput=true]$isTestRun"
+
             $isScheduledRelease = $isRelease -and $buildReason -eq 'Schedule'
             Write-Host "isScheduledRelease = $isScheduledRelease"
 
-            if ($isRelease) {
-              if ($isScheduledRelease) {
+            if ($isRelease -or $isTestRun) {
+              if ($isScheduledRelease -or $isTestRun) {
                 $majorAndMinorVersion = "3.$($currentSprint.sprint)"
                 $patchVersion = 0
                 ## Looking for a free patch version
@@ -116,6 +127,9 @@ extends:
                   Write-Error "Version parameter is required for manual release." -ErrorAction Stop
                 }
               }
+              if ($isTestRun) {
+                $agentVersion = '3.000.999'
+              }
               Write-Host "agentVersion = $agentVersion"
               Write-Host "##vso[task.setVariable variable=agentVersion;isOutput=true]$agentVersion"
 
@@ -137,10 +151,12 @@ extends:
       ################################################################################
         displayName: Create Release Branch
         variables:
+          IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
           IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
           ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
           AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
-        condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+        condition: and(succeeded(), or(eq(variables.IsRelease, 'True'), eq(variables.IsTestRun, 'True')))
+
         pool:
           name: 1ES-ABTT-Shared-Pool
           image: abtt-ubuntu-2204
@@ -178,10 +194,11 @@ extends:
             name: 1ES-Shared-Hosted-Pool_Windows-Server-2022
             demands: AzurePS
           variables:
+            IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
             AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
-          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+          condition: and(succeeded(), or(eq(variables.IsRelease, 'True'), eq(variables.IsTestRun, 'True')))
           steps:
 
           # Clean
@@ -215,13 +232,24 @@ extends:
                 Select-AzSubscription -SubscriptionId $(SubscriptionId)
                 $storageContext = New-AzStorageContext -StorageAccountName vstsagentpackage -UseConnectedAccount
                 $versionDir = "$(AgentVersion)"
+                
+                $container = "agent"
+                $isTestContainer = "$(IsTestRun)"
+                Write-Host "isTestContainer = $isTestContainer"
+
+                if ($isTestContainer -eq "True") { 
+                  $container = "testagent"
+                  New-AzStorageContainer -Context $storageContext -Name $container -Permission Off
+                }
+                Write-Host "container = $container"
+                
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                   $target=$_
                   Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
                     $executable = $_
-                    Write-Host "Uploading $executable to BlobStorage vstsagentpackage/agent/$versionDir"
-                    Set-AzStorageBlobContent -Context $storageContext -Container agent -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
-                    $uploadFiles.Add("/agent/$versionDir/$executable")
+                    Write-Host "Uploading $executable to BlobStorage vstsagentpackage/$container/$versionDir"
+                    Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
+                    $uploadFiles.Add("/$container/$versionDir/$executable")
                   }
                 }
                 Write-Host "Purge Azure CDN Cache"
@@ -229,6 +257,21 @@ extends:
                 Write-Host "Force Refresh Azure CDN Cache"
                 Import-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -ContentPath $uploadFiles
 
+          # Clean up blob container with test agent version
+          - task: AzurePowerShell@5
+            displayName: Delete Azure Blob container with test agent version
+            condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
+            inputs:
+              azurePowerShellVersion: 'LatestVersion'
+              azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
+              scriptType: 'InlineScript'
+              inline: |
+                Import-Module Azure, Az.Accounts, Az.Storage -ErrorAction Ignore -PassThru
+                Select-AzSubscription -SubscriptionId $(SubscriptionId)
+                $storageContext = New-AzStorageContext -StorageAccountName vstsagentpackage -UseConnectedAccount
+                $container = 'testagent'
+                Remove-AzStorageContainer -Name $container -Context $storageContext -Force
+                
           # Download all agent hashes created in previous phases
           - task: DownloadBuildArtifacts@0
             displayName: Download Agent Hashes
@@ -267,6 +310,7 @@ extends:
               $releaseCreated = Invoke-RestMethod @releaseParams
               Write-Host $releaseCreated
               $releaseId = $releaseCreated.id
+              Write-Host "##vso[task.setVariable variable=releaseId;isoutput=true]$releaseId"
               $assets = [System.IO.File]::ReadAllText("$(Build.SourcesDirectory)\assets.json").Replace("<AGENT_VERSION>","$(AgentVersion)")
               $assetsParams = @{
                 Uri = "https://uploads.github.com/repos/Microsoft/azure-pipelines-agent/releases/$releaseId/assets?name=assets.json"
@@ -279,6 +323,36 @@ extends:
               }
               Invoke-RestMethod @assetsParams
             displayName: Create agent release on Github
+            name: create_github_release
+
+          # Delete test agent release
+          - powershell: |
+              Write-Host "Deleting test github release."
+              $releaseId = $(create_github_release.releaseId) 
+              
+              $releaseParams = @{
+                Uri = "https://api.github.com/repos/Microsoft/azure-pipelines-agent/releases/$releaseId";
+                Method = 'DELETE';
+                Headers = @{
+                  Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("vsts:$(GithubToken)"));
+                }
+                ContentType = 'application/json';
+              }
+              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+              $releaseDeleted = Invoke-RestMethod @releaseParams
+              Write-Host $releaseDeleted.Id
+            displayName: Delete test agent release from Github
+            condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
+
+          # Clean up test release branch
+          - powershell: |
+              git config --global user.email "azure-pipelines-bot@microsoft.com"
+              git config --global user.name "azure-pipelines-bot"
+              git status
+              git -c credential.helper='!f() { echo "username=pat"; echo "password=$(GithubToken)"; };f' push origin --delete $(ReleaseBranch)
+              git push --delete origin v$(AgentVersion)
+            displayName: Clean up test release branch
+            condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
 
       - stage: CreatePRs
         dependsOn:
@@ -295,10 +369,11 @@ extends:
         ################################################################################
           displayName: Create PRs in AzureDevOps and ConfigChange
           variables:
+            IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             ReleaseBranch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
             AgentVersion: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.agentVersion'] ]
-          condition: and(succeeded(), eq(variables.IsRelease, 'True'))
+          condition: and(succeeded(), or(eq(variables.IsRelease, 'True'), eq(variables.IsTestRun, 'True')))
           steps:
           - checkout: self
 
@@ -320,7 +395,7 @@ extends:
               cd release
               npm install
               ls
-              node createAdoPrs.js $(AgentVersion)
+              node createAdoPrs.js $(AgentVersion) --dryrun=$(IsTestRun)
             name: s_CreateAdoPrs
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
@@ -341,6 +416,7 @@ extends:
         - job: j_SendPRsNotifications
           displayName: Send Release PRs notifications
           variables:
+            IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
             AdoPrId: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrId'] ]
             AdoPrLink: $[ stageDependencies.CreatePRs.create_ado_prs.outputs['s_CreateAdoPrs.AdoPrLink'] ]
@@ -350,6 +426,7 @@ extends:
             and(
               not(${{ parameters.disableNotifications }}),
               eq(variables.IsRelease, 'True'),
+              eq(variables.IsTestRun, 'False'),
               not(${{ parameters.onlyGitHubRelease }})
             )
           steps:

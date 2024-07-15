@@ -11,8 +11,14 @@ namespace Agent.Sdk.Util
         public static readonly string ConfigureSslClientCert = "Configure.SslClientCert";
         public static readonly string ConfigureToken = "Configure.Token";
         public static readonly string ConfigureWindowsLogonPassword = "Configure.WindowsLogonPassword";
+        public static readonly string ConfigureClientId = "Configure.ClientId";
+        public static readonly string ConfigureClientSecret = "Configure.ClientSecret";
+        public static readonly string ConfigureTenantId = "Configure.TenantId";
         public static readonly string RemovePassword = "Remove.Password";
         public static readonly string RemoveToken = "Remove.Token";
+        public static readonly string RemoveClientId = "Remove.ClientId";
+        public static readonly string RemoveClientSecret = "Remove.ClientSecret";
+        public static readonly string RemoveTenantId = "Remove.TenantId";
 
         // Other known origins for secrets
         public static readonly string GitSourceProviderAuthHeader = "GitSourceProvider.AuthHeader";
