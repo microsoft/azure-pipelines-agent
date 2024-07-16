@@ -360,12 +360,6 @@ namespace Agent.Sdk.Knob
             new BuiltInDefaultKnobSource("0"));
 
         // Misc
-        public static readonly Knob EnableTaskIssueAudit = new Knob(
-           nameof(EnableTaskIssueAudit),
-           "When true, enable issue source validation for the task.issue command to prevent extra audit events.",
-           new RuntimeKnobSource("AZP_ENABLE_TASK_AUDIT_ISSUES"),
-           new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob EnableIssueSourceValidation = new Knob(
             nameof(EnableIssueSourceValidation),
             "When true, enable issue source validation for the task.issue command.",

@@ -399,8 +399,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     runtimeVariables,
                     taskDirectory: definition.Directory);
 
-                if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean()
-                    || AgentKnobs.EnableTaskIssueAudit.GetValue(ExecutionContext).AsBoolean())
+                if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
                 {
                     if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsCorrelationIdRequired(handler, definition))
                     {
