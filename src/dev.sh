@@ -365,17 +365,7 @@ bash ./Misc/externals.sh $RUNTIME_ID "Pre-Cache" || checkRC "externals.sh Pre-Ca
 
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
     vswhere=$(find "$DOWNLOAD_DIR" -name vswhere.exe | head -1)
-
-    # todo - seperate pull request to add the BuildTools product set to the default search
-    # Tim Brigham - update to the default string first to search 
-    vs_location=$("$vswhere"  -latest -property installationPath)
-
-    # Then only if it is empty perform a second search wiith the BuildTools product set 
-    #if [[ ! -e "${vs_location}" ]]; then
-    #    #try again with -products 'Microsoft.VisualStudio.Product.BuildTools' set 
-    #    vs_location=$("$vswhere"  -latest -property installationPath -products 'Microsoft.VisualStudio.Product.BuildTools')
-    #fi
-
+    vs_location=$("$vswhere" -latest -property installationPath)
     msbuild_location="$vs_location""\MSBuild\15.0\Bin\msbuild.exe"
 
     if [[ ! -e "${msbuild_location}" ]]; then
