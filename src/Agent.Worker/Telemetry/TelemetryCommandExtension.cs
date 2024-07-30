@@ -21,6 +21,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             SupportedHostTypes = HostTypes.All;
             InstallWorkerCommand(new PublishTelemetryCommand());
         }
+        public TelemetryCommandExtension(bool IsAgentTelemetry = false)
+        {
+            CommandArea = "telemetry";
+            SupportedHostTypes = HostTypes.All;
+            InstallWorkerCommand(new PublishTelemetryCommand(IsAgentTelemetry: IsAgentTelemetry));
+        }
     }
 
     [CommandRestriction(AllowedInRestrictedMode = true)]
@@ -29,13 +35,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         public string Name => "publish";
         public List<string> Aliases => null;
 
+        public bool IsAgentTelemetry;
+
+        public PublishTelemetryCommand() 
+        {
+            IsAgentTelemetry = false;
+        }
+
+        public PublishTelemetryCommand(bool IsAgentTelemetry = false)
+        {
+            this.IsAgentTelemetry = IsAgentTelemetry;
+        }
+
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
 
             context.Variables.TryGetValue(Constants.Variables.Task.PublishTelemetry, out string publishTelemetryVar);
-            if (bool.TryParse(publishTelemetryVar, out bool publishTelemetry) && !publishTelemetry)
+            if (bool.TryParse(publishTelemetryVar, out bool publishTelemetry) && !publishTelemetry && !IsAgentTelemetry)
             {
                 return;
             }
