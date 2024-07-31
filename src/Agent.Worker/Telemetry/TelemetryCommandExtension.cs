@@ -35,12 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         public string Name => "publish";
         public List<string> Aliases => null;
 
-        public bool IsAgentTelemetry;
-
-        public PublishTelemetryCommand() 
-        {
-            IsAgentTelemetry = false;
-        }
+        public readonly bool IsAgentTelemetry = false;
 
         public PublishTelemetryCommand(bool IsAgentTelemetry = false)
         {
