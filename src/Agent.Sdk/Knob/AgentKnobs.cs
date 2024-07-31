@@ -723,5 +723,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UsePSScriptWrapper = new Knob(
+            nameof(UsePSScriptWrapper),
+            "Use PowerShell script wrapper to handle PowerShell ConstrainedLanguage mode.",
+            new RuntimeKnobSource("USE_PS_SCRIPT_WRAPPER"),
+            new EnvironmentKnobSource("USE_PS_SCRIPT_WRAPPER"),
+            new PipelineFeatureSource("UsePSScriptWrapper"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

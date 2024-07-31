@@ -2,28 +2,29 @@
 A PowerShell script that is used to invoke a VSTS task script. This script is used by the VSTS task runner to invoke the task script.
 This script replaces some legacy stuff in PowerShell3Handler.cs and turns it into a dedicated signed script. 
 since it is parameterized it can be signed and trusted for WDAC and CLM.
-This is the original code that has been repalced - 
-@". ([scriptblock]::Create('if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {{ [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }} if (!$PSHOME) {{ $null = Get-Item -LiteralPath ''variable:PSHOME'' }} else {{ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'')) ; Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'')) }}')) 2>&1 | ForEach-Object {{ Write-Verbose $_.Exception.Message -Verbose }} ; Import-Module -Name '{0}' -ArgumentList @{{ NonInteractive = $true }} -ErrorAction Stop ; $VerbosePreference = '{1}' ; $DebugPreference = '{1}' ; Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create('. ''{2}'''))",
 #>
 
 param ( 
-    [Parameter(mandatory = $true)]$name, # Argument 0 
-    [Parameter(mandatory = $true)]$DebugOption, # Argument 1
-    [Parameter(mandatory = $true)]$scriptBlockString	# Argument 2 
+    [Parameter(mandatory = $true)]
+    [string]$Name,
+
+    [Parameter(mandatory = $true)]
+    [string]$DebugOption,
+
+    [Parameter(mandatory = $true)]
+    [string]$ScriptBlockString
+
 )
 
-function GetCLM {
+function Get-ClmStatus {
     # This is new functionality to detect if we are running in a constrained language mode.
     # This is only used to display debug data if the device is in CLM mode by default.
-    # This test is modeled after the traditional __PSSCRIPTPOLICYTEST_LQU1DAME file
-    # This creates a temporary file with a changing signature 
-    # which will return the execution context language mode. 
+
+    # Create a temp file and add the command which not allowed in constrained language mode.
     $tempFileGuid = New-Guid | Select-Object -Expand Guid 
-    $tempFile = "$($env:temp)\$($tempFileGuid).ps1"
-    # Use the command which not allowed in constrained language mode.
+    $tempFile = "$($env:AGENT_TEMPDIRECTORY)\$($tempFileGuid).ps1"
+
     Write-Output 'New-Object -TypeName System.Collections.ArrayList' | Out-File -FilePath $tempFile -append 
-    # Now we execute the file and return the result. We need to try catch this because of how PS handles 
-    # the execution of CLM files in a non CLM environment.
 
     try {
         . $tempFile
@@ -60,9 +61,9 @@ Once Start-AzpTask is running in full language mode, verify that the
 VstsTaskScript and handler are also in full language mode.
 Each script file used by Start-AzpTask must be signed or whitelisted to receive full language mode.
 The VstsTaskScript requested by this instance is: 
-$name
+$Name
 The handler being requested by this instance is: 
-$scriptBlockString
+$ScriptBlockString
 Please note other supporting files may also need to be signed or whitelisted to receive full language mode.
 These can be located using procmon, sysmon or similar tools.
 ## Error Causes ##
@@ -83,11 +84,13 @@ $VerbosePreference = $DebugOption
 $DebugPreference = $DebugOption
 
 # First we check if the device is in CLM mode by default.
-$clmResults = GetCLM 
+$clmResults = Get-ClmStatus 
 # Now the behavior based on CLM and debug settings.
 # Case 1, device is full language, continue as normal 
-if ( $clmResults -eq "FullLanguage" -and $DebugOption -ceq "Continue") {
-    Write-Verbose "Full Language mode detected, continuing traditional workflow."
+if ( $clmResults -eq "FullLanguage") {
+    if ( $DebugOption -ceq "Continue" ) {
+        Write-Verbose "Full Language mode detected, continuing traditional workflow."
+    }
 }
 # Case 2, device is constrained language  
 else {
@@ -119,7 +122,7 @@ else {
 }
 
 $importSplat = @{
-    Name        = $name 
+    Name        = $Name 
     ErrorAction = 'Stop'
 }
 
@@ -134,12 +137,12 @@ catch {
 
 # Now create the task and hand of to the task script
 try {
-    Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $scriptBlockString ))
+    Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $ScriptBlockString ))
 }
 # We want to add improved error handling here - if the error is "xxx\powershell.ps1 is not recognized as the name of a cmdlet, function, script file, or operable program"
 # 
 catch {
-    Write-Verbose "Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $scriptBlockString ))"
+    Write-Verbose "Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create( $ScriptBlockString ))"
     Write-Verbose $_.Exception.Message -Verbose 
     throw $_.Exception
 }
