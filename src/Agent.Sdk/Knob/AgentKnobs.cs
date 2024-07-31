@@ -652,13 +652,6 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob MountWorkspace = new Knob(
-            nameof(MountWorkspace),
-            "If true, the agent will mount the Pipeline.Workspace directory instead of the Working directory for steps which target a Docker container.",
-            new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
-            new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob EnableNewSecretMasker = new Knob(
             nameof(EnableNewSecretMasker),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
