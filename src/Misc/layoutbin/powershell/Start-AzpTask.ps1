@@ -12,28 +12,6 @@ param (
     [Parameter(mandatory = $true)]$scriptBlockString	# Argument 2 
 )
 
-if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
-    [Console]::InputEncoding = New-Object Text.UTF8Encoding $false 
-} 
-
-# TODO - unsure why this is needed; can pshome be left unset?
-if (!$PSHOME) { 
-    $null = Get-Item -LiteralPath 'variable:PSHOME' 
-}
-else { 
-    Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
-    Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) 
-}
-
-$importSplat = @{
-    Name        = $name 
-    ErrorAction = 'Stop'
-}
-
-$VerbosePreference = $DebugOption
-$DebugPreference = $DebugOption
-
-
 function GetCLM {
     # This is new functionality to detect if we are running in a constrained language mode.
     # This is only used to display debug data if the device is in CLM mode by default.
@@ -42,20 +20,19 @@ function GetCLM {
     # which will return the execution context language mode. 
     $tempFileGuid = New-Guid | Select-Object -Expand Guid 
     $tempFile = "$($env:temp)\$($tempFileGuid).ps1"
-    # First line is the command to get the language mode
-    Write-Output '$ExecutionContext.SessionState.LanguageMode' | Out-File -FilePath $tempFile 
+    # Use the command which not allowed in constrained language mode.
     Write-Output 'New-Object -TypeName System.Collections.ArrayList' | Out-File -FilePath $tempFile -append 
-    Write-Output "#  $tempFileGuid" | Out-File -FilePath $tempFile -append 
-    Write-Output "Write-Output '$tempFileGuid'" | Out-File -FilePath $tempFile -append 
     # Now we execute the file and return the result. We need to try catch this because of how PS handles 
     # the execution of CLM files in a non CLM environment.
+
     try {
-        . $tempFile 
+        . $tempFile
         $status = "FullLanguage"
     }
-    catch [System.Management.Automation.CommandNotFoundException] {
+    catch [System.Management.Automation.PSNotSupportedException] {
         $status = "ConstrainedLanguage"
     }
+
     Remove-Item $tempFile 
     return $status 
 }
@@ -102,13 +79,15 @@ you must execute it from disk, with proper signing or whitelisting in place.
 
 "@
 
+$VerbosePreference = $DebugOption
+$DebugPreference = $DebugOption
+
 # First we check if the device is in CLM mode by default.
 $clmResults = GetCLM 
 # Now the behavior based on CLM and debug settings.
 # Case 1, device is full language, continue as normal 
-if ( $clmResults -eq "FullLanguage" ) {
-    Write-Output "Full Language mode detected, continuing traditional workflow."
-    Write-Output ""
+if ( $clmResults -eq "FullLanguage" -and $DebugOption -ceq "Continue") {
+    Write-Verbose "Full Language mode detected, continuing traditional workflow."
 }
 # Case 2, device is constrained language  
 else {
@@ -126,7 +105,23 @@ else {
     }
     Write-Output ""
 }
-#Write-Verbose "ADO Pipeline Update Test Tim Brigham"
+
+if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
+    [Console]::InputEncoding = New-Object Text.UTF8Encoding $false 
+} 
+
+if (!$PSHOME) { 
+    $null = Get-Item -LiteralPath 'variable:PSHOME' 
+}
+else { 
+    Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
+    Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) 
+}
+
+$importSplat = @{
+    Name        = $name 
+    ErrorAction = 'Stop'
+}
 
 # Import the module and catch any errors
 try {
@@ -149,4 +144,3 @@ catch {
     throw $_.Exception
 }
 #
-
