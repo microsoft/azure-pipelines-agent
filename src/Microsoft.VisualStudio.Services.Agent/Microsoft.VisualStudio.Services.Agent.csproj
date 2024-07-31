@@ -22,6 +22,7 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.2" />
     <PackageReference Include="Microsoft.Azure.Storage.DataMovement" Version="2.0.5" />
     <PackageReference Include="System.Private.Uri" Version="4.3.2" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
 
 </Project>

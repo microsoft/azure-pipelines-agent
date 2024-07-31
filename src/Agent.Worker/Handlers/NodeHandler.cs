@@ -224,21 +224,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
             var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
 
-            var configStore = HostContext.GetService<IConfigurationStore>();
-            var agentSettings = configStore.GetSettings();
-            if (agentSettings.DebugMode)
-            {
-                var debugTask = AgentKnobs.DebugTask.GetValue(ExecutionContext).AsString();
-                if (!string.IsNullOrEmpty(debugTask))
-                {
-                    if (string.Equals(Task?.Id.ToString("D"), debugTask, StringComparison.OrdinalIgnoreCase) || string.Equals(Task?.Name, debugTask, StringComparison.OrdinalIgnoreCase))
-                    {
-                        arguments = $"--inspect-brk {arguments}";
-                    }
-                }
-            }
-            
-
             try
             {
                 // Execute the process. Exit code 0 should always be returned.

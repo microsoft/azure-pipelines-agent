@@ -225,7 +225,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string NoRestart = "norestart";
                     public const string LaunchBrowser = "launchbrowser";
                     public const string Once = "once";
-                    public const string DebugMode = "debug";
                     public const string RunAsAutoLogon = "runasautologon";
                     public const string RunAsService = "runasservice";
                     public const string PreventServiceStart = "preventservicestart";

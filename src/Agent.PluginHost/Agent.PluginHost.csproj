@@ -17,5 +17,6 @@
     <PackageReference Include="Microsoft.Azure.Storage.DataMovement" Version="2.0.5" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="System.Private.Uri" Version="4.3.2" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
 </Project>
