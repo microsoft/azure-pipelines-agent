@@ -180,9 +180,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             base.Initialize(hostContext);
 
-            _disableLogUploads = HostContext.GetService<IConfigurationStore>().GetSettings().DisableLogUploads;
-            _reStreamLogsToFiles = HostContext.GetService<IConfigurationStore>().GetSettings().ReStreamLogsToFiles;
+            var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
 
+            _disableLogUploads = agentSettings.DisableLogUploads;
+            _reStreamLogsToFiles = agentSettings.ReStreamLogsToFiles;
             if (_disableLogUploads || _reStreamLogsToFiles)
             {
                 _buildLogsFolderPath = Path.Combine(hostContext.GetDiagDirectory(), _buildLogsFolderName);
@@ -734,10 +735,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     //Add date time stamp to log line
                     _buildLogsWriter.WriteLine("{0:O} {1}", rightNow, message);
                 }
-                else if (_reStreamLogsToFiles) {
+                else if (_reStreamLogsToFiles)
+                {
                     //Add date time stamp to log line
                     _buildLogsWriter.WriteLine("{0:O} {1}", rightNow, message);
-                     _logger.Write(message);
+                    _logger.Write(message);
                 }
                 else
                 {
@@ -969,7 +971,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             publishTelemetryCmd.ProcessCommand(this, cmd);
         }
 
-        public void PublishTaskRunnerTelemetry(Dictionary<string,string> taskRunnerData)
+        public void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData)
         {
             PublishTelemetry(taskRunnerData, IsAgentTelemetry: true);
         }
