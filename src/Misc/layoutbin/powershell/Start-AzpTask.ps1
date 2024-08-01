@@ -49,12 +49,12 @@ if (!$PSHOME) {
     Write-Error -Message "The execution cannot be continued since the PSHOME variable is not defined." -ErrorAction Stop
 }
 
-Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
-Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'))
-
 # Check if the device is in CLM mode by default.
 $clmResults = Get-ClmStatus
 Write-Verbose "PowerShell Language mode: " + $clmResults
+
+Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
+Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'))
 
 $importSplat = @{
     Name        = $Name 
