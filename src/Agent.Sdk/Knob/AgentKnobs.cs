@@ -375,7 +375,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob AgentFailOnIncompatibleOS = new Knob(
             nameof(AgentFailOnIncompatibleOS),
-            "Allow agent to fail pipelines on incampatible OS",
+            "Allow agent to fail pipelines on incompatible OS",
             new EnvironmentKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
@@ -586,11 +586,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob EnableFetchingNet6List = new Knob(
-            nameof(EnableFetchingNet6List),
-            "Forces the agent to fetch list of .NET 6 supporting systems from server",
-            new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
-            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableResourceUtilizationWarnings = new Knob(
             nameof(EnableResourceUtilizationWarnings),
@@ -650,13 +645,6 @@ namespace Agent.Sdk.Knob
             nameof(CheckIfTaskNodeRunnerIsDeprecated),
             "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
             new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
-            new BuiltInDefaultKnobSource("false"));
-
-        public static readonly Knob MountWorkspace = new Knob(
-            nameof(MountWorkspace),
-            "If true, the agent will mount the Pipeline.Workspace directory instead of the Working directory for steps which target a Docker container.",
-            new RuntimeKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
-            new EnvironmentKnobSource("AZP_AGENT_MOUNT_WORKSPACE"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewSecretMasker = new Knob(
@@ -730,5 +718,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob Net8UnsupportedOsWarning = new Knob(
+            nameof(Net8UnsupportedOsWarning),
+            "Show warning message on the OS which is not supported by .NET 8",
+            new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new BuiltInDefaultKnobSource("true"));
     }
 }

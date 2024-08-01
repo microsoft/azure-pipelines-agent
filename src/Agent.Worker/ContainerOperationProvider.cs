@@ -483,34 +483,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
             {
-                if (AgentKnobs.MountWorkspace.GetValue(executionContext).AsBoolean())
-                {
-                    string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
-                    workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
-                    string mountWorkspace = container.TranslateToHostPath(workspace);
-                    executionContext.Debug($"Workspace {workspace}");
-                    executionContext.Debug($"Mount Workspace {mountWorkspace}");
-                    container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
-                }
-                else
-                {
-                    string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
-                    defaultWorkingDirectory = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(defaultWorkingDirectory));
-                    if (string.IsNullOrEmpty(defaultWorkingDirectory))
-                    {
-                        throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
-                    }
-
-                    string workingDirectory = IOUtil.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), container.ImageOS);
-                    string mountWorkingDirectory = container.TranslateToHostPath(workingDirectory);
-                    executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
-                    executionContext.Debug($"Working Directory {workingDirectory}");
-                    executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
-                    if (!string.IsNullOrEmpty(workingDirectory))
-                    {
-                        container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
-                    }
-                }
+                string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
+                workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
+                string mountWorkspace = container.TranslateToHostPath(workspace);
+                executionContext.Debug($"Workspace: {workspace}");
+                executionContext.Debug($"Mount Workspace: {mountWorkspace}");
+                container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
 
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),

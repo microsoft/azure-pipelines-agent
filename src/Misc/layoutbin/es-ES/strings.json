@@ -307,7 +307,6 @@
   "ExpectedMappingLocalPath": "Se esperaba la ruta de acceso local de asignación [{0}]: '{1}'. Actual: '{2}'",
   "ExpectedMappingRecursive": "Asignación esperada [{0}] recursiva: '{1}'. Real: '{2}'",
   "ExpectedMappingServerPath": "Se esperaba la ruta de acceso del servidor de asignación [{0}]: '{1}'. Real: '{2}'",
-  "FailAgentOnUnsupportedOs": "Este sistema operativo dejará de recibir actualizaciones del agente de canalizaciones en el futuro. Para poder seguir ejecutando canalizaciones, actualice el sistema operativo o establezca una variable de entorno o un botón de agente \"AGENT_ACKNOWLEDGE_NO_UPDATES\" en \"true\". Consulte https://aka.ms/azdo-pipeline-agent-v2-eos para obtener más información.",
   "Failed": "Con error: ",
   "FailedDeletingTempDirectory0Message1": "No se pudo eliminar el directorio temporal '{0}'. {1}",
   "FailedTestsInResults": "Se han detectado uno o varios errores de prueba en los archivos de resultados. En la pestaña Pruebas puede ver un resumen detallado de los resultados de pruebas publicados.",

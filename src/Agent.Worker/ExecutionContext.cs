@@ -943,16 +943,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // This overload is to handle specific types some other way.
         private void PublishTelemetry<T>(
             Dictionary<string, T> telemetryData,
-            string feature = "TaskHandler"
+            string feature = "TaskHandler",
+            bool IsAgentTelemetry = false
         )
         {
             // JsonConvert.SerializeObject always converts to base object.
-            PublishTelemetry((object)telemetryData, feature);
+            PublishTelemetry((object)telemetryData, feature, IsAgentTelemetry);
         }
 
         private void PublishTelemetry(
             object telemetryData,
-            string feature = "TaskHandler"
+            string feature = "TaskHandler",
+            bool IsAgentTelemetry = false
         )
         {
             var cmd = new Command("telemetry", "publish")
@@ -962,14 +964,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             cmd.Properties.Add("area", "PipelinesTasks");
             cmd.Properties.Add("feature", feature);
 
-            var publishTelemetryCmd = new TelemetryCommandExtension();
+            var publishTelemetryCmd = new TelemetryCommandExtension(IsAgentTelemetry);
             publishTelemetryCmd.Initialize(HostContext);
             publishTelemetryCmd.ProcessCommand(this, cmd);
         }
 
         public void PublishTaskRunnerTelemetry(Dictionary<string,string> taskRunnerData)
         {
-            PublishTelemetry(taskRunnerData);
+            PublishTelemetry(taskRunnerData, IsAgentTelemetry: true);
         }
 
         public void Dispose()
