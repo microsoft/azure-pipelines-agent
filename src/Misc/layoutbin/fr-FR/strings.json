@@ -307,7 +307,6 @@
   "ExpectedMappingLocalPath": "Mappage attendu[{0}], chemin local : « {1} ». Réel : « {2} »",
   "ExpectedMappingRecursive": "Mappage attendu[{0}], récursif : « {1} ». Réel : « {2} »",
   "ExpectedMappingServerPath": "Mappage attendu[{0}], chemin du serveur : « {1} ». Réel : « {2} »",
-  "FailAgentOnUnsupportedOs": "Ce système d’exploitation ne recevra plus de mises à jour de l’agent pipelines à l’avenir. Pour continuer à exécuter des pipelines, mettez à niveau le système d’exploitation ou définissez une variable d’environnement ou un bouton d’agent « AGENT_ACKNOWLEDGE_NO_UPDATES » sur « true ». Pour plus d’informations, consultez https://aka.ms/azdo-pipeline-agent-v2-eos.",
   "Failed": "Échec : ",
   "FailedDeletingTempDirectory0Message1": "Échec de la suppression du répertoire temporaire « {0} ». {1}",
   "FailedTestsInResults": "Un ou plusieurs échecs de tests ont été détectés dans les fichiers de résultats. Vous pouvez consulter un récapitulatif détaillé de la publication des résultats des tests sous l'onglet Tests.",
