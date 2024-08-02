@@ -39,11 +39,7 @@ function Get-ClmStatus {
 }
 
 $VerbosePreference = $DebugOption
-$DebugPreference = $DebugOption
-
-if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
-    [Console]::InputEncoding = New-Object Text.UTF8Encoding $false 
-} 
+$DebugPreference = $DebugOption 
 
 if (!$PSHOME) { 
     Write-Error -Message "The execution cannot be continued since the PSHOME variable is not defined." -ErrorAction Stop
@@ -52,6 +48,10 @@ if (!$PSHOME) {
 # Check if the device is in CLM mode by default.
 $clmResults = Get-ClmStatus
 Write-Verbose "PowerShell Language mode: $($clmResults)"
+
+if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {
+    [Console]::InputEncoding = New-Object Text.UTF8Encoding $false 
+}
 
 Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
 Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'))
