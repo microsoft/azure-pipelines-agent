@@ -307,7 +307,6 @@
   "ExpectedMappingLocalPath": "예상되는 매핑[{0}] 로컬 경로: '{1}'. 실제: '{2}'",
   "ExpectedMappingRecursive": "예상되는 매핑[{0}] 재귀: '{1}'. 실제: '{2}'",
   "ExpectedMappingServerPath": "예상되는 매핑[{0}] 서버 경로: '{1}'. 실제: '{2}'",
-  "FailAgentOnUnsupportedOs": "이 운영 체제는 나중에 파이프라인 에이전트의 업데이트 수신을 중지합니다. 파이프라인을 계속 실행하려면 운영 체제를 업그레이드하거나 환경 변수 또는 \"AGENT_ACKNOWLEDGE_NO_UPDATES\" 에이전트 노브를 \"true\"로 설정하세요. 자세한 내용은 https://aka.ms/azdo-pipeline-agent-v2-eos를 참조하세요.",
   "Failed": "실패: ",
   "FailedDeletingTempDirectory0Message1": "'{0}' 임시 디렉터리를 삭제하지 못했습니다. {1}",
   "FailedTestsInResults": "결과 파일에서 테스트 오류가 하나 이상 검색되었습니다. 테스트 탭에서 게시된 테스트 결과의 자세한 요약을 볼 수 있습니다.",
