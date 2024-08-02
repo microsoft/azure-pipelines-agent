@@ -375,7 +375,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob AgentFailOnIncompatibleOS = new Knob(
             nameof(AgentFailOnIncompatibleOS),
-            "Allow agent to fail pipelines on incampatible OS",
+            "Allow agent to fail pipelines on incompatible OS",
             new EnvironmentKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
@@ -586,11 +586,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob EnableFetchingNet6List = new Knob(
-            nameof(EnableFetchingNet6List),
-            "Forces the agent to fetch list of .NET 6 supporting systems from server",
-            new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
-            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableResourceUtilizationWarnings = new Knob(
             nameof(EnableResourceUtilizationWarnings),
@@ -723,6 +718,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob Net8UnsupportedOsWarning = new Knob(
+            nameof(Net8UnsupportedOsWarning),
+            "Show warning message on the OS which is not supported by .NET 8",
+            new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob UsePSScriptWrapper = new Knob(
             nameof(UsePSScriptWrapper),

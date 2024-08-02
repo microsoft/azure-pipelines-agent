@@ -307,7 +307,6 @@
   "ExpectedMappingLocalPath": "予期されたマッピング[{0}] ローカル パス: '{1}'。実際: '{2}'",
   "ExpectedMappingRecursive": "予期されたマッピング[{0}] 再帰: '{1}'。実際: '{2}'",
   "ExpectedMappingServerPath": "予期されたマッピング[{0}] サーバー パス: '{1}'。実際: '{2}'",
-  "FailAgentOnUnsupportedOs": "このオペレーティング システムは今後、パイプライン エージェントの更新プログラムの受信を停止します。パイプラインの実行を続行するには、オペレーティング システムをアップグレードするか、環境変数またはエージェント ノブ \"AGENT_ACKNOWLEDGE_NO_UPDATES\" を \"true\" に設定してください。詳細については、https://aka.ms/azdo-pipeline-agent-v2-eos を参照してください。",
   "Failed": "失敗しました: ",
   "FailedDeletingTempDirectory0Message1": "一時ディレクトリ '{0}' を削除できませんでした。 {1}",
   "FailedTestsInResults": "結果ファイルで 1 つ以上のテスト エラーが検出されました。公開されたテスト結果の詳細な概要は、[テスト] タブで確認できます。",
