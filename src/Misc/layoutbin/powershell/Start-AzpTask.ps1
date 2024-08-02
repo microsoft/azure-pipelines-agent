@@ -24,7 +24,7 @@ function Get-ClmStatus {
     $tempFileGuid = New-Guid | Select-Object -Expand Guid 
     $tempFile = "$($env:AGENT_TEMPDIRECTORY)\$($tempFileGuid).ps1"
 
-    Write-Output 'New-Object -TypeName System.Collections.ArrayList' | Out-File -FilePath $tempFile -append 
+    Write-Output '$null = New-Object -TypeName System.Collections.ArrayList' | Out-File -FilePath $tempFile
 
     try {
         . $tempFile
@@ -51,7 +51,7 @@ if (!$PSHOME) {
 
 # Check if the device is in CLM mode by default.
 $clmResults = Get-ClmStatus
-Write-Verbose "PowerShell Language mode: " + $clmResults
+Write-Verbose "PowerShell Language mode: $($clmResults)"
 
 Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) 
 Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'))
