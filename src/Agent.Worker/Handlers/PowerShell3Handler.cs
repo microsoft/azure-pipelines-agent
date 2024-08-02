@@ -54,7 +54,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Resolve the VSTS Task SDK module definition.
             string scriptDirectory = Path.GetDirectoryName(scriptFile);
             string moduleFile = Path.Combine(scriptDirectory, @"ps_modules", "VstsTaskSdk", "VstsTaskSdk.psd1");
-
             ArgUtil.File(moduleFile, nameof(moduleFile));
 
             // Craft the args to pass to PowerShell.exe.
