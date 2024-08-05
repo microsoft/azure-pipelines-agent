@@ -728,8 +728,6 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UsePSScriptWrapper = new Knob(
             nameof(UsePSScriptWrapper),
             "Use PowerShell script wrapper to handle PowerShell ConstrainedLanguage mode.",
-            new RuntimeKnobSource("USE_PS_SCRIPT_WRAPPER"),
-            new EnvironmentKnobSource("USE_PS_SCRIPT_WRAPPER"),
             new PipelineFeatureSource("UsePSScriptWrapper"),
             new BuiltInDefaultKnobSource("false"));
     }
