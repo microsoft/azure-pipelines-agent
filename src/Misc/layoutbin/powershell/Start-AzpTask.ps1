@@ -6,7 +6,7 @@ since it is parameterized it can be signed and trusted for WDAC and CLM.
 
 param ( 
     [Parameter(mandatory = $true)]
-    [string]$Name,
+    [string]$VstsSdkPath,
 
     [Parameter(mandatory = $true)]
     [string]$DebugOption,
@@ -57,7 +57,7 @@ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.Power
 Import-Module -Name ([System.IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'))
 
 $importSplat = @{
-    Name        = $Name 
+    Name        = $VstsSdkPath 
     ErrorAction = 'Stop'
 }
 

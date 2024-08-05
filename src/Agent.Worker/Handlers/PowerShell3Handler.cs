@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (AgentKnobs.UsePSScriptWrapper.GetValue(ExecutionContext).AsBoolean())
             {
                 powerShellExeArgs = StringUtil.Format(
-                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""{3}"" -Name {0} -DebugOption {1} -ScriptBlockString ""{2}""",
+                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""{3}"" -VstsSdkPath {0} -DebugOption {1} -ScriptBlockString ""{2}""",
                 StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string module file name arg #0 
                 ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue", // system debug status variable arg #1 
                 StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''"), // nested within a single-quoted string within a single-quoted string arg #2 
