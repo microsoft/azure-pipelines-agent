@@ -9,7 +9,7 @@ const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
 
 const opt = require('node-getopt').create([
-    ['', 'dryrun', 'Dry run only, do not actually commit new release'],
+    ['', 'dryrun=ARG', 'Dry run only, do not actually commit new release'],
     ['h', 'help', 'Display this help'],
 ])
     .setHelp(
@@ -170,7 +170,10 @@ async function main() {
         util.verifyMinimumGitVersion();
         createIntegrationFiles(agentVersion);
 
-        const dryrun = (opt.options.dryrun.toString().toLowerCase() === "true");
+        let dryrun = false;
+        if (opt.options.dryrun) {
+            dryrun = opt.options.dryrun.toString().toLowerCase() === "true"
+        }
 
         console.log(`Dry run: ${dryrun}`);
 
