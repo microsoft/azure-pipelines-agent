@@ -191,6 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 _logsStreamingOptions = LogsStreamingOptions.StreamToFiles;
             }
+            Trace.Info($"Logs streaming mode: {_logsStreamingOptions}");
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
