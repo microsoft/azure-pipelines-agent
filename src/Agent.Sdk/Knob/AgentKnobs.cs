@@ -699,6 +699,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob DisableResourceMonitorDebugOutput = new Knob(
+            nameof(DisableResourceMonitorDebugOutput),
+            "If true, agent will not show the resource monitor output for debug runs",
+            new RuntimeKnobSource("DISABLE_DEBUG_RESOURCE_MONITOR"),
+            new EnvironmentKnobSource("DISABLE_DEBUG_RESOURCE_MONITOR"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob Rosetta2Warning = new Knob(
             nameof(Rosetta2Warning),
             "Log warning when X64 Agent is used on a Apple Silicon device.",
