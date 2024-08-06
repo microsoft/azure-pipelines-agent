@@ -71,6 +71,11 @@ namespace Agent.Listener.Configuration
                 Trace.Warning("Unable to retrieve feature flag with following exception: " + e.ToString());
                 return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
             }
+            catch (TimeoutException e)
+            {
+                Trace.Warning("Unable to retrieve feature flag status due to timeout error: " + e.ToString());
+                return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
+            }
         }
     }
 }
