@@ -90,6 +90,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         public bool DisableLogUploads { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
+        public bool ReStreamLogsToFiles { get; set; }
+
+        [DataMember(EmitDefaultValue = false)]
         public int PoolId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]

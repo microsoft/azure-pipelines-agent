@@ -576,6 +576,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return TestFlag(Configure?.DisableLogUploads, Constants.Agent.CommandLine.Flags.DisableLogUploads);
         }
 
+        public bool GetReStreamLogsToFiles()
+        {
+            return TestFlag(Configure?.ReStreamLogsToFiles, Constants.Agent.CommandLine.Flags.ReStreamLogsToFiles);
+        }
+
         public bool Unattended()
         {
             if (TestFlag(GetConfigureOrRemoveBase()?.Unattended, Constants.Agent.CommandLine.Flags.Unattended))
