@@ -645,6 +645,7 @@ namespace Agent.Sdk.Knob
             nameof(CheckIfTaskNodeRunnerIsDeprecated),
             "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
             new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
+            new PipelineFeatureSource("CheckIfTaskNodeRunnerIsDeprecated"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewSecretMasker = new Knob(
