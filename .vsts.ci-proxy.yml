@@ -1,23 +1,22 @@
-# This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
 parameters:
 - name: testProxyAgent
   type: boolean
   displayName: Test Proxy Agent
-  default: false
+  default: true
 
 # Targets
 - name: win_x64
   type: boolean
   displayName: Windows (x64)
-  default: true
+  default: false
 - name: win_x86
   type: boolean
   displayName: Windows (x86)
-  default: true
+  default: false
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
-  default: true
+  default: false
 - name: linux_arm
   type: boolean
   displayName: Linux (ARM)
@@ -29,19 +28,15 @@ parameters:
 - name: alpine_x64
   type: boolean
   displayName: Alpine (x64)
-  default: true
-- name: alpine_arm64
-  type: boolean
-  displayName: Alpine (ARM64)
-  default: true
+  default: false
 - name: macOS_x64
   type: boolean
   displayName: macOS (x64)
-  default: true
+  default: false
 - name: macOS_arm64
   type: boolean
   displayName: macOS (ARM64)
-  default: true
+  default: false
 
 pr:
   branches:
@@ -52,8 +47,9 @@ pr:
     - 'docs/*'
 
 extends:
-  template: /.azure-pipelines/pipeline.yml@self
+  template: .azure-pipelines/pipeline.yml
   parameters:
+    componentDetection: ${{ eq(variables['Build.Reason'], 'PullRequest') }}
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     testProxyAgent: ${{ parameters.testProxyAgent }}
@@ -63,6 +59,5 @@ extends:
     linux_arm: ${{ parameters.linux_arm }}
     linux_arm64: ${{ parameters.linux_arm64 }}
     alpine_x64: ${{ parameters.alpine_x64 }}
-    alpine_arm64: ${{ parameters.alpine_arm64 }}
     macOS_x64: ${{ parameters.macOS_x64 }}
     macOS_arm64: ${{ parameters.macOS_arm64 }}
