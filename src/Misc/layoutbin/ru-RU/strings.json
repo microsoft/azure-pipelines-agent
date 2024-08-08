@@ -239,7 +239,6 @@
   "ConnectingToServer": "Соединение с сервером ...",
   "ConnectSectionHeader": "Подключить",
   "ConnectToServer": "Подключение к серверу.",
-  "ContainerJobRequireSystemDefaultWorkDir": "Для запуска задания контейнера требуется System.DefaultWorkingDirectory.",
   "ContainerWindowsVersionRequirement": "Для использования контейнеров требуется Windows Server 1803 или более поздней версии. Обратитесь к документации (https://go.microsoft.com/fwlink/?linkid=875268).",
   "CopyFileComplete": "Артефакты успешно опубликованы в {0}",
   "CopyFileToDestination": "Копирование файла {0} в {1}",

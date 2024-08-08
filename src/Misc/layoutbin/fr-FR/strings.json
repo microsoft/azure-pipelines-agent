@@ -239,7 +239,6 @@
   "ConnectingToServer": "Connexion au serveur...",
   "ConnectSectionHeader": "Connexion",
   "ConnectToServer": "Connexion au serveur.",
-  "ContainerJobRequireSystemDefaultWorkDir": "System.DefaultWorkingDirectory est nécessaire pour l'exécution d'un travail de conteneur.",
   "ContainerWindowsVersionRequirement": "La fonctionnalité de conteneur nécessite Windows Server 1803 ou version ultérieure. Veuillez consulter la documentation de référence (https://go.microsoft.com/fwlink/?linkid=875268)",
   "CopyFileComplete": "Artefacts publiés sur {0}",
   "CopyFileToDestination": "Copier le fichier « {0} » dans « {1} »",

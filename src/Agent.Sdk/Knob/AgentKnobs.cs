@@ -213,6 +213,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DebugTask = new Knob(
+            nameof(DebugTask),
+            "If the agent executes a task which ID or name matches the value provided, it will run the task so that it will wait for debugger to attach",
+            new EnvironmentKnobSource("VSTSAGENT_DEBUG_TASK"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob DumpJobEventLogs = new Knob(
             nameof(DumpJobEventLogs),
             "If true, dump event viewer logs",
@@ -645,6 +651,7 @@ namespace Agent.Sdk.Knob
             nameof(CheckIfTaskNodeRunnerIsDeprecated),
             "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
             new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
+            new PipelineFeatureSource("CheckIfTaskNodeRunnerIsDeprecated"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewSecretMasker = new Knob(

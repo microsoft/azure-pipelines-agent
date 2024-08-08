@@ -665,6 +665,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                    { "AgentPackageType", BuildConstants.AgentPackage.PackageType },
                     { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
                     { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
                     { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},

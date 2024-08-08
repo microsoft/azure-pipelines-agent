@@ -550,6 +550,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                    TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
         }
 
+        public bool GetDebugMode()
+        {
+            return TestFlag(Run?.DebugMode, Constants.Agent.CommandLine.Flags.DebugMode);
+        }
+
         public bool GetDeploymentPool()
         {
             return TestFlag(Configure?.DeploymentPool, Constants.Agent.CommandLine.Flags.DeploymentPool);
@@ -569,6 +574,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool GetDisableLogUploads()
         {
             return TestFlag(Configure?.DisableLogUploads, Constants.Agent.CommandLine.Flags.DisableLogUploads);
+        }
+
+        public bool GetReStreamLogsToFiles()
+        {
+            return TestFlag(Configure?.ReStreamLogsToFiles, Constants.Agent.CommandLine.Flags.ReStreamLogsToFiles);
         }
 
         public bool Unattended()
