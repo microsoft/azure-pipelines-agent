@@ -13,9 +13,6 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
-using Microsoft.TeamFoundation.Common.Internal;
-using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
-using Newtonsoft.Json;
 using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
