@@ -686,6 +686,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task JobExtensionManagementScriptStep()
         {
             using CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -727,6 +728,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task JobExtensionManagementScriptStepMSI()
         {
             using CancellationTokenSource tokenSource = new CancellationTokenSource();
