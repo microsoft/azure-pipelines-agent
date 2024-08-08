@@ -239,7 +239,6 @@
   "ConnectingToServer": "正在连接服务器...",
   "ConnectSectionHeader": "连接",
   "ConnectToServer": "正在连接到服务器。",
-  "ContainerJobRequireSystemDefaultWorkDir": "需要 System.DefaultWorkingDirectory 才能运行容器作业。",
   "ContainerWindowsVersionRequirement": "容器功能需要 Windows Server 1803 或更高版本。请参考文档(https://go.microsoft.com/fwlink/?linkid=875268)",
   "CopyFileComplete": "已成功将项目发布到 {0}",
   "CopyFileToDestination": "将文件 \"{0}\" 复制到 \"{1}\"",

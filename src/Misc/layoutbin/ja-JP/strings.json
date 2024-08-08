@@ -239,7 +239,6 @@
   "ConnectingToServer": "サーバーに接続しています...",
   "ConnectSectionHeader": "接続",
   "ConnectToServer": "サーバーに接続しています...",
-  "ContainerJobRequireSystemDefaultWorkDir": "コンテナー ジョブを実行するには、System.DefaultWorkingDirectory が必要です。",
   "ContainerWindowsVersionRequirement": "コンテナーの機能には、Windows Server 1803 以降が必要です。ドキュメント (https://go.microsoft.com/fwlink/?linkid=875268) を参照してください",
   "CopyFileComplete": "成果物が {0} に正常に公開されました",
   "CopyFileToDestination": "ファイル '{0}' を '{1}' にコピーします",

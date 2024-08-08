@@ -213,6 +213,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DebugTask = new Knob(
+            nameof(DebugTask),
+            "If the agent executes a task which ID or name matches the value provided, it will run the task so that it will wait for debugger to attach",
+            new EnvironmentKnobSource("VSTSAGENT_DEBUG_TASK"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob DumpJobEventLogs = new Knob(
             nameof(DumpJobEventLogs),
             "If true, dump event viewer logs",

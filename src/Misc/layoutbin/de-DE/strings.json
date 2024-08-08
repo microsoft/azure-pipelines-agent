@@ -239,7 +239,6 @@
   "ConnectingToServer": "Verbindung mit dem Server wird hergestellt ...",
   "ConnectSectionHeader": "Verbinden",
   "ConnectToServer": "Verbindung zum Server wird hergestellt.",
-  "ContainerJobRequireSystemDefaultWorkDir": "\"System.DefaultWorkingDirectory\" ist für die Ausführung eines Containerauftrags erforderlich.",
   "ContainerWindowsVersionRequirement": "Das Containerfeature erfordert Windows Server 1803 oder höher. Weitere Informationen finden Sie in der Dokumentation (https://go.microsoft.com/fwlink/?linkid=875268).",
   "CopyFileComplete": "Artefakte wurden erfolgreich in {0} veröffentlicht.",
   "CopyFileToDestination": "Datei \"{0}\" in \"{1}\" kopieren",
