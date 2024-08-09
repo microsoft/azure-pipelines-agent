@@ -24,7 +24,7 @@ internal class ValueSecret
 
     public override Int32 GetHashCode() => m_value.GetHashCode();
 
-    public IEnumerable<ReplacementPosition> GetPositions(String input)
+    public IEnumerable<Replacement> GetPositions(String input)
     {
         if (!String.IsNullOrEmpty(input) && !String.IsNullOrEmpty(m_value))
         {
@@ -36,7 +36,7 @@ internal class ValueSecret
                 startIndex = input.IndexOf(m_value, startIndex, StringComparison.Ordinal);
                 if (startIndex > -1)
                 {
-                    yield return new ReplacementPosition(startIndex, m_value.Length);
+                    yield return new Replacement(startIndex, m_value.Length);
                     ++startIndex;
                 }
             }

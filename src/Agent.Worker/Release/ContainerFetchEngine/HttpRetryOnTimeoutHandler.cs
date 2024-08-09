@@ -19,9 +19,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
     public class HttpRetryOnTimeoutMessageHandler : DelegatingHandler
     {
         private readonly HttpRetryOnTimeoutOptions _retryOptions;
-        private readonly IConatinerFetchEngineLogger _logger;
+        private readonly IContainerFetchEngineLogger _logger;
 
-        public HttpRetryOnTimeoutMessageHandler(HttpRetryOnTimeoutOptions retryOptions, IConatinerFetchEngineLogger logger)
+        public HttpRetryOnTimeoutMessageHandler(HttpRetryOnTimeoutOptions retryOptions, IContainerFetchEngineLogger logger)
         {
             _retryOptions = retryOptions;
             _logger = logger;

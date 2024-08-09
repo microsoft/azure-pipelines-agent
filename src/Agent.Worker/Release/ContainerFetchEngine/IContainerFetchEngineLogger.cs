@@ -5,7 +5,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEng
 {
     [ServiceLocator(Default = typeof(NullExecutionLogger))]
     // NOTE: FetchEngine specific interface shouldn't take dependency on Agent code.
-    public interface IConatinerFetchEngineLogger
+    public interface IContainerFetchEngineLogger
     {
         void Warning(string message);
         void Output(string message);

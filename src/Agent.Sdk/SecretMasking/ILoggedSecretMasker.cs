@@ -3,6 +3,8 @@
 //using Microsoft.TeamFoundation.DistributedTask.Logging;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
 using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace Agent.Sdk.SecretMasking
 {
@@ -13,9 +15,10 @@ namespace Agent.Sdk.SecretMasking
     {
         static int MinSecretLengthLimit { get; }
 
-        void AddRegex(String pattern, string origin);
+        void AddRegex(String pattern, string origin, string moniker = null, ISet<string> sniffLiterals = null, RegexOptions regexOptions = 0);
         void AddValue(String value, string origin);
         void AddValueEncoder(ValueEncoder encoder, string origin);
         void SetTrace(ITraceWriter trace);
+        IDictionary<string, string> GetTelemetry();
     }
 }

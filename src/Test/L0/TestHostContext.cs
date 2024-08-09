@@ -72,7 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             var traceListener = new HostTraceListener(TraceFileName);
             traceListener.DisableConsoleReporting = true;
-            _secretMasker = new LoggedSecretMasker(new SecretMasker());
+            _secretMasker = new LoggedSecretMasker();
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);

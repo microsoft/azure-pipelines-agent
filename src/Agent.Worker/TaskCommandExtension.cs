@@ -44,7 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 context.GetHostContext().SecretMasker.AddValue(value, origin);
 
-                // if DECODE_PERCENTS = false then we need to add decoded value as a secret as well to prevent its exposion in logs
+                // if DECODE_PERCENTS = false then we need to add decoded value as a secret as well to prevent its exposure in logs
                 var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
                 if (!unescapePercents)
                 {
