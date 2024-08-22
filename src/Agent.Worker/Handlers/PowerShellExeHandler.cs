@@ -45,6 +45,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             AddPrependPathToEnvironment();
             RemovePSModulePathFromEnvironment();
 
+            if (PsModulePathContainsPowershellCoreLocations())
+            {
+                ExecutionContext.Error(StringUtil.Loc("PSModulePathLocations"));
+            }
+
             // Add the access token to the environment variables, if the access token is set.
             if (!string.IsNullOrEmpty(AccessToken))
             {

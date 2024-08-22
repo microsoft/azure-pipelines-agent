@@ -14,6 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         public static readonly string IsPrimaryRepository = "system.isprimaryrepository";
         public static readonly string IsTriggeringRepository = "system.istriggeringrepository";
+        public static readonly string IsDefaultWorkingDirectoryRepository = "system.isdefaultworkingdirectoryrepository";
         public static readonly string DefaultPrimaryRepositoryName = "self";
         public static readonly string GitStandardBranchPrefix = "refs/heads/";
 
@@ -93,6 +94,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 // return the "self" repo or null
                 return GetRepository(repositories, DefaultPrimaryRepositoryName);
             }
+        }
+
+        public static bool IsWellKnownRepository(RepositoryResource repository, string repositoryFlagName)
+        {
+            if (repository == null)
+            {
+                return false;
+            }
+
+            // Look for flag in repository
+            return repository.Properties.Get<bool>(repositoryFlagName, false);
         }
 
         /// <summary>

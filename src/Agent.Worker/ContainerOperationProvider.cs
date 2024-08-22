@@ -194,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
 
             var tenantId = string.Empty;
-            if(!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
+            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
             {
                 throw new InvalidOperationException($"Could not read {c_tenantId}");
             }
@@ -296,6 +296,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
             }
+
+            // Mark retrieved password as secret
+            HostContext.SecretMasker.AddValue(AcrPassword);
+
             return AcrPassword;
         }
 
@@ -479,34 +483,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
             {
-                if (AgentKnobs.MountWorkspace.GetValue(executionContext).AsBoolean())
-                {
-                    string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
-                    workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
-                    string mountWorkspace = container.TranslateToHostPath(workspace);
-                    executionContext.Debug($"Workspace {workspace}");
-                    executionContext.Debug($"Mount Workspace {mountWorkspace}");
-                    container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
-                }
-                else
-                {
-                    string defaultWorkingDirectory = executionContext.Variables.Get(Constants.Variables.System.DefaultWorkingDirectory);
-                    defaultWorkingDirectory = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(defaultWorkingDirectory));
-                    if (string.IsNullOrEmpty(defaultWorkingDirectory))
-                    {
-                        throw new NotSupportedException(StringUtil.Loc("ContainerJobRequireSystemDefaultWorkDir"));
-                    }
-
-                    string workingDirectory = IOUtil.GetDirectoryName(defaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), container.ImageOS);
-                    string mountWorkingDirectory = container.TranslateToHostPath(workingDirectory);
-                    executionContext.Debug($"Default Working Directory {defaultWorkingDirectory}");
-                    executionContext.Debug($"Working Directory {workingDirectory}");
-                    executionContext.Debug($"Mount Working Directory {mountWorkingDirectory}");
-                    if (!string.IsNullOrEmpty(workingDirectory))
-                    {
-                        container.MountVolumes.Add(new MountVolume(mountWorkingDirectory, workingDirectory, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
-                    }
-                }
+                string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
+                workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
+                string mountWorkspace = container.TranslateToHostPath(workspace);
+                executionContext.Debug($"Workspace: {workspace}");
+                executionContext.Debug($"Mount Workspace: {mountWorkspace}");
+                container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
 
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
@@ -557,7 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    node = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
+                    node = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean() ? NodeHandler.Node20_1Folder : NodeHandler.NodeFolder, "bin", $"node{IOUtil.ExeExtension}"));
 
                     // if on Mac OS X, require container to have node
                     if (PlatformUtil.RunningOnMacOS)
@@ -708,7 +690,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Func<string, string, string, string> addUserWithIdAndGroup;
                     Func<string, string, string> addUserToGroup;
 
+                    bool useShadowIfAlpine = false;
+
                     if (isAlpineBasedImage)
+                    {
+                        List<string> shadowInfoOutput = await DockerExec(executionContext, container.ContainerId, "apk list --installed | grep shadow");
+                        bool shadowPreinstalled = false;
+
+                        foreach (string shadowInfoLine in shadowInfoOutput)
+                        {
+                            if (shadowInfoLine.Contains("{shadow}", StringComparison.Ordinal))
+                            {
+                                Trace.Info("The 'shadow' package is preinstalled and therefore will be used.");
+                                shadowPreinstalled = true;
+                                break;
+                            }
+                        }
+
+                        bool userIdIsOutsideAdduserCommandRange = Int64.Parse(container.CurrentUserId) > 256000;
+
+                        if (userIdIsOutsideAdduserCommandRange && !shadowPreinstalled)
+                        {
+                            Trace.Info("User ID is outside the range of the 'adduser' command, therefore the 'shadow' package will be installed and used.");
+
+                            try
+                            {
+                                await DockerExec(executionContext, container.ContainerId, "apk add shadow");
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                throw new InvalidOperationException(StringUtil.Loc("ApkAddShadowFailed"));
+                            }
+                        }
+
+                        useShadowIfAlpine = shadowPreinstalled || userIdIsOutsideAdduserCommandRange;
+                    }
+
+                    if (isAlpineBasedImage && !useShadowIfAlpine)
                     {
                         addGroup = (groupName) => $"addgroup {groupName}";
                         addGroupWithId = (groupName, groupId) => $"addgroup -g {groupId} {groupName}";
@@ -1009,7 +1027,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError=false)
+        private async Task<List<string>> DockerExec(IExecutionContext context, string containerId, string command, bool noExceptionOnError = false)
         {
             Trace.Info($"Docker-exec is going to execute: `{command}`; container id: `{containerId}`");
             List<string> output = new List<string>();
@@ -1027,7 +1045,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (exitCode != 0)
             {
                 Trace.Error(message);
-                if(!noExceptionOnError)
+                if (!noExceptionOnError)
                 {
                     throw new InvalidOperationException(message);
                 }
@@ -1046,14 +1064,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (PlatformUtil.RunningOnWindows)
             {
-                #pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
+#pragma warning disable CA1416 // SupportedOSPlatform checks not respected in lambda usage
                 // service CExecSvc is Container Execution Agent.
                 ServiceController[] scServices = ServiceController.GetServices();
                 if (scServices.Any(x => String.Equals(x.ServiceName, "cexecsvc", StringComparison.OrdinalIgnoreCase) && x.Status == ServiceControllerStatus.Running))
                 {
                     throw new NotSupportedException(StringUtil.Loc("AgentAlreadyInsideContainer"));
                 }
-                #pragma warning restore CA1416
+#pragma warning restore CA1416
             }
             else
             {

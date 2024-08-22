@@ -72,12 +72,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 context.SecretMasker.AddValue(Configure.SslClientCert, WellKnownSecretAliases.ConfigureSslClientCert);
                 context.SecretMasker.AddValue(Configure.Token, WellKnownSecretAliases.ConfigureToken);
                 context.SecretMasker.AddValue(Configure.WindowsLogonPassword, WellKnownSecretAliases.ConfigureWindowsLogonPassword);
+                context.SecretMasker.AddValue(Configure.TenantId, WellKnownSecretAliases.ConfigureTenantId);
+                context.SecretMasker.AddValue(Configure.ClientId, WellKnownSecretAliases.ConfigureClientId);
+                context.SecretMasker.AddValue(Configure.ClientSecret, WellKnownSecretAliases.ConfigureClientSecret);
             }
 
             if (Remove != null)
             {
                 context.SecretMasker.AddValue(Remove.Password, WellKnownSecretAliases.RemovePassword);
                 context.SecretMasker.AddValue(Remove.Token, WellKnownSecretAliases.RemoveToken);
+                context.SecretMasker.AddValue(Remove.TenantId, WellKnownSecretAliases.RemoveTenantId);
+                context.SecretMasker.AddValue(Remove.ClientId, WellKnownSecretAliases.RemoveClientId);
+                context.SecretMasker.AddValue(Remove.ClientSecret, WellKnownSecretAliases.RemoveClientSecret);
             }
 
             PrintArguments();
@@ -544,6 +550,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                    TestFlag(Run?.RunOnce, Constants.Agent.CommandLine.Flags.Once);
         }
 
+        public bool GetDebugMode()
+        {
+            return TestFlag(Run?.DebugMode, Constants.Agent.CommandLine.Flags.DebugMode);
+        }
+
         public bool GetDeploymentPool()
         {
             return TestFlag(Configure?.DeploymentPool, Constants.Agent.CommandLine.Flags.DeploymentPool);
@@ -563,6 +574,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public bool GetDisableLogUploads()
         {
             return TestFlag(Configure?.DisableLogUploads, Constants.Agent.CommandLine.Flags.DisableLogUploads);
+        }
+
+        public bool GetReStreamLogsToFiles()
+        {
+            return TestFlag(Configure?.ReStreamLogsToFiles, Constants.Agent.CommandLine.Flags.ReStreamLogsToFiles);
         }
 
         public bool Unattended()

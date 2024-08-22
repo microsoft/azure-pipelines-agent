@@ -64,6 +64,14 @@ parameters:
   - agent
   - pipelines-agent
 
+- name: disableSdl
+  type: boolean
+  default: false
+
+- name: justificationForDisablingSdl
+  type: string
+  default: ''
+
 jobs:
 
 - job: ${{ parameters.jobName }}
@@ -74,6 +82,13 @@ jobs:
   ${{ if ne(parameters.container, '') }}:
     container: ${{ parameters.container }}
 
+  ${{ if eq(parameters.disableSdl, true) }}:
+    parameters:
+      sdl:
+        codeql:
+          compiled:
+            enabled: false
+            justificationForDisabling: ${{ parameters.justificationForDisablingSdl}}
   variables:
     PACKAGE_TYPE: ${{ parameters.packageType }}
     ${{ if eq(parameters.os, 'win') }}:
@@ -171,7 +186,7 @@ jobs:
       - task: UseDotNet@2
         displayName: Install .NET Core 6 SDK
         inputs:
-          version: '6.0.421'
+          version: '6.0.424'
           packageType: sdk
           performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}

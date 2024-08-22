@@ -113,12 +113,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 //Start Resource Diagnostics if enabled in the job message 
                 jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
+
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.SetContext(jobContext);
 
                 if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
                 {
-                    resourceDiagnosticManager.Setup(jobContext);
-                    _ = resourceDiagnosticManager.RunDebugResourceMonitor();
+                    if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
+                    {
+                        _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
+                    }
+                    else
+                    {
+                        jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
+                    }
                 }
 
                 agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
@@ -422,7 +430,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 legacyTaskConnection?.Dispose();
                 taskConnection?.Dispose();
                 jobConnection?.Dispose();
-                resourceDiagnosticManager?.Dispose();
 
                 await ShutdownQueue(throwOnFailure: false);
             }

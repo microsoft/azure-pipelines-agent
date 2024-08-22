@@ -59,6 +59,10 @@ parameters:
   type: boolean
   default: false
 
+- name: disableSdl
+  type: boolean
+  default: false
+
 jobs:
 - template: /.azure-pipelines/build-job.yml@self
   parameters:

@@ -76,6 +76,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
+            HashSet<Guid> exceptionList = GetTaskExceptionSet();
+
             foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
                 if (task.Id == Pipelines.PipelineConstants.CheckoutTask.Id && task.Version == Pipelines.PipelineConstants.CheckoutTask.Version)
@@ -89,6 +91,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (AgentKnobs.CheckForTaskDeprecation.GetValue(executionContext).AsBoolean())
                 {
                     CheckForTaskDeprecation(executionContext, task);
+                }
+
+                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated.GetValue(executionContext).AsBoolean())
+                {
+                    if (!exceptionList.Contains(task.Id))
+                    {
+                        CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
+                    }
                 }
             }
         }
@@ -319,9 +329,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void CheckForTaskDeprecation(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
-            string taskJsonPath = Path.Combine(GetDirectory(task), "task.json");
-            string taskJsonText = File.ReadAllText(taskJsonPath);
-            JObject taskJson = JObject.Parse(taskJsonText);
+            JObject taskJson = GetTaskJson(task);
             var deprecated = taskJson["deprecated"];
 
             if (deprecated != null && deprecated.Value<bool>())
@@ -361,6 +369,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     executionContext.Warning(tailoredDeprecationMessage.ToString());
                 }
             }
+        }
+
+        private void CheckIfTaskNodeRunnerIsDeprecated(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
+        {
+            string[] deprecatedNodeRunners = { "Node", "Node10" };
+            string[] approvedNodeRunners = { "Node16", "Node20_1" }; // Node runners which are not considered as deprecated
+
+            JObject taskJson = GetTaskJson(task);
+            var taskRunners = (JObject)taskJson["execution"];
+
+            foreach (string runner in approvedNodeRunners)
+            {
+                if (taskRunners.ContainsKey(runner))
+                {
+                    return; // Agent never uses deprecated Node runners if there are approved Node runners
+                }
+            }
+
+            List<string> taskNodeRunners = new(); // If we are here and task has Node runners, all of them are deprecated
+
+            foreach (string runner in deprecatedNodeRunners)
+            {
+                if (taskRunners.ContainsKey(runner))
+                {
+                    switch (runner)
+                    {
+                        case "Node":
+                            taskNodeRunners.Add("6"); // Just "Node" is Node version 6
+                            break;
+                        default:
+                            taskNodeRunners.Add(runner[4..]); // Postfix after "Node"
+                            break;
+                    }
+                }
+            }
+
+            if (taskNodeRunners.Count > 0) // Tasks may have only PowerShell runners and don't have Node runners at all
+            {
+                string friendlyName = taskJson["friendlyName"].Value<string>();
+                int majorVersion = new Version(task.Version).Major;
+                executionContext.Warning(StringUtil.Loc("DeprecatedNodeRunner", friendlyName, majorVersion, task.Name, taskNodeRunners.Last()));
+            }
+        }
+
+        /// <summary> 
+        /// This method provides a set of in-the-box pipeline tasks for which we don't want to display Node deprecation warnings. 
+        /// </summary>
+        /// <returns> Set of tasks ID </returns>
+        private HashSet<Guid> GetTaskExceptionSet()
+        {
+            string exceptionListFile = HostContext.GetConfigFile(WellKnownConfigFile.TaskExceptionList);
+            var exceptionList = new List<Guid>();
+
+            if (File.Exists(exceptionListFile))
+            {
+                try
+                {
+                    exceptionList = IOUtil.LoadObject<List<Guid>>(exceptionListFile);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"Unable to deserialize exception list {ex}");
+                    exceptionList = new List<Guid>();
+                }
+            }
+
+            return exceptionList.ToHashSet();
+        }
+
+        private JObject GetTaskJson(Pipelines.TaskStepDefinitionReference task)
+        {
+            string taskJsonPath = Path.Combine(GetDirectory(task), "task.json");
+            string taskJsonText = File.ReadAllText(taskJsonPath);
+            return JObject.Parse(taskJsonText);
         }
 
         private void ExtractZip(String zipFile, String destinationDirectory)

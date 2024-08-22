@@ -33,7 +33,7 @@ parameters:
 - name: alpine_arm64
   type: boolean
   displayName: Alpine (ARM64)
-  default: false
+  default: true
 - name: macOS_x64
   type: boolean
   displayName: macOS (x64)

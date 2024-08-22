@@ -141,8 +141,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
                 Trace.Info($"Handler data is of type {handlerData}");
-
-                PublishTelemetry(definition, handlerData);
+                if (!AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
+                {
+                    PublishTelemetry(definition, handlerData);
+                }
 
                 Variables runtimeVariables = ExecutionContext.Variables;
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
@@ -206,22 +208,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Load the default input values from the definition.
                 Trace.Verbose("Loading default inputs.");
-                var inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var input in (definition.Data?.Inputs ?? new TaskInputDefinition[0]))
-                {
-                    string key = input?.Name?.Trim() ?? string.Empty;
-                    if (!string.IsNullOrEmpty(key))
-                    {
-                        if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
-                        {
-                            inputs[key] = input.DefaultValue ?? string.Empty;
-                        }
-                        else
-                        {
-                            inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
-                        }
-                    }
-                }
+                var inputs = LoadDefaultInputs(definition);
 
                 // Merge the instance inputs.
                 Trace.Verbose("Loading instance inputs.");
@@ -421,19 +408,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean()
-                    && !AgentKnobs.DisableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean(); ;
+                    && !AgentKnobs.DisableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
 
                 //Start Resource utility monitors
                 IResourceMetricsManager resourceDiagnosticManager = null;
 
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                resourceDiagnosticManager.Setup(ExecutionContext);
+                resourceDiagnosticManager.SetContext(ExecutionContext);
 
                 if (enableResourceUtilizationWarnings)
                 {
-                    _ = resourceDiagnosticManager.RunMemoryUtilizationMonitor();
-                    _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitor();
-                    _ = resourceDiagnosticManager.RunCpuUtilizationMonitor(Task.Reference.Id.ToString());
+                    _ = resourceDiagnosticManager.RunMemoryUtilizationMonitorAsync();
+                    _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitorAsync();
+                    _ = resourceDiagnosticManager.RunCpuUtilizationMonitorAsync(Task.Reference.Id.ToString());
                 }
                 else
                 {
@@ -458,14 +445,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     await handler.RunAsync();
                 }
-
-                if (enableResourceUtilizationWarnings)
-                {
-                    resourceDiagnosticManager?.Dispose();
-                }
             }
         }
 
+        private  Dictionary<string, string> LoadDefaultInputs(Definition definition)
+        {
+            Trace.Verbose("Loading default inputs.");
+            var inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var input in (definition.Data?.Inputs ?? new TaskInputDefinition[0]))
+            {
+                string key = input?.Name?.Trim() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key))
+                {
+                    if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
+                    {
+                        inputs[key] = input.DefaultValue ?? string.Empty;
+                    }
+                    else
+                    {
+                        inputs[key] = input.DefaultValue?.Trim() ?? string.Empty;
+                    }
+                }
+            }
+
+            return inputs;
+        }
+        
         public async Task VerifyTask(ITaskManager taskManager, Definition definition)
         {
             // Verify task signatures if a fingerprint is configured for the Agent.
@@ -660,6 +665,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                    { "AgentPackageType", BuildConstants.AgentPackage.PackageType },
                     { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
                     { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
                     { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},
