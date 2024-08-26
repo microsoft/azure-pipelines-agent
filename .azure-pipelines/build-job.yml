@@ -1,4 +1,11 @@
 # This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
+strategy:
+  matrix:
+    NET6.0:
+      targetFramework: 'net6.0'
+    NET8.0:
+      targetFramework: 'net8.0'
+
 parameters:
 
 - name: jobName
