@@ -126,7 +126,7 @@ extends:
               sourceBranch="$(Build.SourceBranch)"
               branch="${releaseBranch:-"${sourceBranch}"}"
               echo "Canary \"branch\" parameter: \"${branch}\""
-              echo "Canary \"target_framework\" parameter: \"${targetframework}\""
+              echo "Canary \"target_framework\" parameter: \"${targetFramework}\""
 
               node ./run-and-verify.js \
                   --projectUrl "$(CANARY_PROJECT_URL)" \
