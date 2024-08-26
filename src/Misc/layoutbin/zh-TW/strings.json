@@ -306,7 +306,6 @@
   "ExpectedMappingLocalPath": "必須是對應[{0}] 本機路徑: '{1}'。實際是: '{2}'",
   "ExpectedMappingRecursive": "必須是對應[{0}] 遞迴: '{1}'。實際是: '{2}'",
   "ExpectedMappingServerPath": "必須是對應[{0}] 伺服器路徑: '{1}'。實際是: '{2}'",
-  "FailAgentOnUnsupportedOs": "此作業系統未來將停止接收 Pipelines 代理程式的更新。若要能夠繼續執行管線，請升級作業系統，或將環境變數或代理程式旋鈕 \"AGENT_ACKNOWLEDGE_NO_UPDATES\" 設定為 \"true\"。如需詳細資訊，請參閱 https://aka.ms/azdo-pipeline-agent-v2-eos。",
   "Failed": "失敗: ",
   "FailedDeletingTempDirectory0Message1": "無法刪除暫存目錄 '{0}'。{1}",
   "FailedTestsInResults": "在測試檔案中偵測到一或多個測試失敗。您可於 [測試] 索引標籤檢視已發佈測試結果的詳細摘要。",

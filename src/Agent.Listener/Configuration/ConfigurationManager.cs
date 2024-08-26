@@ -398,6 +398,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
             agentSettings.DisableLogUploads = command.GetDisableLogUploads();
+            agentSettings.ReStreamLogsToFiles = command.GetReStreamLogsToFiles();
+
+            if (agentSettings.DisableLogUploads && agentSettings.ReStreamLogsToFiles)
+            {
+                throw new NotSupportedException(StringUtil.Loc("ReStreamLogsToFilesError"));
+            }
 
             agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
 
@@ -736,7 +742,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // Get info about root folder
                     DirectoryInfo dirInfo = new DirectoryInfo(rootDirPath);
 
-                    // Get directory access control list 
+                    // Get directory access control list
                     DirectorySecurity directorySecurityInfo = dirInfo.GetAccessControl();
                     AuthorizationRuleCollection dirAccessRules = directorySecurityInfo.GetAccessRules(true, true, typeof(NTAccount));
 

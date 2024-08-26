@@ -306,7 +306,6 @@
   "ExpectedMappingLocalPath": "Erwartete Zuordnung[{0}] lokaler Pfad: \"{1}\". Tatsächlich: \"{2}\"",
   "ExpectedMappingRecursive": "Erwartete Zuordnung[{0}] rekursiv: \"{1}\". Tatsächlich: \"{2}\"",
   "ExpectedMappingServerPath": "Erwarteter Zuordnungspfad[{0}] Serverpfad: \"{1}\". Tatsächlich: \"{2}\"",
-  "FailAgentOnUnsupportedOs": "Dieses Betriebssystem wird in Zukunft keine Updates des Pipelines-Agenten mehr erhalten. Um Pipelines weiterhin ausführen zu können, aktualisieren Sie bitte das Betriebssystem oder setzen Sie eine Umgebungsvariable oder den Agentenknopf \"AGENT_ACKNOWLEDGE_NO_UPDATES\" auf \"true\". Siehe https://aka.ms/azdo-pipeline-agent-v2-eos für weitere Informationen.",
   "Failed": "Fehler: ",
   "FailedDeletingTempDirectory0Message1": "Fehler beim Löschen des temporären Verzeichnisses \"{0}\". {1}",
   "FailedTestsInResults": "Es wurde mindestens ein Testfehler in den Ergebnisdateien erkannt. Eine detaillierte Zusammenfassung der veröffentlichten Testergebnisse kann auf der Registerkarte \"Tests\" angezeigt werden.",

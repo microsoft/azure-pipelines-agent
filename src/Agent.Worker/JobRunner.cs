@@ -119,7 +119,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
                 {
-                    _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
+                    if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
+                    {
+                        _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
+                    }
+                    else
+                    {
+                        jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
+                    }
                 }
 
                 agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>

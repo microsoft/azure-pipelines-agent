@@ -306,7 +306,6 @@
   "ExpectedMappingLocalPath": "预期的映射[{0}] 本地路径: \"{1}\"。实际: \"{2}\"",
   "ExpectedMappingRecursive": "预期的映射[{0}] 递归: \"{1}\"。实际: \"{2}\"",
   "ExpectedMappingServerPath": "预期的映射[{0}] 服务器路径: \"{1}\"。实际: \"{2}\"",
-  "FailAgentOnUnsupportedOs": "此操作系统将停止接收管道代理将来的更新。若要继续运行管道，请升级操作系统或将环境变量或代理旋钮“AGENT_ACKNOWLEDGE_NO_UPDATES”设置为“true”。有关详细信息，请参阅 https://aka.ms/azdo-pipeline-agent-v2-eos。",
   "Failed": "失败: ",
   "FailedDeletingTempDirectory0Message1": "无法删除临时目录 \"{0}\"。{1}",
   "FailedTestsInResults": "在结果文件中检测到一个或多个测试失败。可以在“测试”选项卡中查看已发布测试结果的详细摘要。",

@@ -13,9 +13,6 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
-using Microsoft.TeamFoundation.Common.Internal;
-using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
-using Newtonsoft.Json;
 using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
@@ -223,6 +220,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var sigintTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigintTimeout.GetValue(ExecutionContext).AsInt());
             var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
             var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
+
+            var configStore = HostContext.GetService<IConfigurationStore>();
+            var agentSettings = configStore.GetSettings();
+            if (agentSettings.DebugMode)
+            {
+                var debugTask = AgentKnobs.DebugTask.GetValue(ExecutionContext).AsString();
+                if (!string.IsNullOrEmpty(debugTask))
+                {
+                    if (string.Equals(Task?.Id.ToString("D"), debugTask, StringComparison.OrdinalIgnoreCase) || string.Equals(Task?.Name, debugTask, StringComparison.OrdinalIgnoreCase))
+                    {
+                        arguments = $"--inspect-brk {arguments}";
+                    }
+                }
+            }
+            
 
             try
             {

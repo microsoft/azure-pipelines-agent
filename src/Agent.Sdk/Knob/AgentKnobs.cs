@@ -213,6 +213,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob DebugTask = new Knob(
+            nameof(DebugTask),
+            "If the agent executes a task which ID or name matches the value provided, it will run the task so that it will wait for debugger to attach",
+            new EnvironmentKnobSource("VSTSAGENT_DEBUG_TASK"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob DumpJobEventLogs = new Knob(
             nameof(DumpJobEventLogs),
             "If true, dump event viewer logs",
@@ -375,7 +381,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob AgentFailOnIncompatibleOS = new Knob(
             nameof(AgentFailOnIncompatibleOS),
-            "Allow agent to fail pipelines on incampatible OS",
+            "Allow agent to fail pipelines on incompatible OS",
             new EnvironmentKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
@@ -397,7 +403,15 @@ namespace Agent.Sdk.Knob
             nameof(DisableInputTrimming),
             "By default, the agent trims whitespace and new line characters from all task inputs. Setting this to true disables this behavior.",
             new EnvironmentKnobSource("DISABLE_INPUT_TRIMMING"),
+            new RuntimeKnobSource("DISABLE_INPUT_TRIMMING"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableVariableInputTrimming = new Knob(
+           nameof(EnableVariableInputTrimming),
+           "By default, the agent does not trim whitespace and new line characters if an input comes from a variable. Setting this to true enables this behavior.",
+           new EnvironmentKnobSource("AGENT_ENABLE_VARIABLE_INPUT_TRIMMING"),
+           new RuntimeKnobSource("AGENT_ENABLE_VARIABLE_INPUT_TRIMMING"),
+           new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DecodePercents = new Knob(
             nameof(DecodePercents),
@@ -586,10 +600,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob EnableFetchingNet6List = new Knob(
-            nameof(EnableFetchingNet6List),
-            "Forces the agent to fetch list of .NET 6 supporting systems from server",
-            new EnvironmentKnobSource("AGENT_ENABLE_FETCHING_NET6_LIST"),
+        public static readonly Knob EnableResourceMonitorDebugOutput = new Knob(
+            nameof(EnableResourceMonitorDebugOutput),
+            "If true, the agent will show the resource monitor output for debug runs",
+            new RuntimeKnobSource("AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT"),
+            new EnvironmentKnobSource("AZP_ENABLE_RESOURCE_MONITOR_DEBUG_OUTPUT"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableResourceUtilizationWarnings = new Knob(
@@ -650,6 +665,14 @@ namespace Agent.Sdk.Knob
             nameof(CheckIfTaskNodeRunnerIsDeprecated),
             "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
             new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED"),
+            new PipelineFeatureSource("CheckIfTaskNodeRunnerIsDeprecated"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode20ToStartContainer = new Knob(
+            nameof(UseNode20ToStartContainer),
+            "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new PipelineFeatureSource("UseNode20ToStartContainer"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewSecretMasker = new Knob(
@@ -722,6 +745,18 @@ namespace Agent.Sdk.Knob
             "If true, use --password-stdin for docker login on Windows.",
             new RuntimeKnobSource("AZP_AGENT_USE_DOCKER_STDIN_PASSWORD_WINDOWS"),
             new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob Net8UnsupportedOsWarning = new Knob(
+            nameof(Net8UnsupportedOsWarning),
+            "Show warning message on the OS which is not supported by .NET 8",
+            new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob UsePSScriptWrapper = new Knob(
+            nameof(UsePSScriptWrapper),
+            "Use PowerShell script wrapper to handle PowerShell ConstrainedLanguage mode.",
+            new PipelineFeatureSource("UsePSScriptWrapper"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

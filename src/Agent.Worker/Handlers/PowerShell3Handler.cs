@@ -57,11 +57,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.File(moduleFile, nameof(moduleFile));
 
             // Craft the args to pass to PowerShell.exe.
-            string powerShellExeArgs = StringUtil.Format(
+            string powerShellExeArgs = string.Empty;
+
+            if (AgentKnobs.UsePSScriptWrapper.GetValue(ExecutionContext).AsBoolean())
+            {
+                powerShellExeArgs = StringUtil.Format(
+                @"-NoLogo -Sta -NoProfile -ExecutionPolicy Unrestricted -Command ""{3}"" -VstsSdkPath {0} -DebugOption {1} -ScriptBlockString ""{2}""",
+                StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string module file name arg #0 
+                ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue", // system debug status variable arg #1 
+                StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''"), // nested within a single-quoted string within a single-quoted string arg #2 
+                Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "powershell", "Start-AzpTask.ps1") // path to wrapper script arg #3
+                ); // nested within a single-quoted string within a single-quoted string
+            }
+            else
+            {
+                powerShellExeArgs = StringUtil.Format(
                 @"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "". ([scriptblock]::Create('if ([Console]::InputEncoding -is [Text.UTF8Encoding] -and [Console]::InputEncoding.GetPreamble().Length -ne 0) {{ [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }} if (!$PSHOME) {{ $null = Get-Item -LiteralPath ''variable:PSHOME'' }} else {{ Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1'')) ; Import-Module -Name ([System.IO.Path]::Combine($PSHOME, ''Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'')) }}')) 2>&1 | ForEach-Object {{ Write-Verbose $_.Exception.Message -Verbose }} ; Import-Module -Name '{0}' -ArgumentList @{{ NonInteractive = $true }} -ErrorAction Stop ; $VerbosePreference = '{1}' ; $DebugPreference = '{1}' ; Invoke-VstsTaskScript -ScriptBlock ([scriptblock]::Create('. ''{2}'''))""",
                 StepHost.ResolvePathForStepHost(moduleFile).Replace("'", "''"), // nested within a single-quoted string
                 ExecutionContext.Variables.System_Debug == true ? "Continue" : "SilentlyContinue",
                 StepHost.ResolvePathForStepHost(scriptFile).Replace("'", "''''")); // nested within a single-quoted string within a single-quoted string
+            }
 
             // Resolve powershell.exe.
             string powerShellExe = "powershell.exe";

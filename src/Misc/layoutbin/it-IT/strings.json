@@ -306,7 +306,6 @@
   "ExpectedMappingLocalPath": "Percorso locale di mapping[{0}] previsto: '{1}'. Effettivo: '{2}'",
   "ExpectedMappingRecursive": "Previsto mapping[{0}] ricorsivo: '{1}'. Effettivo: '{2}'",
   "ExpectedMappingServerPath": "Percorso server di mapping[{2}] previsto: '{0}'. Effettivo: '{1}'",
-  "FailAgentOnUnsupportedOs": "Questo sistema operativo interromperà la ricezione degli aggiornamenti dell'agente pipeline in futuro. Per continuare a eseguire le pipeline, aggiornare il sistema operativo o impostare una variabile di ambiente o la manopola dell'agente \"AGENT_ACKNOWLEDGE_NO_UPDATES\" su \"true\". Per altre informazioni, vedere https://aka.ms/azdo-pipeline-agent-v2-eos.",
   "Failed": "Operazione non completata: ",
   "FailedDeletingTempDirectory0Message1": "L'eliminazione della directory temporanea non è stata completata '{0}'. {1}",
   "FailedTestsInResults": "Sono stati rilevati uno o più errori di test nei file dei risultati. Il riepilogo dettagliato dei risultati del test pubblicati può essere visualizzato nella scheda Test.",
