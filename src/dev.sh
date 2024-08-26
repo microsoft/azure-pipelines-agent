@@ -9,8 +9,8 @@
 set -eo pipefail
 
 # .NET version for agent build.  
-NET_VERSIONS= \
-"net6.0-sdk=6.0.424
+NET_VERSIONS="
+net6.0-sdk=6.0.424
  net6.0-runtime=6.0.32
 
  net8.0-sdk=8.0.401
