@@ -195,7 +195,7 @@ function cmd_test_l1 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test ()

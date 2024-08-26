@@ -100,9 +100,9 @@
              StopOnFirstFailure="true"
              Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/bin" />
 
-    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:NetTargetFramework=$(NetTargetFramework) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:NetTargetFramework=$(NetTargetFramework) /p:RuntimeVersion=$(RuntimeVersion) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
     <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL1" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet test Test/Test.csproj /p:NetTargetFramework=$(NetTargetFramework) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">
