@@ -8,6 +8,8 @@
 
 set -eo pipefail
 
+echo $BASH_VERSION
+
 # .NET version for agent build
 declare -A NET_VERSIONS=(
     ["net60-sdk"]="6.0.424"
