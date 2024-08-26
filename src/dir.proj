@@ -73,39 +73,19 @@
              Projects="@(ProjectFiles)"
              SkipNonExistentProjects="false"
              StopOnFirstFailure="true"
-             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=$(AgentVersion);RuntimeIdentifier=$(PackageRuntime);PublishDir=$(LayoutRoot)/net6/bin/;TreatWarningsAsErrors=$(TreatWarningsAsErrors);TargetFramework=net6.0" />
-
-    <MSBuild Targets="Publish"
-             BuildInParallel="false"
-             Projects="@(ProjectFiles)"
-             SkipNonExistentProjects="false"
-             StopOnFirstFailure="true"
-             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=$(AgentVersion);RuntimeIdentifier=$(PackageRuntime);PublishDir=$(LayoutRoot)/net8/bin/;TreatWarningsAsErrors=$(TreatWarningsAsErrors);TargetFramework=net8.0" />
-
-    <Exec Command="%22$(DesktopMSBuild)%22 Agent.Service/Windows/AgentService.csproj /p:Configuration=$(BUILDCONFIG) /p:OutputPath=%22$(LayoutRoot)/AgentService/%22 /p:TreatWarningsAsErrors=$(TreatWarningsAsErrors)" ConsoleToMSBuild="true" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'" />
-   
-   <!-- Copy AgentService to both net6 and net8-->
-    <ItemGroup>
-      <AgentServiceFiles Include="$(LayoutRoot)/AgentService/**"/>
-    </ItemGroup>
-
-    <Copy SourceFiles="@(AgentServiceFiles)" DestinationFolder="$(LayoutRoot)/net6/bin/%(RecursiveDir)"/>
-    <Move SourceFiles="@(AgentServiceFiles)" DestinationFolder="$(LayoutRoot)/net8/bin/%(RecursiveDir)"/>
-    <RemoveDir Directories="$(LayoutRoot)/AgentService" />
+             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=$(AgentVersion);RuntimeIdentifier=$(PackageRuntime);PublishDir=$(LayoutRoot)/bin;TreatWarningsAsErrors=$(TreatWarningsAsErrors)" />
+    <Exec Command="%22$(DesktopMSBuild)%22 Agent.Service/Windows/AgentService.csproj /p:Configuration=$(BUILDCONFIG) /p:OutputPath=%22$(LayoutRoot)/bin%22 /p:TreatWarningsAsErrors=$(TreatWarningsAsErrors)" ConsoleToMSBuild="true" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'" />
   </Target>
 
   <Target Name="TestL0" DependsOnTargets="GenerateConstant">
-    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:NetTargetFramework=$(NetTargetFramework)" ConsoleToMSBuild="true" />
     <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL0" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot; --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet test Test/Test.csproj --settings $(MSBuildProjectDirectory)/Test/CodeCoverage.runsettings --no-build --logger:trx --collect:&quot;Code Coverage&quot; --filter &quot;$(TestFilters)&quot; /p:PackageRuntime=$(PackageRuntime) /p:NetTargetFramework=$(NetTargetFramework)" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="TestL1" DependsOnTargets="GenerateConstant">
-    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/net6/bin/%(RecursiveDir)"/>
-    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/net6/bin/L1/Tasks/%(RecursiveDir)"/>
-
-    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/net8/bin/%(RecursiveDir)"/>
-    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/net8/bin/L1/Tasks/%(RecursiveDir)"/>
+    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(L1Root)/bin/%(RecursiveDir)"/>
+    <Copy SourceFiles="@(L1Tasks)" DestinationFolder="$(L1Root)/bin/L1/Tasks/%(RecursiveDir)"/>
 
     <MSBuild Targets="Restore"
              BuildInParallel="false"
@@ -118,36 +98,22 @@
              Projects="@(ProjectFiles)"
              SkipNonExistentProjects="false"
              StopOnFirstFailure="true"
-             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/net6/bin;TargetFramework=net6.0" />
+             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/bin" />
 
-    <MSBuild Targets="Publish"
-             BuildInParallel="false"
-             Projects="@(ProjectFiles)"
-             SkipNonExistentProjects="false"
-             StopOnFirstFailure="true"
-             Properties="Configuration=$(BUILDCONFIG);PackageRuntime=$(PackageRuntime);Version=1.0.0.0;RuntimeIdentifier=$(PackageRuntime);PublishDir=$(L1Root)/net8/bin;TargetFramework=net8.0" />
-
-    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false -o $(L1Root)/net6/bin -f net6.0" ConsoleToMSBuild="true" />
-    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false -o $(L1Root)/net8/bin -f net8.0" ConsoleToMSBuild="true" />
-
+    <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:NetTargetFramework=$(NetTargetFramework) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
     <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL1" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-
-    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/net6/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot; -f net6.0" ConsoleToMSBuild="true"/>
-    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/net8/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot; -f net8.0" ConsoleToMSBuild="true" />
+    <Exec Command="dotnet test Test/Test.csproj -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">
-    <Copy SourceFiles="@(LayoutRootFiles)"  DestinationFolder="$(LayoutRoot)/net6/%(RecursiveDir)"/>
-    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/net6/bin/%(RecursiveDir)"/>
-    
-    <Copy SourceFiles="@(LayoutRootFiles)"  DestinationFolder="$(LayoutRoot)/net8/%(RecursiveDir)"/>
-    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/net8/bin/%(RecursiveDir)"/>
+    <Copy SourceFiles="@(LayoutRootFiles)"  DestinationFolder="$(LayoutRoot)/%(RecursiveDir)"/>
+    <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/bin/%(RecursiveDir)"/>
 
     <ItemGroup>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/**/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' And '$(PackageRuntime)' != 'win-x86'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/**/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/**/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/**/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' And '$(PackageRuntime)' != 'win-x86'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86'"/>
     </ItemGroup>
 
     <Delete Files="@(LayoutRootFilesToDelete)" />
