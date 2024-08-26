@@ -102,6 +102,12 @@ extends:
       - ${{ if parameters.testProxyAgent }}:
         - job: test_proxy_agent
           displayName: Test Proxy Agent
+          strategy:
+            matrix:
+              NET6.0:
+                targetFramework: 'net6.0'
+              NET8.0:
+                targetFramework: 'net8.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
               image: abtt-ubuntu-2204
@@ -120,12 +126,13 @@ extends:
               sourceBranch="$(Build.SourceBranch)"
               branch="${releaseBranch:-"${sourceBranch}"}"
               echo "Canary \"branch\" parameter: \"${branch}\""
+              echo "Canary \"target_framework\" parameter: \"${targetframework}\""
 
               node ./run-and-verify.js \
                   --projectUrl "$(CANARY_PROJECT_URL)" \
                   --pipelineId "$(CANARY_PIPELINE_ID)" \
                   --token "$(ACCESS_TOKEN)" \
-                  --templateParameters "{ \"branch\": \"${branch}\" }"
+                  --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"${targetFramework}\"}"
             displayName: Test Proxy Agent
 
   # Windows (x64)
