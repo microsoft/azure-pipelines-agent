@@ -10,11 +10,11 @@ set -eo pipefail
 
 # .NET version for agent build
 declare -A NET_VERSIONS=(
-    ["net6.0-sdk"]="6.0.424"
-    ["net6.0-runtime"]="6.0.32"
+    ["net6.0sdk"]="6.0.424"
+    ["net6.0runtime"]="6.0.32"
 
-    ["net8.0-sdk"]="8.0.401"
-    ["net8.0-runtime"]="8.0.8"
+    ["net8.0sdk"]="8.0.401"
+    ["net8.0runtime"]="8.0.8"
 )
 
 ALL_ARGS=("$@")
@@ -49,8 +49,8 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
-DOTNETSDK_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK}-sdk"]}
-DOTNETRUNTIME_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK}-runtime"]}
+DOTNETSDK_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK}sdk"]}
+DOTNETRUNTIME_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK}runtime"]}
 
 if [[ ($DOTNETSDK_VERSION == "") || ($DOTNETRUNTIME_VERSION == "") ]]; then
     failed "Incorrect target framework is specified"
