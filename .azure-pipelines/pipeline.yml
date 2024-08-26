@@ -126,13 +126,13 @@ extends:
               sourceBranch="$(Build.SourceBranch)"
               branch="${releaseBranch:-"${sourceBranch}"}"
               echo "Canary \"branch\" parameter: \"${branch}\""
-              echo "Canary \"target_framework\" parameter: \"${targetFramework}\""
+              echo "Canary \"target_framework\" parameter: \"$(targetFramework)\""
 
               node ./run-and-verify.js \
                   --projectUrl "$(CANARY_PROJECT_URL)" \
                   --pipelineId "$(CANARY_PIPELINE_ID)" \
                   --token "$(ACCESS_TOKEN)" \
-                  --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"${targetFramework}\"}"
+                  --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"$(targetFramework)\"}"
             displayName: Test Proxy Agent
 
   # Windows (x64)
