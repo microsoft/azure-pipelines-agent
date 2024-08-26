@@ -1,11 +1,4 @@
 # This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
-strategy:
-  matrix:
-    NET6.0:
-      targetFramework: 'net6.0'
-    NET8.0:
-      targetFramework: 'net8.0'
-
 parameters:
 
 - name: jobName
@@ -85,6 +78,13 @@ jobs:
   displayName: ${{ parameters.displayName }}
   pool: ${{ parameters.pool }}
   timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+  strategy:
+  matrix:
+    NET6.0:
+      targetFramework: 'net6.0'
+    NET8.0:
+      targetFramework: 'net8.0'
+
 
   ${{ if ne(parameters.container, '') }}:
     container: ${{ parameters.container }}
@@ -173,6 +173,15 @@ jobs:
 
   # Run l0 tests
   - ${{ if parameters.unitTests }}:
+    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
+      - task: UseDotNet@2
+        displayName: Install .NET Core 6 Runtime
+        inputs:
+          version: '6.0.x'
+          packageType: 'runtime'
+          installationPath: 'C:\Program Files (x86)\dotnet'
+        env:
+          PROCESSOR_ARCHITECTURE: x86
     - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
@@ -180,6 +189,13 @@ jobs:
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:
+    - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
+      - task: UseDotNet@2
+        displayName: Install .NET Core 6 SDK
+        inputs:
+          version: '6.0.424'
+          packageType: sdk
+          performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
