@@ -77,23 +77,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-                    // Check if a system supports .NET 8
-                    try
+                    if (!AgentKnobs.Net8UnsupportedOsWarning.GetValue(context).AsBoolean())
                     {
-                        Trace.Verbose("Checking if your system supports .NET 8");
-
-                        // Check version of the system
-                        if (!await PlatformUtil.IsNetVersionSupported("net8"))
+                        // Check if a system supports .NET 8
+                        try
                         {
-                            string systemId = PlatformUtil.GetSystemId();
-                            SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
-                            context.Warning(StringUtil.Loc("UnsupportedOsVersionByNet8", $"{systemId} {systemVersion}"));
+                            Trace.Verbose("Checking if your system supports .NET 8");
+
+                            // Check version of the system
+                            if (!await PlatformUtil.IsNetVersionSupported("net8"))
+                            {
+                                string systemId = PlatformUtil.GetSystemId();
+                                SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                                context.Warning(StringUtil.Loc("UnsupportedOsVersionByNet8", $"{systemId} {systemVersion}"));
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.Error($"Error has occurred while checking if system supports .NET 8: {ex}");
-                        context.Warning(ex.Message);
+                        catch (Exception ex)
+                        {
+                            Trace.Error($"Error has occurred while checking if system supports .NET 8: {ex}");
+                            context.Warning(ex.Message);
+                        }
                     }
 
                     // Set agent version variable.
