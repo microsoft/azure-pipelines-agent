@@ -8,16 +8,13 @@
 
 set -eo pipefail
 
-echo $BASH_VERSION
+# .NET version for agent build.  
+NET_VERSIONS= \
+"net6.0-sdk=6.0.424
+ net6.0-runtime=6.0.32
 
-# .NET version for agent build
-declare -A NET_VERSIONS=(
-    ["net60-sdk"]="6.0.424"
-    ["net60-runtime"]="6.0.32"
-
-    ["net80-sdk"]="8.0.401"
-    ["net80-runtime"]="8.0.8"
-)
+ net8.0-sdk=8.0.401
+ net8.0-runtime=8.0.8"
 
 ALL_ARGS=("$@")
 DEV_CMD=$1
@@ -51,13 +48,17 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
-DOTNETSDK_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK//./}-sdk"]}
-DOTNETRUNTIME_VERSION=${NET_VERSIONS["${TARGET_FRAMEWORK//./}-runtime"]}
+function get_net_version ()
+{
+    echo "$NET_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
+}
+
+DOTNETSDK_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-sdk")
+DOTNETRUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
 
 if [[ ($DOTNETSDK_VERSION == "") || ($DOTNETRUNTIME_VERSION == "") ]]; then
     failed "Incorrect target framework is specified"
 fi
-
 
 DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
 DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
