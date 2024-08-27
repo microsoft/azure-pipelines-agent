@@ -22,7 +22,6 @@ const data = {};
 
 if (args.templateParameters) {
     data.templateParameters = JSON.parse(args.templateParameters);
-    data.resources = '{"repositories":{"self":{"refName":"refs/heads/users/v-dennikulin/add-target-framework"}}}'
 }
 
 const config = {
