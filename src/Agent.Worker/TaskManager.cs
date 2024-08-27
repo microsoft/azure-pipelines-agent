@@ -377,7 +377,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string[] approvedNodeRunners = { "Node16", "Node20_1" }; // Node runners which are not considered as deprecated
 
             JObject taskJson = GetTaskJson(task);
-            var taskRunners = (JObject)taskJson["execution"];
+            var taskRunners = taskJson["execution"] as JObject ?? taskJson["prejobexecution"] as JObject;
+
 
             foreach (string runner in approvedNodeRunners)
             {
