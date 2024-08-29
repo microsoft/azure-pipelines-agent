@@ -384,7 +384,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var step in executionSteps)
             {
                 var runners = taskJson.GetValueOrDefault(step);
-                if (runners == null)
+                if (runners == null || runners is not JObject)
                 {
                     continue;
                 }
