@@ -375,28 +375,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             string[] deprecatedNodeRunners = { "Node", "Node10" };
             string[] approvedNodeRunners = { "Node16", "Node20_1" }; // Node runners which are not considered as deprecated
+            string[] executionSteps = { "prejobexecution", "execution", "postjobexecution" };
 
             JObject taskJson = GetTaskJson(task);
-            var taskRunners = (JObject)taskJson["execution"] ?? (JObject)taskJson["prejobexecution"] ?? (JObject)taskJson["postjobexecution"];
 
-            if (taskRunners == null)
-            {
-                return;
-            }
+            var taskRunners = new HashSet<string>();
 
-            foreach (string runner in approvedNodeRunners)
+            foreach (var step in executionSteps)
             {
-                if (taskRunners.ContainsKey(runner))
+                var runners = taskJson.GetValueOrDefault(step);
+                if (runners == null)
                 {
-                    return; // Agent never uses deprecated Node runners if there are approved Node runners
+                    continue;
                 }
+
+                var runnerNames = ((JObject)runners).Properties().Select(p => p.Name);
+
+                if (runnerNames.Intersect(approvedNodeRunners).Any())
+                {
+                    continue; // Agent never uses deprecated Node runners if there are approved Node runners
+                }
+
+                taskRunners.Add(runnerNames);
             }
 
             List<string> taskNodeRunners = new(); // If we are here and task has Node runners, all of them are deprecated
 
             foreach (string runner in deprecatedNodeRunners)
             {
-                if (taskRunners.ContainsKey(runner))
+                if (taskRunners.Contains(runner))
                 {
                     switch (runner)
                     {
