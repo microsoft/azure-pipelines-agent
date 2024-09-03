@@ -234,6 +234,7 @@ extends:
           - task: AzurePowerShell@5
             displayName: Upload to Azure Blob
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'
