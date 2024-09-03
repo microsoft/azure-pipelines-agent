@@ -87,6 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
             return new XUnitResultParser(traceListener,enableCustomTestFields);
         }
@@ -117,6 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
             return new NUnitResultParser(traceListener, enableCustomTestFields);
         }
