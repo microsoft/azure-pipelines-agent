@@ -149,8 +149,8 @@ extends:
 
                 ## Verify target framework for specified version
                 $majorVersion = $agentVersion.Split('.')[0]
-                if (${{ parameters.targetFramework }} -eq "net6.0" -and $majorVersion -ne "3") -or
-                   (${{ parameters.targetFramework }} -eq "net8.0" -and $majorVersion -ne "4") {
+                if ((${{ parameters.targetFramework }} -eq "net6.0" -and $majorVersion -ne "3") -or
+                   (${{ parameters.targetFramework }} -eq "net8.0" -and $majorVersion -ne "4")) {
                   Write-Error "The major version should be 3 for net6.0 and 4 for net8.0" -ErrorAction Stop
                 }
               }
