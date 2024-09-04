@@ -249,6 +249,7 @@ extends:
           - task: AzurePowerShell@5
             displayName: Upload to Azure Blob
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'
@@ -272,7 +273,8 @@ extends:
                 
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                   $target=$_
-                  Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
+                  $FullPath = $target.FullName
+                  Get-ChildItem -LiteralPath "$FullPath" -Include "*.zip","*.tar.gz" | ForEach-Object {
                     $executable = $_
                     Write-Host "Uploading $executable to BlobStorage vstsagentpackage/$container/$versionDir"
                     Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
@@ -289,6 +291,7 @@ extends:
             displayName: Delete Azure Blob container with test agent version
             condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'

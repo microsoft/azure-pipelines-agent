@@ -108,6 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Machine specific setup info
                     OutputSetupInfo(context);
                     OutputImageVersion(context);
+                    PublishKnobsInfo(jobContext);
                     context.Output(StringUtil.Loc("UserNameLog", System.Environment.UserName));
 
                     // Print proxy setting information for better diagnostic experience
@@ -266,6 +267,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             var gitManager = HostContext.GetService<IGitManager>();
                             await gitManager.DownloadAsync(context, gitVersion);
                         }
+                    }
+
+                    if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
+                    {
+                        await TfManager.DownloadLegacyTfToolsAsync(context);
                     }
 
                     // build up 3 lists of steps, pre-job, job, post-job
@@ -727,6 +733,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context.Output($"Fail to load and print machine setup info: {ex.Message}");
                 Trace.Error(ex);
             }
+        }
+
+        private void PublishKnobsInfo(IExecutionContext jobContext)
+        {
+            var telemetryData = new Dictionary<string, string>()
+            {
+                { "JobId", jobContext?.Variables?.System_JobId }
+            };
+
+            foreach (var knob in Knob.GetAllKnobsFor<AgentKnobs>())
+            {
+                var value = knob.GetValue(jobContext);
+                if (value.Source.GetType() != typeof(BuiltInDefaultKnobSource))
+                {
+                    var stringValue = value.AsString();
+                    telemetryData.Add($"{knob.Name}-{value.Source.GetDisplayString()}", stringValue);
+                }
+            }
+
+            PublishTelemetry(jobContext, telemetryData, "KnobsStatus");
         }
 
         private void PublishTelemetry(IExecutionContext context, Dictionary<string, string> telemetryData, string feature)
