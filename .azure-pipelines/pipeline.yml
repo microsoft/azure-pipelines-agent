@@ -4,10 +4,6 @@ parameters:
 - name: targetFramework
   type: string
   default: all
-  values:
-  - all
-  - net6.0
-  - net8.0
 - name: preBuildStages
   type: stageList
   default: []

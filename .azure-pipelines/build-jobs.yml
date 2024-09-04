@@ -17,7 +17,6 @@ parameters:
 
 - name: targetFramework
   type: string
-  default: 'all'
 
 - name: timeoutInMinutes
   type: number
