@@ -11,7 +11,7 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.238-private</VssApiVersion>
+    <VssApiVersion>0.5.245-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
