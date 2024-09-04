@@ -15,6 +15,10 @@ parameters:
   type: string
   default: ''
 
+- name: targetFramework
+  type: string
+  default: 'all'
+
 - name: timeoutInMinutes
   type: number
   default: 120
@@ -81,6 +85,7 @@ jobs:
     verifySigning: ${{ parameters.verifySigning }}
     publishArtifact: ${{ parameters.publishArtifacts }}
     packageType: agent
+    targetFramework: ${{ parameters.targetFramework }}
 
 - ${{ if parameters.buildAlternatePackage }}:
   - template: /.azure-pipelines/build-job.yml@self
@@ -100,3 +105,4 @@ jobs:
       verifySigning: ${{ parameters.verifySigning }}
       publishArtifact: ${{ parameters.publishArtifacts }}
       packageType: pipelines-agent
+      targetFramework: ${{ parameters.targetFramework }}
