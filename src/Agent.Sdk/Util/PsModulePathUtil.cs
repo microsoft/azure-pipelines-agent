@@ -1,4 +1,4 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.TeamFoundation.Common;
 using System;
 using System.IO;
 using System.Linq;
