@@ -216,6 +216,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 Trace.Info($"Set agent startup type - {startType}");
                 HostContext.StartupType = startType;
 
+                bool debugModeEnabled = command.GetDebugMode();
+
+                if (debugModeEnabled)
+                {
+                    Trace.Warning("Agent is running in debug mode, don't use it in production");
+                    settings.DebugMode = true;
+                    store.SaveSettings(settings);
+                }
+                else if (settings.DebugMode && !debugModeEnabled)
+                {
+                    settings.DebugMode = false;
+                    store.SaveSettings(settings);
+                }
+
                 if (PlatformUtil.RunningOnWindows)
                 {
                     if (store.IsAutoLogonConfigured())

@@ -22,6 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         Tools,
         Update,
         Work,
+        TfLegacy,
+        ServerOMLegacy
     }
 
     public enum WellKnownConfigFile
@@ -220,11 +222,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string GitUseSChannel = "gituseschannel";
                     public const string Help = "help";
                     public const string DisableLogUploads = "disableloguploads";
+                    public const string ReStreamLogsToFiles = "restreamlogstofiles";
                     public const string MachineGroup = "machinegroup";
                     public const string Replace = "replace";
                     public const string NoRestart = "norestart";
                     public const string LaunchBrowser = "launchbrowser";
                     public const string Once = "once";
+                    public const string DebugMode = "debug";
                     public const string RunAsAutoLogon = "runasautologon";
                     public const string RunAsService = "runasservice";
                     public const string PreventServiceStart = "preventservicestart";
@@ -311,9 +315,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ExternalsDirectory = "externals";
             public static readonly string LegacyPSHostDirectory = "vstshost";
             public static readonly string ServerOMDirectory = "vstsom";
+            public static readonly string ServerOMLegacyDirectory = "vstsom-legacy";
             public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
             public static readonly string TfDirectory = "tf";
+            public static readonly string TfLegacyDirectory = "tf-legacy";
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";

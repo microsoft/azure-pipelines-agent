@@ -75,48 +75,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Start();
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("InitializeJob")));
 
-                    // Check if a system supports .NET 6
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
-                    if (agentVersion.Major < 3)
+
+                    if (!AgentKnobs.Net8UnsupportedOsWarning.GetValue(context).AsBoolean())
                     {
+                        // Check if a system supports .NET 8
                         try
                         {
-                            Trace.Verbose("Checking if your system supports .NET 6");
+                            Trace.Verbose("Checking if your system supports .NET 8");
 
-                            string systemId = PlatformUtil.GetSystemId();
-                            SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
-                            string notSupportNet6Message = null;
-
-                            if (await PlatformUtil.DoesSystemPersistsInNet6Whitelist())
+                            // Check version of the system
+                            if (!await PlatformUtil.IsNetVersionSupported("net8"))
                             {
-                                // Check version of the system
-                                if (!await PlatformUtil.IsNet6Supported())
-                                {
-                                    notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which will not be supported by the .NET 6 based v3 agent. Please upgrade the operating system of this host to ensure compatibility with the v3 agent. See https://aka.ms/azdo-pipeline-agent-version";
-                                    if (AgentKnobs.AgentFailOnIncompatibleOS.GetValue(jobContext).AsBoolean() &&
-                                        !AgentKnobs.AcknowledgeNoUpdates.GetValue(jobContext).AsBoolean())
-                                    {
-                                        throw new UnsupportedOsException(StringUtil.Loc("FailAgentOnUnsupportedOs"));
-                                    }
-                                }
+                                string systemId = PlatformUtil.GetSystemId();
+                                SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                                context.Warning(StringUtil.Loc("UnsupportedOsVersionByNet8", $"{systemId} {systemVersion}"));
                             }
-                            else
-                            {
-                                notSupportNet6Message = $"The operating system the agent is running on is \"{systemId}\" ({systemVersion}), which has not been tested with the .NET 6 based v3 agent. The v2 agent wil not automatically upgrade to the v3 agent. You can manually download the .NET 6 based v3 agent from https://github.com/microsoft/azure-pipelines-agent/releases. See https://aka.ms/azdo-pipeline-agent-version";
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(notSupportNet6Message))
-                            {
-                                context.Warning(notSupportNet6Message);
-                            }
-                        }
-                        catch (UnsupportedOsException)
-                        {
-                            throw;
                         }
                         catch (Exception ex)
                         {
-                            Trace.Error($"Error has occurred while checking if system supports .NET 6: {ex}");
+                            Trace.Error($"Error has occurred while checking if system supports .NET 8: {ex}");
                             context.Warning(ex.Message);
                         }
                     }
@@ -130,6 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Machine specific setup info
                     OutputSetupInfo(context);
                     OutputImageVersion(context);
+                    PublishKnobsInfo(jobContext);
                     context.Output(StringUtil.Loc("UserNameLog", System.Environment.UserName));
 
                     // Print proxy setting information for better diagnostic experience
@@ -290,6 +269,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
+                    {
+                        await TfManager.DownloadLegacyTfToolsAsync(context);
+                    }
+
                     // build up 3 lists of steps, pre-job, job, post-job
                     Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
                     Dictionary<Guid, Variables> taskVariablesMapping = new Dictionary<Guid, Variables>();
@@ -304,11 +288,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         preJobSteps.Add(new JobExtensionRunner(runAsync: containerProvider.StartContainersAsync,
                                                                           condition: ExpressionManager.Succeeded,
                                                                           displayName: StringUtil.Loc("InitializeContainer"),
-                                                                          data: (object)containers));
+                                                                          data: containers));
                         postJobStepsBuilder.Push(new JobExtensionRunner(runAsync: containerProvider.StopContainersAsync,
                                                                         condition: ExpressionManager.Always,
                                                                         displayName: StringUtil.Loc("StopContainer"),
-                                                                        data: (object)containers));
+                                                                        data: containers));
                     }
 
                     Dictionary<Guid, List<TaskRestrictions>> taskRestrictionsMap = new Dictionary<Guid, List<TaskRestrictions>>();
@@ -386,7 +370,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
 
                     ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
-                    // create execution context for all pre-job steps
+                                                                     // create execution context for all pre-job steps
                     foreach (var step in preJobSteps)
                     {
                         if (PlatformUtil.RunningOnWindows && step is ManagementScriptStep)
@@ -749,6 +733,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context.Output($"Fail to load and print machine setup info: {ex.Message}");
                 Trace.Error(ex);
             }
+        }
+
+        private void PublishKnobsInfo(IExecutionContext jobContext)
+        {
+            var telemetryData = new Dictionary<string, string>()
+            {
+                { "JobId", jobContext?.Variables?.System_JobId }
+            };
+
+            foreach (var knob in Knob.GetAllKnobsFor<AgentKnobs>())
+            {
+                var value = knob.GetValue(jobContext);
+                if (value.Source.GetType() != typeof(BuiltInDefaultKnobSource))
+                {
+                    var stringValue = value.AsString();
+                    telemetryData.Add($"{knob.Name}-{value.Source.GetDisplayString()}", stringValue);
+                }
+            }
+
+            PublishTelemetry(jobContext, telemetryData, "KnobsStatus");
         }
 
         private void PublishTelemetry(IExecutionContext context, Dictionary<string, string> telemetryData, string feature)

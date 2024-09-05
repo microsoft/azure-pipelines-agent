@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.11.0" />
+    <PackageReference Include="Azure.Core" Version="1.42.0" />
+    <PackageReference Include="Azure.Identity" Version="1.12.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="6.0.1" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.2" />

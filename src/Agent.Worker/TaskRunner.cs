@@ -230,7 +230,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Expand the inputs.
                 Trace.Verbose("Expanding inputs.");
-                runtimeVariables.ExpandValues(target: inputs);
+                bool enableVariableInputTrimmingKnob = AgentKnobs.EnableVariableInputTrimming.GetValue(ExecutionContext).AsBoolean();
+                runtimeVariables.ExpandValues(target: inputs, enableVariableInputTrimmingKnob);
 
                 // We need to verify inputs of the tasks that were injected by decorators, to check if they contain secrets,
                 // for security reasons execution of tasks in this case should be skipped.
@@ -665,6 +666,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                    { "AgentPackageType", BuildConstants.AgentPackage.PackageType },
                     { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
                     { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
                     { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},

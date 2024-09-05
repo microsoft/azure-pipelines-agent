@@ -1,6 +1,18 @@
 # This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
-
 trigger:
+  branches:
+    include:
+    - '*'
+  paths:
+    include:
+    - release
+    - .azure-pipelines
+    - .vsts.release.yml
+
+pr:
+  branches:
+    include:
+    - '*'
   paths:
     include:
     - release
@@ -222,6 +234,7 @@ extends:
           - task: AzurePowerShell@5
             displayName: Upload to Azure Blob
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'
@@ -245,11 +258,14 @@ extends:
                 
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                   $target=$_
-                  Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
+                  $fullPath = $target.FullName
+                  Get-ChildItem -LiteralPath "$fullPath" -Include "*.zip","*.tar.gz" | ForEach-Object {
                     $executable = $_
-                    Write-Host "Uploading $executable to BlobStorage vstsagentpackage/$container/$versionDir"
-                    Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
-                    $uploadFiles.Add("/$container/$versionDir/$executable")
+                    $execFullPath = $executable.FullName
+                    $execName = $executable.Name
+                    Write-Host "Uploading $execName to BlobStorage vstsagentpackage/$container/$versionDir"
+                    Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$execFullPath" -Blob "$versionDir/$execName" -Force
+                    $uploadFiles.Add("/$container/$versionDir/$execName")
                   }
                 }
                 Write-Host "Purge Azure CDN Cache"
@@ -262,6 +278,7 @@ extends:
             displayName: Delete Azure Blob container with test agent version
             condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'
@@ -344,15 +361,43 @@ extends:
             displayName: Delete test agent release from Github
             condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
 
-          # Clean up test release branch
+      - stage: Cleanup_Release_Branch
+        displayName: Cleanup Release Branch
+        dependsOn:
+        - Verify_release
+        - Create_Release_Branch
+        - Release
+        condition: always()
+        jobs:
+        - job: Delete_Release_Branch
+          displayName: Delete Release Branch
+          variables:
+            IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
+          condition: eq(variables.IsTestRun, 'True')
+
+          pool:
+            name: 1ES-ABTT-Shared-Pool
+            image: abtt-ubuntu-2204
+            os: linux
+          steps:
+          - checkout: self
+
           - powershell: |
               git config --global user.email "azure-pipelines-bot@microsoft.com"
               git config --global user.name "azure-pipelines-bot"
               git status
-              git -c credential.helper='!f() { echo "username=pat"; echo "password=$(GithubToken)"; };f' push origin --delete $(ReleaseBranch)
-              git push --delete origin v$(AgentVersion)
+
+              $testBranch = "releases/3.000.999"
+              $testTag = "v3.000.999"
+              
+              if (git ls-remote --heads origin $testBranch) { 
+                git -c credential.helper='!f() { echo "username=pat"; echo "password=$(GithubToken)"; };f' push origin --delete $testBranch
+              }
+              
+              if (git ls-remote --tags origin $testTag) { 
+                git -c credential.helper='!f() { echo "username=pat"; echo "password=$(GithubToken)"; };f' push --delete origin $testTag
+              }
             displayName: Clean up test release branch
-            condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
 
       - stage: CreatePRs
         dependsOn:
@@ -395,7 +440,7 @@ extends:
               cd release
               npm install
               ls
-              node createAdoPrs.js $(AgentVersion) --dryrun=$(IsTestRun)
+              node createAdoPrs.js $(AgentVersion) --dryrun="$(IsTestRun)"
             name: s_CreateAdoPrs
             displayName: Create PRs in AzureDevOps and ConfigChange
             env:
