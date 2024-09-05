@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using ITestResultsServer = Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults.ITestResultsServer;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.TeamFoundation.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
