@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var traceListener = new CommandTraceListener(executionContext);
             var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
-            return new XUnitResultParser(traceListener,enableCustomTestFields);
+            return new XUnitResultParser(traceListener, setNameAsDisplayName: false, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
     }
@@ -120,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var traceListener = new CommandTraceListener(executionContext);
             var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
-            return new NUnitResultParser(traceListener, enableCustomTestFields);
+            return new NUnitResultParser(traceListener, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
     }
