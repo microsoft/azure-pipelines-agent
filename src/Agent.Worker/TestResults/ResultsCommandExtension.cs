@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
-using Microsoft.TeamFoundation.Common;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using Microsoft.TeamFoundation.TestManagement.WebApi;
