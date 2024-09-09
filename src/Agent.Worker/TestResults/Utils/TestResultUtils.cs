@@ -89,6 +89,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
                 {
                     resourceUris = resourceUrisEnvVar.Split(',');
                 }
+
+                if (resourceUris.Length == 0)
+                {
+                    resourceUris = new string[] { GetPipelinesUrl(executionContext) };
+                }
             }
             catch (Exception ex)
             {
