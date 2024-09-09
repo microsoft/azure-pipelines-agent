@@ -74,7 +74,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var traceListener = new CommandTraceListener(executionContext);
             var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             var enableJunitAttachments = featureFlagService.GetFeatureFlagState(TestResultsConstants.JUnitTestCaseAttachmentsEnabled, TestResultsConstants.TCMServiceInstanceGuid);
-            return new JUnitResultParser(traceListener, false, enableJunitAttachments);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new JUnitResultParser(traceListener, false, enableJunitAttachments,enableCustomTestFields);
         }
     }
 
@@ -86,7 +87,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
-            return new XUnitResultParser(traceListener);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new XUnitResultParser(traceListener, setNameAsDisplayName: false, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
     }
@@ -101,7 +104,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var traceListener = new CommandTraceListener(executionContext);
             var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
             var enableXUnitHeirarchicalParsing = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableXUnitHeirarchicalParsing, TestResultsConstants.TFSServiceInstanceGuid);
-            return new TrxResultParser(traceListener, enableXUnitHeirarchicalParsing);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new TrxResultParser(traceListener, enableXUnitHeirarchicalParsing, enableCustomTestFields);
         }
 
     }
@@ -114,7 +118,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext)
         {
             var traceListener = new CommandTraceListener(executionContext);
-            return new NUnitResultParser(traceListener);
+            var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new NUnitResultParser(traceListener, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
     }
