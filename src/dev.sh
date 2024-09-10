@@ -8,21 +8,27 @@
 
 set -eo pipefail
 
+# .NET version for agent build.  
+NET_VERSIONS="
+net6.0-sdk=6.0.424
+net6.0-runtime=6.0.32
+
+net8.0-sdk=8.0.401
+net8.0-runtime=8.0.8"
+
 ALL_ARGS=("$@")
 DEV_CMD=$1
-DEV_CONFIG=$2
-DEV_RUNTIME_ID=$3
-DEV_TEST_FILTERS=$4
-DEV_ARGS=("${ALL_ARGS[@]:4}")
+TARGET_FRAMEWORK=$2
+DEV_CONFIG=$3
+DEV_RUNTIME_ID=$4
+DEV_TEST_FILTERS=$5
+DEV_ARGS=("${ALL_ARGS[@]:5}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/.helpers.sh"
 
 REPO_ROOT="${SCRIPT_DIR}/.."
-DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
-DOTNETSDK_VERSION="6.0.424"
-DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
 DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
@@ -35,6 +41,27 @@ if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
 fi
 
 pushd "$SCRIPT_DIR"
+
+DEFAULT_TARGET_FRAMEWORK="net6.0"
+
+if [[ $TARGET_FRAMEWORK == "" ]]; then
+    TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
+fi
+
+function get_net_version ()
+{
+    echo "$NET_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
+}
+
+DOTNETSDK_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-sdk")
+DOTNETRUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
+
+if [[ ($DOTNETSDK_VERSION == "") || ($DOTNETRUNTIME_VERSION == "") ]]; then
+    failed "Incorrect target framework is specified"
+fi
+
+DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
+DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
@@ -97,12 +124,12 @@ function make_build (){
 
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
          || failed build
     fi
 
@@ -149,7 +176,7 @@ function cmd_test_l0 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test_l1 ()
@@ -171,7 +198,7 @@ function cmd_test_l1 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test ()

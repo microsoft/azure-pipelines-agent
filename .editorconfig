@@ -70,8 +70,17 @@ dotnet_diagnostic.IDE0017.severity = suggestion
 # IDE0018: Variable declaration can be inlined
 dotnet_diagnostic.IDE0018.severity = suggestion
 
+# IDE0019: Use pattern matching to avoid as followed by a null check
+dotnet_diagnostic.IDE0019.severity = warning
+
+# IDE0020: Use pattern matching to avoid 'is' check followed by a cast (with variable)
+dotnet_diagnostic.IDE0020.severity = warning
+
 # IDE0022: Use block body for method
 dotnet_diagnostic.IDE0022.severity = none
+
+# IDE0025: Use expression body for property
+dotnet_diagnostic.IDE0025.severity = suggestion
 
 # IDE0027: Use expression body for accessor
 dotnet_diagnostic.IDE0027.severity = suggestion
@@ -79,11 +88,29 @@ dotnet_diagnostic.IDE0027.severity = suggestion
 # IDE0028: Simplify collection initialization
 dotnet_diagnostic.IDE0028.severity = suggestion
 
+# IDE0029: Null check can be simplified (ternary conditional check)
+dotnet_diagnostic.IDE0029.severity = suggestion
+
+# IDE0030: Null check can be simplified (nullable ternary conditional check)
+dotnet_diagnostic.IDE0030.severity = suggestion
+
+# IDE0031: Use null propagation
+dotnet_diagnostic.IDE0031.severity = suggestion
+
 # IDE0032: Use auto property
 dotnet_diagnostic.IDE0032.severity = suggestion
 
+# IDE0036: Order modifiers
+dotnet_diagnostic.IDE0036.severity = warning
+
+# IDE0038: Use pattern matching to avoid is check followed by a cast (without variable)
+dotnet_diagnostic.IDE0038.severity = warning
+
 # IDE0040: Add accessibility modifiers
 dotnet_diagnostic.IDE0040.severity = warning
+
+# IDE0041 Use 'is null' check
+dotnet_diagnostic.IDE0041.severity = suggestion
 
 # IDE0042: Deconstruct variable declaration
 dotnet_diagnostic.IDE0042.severity = suggestion
@@ -100,14 +127,23 @@ dotnet_diagnostic.IDE0046.severity = suggestion
 # IDE0047: Remove unnecessary parentheses
 dotnet_diagnostic.IDE0047.severity = suggestion
 
+# IDE0048
+dotnet_diagnostic.IDE0048.severity = suggestion
+
 # IDE0049: Simplify Names
 dotnet_diagnostic.IDE0049.severity = suggestion
 
 # IDE0034: Simplify 'default' expression
 dotnet_diagnostic.IDE0034.severity = suggestion
 
+# IDE0054: Use compound assignment
+dotnet_diagnostic.IDE0054.severity = suggestion
+
 # IDE0055: Formatting rule
 dotnet_diagnostic.IDE0055.severity = warning
+
+# IDE0056: Use index operator
+dotnet_diagnostic.IDE0056.severity = suggestion
 
 # IDE0057: Substring can be simplified
 dotnet_diagnostic.IDE0057.severity = suggestion
@@ -124,6 +160,9 @@ dotnet_diagnostic.IDE0060.severity = warning
 # IDE0063: Use simple 'using' statement
 dotnet_diagnostic.IDE0063.severity = suggestion
 
+# IDE0066: Use switch expression
+dotnet_diagnostic.IDE0066.severity = suggestion
+
 # IDE0071: Simplify interpolation
 dotnet_diagnostic.IDE0071.severity = suggestion
 
@@ -139,8 +178,20 @@ dotnet_diagnostic.IDE0083.severity = suggestion
 # IDE0090: Use 'new(...)'
 dotnet_diagnostic.IDE0090.severity = suggestion
 
+# IDE0100: Remove unnecessary equality operator
+dotnet_diagnostic.IDE0100.severity = warning
+
+# IDE0120: Simplify LINQ expression
+dotnet_diagnostic.IDE0120.severity = warning
+
+# IDE0270: Null check can be simplified (if null check)
+dotnet_diagnostic.IDE0270.severity = suggestion
+
 # IDE1005: Delegate invocation can be simplified.
 dotnet_diagnostic.IDE1005.severity = suggestion
+
+# IDE1006: Code-style naming rules
+dotnet_diagnostic.IDE1006.severity = warning
 
 # IDE0160: Convert to block scoped namespace
 dotnet_diagnostic.IDE0160.severity = none
@@ -765,3 +816,14 @@ dotnet_diagnostic.CA5403.severity = error
 
 # Analyzer version mismatch
 dotnet_diagnostic.CA9999.severity = error
+
+dotnet_naming_style.underscored_camel_case.capitalization = camel_case
+dotnet_naming_style.underscored_camel_case.required_prefix = _
+
+# Rule to force private fields to be underscored camel case
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_rule.private_fields_underscored.symbols = private_fields
+dotnet_naming_rule.private_fields_underscored.style = underscored_camel_case
+dotnet_naming_rule.private_fields_underscored.severity = suggestion
