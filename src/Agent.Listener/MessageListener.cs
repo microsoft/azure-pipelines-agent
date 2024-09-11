@@ -338,7 +338,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
                 using (var rsa = keyManager.GetKey())
                 {
-                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA1), message.IV);
+                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA256), message.IV);
                 }
             }
             else
