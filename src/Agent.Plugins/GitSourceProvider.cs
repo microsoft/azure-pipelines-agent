@@ -718,10 +718,10 @@ namespace Agent.Plugins.Repository
                 await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.proxy", string.Empty);
             }
 
-            List<string> additionalFetchFilterOptions = ParseFetchFilterOptions(executionContext, fetchFilter);
-            List<string> additionalFetchArgs = new List<string>();
-            List<string> additionalLfsFetchArgs = new List<string>();
-            List<string> additionalCheckoutArgs = new List<string>();
+            var additionalFetchFilterOptions = ParseFetchFilterOptions(executionContext, fetchFilter);
+            var additionalFetchArgs = new List<string>();
+            var additionalLfsFetchArgs = new List<string>();
+            var additionalCheckoutArgs = new List<string>();
 
             // Force Git to HTTP/1.1. Otherwise IIS will reject large pushes to Azure Repos due to the large content-length header
             // This is caused by these header limits - https://docs.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/headerlimits/
@@ -741,7 +741,7 @@ namespace Agent.Plugins.Repository
                     string args = ComposeGitArgs(executionContext, gitCommandManager, configKey, username, password, useBearerAuthType);
                     additionalFetchArgs.Add(args);
 
-                    if (additionalFetchFilterOptions.Count != 0 && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
+                    if (additionalFetchFilterOptions.Count() != 0 && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
                     {
                         additionalCheckoutArgs.Add(args);
                     }
@@ -1381,21 +1381,25 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        private List<string> ParseFetchFilterOptions(AgentTaskPluginExecutionContext context, string fetchFilter)
+        private IEnumerable<string> ParseFetchFilterOptions(AgentTaskPluginExecutionContext context, string fetchFilter)
         {
             if (!AgentKnobs.UseFetchFilterInCheckoutTask.GetValue(context).AsBoolean())
             {
-                return new();
+                return Enumerable.Empty<string>();
+            }
+
+            if (string.IsNullOrEmpty(fetchFilter))
+            {
+                return Enumerable.Empty<string>();
             }
 
             // parse filter and only include valid options
-            List<string> filters = new();
-
-            List<string> splitFilter = fetchFilter.Split('+').Where(filter => !string.IsNullOrWhiteSpace(filter)).ToList();
+            var filters = new List<string>();
+            var splitFilter = fetchFilter.Split('+').Where(filter => !string.IsNullOrWhiteSpace(filter)).ToList();
 
             foreach (string filter in splitFilter)
             {
-                List<string> parsedFilter = filter.Split(':')
+                var parsedFilter = filter.Split(':')
                     .Where(filter => !string.IsNullOrWhiteSpace(filter))
                     .Select(filter => filter.Trim())
                     .ToList();
