@@ -31,6 +31,13 @@ parameters:
   type: string
   displayName: Version
   default: 'NotSet'
+- name: targetFramework
+  displayName: Target framework
+  type: string
+  default: net6.0
+  values:
+  - net6.0
+  - net8.0
 - name: derivedFrom
   type: string
   displayName: Derived From Version
@@ -73,6 +80,7 @@ extends:
     test: ${{ not(parameters.skipTests) }}
     sign: true
     publishArtifacts: true
+    targetFramework: ${{ parameters.targetFramework }}
     testProxyAgent: ${{ parameters.testProxyAgent }}
     stageDependencies:
       - Verify_release
@@ -137,6 +145,13 @@ extends:
                 $agentVersion = "${{ parameters.version }}"
                 if ($agentVersion -eq 'NotSet') {
                   Write-Error "Version parameter is required for manual release." -ErrorAction Stop
+                }
+
+                ## Verify target framework for specified version
+                $majorVersion = $agentVersion.Split('.')[0]
+                if (("${{ parameters.targetFramework }}" -eq "net6.0" -and $majorVersion -ne "3") -or
+                   ("${{ parameters.targetFramework }}" -eq "net8.0" -and $majorVersion -ne "4")) {
+                  Write-Error "The major version should be 3 for net6.0 and 4 for net8.0" -ErrorAction Stop
                 }
               }
               if ($isTestRun) {
@@ -234,6 +249,7 @@ extends:
           - task: AzurePowerShell@5
             displayName: Upload to Azure Blob
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'
@@ -257,11 +273,14 @@ extends:
                 
                 Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent" | ForEach-Object {
                   $target=$_
-                  Get-ChildItem -LiteralPath "$(System.ArtifactsDirectory)/agent/$target" -Include "*.zip","*.tar.gz" | ForEach-Object {
+                  $fullPath = $target.FullName
+                  Get-ChildItem -LiteralPath "$fullPath" -Include "*.zip","*.tar.gz" | ForEach-Object {
                     $executable = $_
-                    Write-Host "Uploading $executable to BlobStorage vstsagentpackage/$container/$versionDir"
-                    Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$(System.ArtifactsDirectory)/agent/$target/$executable" -Blob "$versionDir/$executable" -Force
-                    $uploadFiles.Add("/$container/$versionDir/$executable")
+                    $execFullPath = $executable.FullName
+                    $execName = $executable.Name
+                    Write-Host "Uploading $execName to BlobStorage vstsagentpackage/$container/$versionDir"
+                    Set-AzStorageBlobContent -Context $storageContext -Container $container -File "$execFullPath" -Blob "$versionDir/$execName" -Force
+                    $uploadFiles.Add("/$container/$versionDir/$execName")
                   }
                 }
                 Write-Host "Purge Azure CDN Cache"
@@ -274,6 +293,7 @@ extends:
             displayName: Delete Azure Blob container with test agent version
             condition: and(succeeded(), eq(variables.IsTestRun, 'True'))
             inputs:
+              pwsh: true
               azurePowerShellVersion: 'LatestVersion'
               azureSubscription: 'azure-pipelines-agent-vstsagentpackage-oauth'
               scriptType: 'InlineScript'

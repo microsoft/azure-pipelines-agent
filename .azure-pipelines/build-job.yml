@@ -13,6 +13,9 @@ parameters:
 - name: container
   type: string
 
+- name: targetFramework
+  type: string
+
 - name: timeoutInMinutes
   type: number
 
@@ -78,6 +81,14 @@ jobs:
   displayName: ${{ parameters.displayName }}
   pool: ${{ parameters.pool }}
   timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+  ${{ if eq(parameters.targetFramework, 'all') }}:
+    strategy:
+      matrix:
+        NET6.0:
+          targetFramework: 'net6.0'
+        NET8.0:
+          targetFramework: 'net8.0'
+
 
   ${{ if ne(parameters.container, '') }}:
     container: ${{ parameters.container }}
@@ -100,6 +111,8 @@ jobs:
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
     CheckoutBranch: ${{ parameters.branch }}
+    ${{ if ne(parameters.targetFramework, 'all') }}:
+      targetFramework: ${{ parameters.targetFramework }}
   templateContext:
     outputs:
     - ${{ if or(parameters.unitTests, parameters.functionalTests) }}:
@@ -150,7 +163,7 @@ jobs:
   - task: NuGetAuthenticate@1
 
   # Build agent layout
-  - script: ${{ variables.devCommand }} layout Release ${{ parameters.os }}-${{ parameters.arch }}
+  - script: ${{ variables.devCommand }} layout $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}
     workingDirectory: src
     displayName: Build & Layout Release
     retryCountOnTaskFailure: 5
@@ -175,7 +188,7 @@ jobs:
           installationPath: 'C:\Program Files (x86)\dotnet'
         env:
           PROCESSOR_ARCHITECTURE: x86
-    - script: ${{ variables.devCommand }} testl0 Debug ${{ parameters.os }}-${{ parameters.arch }}
+    - script: ${{ variables.devCommand }} testl0 $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
       timeoutInMinutes: 5
@@ -189,7 +202,7 @@ jobs:
           version: '6.0.424'
           packageType: sdk
           performMultiLevelLookup: true
-    - script: ${{ variables.devCommand }} testl1 Debug ${{ parameters.os }}-${{ parameters.arch }}
+    - script: ${{ variables.devCommand }} testl1 $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Functional tests
 
@@ -242,11 +255,11 @@ jobs:
           flavor: ${{ parameters.arch }}
 
     # Create agent package zip
-    - script: "${{ variables.devCommand }} package Release ${{ parameters.os }}-${{ parameters.arch }}"
+    - script: "${{ variables.devCommand }} package $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}"
       workingDirectory: src
       displayName: Package Release
 
-    - script: "${{ variables.devCommand }} hash Release ${{ parameters.os }}-${{ parameters.arch }}"
+    - script: "${{ variables.devCommand }} hash $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}"
       workingDirectory: src
       displayName: Hash Package
 
