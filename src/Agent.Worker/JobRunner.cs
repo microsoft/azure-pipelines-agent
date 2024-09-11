@@ -177,11 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 if (PlatformUtil.RunningOnWindows)
                 {
-                    string serverOMDirectoryVariable = AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean()
-                        ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                        : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
-
-                    jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, serverOMDirectoryVariable, isFilePath: true);
+                    jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, HostContext.GetDirectory(WellKnownDirectory.ServerOM), isFilePath: true);
                 }
                 if (!PlatformUtil.RunningOnWindows)
                 {

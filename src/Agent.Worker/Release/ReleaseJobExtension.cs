@@ -229,11 +229,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 await teeUtil.DownloadTeeIfAbsent();
             }
 
-            if (AgentKnobs.InstallLegacyTfExe.GetValue(executionContext).AsBoolean())
-            {
-                await TfManager.DownloadLegacyTfToolsAsync(executionContext);
-            }
-
             try
             {
                 foreach (AgentArtifactDefinition agentArtifactDefinition in agentArtifactDefinitions)

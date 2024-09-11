@@ -12,7 +12,6 @@ using System.Text;
 using System.Xml;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Agent.Sdk.Knob;
 
 namespace Agent.Plugins.Repository
 {
@@ -38,15 +37,11 @@ namespace Agent.Plugins.Repository
 
         public static readonly int RetriesOnFailure = 3;
 
-        private string TfPath => AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-            ? Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf-legacy")
-            : Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf");
+        public string FilePath => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe");
 
-        public string FilePath => Path.Combine(TfPath, "tf.exe");
+        private string AppConfigFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config");
 
-        private string AppConfigFile => Path.Combine(TfPath, "tf.exe.config");
-
-        private string AppConfigRestoreFile => Path.Combine(TfPath, "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf", "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)

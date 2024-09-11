@@ -11,7 +11,6 @@ using System.Xml.Serialization;
 using System.Text;
 using System.Xml;
 using System.Security.Cryptography.X509Certificates;
-using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -35,15 +34,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        private string TfPath => AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-            ? HostContext.GetDirectory(WellKnownDirectory.TfLegacy)
-            : HostContext.GetDirectory(WellKnownDirectory.Tf);
+        public override string FilePath => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe");
 
-        public override string FilePath => Path.Combine(TfPath, "tf.exe");
+        private string AppConfigFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config");
 
-        private string AppConfigFile => Path.Combine(TfPath, "tf.exe.config");
-
-        private string AppConfigRestoreFile => Path.Combine(TfPath, "tf.exe.config.restore");
+        private string AppConfigRestoreFile => Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Tf), "tf.exe.config.restore");
 
         // TODO: Remove AddAsync after last-saved-checkin-metadata problem is fixed properly.
         public async Task AddAsync(string localPath)

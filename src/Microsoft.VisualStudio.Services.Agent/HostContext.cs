@@ -206,22 +206,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                         Constants.Path.ServerOMDirectory);
                     break;
 
-                case WellKnownDirectory.ServerOMLegacy:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.ServerOMLegacyDirectory);
-                    break;
-
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfDirectory);
-                    break;
-
-                case WellKnownDirectory.TfLegacy:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.TfLegacyDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:

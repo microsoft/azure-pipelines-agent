@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Xml;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -206,13 +205,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Copy the OM binaries into the legacy host folder.
             ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
-
-            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
-
             IOUtil.CopyDirectory(
-                source: sourceDirectory,
+                source: HostContext.GetDirectory(WellKnownDirectory.ServerOM),
                 target: HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost),
                 cancellationToken: ExecutionContext.CancellationToken);
             Trace.Info("Finished copying files.");
