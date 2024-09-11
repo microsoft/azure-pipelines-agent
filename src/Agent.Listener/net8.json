@@ -67,6 +67,14 @@
     ]
   },
   {
+    "id": "almalinux",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
     "id": "rhel",
     "versions": [
       {
