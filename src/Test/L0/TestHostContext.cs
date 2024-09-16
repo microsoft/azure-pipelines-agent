@@ -201,6 +201,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.LegacyPSHostDirectory);
                     break;
 
+                case WellKnownDirectory.LegacyPSHostLegacy:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.LegacyPSHostLegacyDirectory);
+                    break;
+
                 case WellKnownDirectory.Root:
                     path = new DirectoryInfo(GetDirectory(WellKnownDirectory.Bin)).Parent.FullName;
                     break;
@@ -211,10 +217,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.ServerOMDirectory);
                     break;
 
+                case WellKnownDirectory.ServerOMLegacy:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.ServerOMLegacyDirectory);
+                    break;
+
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfDirectory);
+                    break;
+
+                case WellKnownDirectory.TfLegacy:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfLegacyDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:
