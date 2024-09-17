@@ -765,5 +765,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("ADD_FORCE_CREDENTIALS_TO_GIT_CHECKOUT"),
             new PipelineFeatureSource(nameof(AddForceCredentialsToGitCheckout)),
             new BuiltInDefaultKnobSource("false"));
+      
+        public static readonly Knob InstallLegacyTfExe = new Knob(
+            nameof(InstallLegacyTfExe),
+            "If true, the agent will install the legacy versions of TF, vstsom and vstshost",
+            new RuntimeKnobSource("AGENT_INSTALL_LEGACY_TF_EXE"),
+            new EnvironmentKnobSource("AGENT_INSTALL_LEGACY_TF_EXE"),
+            new PipelineFeatureSource("InstallLegacyTfExe"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -269,6 +269,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
+                    {
+                        await TfManager.DownloadLegacyTfToolsAsync(context);
+                    }
+
                     // build up 3 lists of steps, pre-job, job, post-job
                     Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
                     Dictionary<Guid, Variables> taskVariablesMapping = new Dictionary<Guid, Variables>();

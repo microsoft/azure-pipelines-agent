@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Xml;
 using Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -81,7 +82,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Initialize our Azure Support (imports the module, sets up the Azure subscription)
-            string path = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
+            string path = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost-legacy")
+                : Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
+
             string azurePSM1 = Path.Combine(path, "Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure\\Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure.psm1");
 
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Import-Module)");
@@ -205,9 +209,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // Copy the OM binaries into the legacy host folder.
             ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
+
+            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+
+            string targetDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+
             IOUtil.CopyDirectory(
-                source: HostContext.GetDirectory(WellKnownDirectory.ServerOM),
-                target: HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost),
+                source: sourceDirectory,
+                target: targetDirectory,
                 cancellationToken: ExecutionContext.CancellationToken);
             Trace.Info("Finished copying files.");
 
@@ -230,7 +243,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 try
                 {
-                    String vstsPSHostExe = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost), "LegacyVSTSPowerShellHost.exe");
+                    String vstsPSHostExeDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                        ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                        : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+
+                    String vstsPSHostExe = Path.Combine(vstsPSHostExeDirectory, "LegacyVSTSPowerShellHost.exe");
                     Int32 exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                                        fileName: vstsPSHostExe,
                                                                        arguments: "",
@@ -432,10 +449,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void AddProxySetting(IVstsAgentWebProxy agentProxy)
         {
-            string appConfig = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost), _appConfigFileName);
+            string psHostDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+
+            string appConfig = Path.Combine(psHostDirectory, _appConfigFileName);
+
             ArgUtil.File(appConfig, _appConfigFileName);
 
-            string appConfigRestore = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost), _appConfigRestoreFileName);
+            string appConfigRestore = Path.Combine(psHostDirectory, _appConfigRestoreFileName);
             if (!File.Exists(appConfigRestore))
             {
                 Trace.Info("Take snapshot of current appconfig for restore modified appconfig.");
