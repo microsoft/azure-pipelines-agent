@@ -759,6 +759,13 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UsePSScriptWrapper"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AddForceCredentialsToGitCheckout = new Knob(
+            nameof(AddForceCredentialsToGitCheckout),
+            "If true, the credentials will be forcibly added to the Git checkout command.",
+            new RuntimeKnobSource("ADD_FORCE_CREDENTIALS_TO_GIT_CHECKOUT"),
+            new PipelineFeatureSource(nameof(AddForceCredentialsToGitCheckout)),
+            new BuiltInDefaultKnobSource("false"));
+      
         public static readonly Knob InstallLegacyTfExe = new Knob(
             nameof(InstallLegacyTfExe),
             "If true, the agent will install the legacy versions of TF, vstsom and vstshost",
