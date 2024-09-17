@@ -741,7 +741,7 @@ namespace Agent.Plugins.Repository
                     string args = ComposeGitArgs(executionContext, gitCommandManager, configKey, username, password, useBearerAuthType);
                     additionalFetchArgs.Add(args);
 
-                    if (additionalFetchFilterOptions.Count() != 0 && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
+                    if (additionalFetchFilterOptions.Any() && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
                     {
                         additionalCheckoutArgs.Add(args);
                     }
