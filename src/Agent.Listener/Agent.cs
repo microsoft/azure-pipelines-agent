@@ -369,7 +369,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 _listener = HostContext.GetService<IMessageListener>();
-                if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
+                Constants.Agent.CreateSessionResult createSessionResult = await _listener.CreateSessionAsync(HostContext.AgentShutdownToken);
+                if (createSessionResult == Constants.Agent.CreateSessionResult.SessionConflict)
+                {
+                    return Constants.Agent.ReturnCode.SessionConflict;
+                }
+                else if (createSessionResult == Constants.Agent.CreateSessionResult.Failure)
                 {
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }

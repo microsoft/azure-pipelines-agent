@@ -241,6 +241,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
             }
 
+            public enum CreateSessionResult
+            {
+                Success,
+                Failure,
+                SessionConflict
+            }
+
             public static class ReturnCode
             {
                 public const int Success = 0;
@@ -248,6 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public const int RetryableError = 2;
                 public const int AgentUpdating = 3;
                 public const int RunOnceAgentUpdating = 4;
+                public const int SessionConflict = 5;
             }
 
             public static class AgentConfigurationProvider
