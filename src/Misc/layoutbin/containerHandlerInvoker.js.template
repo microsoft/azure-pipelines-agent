@@ -7,7 +7,7 @@ process.stdin.on('data', function (chunk) {
 process.stdin.on('end', function () {
     var stdinData = JSON.parse(stdinString);
     var handler = stdinData.handler;
-    var handlerArg = stdinData.args;
+    var handler = process.execPath; //stdinData.handler;
     var handlerWorkDir = stdinData.workDir;
     var prependPath = stdinData.prependPath;
 
