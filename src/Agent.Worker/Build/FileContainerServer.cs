@@ -361,6 +361,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
                 var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                         _connection,
+                        context,
                         Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
                         DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, tracer),
                         token);
