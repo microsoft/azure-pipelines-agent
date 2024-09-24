@@ -124,12 +124,12 @@ function make_build (){
 
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
          || failed build
     fi
 
