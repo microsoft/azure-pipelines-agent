@@ -182,16 +182,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying containerHandlerInvoker.js to {tempDir}");
             File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js.template"), targetEntryScript, true);
 
-            string node;
-            if (!string.IsNullOrEmpty(Container.CustomNodePath))
-            {
-                node = Container.CustomNodePath;
-            }
-            else
-            {
-                node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
-            }
-
             string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
             string userArgs = "";
@@ -209,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             }
 
-            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {node} {entryScript}";
+            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {Container.ResultNodePath} {entryScript}";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {

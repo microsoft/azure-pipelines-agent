@@ -83,6 +83,7 @@ namespace Agent.Sdk
         public string ContainerName { get; set; }
         public string ContainerCommand { get; set; }
         public string CustomNodePath { get; set; }
+        public string ResultNodePath { get; set; }
         public Guid ContainerRegistryEndpoint { get; private set; }
         public string ContainerCreateOptions { get; set; }
         public bool SkipContainerImagePull { get; private set; }
