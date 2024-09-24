@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.Knob;
-using Agent.Worker.Handlers.Helpers;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
@@ -204,6 +203,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
             ExecutionContext.Command($"{cmdExeArgs}");
+
+            var sigintTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigintTimeout.GetValue(ExecutionContext).AsInt());
+            var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
+            var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
+
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += OnOutputDataReceived;
@@ -215,6 +219,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     processInvoker.ErrorDataReceived += OnOutputDataReceived;
                 }
+
+                processInvoker.SigintTimeout = sigintTimeout;
+                processInvoker.SigtermTimeout = sigtermTimeout;
+                processInvoker.TryUseGracefulShutdown = useGracefulShutdown;
 
                 int exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                                  fileName: cmdExe,
@@ -363,13 +371,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     ExecutionContext.Output(line);
                 }
             }
-        }
-    }
-
-    public class InvalidScriptArgsException : Exception
-    {
-        public InvalidScriptArgsException(string message) : base(message)
-        {
         }
     }
 }

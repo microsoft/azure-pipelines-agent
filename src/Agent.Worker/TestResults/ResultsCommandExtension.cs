@@ -1,22 +1,23 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.TeamFoundation.TestManagement.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml;
-using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
-using Microsoft.VisualStudio.Services.WebPlatform;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
+using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -46,6 +47,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _configuration;
         private string _runTitle;
         private bool _publishRunLevelAttachments;
+        private TestCaseResult[] _testCaseResults;
+        private string _testPlanId;
+        private bool _enableAzureTestPlanFeatureState;
+        private bool _publishTestResultsLibFeatureState;
+        private bool _triggerCoverageMergeJobFeatureState;
 
         private bool _failTaskOnFailedTests;
 
@@ -67,10 +73,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             _telemetryProperties = new Dictionary<string, object>();
             PopulateTelemetryData();
+            LoadFeatureFlagState();
 
             LoadPublishTestResultsInputs(context, eventProperties, data);
 
             string teamProject = context.Variables.System_TeamProject;
+
             TestRunContext runContext = CreateTestRunContext();
             var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
@@ -152,6 +160,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 // if no proper input is provided by default we publish attachments.
                 _publishRunLevelAttachments = true;
             }
+
+            if (_enableAzureTestPlanFeatureState)
+            {
+                string jsonString;
+                eventProperties.TryGetValue(PublishTestResultsEventProperties.ListOfAutomatedTestPoints, out jsonString);
+                if (!string.IsNullOrEmpty(jsonString))
+                {
+                    _testCaseResults = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseResult[]>(jsonString);
+                }
+
+                string testPlanId;
+                eventProperties.TryGetValue(PublishTestResultsEventProperties.TestPlanId, out testPlanId);
+                if (!string.IsNullOrEmpty(testPlanId))
+                {
+                    _testPlanId = testPlanId;
+                }
+            }
         }
 
         private void LogPublishTestResultsFailureWarning(Exception ex)
@@ -230,7 +255,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 JobReference = jobReference
             };
 
-            TestRunContext testRunContext = new TestRunContext(
+            TestRunContext testRunContext;
+
+            if (_enableAzureTestPlanFeatureState && !string.IsNullOrEmpty(_testPlanId))
+            {
+                ShallowReference testPlanObject = new() { Id = _testPlanId };
+
+                testRunContext = new(
                 owner: owner,
                 platform: _platform,
                 configuration: _configuration,
@@ -242,8 +273,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 testRunSystem: _testRunSystem,
                 buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
                 targetBranchName: pullRequestTargetBranchName,
-                pipelineReference: pipelineReference
-            );
+                pipelineReference: pipelineReference,
+                testPlan: testPlanObject);
+
+                return testRunContext;
+            }
+
+            testRunContext = new TestRunContext(
+                owner: owner,
+                platform: _platform,
+                configuration: _configuration,
+                buildId: buildId,
+                buildUri: buildUri,
+                releaseUri: releaseUri,
+                releaseEnvironmentUri: releaseEnvironmentUri,
+                runName: runName,
+                testRunSystem: _testRunSystem,
+                buildAttachmentProcessor: new CodeCoverageBuildAttachmentProcessor(),
+                targetBranchName: pullRequestTargetBranchName,
+                pipelineReference: pipelineReference);
+
             return testRunContext;
 
         }
@@ -259,81 +308,86 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return publishOptions;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
-        private async Task PublishTestRunDataAsync(String teamProject, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(string teamProject, TestRunContext testRunContext)
         {
             bool isTestRunOutcomeFailed = false;
 
-            var connection = WorkerUtilities.GetVssConnection(_executionContext);
-            var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
-            featureFlagService.InitializeFeatureService(_executionContext, connection);
-            var publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-            _telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
-
-            //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
-            if (publishTestResultsLibFeatureState)
+            _telemetryProperties.Add("UsePublishTestResultsLib", _publishTestResultsLibFeatureState);
+            using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
             {
-                var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
-                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
-            }
-            else
-            {
-                var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
-                publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+                //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
+                if (_publishTestResultsLibFeatureState)
+                {
+                    var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
+                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
-            }
+                    if (_enableAzureTestPlanFeatureState && !_testCaseResults.IsNullOrEmpty() && !_testPlanId.IsNullOrEmpty())
+                    {
+                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _testCaseResults, GetPublishOptions(), _executionContext.CancellationToken);
+                    }
+                    else
+                    {
+                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+                    }
+                }
+                else
+                {
+                    var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
+                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
 
-            if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
-            {
-                _executionContext.Result = TaskResult.Failed;
-                _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
-            }
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+                }
 
-            await PublishEventsAsync(connection);
-            var triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
-            if (triggerCoverageMergeJobFeatureState)
-            {
-                TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+                if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
+                {
+                    _executionContext.Result = TaskResult.Failed;
+                    _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
+                }
+
+                await PublishEventsAsync(connection);
+                if (_triggerCoverageMergeJobFeatureState)
+                {
+                    TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+                }
             }
         }
 
         // Queue code coverage merge job if code coverage attachments are published to avoid BQC timeout.
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "connection")]
         private void TriggerCoverageMergeJob(List<string> resultFilesInput, IExecutionContext context)
         {
             try
             {
                 ITestResultsServer _testResultsServer = context.GetHostContext().GetService<ITestResultsServer>();
-                foreach (var resultFile in resultFilesInput)
+                using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
                 {
-                    string text = File.ReadAllText(resultFile);
-                    XmlDocument xdoc = new XmlDocument();
-                    xdoc.LoadXml(text);
-                    XmlNodeList nodes = xdoc.GetElementsByTagName("A");
-
-                    var connection = WorkerUtilities.GetVssConnection(_executionContext);
-                    foreach (XmlNode attachmentNode in nodes)
+                    foreach (var resultFile in resultFilesInput)
                     {
-                        var file = attachmentNode.Attributes?["href"]?.Value;
-                        if (!string.IsNullOrEmpty(file))
+                        string text = File.ReadAllText(resultFile);
+                        XmlDocument xdoc = new XmlDocument();
+                        xdoc.LoadXml(text);
+                        XmlNodeList nodes = xdoc.GetElementsByTagName("A");
+
+                        foreach (XmlNode attachmentNode in nodes)
                         {
-                            if (
-                                Path.GetExtension(file).Equals(".covx", StringComparison.OrdinalIgnoreCase) ||
-                                Path.GetExtension(file).Equals(".covb", StringComparison.OrdinalIgnoreCase) ||
-                                Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
-                                )
+                            var file = attachmentNode.Attributes?["href"]?.Value;
+                            if (!string.IsNullOrEmpty(file))
                             {
-                                _testResultsServer.InitializeServer(connection, _executionContext);
-                                try
+                                if (
+                                    Path.GetExtension(file).Equals(".covx", StringComparison.OrdinalIgnoreCase) ||
+                                    Path.GetExtension(file).Equals(".covb", StringComparison.OrdinalIgnoreCase) ||
+                                    Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
+                                    )
                                 {
-                                    var codeCoverageResults = _testResultsServer.UpdateCodeCoverageSummaryAsync(connection, _executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
-                                }
-                                catch (Exception e)
-                                {
-                                    _executionContext.Section($"Could not queue code coverage merge:{e}");
+                                    _testResultsServer.InitializeServer(connection, _executionContext);
+                                    try
+                                    {
+                                        var codeCoverageResults = _testResultsServer.UpdateCodeCoverageSummaryAsync(connection, _executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        _executionContext.Section($"Could not queue code coverage merge:{e}");
+                                    }
                                 }
                             }
                         }
@@ -382,6 +436,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _telemetryProperties.Add("ReleaseId", _executionContext.Variables.Release_ReleaseId);
             }
         }
+
+        private void LoadFeatureFlagState()
+        {
+            using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
+            {
+                var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
+                featureFlagService.InitializeFeatureService(_executionContext, connection);
+                _publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+                _enableAzureTestPlanFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableAzureTestPlanTaskFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+                _triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
+            }
+        }
     }
 
     internal static class PublishTestResultsEventProperties
@@ -395,5 +461,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly string ResultFiles = "resultFiles";
         public static readonly string TestRunSystem = "testRunSystem";
         public static readonly string FailTaskOnFailedTests = "failTaskOnFailedTests";
+        public static readonly string ListOfAutomatedTestPoints = "listOfAutomatedTestPoints";
+        public static readonly string TestPlanId = "testPlanId";
     }
 }

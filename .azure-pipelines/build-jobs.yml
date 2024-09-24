@@ -15,6 +15,9 @@ parameters:
   type: string
   default: ''
 
+- name: targetFramework
+  type: string
+
 - name: timeoutInMinutes
   type: number
   default: 120
@@ -59,6 +62,10 @@ parameters:
   type: boolean
   default: false
 
+- name: disableSdl
+  type: boolean
+  default: false
+
 jobs:
 - template: /.azure-pipelines/build-job.yml@self
   parameters:
@@ -77,12 +84,13 @@ jobs:
     verifySigning: ${{ parameters.verifySigning }}
     publishArtifact: ${{ parameters.publishArtifacts }}
     packageType: agent
+    targetFramework: ${{ parameters.targetFramework }}
 
 - ${{ if parameters.buildAlternatePackage }}:
   - template: /.azure-pipelines/build-job.yml@self
     parameters:
       jobName: ${{ parameters.jobName }}_alternate
-      displayName: ${{ parameters.displayName }} (without Node 6)
+      displayName: ${{ parameters.displayName }} (without Node 6, Node 10)
       pool: ${{ parameters.pool }}
       container: ${{ parameters.container }}
       timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
@@ -96,3 +104,4 @@ jobs:
       verifySigning: ${{ parameters.verifySigning }}
       publishArtifact: ${{ parameters.publishArtifacts }}
       packageType: pipelines-agent
+      targetFramework: ${{ parameters.targetFramework }}

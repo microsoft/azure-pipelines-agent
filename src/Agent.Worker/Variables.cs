@@ -206,6 +206,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public bool? System_EnableAccessToken => GetBoolean(Constants.Variables.System.EnableAccessToken);
 
         public HostTypes System_HostType => GetEnum<HostTypes>(Constants.Variables.System.HostType) ?? HostTypes.None;
+
+        public string System_PlanId => Get(Constants.Variables.System.PlanId);
+
         public string System_JobId => Get(Constants.Variables.System.JobId);
 
         public string System_PhaseDisplayName => Get(Constants.Variables.System.PhaseDisplayName);
@@ -219,6 +222,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Guid? System_TeamProjectId => GetGuid(BuildWebApi.BuildVariables.TeamProjectId);
 
         public string System_TFCollectionUrl => Get(WellKnownDistributedTaskVariables.TFCollectionUrl);
+
+        public string System_CollectionUrl => Get(WellKnownDistributedTaskVariables.CollectionUrl);
 
         public string System_StageName => Get(Constants.Variables.System.StageName);
 
@@ -276,7 +281,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Constants.Variables.Agent.Name,
         };
 
-        public void ExpandValues(IDictionary<string, string> target)
+        public void ExpandValues(IDictionary<string, string> target, bool enableVariableInputTrimming = false)
         {
             ArgUtil.NotNull(target, nameof(target));
             _trace.Entering();
@@ -287,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 source[variable.Name] = value;
             }
 
-            VarUtil.ExpandValues(_hostContext, source, target);
+            VarUtil.ExpandValues(_hostContext, source, target, enableVariableInputTrimming);
         }
 
         public string ExpandValue(string name, string value)

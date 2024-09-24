@@ -15,6 +15,8 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Newtonsoft.Json;
+using System.Runtime.Versioning;
+using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -298,13 +300,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        [SupportedOSPlatform("windows")]
+        protected bool PsModulePathContainsPowershellCoreLocations()
+        {
+            bool checkLocationsKnob = AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean();
+
+            bool isPwshCore = Inputs.TryGetValue("pwsh", out string pwsh) && StringUtil.ConvertToBoolean(pwsh);
+
+            if (!PlatformUtil.RunningOnWindows || !checkLocationsKnob || isPwshCore)
+            {
+                return false;
+            }
+
+            const string PSModulePath = nameof(PSModulePath);
+
+            bool localVariableExists = Environment.TryGetValue(PSModulePath, out string localVariable);
+            bool localVariableContainsPwshLocations = PsModulePathUtil.ContainsPowershellCoreLocations(localVariable);
+
+            // Special case when the env variable is set for local process environment
+            // for example by vso command in a preceding pipeline step
+            if (localVariableExists && !localVariableContainsPwshLocations)
+            {
+                return false;
+            }
+
+            string systemVariable = System.Environment.GetEnvironmentVariable(PSModulePath);
+
+            bool systemVariableContainsPwshLocations = PsModulePathUtil.ContainsPowershellCoreLocations(systemVariable);
+
+            return localVariableContainsPwshLocations || systemVariableContainsPwshLocations;
+        }
+
+        [SupportedOSPlatform("windows")]
         protected void RemovePSModulePathFromEnvironment()
         {
-            if (AgentKnobs.CleanupPSModules.GetValue(ExecutionContext).AsBoolean() &&
-                PlatformUtil.RunningOnWindows && WindowsProcessUtil.AgentIsRunningInPowerShell())
+            if (PlatformUtil.RunningOnWindows == false
+                || AgentKnobs.CleanupPSModules.GetValue(ExecutionContext).AsBoolean() == false)
             {
-                AddEnvironmentVariable("PSModulePath", "");
-                Trace.Info("PSModulePath removed from environment since agent is running on Windows and in PowerShell.");
+                return;
+            }
+            try
+            {
+                if (WindowsProcessUtil.IsAgentRunningInPowerShellCore())
+                {
+                    AddEnvironmentVariable("PSModulePath", "");
+                    Trace.Info("PSModulePath is removed from environment since agent is running on Windows and in PowerShell.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex.Message);
+
+                var telemetry = new Dictionary<string, string>()
+                {
+                    ["ParentProcessFinderError"] = StringUtil.Loc("ParentProcessFinderError")
+                };
+                PublishTelemetry(telemetry);
+
+                ExecutionContext.Error(StringUtil.Loc("ParentProcessFinderError"));
             }
         }
 

@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
-  public static class VarUtil
+    public static class VarUtil
     {
         public static StringComparer EnvironmentVariableKeyComparer
         {
@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return target.Map(mapFuncs);
         }
 
-        public static void ExpandValues(IHostContext context, IDictionary<string, string> source, IDictionary<string, string> target)
+        public static void ExpandValues(IHostContext context, IDictionary<string, string> source, IDictionary<string, string> target, bool enableVariableInputTrimming = false)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(source, nameof(source));
@@ -182,6 +182,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                             targetValue.Substring(0, prefixIndex),
                             variableValue ?? string.Empty,
                             targetValue.Substring(suffixIndex + Constants.Variables.MacroSuffix.Length));
+
+                        targetValue = enableVariableInputTrimming
+                            ? targetValue?.Trim() ?? string.Empty
+                            : targetValue ?? string.Empty;
 
                         // Bump the start index to prevent recursive replacement.
                         startIndex = prefixIndex + (variableValue ?? string.Empty).Length;

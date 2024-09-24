@@ -9,7 +9,7 @@ const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
 
 const opt = require('node-getopt').create([
-    ['', 'dryrun', 'Dry run only, do not actually commit new release'],
+    ['', 'dryrun=ARG', 'Dry run only, do not actually commit new release'],
     ['h', 'help', 'Display this help'],
 ])
     .setHelp(
@@ -33,14 +33,16 @@ const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
 function createIntegrationFiles(agentVersion) {
     fs.mkdirSync(INTEGRATION_DIR, { recursive: true });
 
-    const xmlFilePath = path.join(INTEGRATION_DIR, 'InstallAgentPackage.xml');
-    util.fillAgentParameters(
-        path.join(__dirname, '..', 'src', 'Misc', 'InstallAgentPackage.template.xml'),
-        xmlFilePath,
-        agentVersion
-    );
-    clearEmptyHashValueLine(xmlFilePath);
-    clearEmptyXmlNodes(xmlFilePath);
+    for (const agentPackageXml of ['InstallAgentPackage', 'UpdateAgentPackage']) {
+        const xmlFilePath = path.join(INTEGRATION_DIR, `${agentPackageXml}.xml`);
+        util.fillAgentParameters(
+            path.join(__dirname, '..', 'src', 'Misc', `${agentPackageXml}.template.xml`),
+            xmlFilePath,
+            agentVersion
+        );
+        clearEmptyHashValueLine(xmlFilePath);
+        clearEmptyXmlNodes(xmlFilePath);
+    }
 
     const publishScriptFilePath = path.join(INTEGRATION_DIR, 'Publish.ps1');
     util.fillAgentParameters(
@@ -74,16 +76,16 @@ function clearEmptyHashValueLine(filePath) {
  * @param {string} commitMessage commit message
  * @param {string} title pull request title
  * @param {string} description pull reqest description
- * @param {string} targetsToCommit files to add in pull request
+ * @param {string[]} targetsToCommit files to add in pull request
  */
-async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, title, description, targetsToCommit) {
+async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, title, description, targetsToCommit, dryrun = false) {
     console.log(`Creating PR from "${sourceBranch}" into "${targetBranch}" in the "${project}/${repo}" repo`);
 
     const repoPath = path.join(INTEGRATION_DIR, repo);
 
     if (!fs.existsSync(repoPath)) {
         const gitUrl = `https://${process.env.PAT}@${orgUrl}/${project}/_git/${repo}`;
-        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, opt.dryrun);
+        util.execInForeground(`${GIT} clone --depth 1 ${gitUrl} ${repoPath}`, null, dryrun);
     }
 
     for (const targetToCommit of targetsToCommit) {
@@ -93,7 +95,7 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
         const sourceFile = path.join(INTEGRATION_DIR, fileName);
         const targetFile = path.join(fullPath, fileName);
 
-        if (opt.options.dryrun) {
+        if (dryrun) {
             console.log(`Fake copy file from ${sourceFile} to ${targetFile}`);
         } else {
             console.log(`Copy file from ${sourceFile} to ${targetFile}`);
@@ -103,12 +105,12 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
     }
 
     for (const targetToCommit of targetsToCommit) {
-        util.execInForeground(`${GIT} add ${targetToCommit}`, repoPath, opt.dryrun);
+        util.execInForeground(`${GIT} add ${targetToCommit}`, repoPath, dryrun);
     }
 
-    util.execInForeground(`${GIT} checkout -b ${sourceBranch}`, repoPath);
-    util.execInForeground(`${GIT} commit -m "${commitMessage}"`, repoPath);
-    util.execInForeground(`${GIT} push --force origin ${sourceBranch}`, repoPath);
+    util.execInForeground(`${GIT} checkout -b ${sourceBranch}`, repoPath, dryrun);
+    util.execInForeground(`${GIT} commit -m "${commitMessage}"`, repoPath, dryrun);
+    util.execInForeground(`${GIT} push --force origin ${sourceBranch}`, repoPath, dryrun);
 
     const prefix = 'refs/heads/';
 
@@ -127,6 +129,8 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     if (PR) {
         console.log('PR already exists');
+    } else if (dryrun) {
+        return [-1, 'test']; // return without creating PR for test runs
     } else {
         console.log('PR does not exist; creating PR');
         PR = await gitApi.createPullRequest(pullRequest, repo, project);
@@ -165,8 +169,16 @@ async function main() {
         util.verifyMinimumNodeVersion();
         util.verifyMinimumGitVersion();
         createIntegrationFiles(agentVersion);
-        util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, opt.dryrun);
-        util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, opt.dryrun);
+
+        let dryrun = false;
+        if (opt.options.dryrun) {
+            dryrun = opt.options.dryrun.toString().toLowerCase() === "true"
+        }
+
+        console.log(`Dry run: ${dryrun}`);
+
+        util.execInForeground(`${GIT} config --global user.email "${process.env.USEREMAIL}"`, null, dryrun);
+        util.execInForeground(`${GIT} config --global user.name "${process.env.USERNAME}"`, null, dryrun);
 
         const sprint = await getCurrentSprint();
 
@@ -183,8 +195,12 @@ async function main() {
             [
                 path.join(
                     'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'InstallAgentPackage.xml'
-                )
-            ]
+                ),
+                path.join(
+                    'DistributedTask', 'Service', 'Servicing', 'Host', 'Deployment', 'Groups', 'UpdateAgentPackage.xml'
+                ),
+            ],
+            dryrun
         );
 
         const [ccPrId, ccPrLink] = await openPR(
@@ -195,7 +211,8 @@ async function main() {
                 path.join(
                     'tfs', `m${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1'
                 )
-            ]
+            ],
+            dryrun
         );
 
         console.log(`##vso[task.setvariable variable=AdoPrId;isOutput=true]${adoPrId}`);

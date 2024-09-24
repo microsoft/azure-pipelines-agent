@@ -99,7 +99,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IResultReader),
                 typeof(INUnitResultsXmlReader),
                 typeof(IWorkerCommand),
-                typeof(ITaskRestrictionsChecker)
+                typeof(ITaskRestrictionsChecker),
+                typeof(IRetryOptions)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

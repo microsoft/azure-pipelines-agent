@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         bool IsConfigured();
         Task ConfigureAsync(CommandSettings command);
         Task UnconfigureAsync(CommandSettings command);
+        Task ReAuthAsync(CommandSettings command);
         AgentSettings LoadSettings();
     }
 
@@ -120,13 +121,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     break;
                 case PlatformUtil.OS.Windows:
                     // Warn and continue if .NET 4.6 is not installed.
-                    #pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
+#pragma warning disable CA1416 // SupportedOSPlatformGuard not honored on enum members
                     if (!NetFrameworkUtil.Test(new Version(4, 6), Trace))
                     {
                         WriteSection(StringUtil.Loc("PrerequisitesSectionHeader")); // Section header.
                         _term.WriteLine(StringUtil.Loc("MinimumNetFrameworkTfvc")); // Warning.
                     }
-                    #pragma warning restore CA1416
+#pragma warning restore CA1416
 
                     break;
                 default:
@@ -159,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 try
                 {
                     bool skipCertValidation = command.GetSkipCertificateValidation();
-                    isHostedServer = await checkIsHostedServer(agentProvider, agentSettings, credProvider, skipCertValidation);
+                    isHostedServer = await CheckIsHostedServer(agentProvider, agentSettings, credProvider, skipCertValidation);
 
                     // Get the collection name for deployment group
                     agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
@@ -180,16 +181,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteError(StringUtil.Loc("FailedToConnect"));
                 }
             }
-            
-            // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
+
+            bool rsaKeyGetConfigFromFF = global::Agent.Sdk.Knob.AgentKnobs.RsaKeyGetConfigFromFF.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+
             RSAParameters publicKey;
-            var keyManager = HostContext.GetService<IRSAKeyManager>();
-            var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
-            var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
-            var useCng = ffResult.useCng;
-            using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
+
+            if (rsaKeyGetConfigFromFF)
             {
-                publicKey = rsa.ExportParameters(false);
+                // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
+                var keyManager = HostContext.GetService<IRSAKeyManager>();
+                var ffResult = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
+                var enableAgentKeyStoreInNamedContainer = ffResult.useNamedContainer;
+                var useCng = ffResult.useCng;
+                using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
+                {
+                    publicKey = rsa.ExportParameters(false);
+                }
+            }
+            else
+            {
+                // We want to use the native CSP of the platform for storage, so we use the RSACSP directly
+                var keyManager = HostContext.GetService<IRSAKeyManager>();
+                var result = keyManager.GetStoreAgentTokenConfig();
+                var enableAgentKeyStoreInNamedContainer = result.useNamedContainer;
+                var useCng = result.useCng;
+                using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
+                {
+                    publicKey = rsa.ExportParameters(false);
+                }
             }
 
             // Loop getting agent name and pool name
@@ -293,57 +312,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 }
             }
 
-            // See if the server supports our OAuth key exchange for credentials
-            if (agent.Authorization != null &&
-                agent.Authorization.ClientId != Guid.Empty &&
-                agent.Authorization.AuthorizationUrl != null)
-            {
-                // We use authorizationUrl as the oauth endpoint url by default.
-                // For TFS, we need make sure the Schema/Host/Port component of the oauth endpoint url also match configuration url. (Incase of customer's agent configure URL and TFS server public URL are different)
-                // Which means, we will keep use the original authorizationUrl in the VssOAuthJwtBearerClientCredential (authorizationUrl is the audience),
-                // But might have different Url in VssOAuthCredential (connection url)
-                // We can't do this for VSTS, since its SPS/TFS urls are different.
-                UriBuilder configServerUrl = new UriBuilder(agentSettings.ServerUrl);
-                UriBuilder oauthEndpointUrlBuilder = new UriBuilder(agent.Authorization.AuthorizationUrl);
-                if (!isHostedServer && Uri.Compare(configServerUrl.Uri, oauthEndpointUrlBuilder.Uri, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
-                {
-                    oauthEndpointUrlBuilder.Scheme = configServerUrl.Scheme;
-                    oauthEndpointUrlBuilder.Host = configServerUrl.Host;
-                    oauthEndpointUrlBuilder.Port = configServerUrl.Port;
-                    Trace.Info($"Set oauth endpoint url's scheme://host:port component to match agent configure url's scheme://host:port: '{oauthEndpointUrlBuilder.Uri.AbsoluteUri}'.");
-                }
-
-                var credentialData = new CredentialData
-                {
-                    Scheme = Constants.Configuration.OAuth,
-                    Data =
-                    {
-                        { "clientId", agent.Authorization.ClientId.ToString("D") },
-                        { "authorizationUrl", agent.Authorization.AuthorizationUrl.AbsoluteUri },
-                        { "oauthEndpointUrl", oauthEndpointUrlBuilder.Uri.AbsoluteUri },
-                    },
-                };
-
-                // Save the negotiated OAuth credential data
-                _store.SaveCredential(credentialData);
-            }
-            else
-            {
-                switch (PlatformUtil.HostOS)
-                {
-                    case PlatformUtil.OS.OSX:
-                    case PlatformUtil.OS.Linux:
-                        // Save the provided admin cred for compat with previous agent.
-                        _store.SaveCredential(credProvider.CredentialData);
-                        break;
-                    case PlatformUtil.OS.Windows:
-                        // Not supported against TFS 2015.
-                        _term.WriteError(StringUtil.Loc("Tfs2015NotSupported"));
-                        return;
-                    default:
-                        throw new NotSupportedException();
-                }
-            }
+            UpdateCredentialData(agent, agentSettings, credProvider.CredentialData, isHostedServer);
 
             // Testing agent connection, detect any protential connection issue, like local clock skew that cause OAuth token expired.
             _term.WriteLine(StringUtil.Loc("TestAgentConnection"));
@@ -380,6 +349,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.NotificationSocketAddress = command.GetNotificationSocketAddress();
 
             agentSettings.DisableLogUploads = command.GetDisableLogUploads();
+            agentSettings.ReStreamLogsToFiles = command.GetReStreamLogsToFiles();
+
+            if (agentSettings.DisableLogUploads && agentSettings.ReStreamLogsToFiles)
+            {
+                throw new NotSupportedException(StringUtil.Loc("ReStreamLogsToFilesError"));
+            }
 
             agentSettings.AlwaysExtractTask = command.GetAlwaysExtractTask();
 
@@ -552,7 +527,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
-                    bool isHostedServer = await checkIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
+                    bool isHostedServer = await CheckIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
 
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer, agentCertManager.SkipServerCertificateValidation);
@@ -619,6 +594,182 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 _term.WriteLine(StringUtil.Loc("Failed") + currentAction);
                 throw;
+            }
+        }
+
+        public async Task ReAuthAsync(CommandSettings command)
+        {
+            bool isConfigured = _store.IsConfigured();
+            if (!isConfigured)
+            {
+                throw new InvalidOperationException("Not configured");
+            }
+
+            AgentSettings agentSettings = _store.GetSettings();
+
+            bool isDeploymentGroup = (agentSettings.MachineGroupId > 0) || (agentSettings.DeploymentGroupId > 0);
+            bool isEnvironmentVMResource = !isDeploymentGroup && (agentSettings.EnvironmentId > 0);
+
+            string agentType = isDeploymentGroup
+                ? Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration
+                : (isEnvironmentVMResource
+                   ? Constants.Agent.AgentConfigurationProvider.EnvironmentVMResourceConfiguration
+                   : Constants.Agent.AgentConfigurationProvider.BuildReleasesAgentConfiguration);
+
+            var extensionManager = HostContext.GetService<IExtensionManager>();
+            IConfigurationProvider agentProvider = extensionManager.GetExtensions<IConfigurationProvider>()
+                .FirstOrDefault(x => x.ConfigurationProviderType == agentType);
+            ArgUtil.NotNull(agentProvider, agentType);
+
+            ICredentialProvider credProvider = GetCredentialProvider(command, agentSettings.ServerUrl);
+
+            bool skipCertValidation = command.GetSkipCertificateValidation();
+            bool isHostedServer = await CheckIsHostedServer(agentProvider, agentSettings, credProvider, skipCertValidation);
+            // Get the collection name for deployment group
+            agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
+
+            bool rsaKeyGetConfigFromFF = global::Agent.Sdk.Knob.AgentKnobs.RsaKeyGetConfigFromFF.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+            var keyManager = HostContext.GetService<IRSAKeyManager>();
+            bool enableAgentKeyStoreInNamedContainer;
+            bool useCng;
+
+            WriteSection(StringUtil.Loc("ConnectSectionHeader"));
+
+            // Loop getting url and creds until you can connect
+            while (true)
+            {
+                try
+                {
+                    // Validate can connect.
+                    VssCredentials creds = credProvider.GetVssCredentials(HostContext);
+                    await agentProvider.TestConnectionAsync(agentSettings, creds, isHostedServer, skipCertValidation);
+                    Trace.Info("Test Connection complete.");
+
+                    if (rsaKeyGetConfigFromFF)
+                    {
+                        (enableAgentKeyStoreInNamedContainer, useCng) = await keyManager.GetStoreAgentTokenInNamedContainerFF(HostContext, Trace, agentSettings, creds);
+                    }
+                    else
+                    {
+                        (enableAgentKeyStoreInNamedContainer, useCng) = keyManager.GetStoreAgentTokenConfig();
+                    }
+                    RSAParameters publicKey;
+                    using (var rsa = keyManager.CreateKey(enableAgentKeyStoreInNamedContainer, useCng))
+                    {
+                        publicKey = rsa.ExportParameters(false);
+                    }
+
+                    TaskAgent agent = await agentProvider.GetAgentAsync(agentSettings);
+                    if (agent == null)
+                    {
+                        try
+                        {
+                            _term.WriteLine(StringUtil.Loc("ScanToolCapabilities"));
+                            var capsManager = HostContext.GetService<ICapabilitiesManager>();
+                            Dictionary<string, string> systemCapabilities = await capsManager.GetCapabilitiesAsync(agentSettings, CancellationToken.None);
+                            agent = CreateNewAgent(agentSettings.AgentName, publicKey, systemCapabilities);
+                            agent = await agentProvider.AddAgentAsync(agentSettings, agent, command);
+                            _term.WriteLine(StringUtil.Loc("AgentAddedSuccessfully"));
+                        }
+                        catch (Exception e) when (!command.Unattended())
+                        {
+                            _term.WriteError(e);
+                            _term.WriteError(StringUtil.Loc("AddAgentFailed"));
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            agent.Authorization = new TaskAgentAuthorization
+                            {
+                                PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
+                            };
+                            agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
+                            _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                        }
+                        catch (Exception e) when (!command.Unattended())
+                        {
+                            _term.WriteError(e);
+                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                        }
+                    }
+
+                    agentSettings.AgentId = agent.Id;
+                    _store.SaveSettings(agentSettings);
+
+                    UpdateCredentialData(agent, agentSettings, credProvider.CredentialData, isHostedServer);
+
+                    break;
+                }
+                catch (SocketException e)
+                {
+                    ExceptionsUtil.HandleSocketException(e, agentSettings.ServerUrl, _term.WriteError);
+                }
+                catch (Exception e) when (!command.Unattended())
+                {
+                    _term.WriteError(e);
+                    _term.WriteError(StringUtil.Loc("FailedToConnect"));
+                }
+            }
+        }
+
+        private void UpdateCredentialData(
+            TaskAgent agent,
+            AgentSettings agentSettings,
+            CredentialData newCredentialData,
+            bool isHostedServer)
+        {
+            // See if the server supports our OAuth key exchange for credentials
+            if (agent.Authorization != null &&
+                agent.Authorization.ClientId != Guid.Empty &&
+                agent.Authorization.AuthorizationUrl != null)
+            {
+                // We use authorizationUrl as the oauth endpoint url by default.
+                // For TFS, we need make sure the Schema/Host/Port component of the oauth endpoint url also match configuration url. (Incase of customer's agent configure URL and TFS server public URL are different)
+                // Which means, we will keep use the original authorizationUrl in the VssOAuthJwtBearerClientCredential (authorizationUrl is the audience),
+                // But might have different Url in VssOAuthCredential (connection url)
+                // We can't do this for VSTS, since its SPS/TFS urls are different.
+                UriBuilder configServerUrl = new UriBuilder(agentSettings.ServerUrl);
+                UriBuilder oauthEndpointUrlBuilder = new UriBuilder(agent.Authorization.AuthorizationUrl);
+                if (!isHostedServer && Uri.Compare(configServerUrl.Uri, oauthEndpointUrlBuilder.Uri, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
+                {
+                    oauthEndpointUrlBuilder.Scheme = configServerUrl.Scheme;
+                    oauthEndpointUrlBuilder.Host = configServerUrl.Host;
+                    oauthEndpointUrlBuilder.Port = configServerUrl.Port;
+                    Trace.Info($"Set oauth endpoint url's scheme://host:port component to match agent configure url's scheme://host:port: '{oauthEndpointUrlBuilder.Uri.AbsoluteUri}'.");
+                }
+
+                var credentialData = new CredentialData
+                {
+                    Scheme = Constants.Configuration.OAuth,
+                    Data =
+                    {
+                        { "clientId", agent.Authorization.ClientId.ToString("D") },
+                        { "authorizationUrl", agent.Authorization.AuthorizationUrl.AbsoluteUri },
+                        { "oauthEndpointUrl", oauthEndpointUrlBuilder.Uri.AbsoluteUri },
+                    },
+                };
+
+                // Save the negotiated OAuth credential data
+                _store.SaveCredential(credentialData);
+            }
+            else
+            {
+                switch (PlatformUtil.HostOS)
+                {
+                    case PlatformUtil.OS.OSX:
+                    case PlatformUtil.OS.Linux:
+                        // Save the provided admin cred for compat with previous agent.
+                        _store.SaveCredential(newCredentialData);
+                        break;
+                    case PlatformUtil.OS.Windows:
+                        // Not supported against TFS 2015.
+                        _term.WriteError(StringUtil.Loc("Tfs2015NotSupported"));
+                        return;
+                    default:
+                        throw new NotSupportedException();
+                }
             }
         }
 
@@ -718,7 +869,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // Get info about root folder
                     DirectoryInfo dirInfo = new DirectoryInfo(rootDirPath);
 
-                    // Get directory access control list 
+                    // Get directory access control list
                     DirectorySecurity directorySecurityInfo = dirInfo.GetAccessControl();
                     AuthorizationRuleCollection dirAccessRules = directorySecurityInfo.GetAccessRules(true, true, typeof(NTAccount));
 
@@ -848,7 +999,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             return agentType;
         }
 
-        private async Task<bool> checkIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider, bool skipServerCertificateValidation)
+        private async Task<bool> CheckIsHostedServer(IConfigurationProvider agentProvider, AgentSettings agentSettings, ICredentialProvider credProvider, bool skipServerCertificateValidation)
         {
             bool isHostedServer = false;
             VssCredentials creds = credProvider.GetVssCredentials(HostContext);

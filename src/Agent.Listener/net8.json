@@ -1,0 +1,146 @@
+[
+  {
+    "id": "alpine",
+    "versions": [
+      {
+        "name": "3.17+"
+      }
+    ]
+  },
+  {
+    "id": "amzn",
+    "versions": [
+      {
+        "name": "2"
+      },
+      {
+        "name": "2023"
+      }
+    ]
+  },
+  {
+    "id": "debian",
+    "versions": [
+      {
+        "name": "11+"
+      }
+    ]
+  },
+  {
+    "id": "fedora",
+    "versions": [
+      {
+        "name": "39+"
+      }
+    ]
+  },
+  {
+    "id": "ol",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "macOS",
+    "versions": [
+      {
+        "name": "12+"
+      }
+    ]
+  },
+  {
+    "id": "mariner",
+    "versions": [
+      {
+        "name": "2.0+"
+      }
+    ]
+  },
+  {
+    "id": "opensuse-leap",
+    "versions": [
+      {
+        "name": "15.5+"
+      }
+    ]
+  },
+  {
+    "id": "almalinux",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "rhel",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "sles",
+    "versions": [
+      {
+        "name": "15+"
+      }
+    ]
+  },
+  {
+    "id": "ubuntu",
+    "versions": [
+      {
+        "name": "20.04"
+      },
+      {
+        "name": "22.04"
+      },
+      {
+        "name": "23.10"
+      },
+      {
+        "name": "24.04"
+      }
+    ]
+  },
+  {
+    "id": "Windows Client",
+    "versions": [
+      {
+        "name": "10",
+        "version": "1607+"
+      },
+      {
+        "name": "11"
+      }
+    ]
+  },
+  {
+    "id": "Windows Nano Server",
+    "versions": [
+      {
+        "version": "1809+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server",
+    "versions": [
+      {
+        "name": "2016+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server Core",
+    "versions": [
+      {
+        "name": "2016+"
+      }
+    ]
+  }
+]

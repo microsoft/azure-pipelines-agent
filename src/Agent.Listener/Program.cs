@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         // 1: Terminate failure
         // 2: Retriable failure
         // 3: Exit for self update
-        private async static Task<int> MainAsync(IHostContext context, string[] args)
+        private static async Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
             trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");

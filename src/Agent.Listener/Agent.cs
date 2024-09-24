@@ -19,6 +19,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -127,6 +128,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
+                if (command.IsReAuthCommand())
+                {
+                    try
+                    {
+                        await configManager.ReAuthAsync(command);
+                        return Constants.Agent.ReturnCode.Success;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Error(ex);
+                        _term.WriteError(ex.Message);
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
+                }
+
                 _inConfigStage = false;
 
                 // warmup agent process (JIT/CLR)
@@ -214,6 +230,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 Trace.Info($"Set agent startup type - {startType}");
                 HostContext.StartupType = startType;
+
+                bool debugModeEnabled = command.GetDebugMode();
+
+                if (debugModeEnabled)
+                {
+                    Trace.Warning("Agent is running in debug mode, don't use it in production");
+                    settings.DebugMode = true;
+                    store.SaveSettings(settings);
+                }
+                else if (settings.DebugMode && !debugModeEnabled)
+                {
+                    settings.DebugMode = false;
+                    store.SaveSettings(settings);
+                }
 
                 if (PlatformUtil.RunningOnWindows)
                 {
@@ -326,6 +356,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             try
             {
                 Trace.Info(nameof(RunAsync));
+
+                if (PlatformUtil.RunningOnWindows && AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean())
+                {
+                    string psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
+                    bool containsPwshLocations = PsModulePathUtil.ContainsPowershellCoreLocations(psModulePath);
+
+                    if (containsPwshLocations)
+                    {
+                        _term.WriteLine(StringUtil.Loc("PSModulePathLocations"));
+                    }
+                }
+
                 _listener = HostContext.GetService<IMessageListener>();
                 if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
                 {

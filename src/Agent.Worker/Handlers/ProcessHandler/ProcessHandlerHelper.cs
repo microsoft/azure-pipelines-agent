@@ -4,11 +4,11 @@
 using System;
 using System.Collections.Generic;
 using Agent.Sdk.Knob;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Common;
 
-namespace Agent.Worker.Handlers.Helpers
+namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
     public static class ProcessHandlerHelper
     {
@@ -133,7 +133,13 @@ namespace Agent.Worker.Handlers.Helpers
                     {
                         if (enableAudit && !enableValidation)
                         {
-                            context.Warning(StringUtil.Loc("ProcessHandlerInvalidScriptArgs"));
+                            var issue = new Issue
+                            {
+                                Type = IssueType.Warning,
+                                Message = StringUtil.Loc("ProcessHandlerInvalidScriptArgs"),
+                            };
+                            issue.Data.Add("auditAction", "1"); // ShellTasksValidation = 1
+                            context.AddIssue(issue);
                         }
                         if (enableValidation)
                         {
@@ -151,6 +157,39 @@ namespace Agent.Worker.Handlers.Helpers
                 context.Debug("Args sanitization skipped.");
                 return (true, null);
             }
+        }
+
+        public static (bool, Dictionary<string, object>) ValidateInputArgumentsV2(
+            IExecutionContext context,
+            string inputArgs,
+            Dictionary<string, string> environment,
+            bool canIncludeTelemetry)
+        {
+            context.Debug("Starting args env expansion");
+            var (expandedArgs, envExpandTelemetry) = ExpandCmdEnv(inputArgs, environment);
+            context.Debug($"Expanded args={expandedArgs}");
+
+            context.Debug("Starting args sanitization");
+            var (sanitizedArgs, sanitizationTelemetry) = CmdArgsSanitizer.SanitizeArguments(expandedArgs);
+
+            if (sanitizedArgs != inputArgs)
+            {
+                Dictionary<string, object> telemetry = null;
+                if (canIncludeTelemetry)
+                {
+                    telemetry = envExpandTelemetry.ToDictionary();
+                    if (sanitizationTelemetry != null)
+                    {
+                        telemetry.AddRange(sanitizationTelemetry.ToDictionary());
+                    }
+                }
+                if (sanitizedArgs != expandedArgs)
+                {
+                    return (false, telemetry);
+                }
+            }
+
+            return (true, null);
         }
     }
 

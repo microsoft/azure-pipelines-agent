@@ -1,17 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
 using System;
-using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Xunit;
-using Agent.Sdk;
-using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -225,6 +223,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 // Act.
                 bool actual = command.IsWarmupCommand();
+
+                // Assert.
+                Assert.True(actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsCommandReAuth()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "reauth" });
+
+                // Act.
+                bool actual = command.IsReAuthCommand();
 
                 // Assert.
                 Assert.True(actual);

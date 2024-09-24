@@ -32,6 +32,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                bool killProcessOnCancel,
                                bool inheritConsoleHandler,
                                bool continueAfterCancelProcessTreeKillAttempt,
+                               TimeSpan sigintTimeout,
+                               TimeSpan sigtermTimeout,
+                               bool useGracefulShutdown,
                                CancellationToken cancellationToken);
     }
 
@@ -66,12 +69,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
                                             bool continueAfterCancelProcessTreeKillAttempt,
+                                            TimeSpan sigintTimeout,
+                                            TimeSpan sigtermTimeout,
+                                            bool useGracefulShutdown,
                                             CancellationToken cancellationToken)
         {
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
+                processInvoker.SigintTimeout = sigintTimeout;
+                processInvoker.SigtermTimeout = sigtermTimeout;
+                processInvoker.TryUseGracefulShutdown = useGracefulShutdown;
 
                 return await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
                                                          fileName: fileName,
@@ -139,6 +148,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                             bool killProcessOnCancel,
                                             bool inheritConsoleHandler,
                                             bool continueAfterCancelProcessTreeKillAttempt,
+                                            TimeSpan sigintTimeout,
+                                            TimeSpan sigtermTimeout,
+                                            bool useGracefulShutdown,
                                             CancellationToken cancellationToken)
         {
             // make sure container exist.
@@ -170,16 +182,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Copying containerHandlerInvoker.js to {tempDir}");
             File.Copy(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), "containerHandlerInvoker.js.template"), targetEntryScript, true);
 
-            string node;
-            if (!string.IsNullOrEmpty(Container.CustomNodePath))
-            {
-                node = Container.CustomNodePath;
-            }
-            else
-            {
-                node = Container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "node", "bin", $"node{IOUtil.ExeExtension}"));
-            }
-
             string entryScript = Container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, Container.TranslateToContainerPath(targetEntryScript));
 
             string userArgs = "";
@@ -197,13 +199,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             }
 
-            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {node} {entryScript}";
+            string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {Container.ResultNodePath} {entryScript}";
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
                 processInvoker.OutputDataReceived += OutputDataReceived;
                 processInvoker.ErrorDataReceived += ErrorDataReceived;
                 outputEncoding = null; // Let .NET choose the default.
+
+                processInvoker.SigintTimeout = sigintTimeout;
+                processInvoker.SigtermTimeout = sigtermTimeout;
+                processInvoker.TryUseGracefulShutdown = useGracefulShutdown;
 
                 if (PlatformUtil.RunningOnWindows)
                 {

@@ -26,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         Task<string> DockerCreate(IExecutionContext context, ContainerInfo container);
         Task<int> DockerStart(IExecutionContext context, string containerId);
         Task<int> DockerLogs(IExecutionContext context, string containerId);
+        Task<List<string>> GetDockerLogs(IExecutionContext context, string containerId);
         Task<List<string>> DockerPS(IExecutionContext context, string options);
         Task<int> DockerRemove(IExecutionContext context, string containerId);
         Task<int> DockerNetworkCreate(IExecutionContext context, string network);
@@ -100,7 +101,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
-            var action = new Func<Task<int>>(async () => PlatformUtil.RunningOnWindows
+            var useDockerStdinPasswordOnWindows = AgentKnobs.UseDockerStdinPasswordOnWindows.GetValue(context).AsBoolean();
+
+            var action = new Func<Task<int>>(async () => PlatformUtil.RunningOnWindows && !useDockerStdinPasswordOnWindows
                 // Wait for 17.07 to switch using stdin for docker registry password.
                 ? await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password \"{password.Replace("\"", "\\\"")}\" {server}", new List<string>() { password }, context.CancellationToken)
                 : await ExecuteDockerCommandAsync(context, "login", $"--username \"{username}\" --password-stdin {server}", new List<string>() { password }, context.CancellationToken)
@@ -225,6 +228,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(containerId, nameof(containerId));
 
             return await ExecuteDockerCommandAsync(context, "logs", $"--details {containerId}", context.CancellationToken);
+        }
+
+        public async Task<List<string>> GetDockerLogs(IExecutionContext context, string containerId)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(containerId, nameof(containerId));
+
+            return await ExecuteDockerCommandAsync(context, "logs", $"--details {containerId}");
         }
 
         public async Task<List<string>> DockerPS(IExecutionContext context, string options)

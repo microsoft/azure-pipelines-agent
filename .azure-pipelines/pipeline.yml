@@ -1,6 +1,9 @@
 # This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
 # This pipeline will be extended to the OneESPT template
 parameters:
+- name: targetFramework
+  type: string
+  default: all
 - name: preBuildStages
   type: stageList
   default: []
@@ -51,6 +54,9 @@ parameters:
 - name: alpine_x64
   type: boolean
   default: true
+- name: alpine_arm64
+  type: boolean
+  default: true
 - name: macOS_x64
   type: boolean
   default: true
@@ -66,6 +72,8 @@ resources:
 extends:
   template: v1/1ES.Official.PipelineTemplate.yml@1ESPipelineTemplates
   parameters:
+    settings:
+      skipBuildTagsForGitHubPullRequests: true
     featureFlags:
       autoBaseline: false
     sdl:
@@ -97,6 +105,13 @@ extends:
       - ${{ if parameters.testProxyAgent }}:
         - job: test_proxy_agent
           displayName: Test Proxy Agent
+          ${{ if eq(parameters.targetFramework, 'all') }}:
+            strategy:
+              matrix:
+                NET6.0:
+                  targetFramework: 'net6.0'
+                NET8.0:
+                  targetFramework: 'net8.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
               image: abtt-ubuntu-2204
@@ -104,8 +119,11 @@ extends:
           variables:
             DisableDockerDetector: true
             nugetMultiFeedWarnLevel: none
+            ${{ if ne(parameters.targetFramework, 'all') }}:
+              targetFramework: ${{ parameters.targetFramework }}
           timeoutInMinutes: 300
           steps:
+          - template: /.azure-pipelines/get-pat.yml@self
           - bash: |
               cd ./.azure-pipelines/scripts/
               npm install axios minimist
@@ -114,12 +132,13 @@ extends:
               sourceBranch="$(Build.SourceBranch)"
               branch="${releaseBranch:-"${sourceBranch}"}"
               echo "Canary \"branch\" parameter: \"${branch}\""
+              echo "Canary \"target_framework\" parameter: \"$(targetFramework)\""
 
               node ./run-and-verify.js \
                   --projectUrl "$(CANARY_PROJECT_URL)" \
                   --pipelineId "$(CANARY_PIPELINE_ID)" \
-                  --token "$(CANARY_PAT)" \
-                  --templateParameters "{ \"branch\": \"${branch}\" }"
+                  --token "$(ACCESS_TOKEN)" \
+                  --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"$(targetFramework)\"}"
             displayName: Test Proxy Agent
 
   # Windows (x64)
@@ -142,6 +161,7 @@ extends:
             verifySigning: ${{ parameters.sign }}
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # Windows (x86)
       - ${{ if parameters.win_x86 }}:
@@ -161,6 +181,7 @@ extends:
             sign: ${{ parameters.sign }}
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # Linux (x64)
       - ${{ if parameters.linux_x64 }}:
@@ -180,6 +201,7 @@ extends:
             sign: ${{ parameters.sign }}
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # Linux (ARM)
       - ${{ if parameters.linux_arm }}:
@@ -200,6 +222,7 @@ extends:
             sign: false
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # Linux (ARM64)
       - ${{ if parameters.linux_arm64 }}:
@@ -220,6 +243,7 @@ extends:
             sign: false
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # Alpine (x64)
       - ${{ if parameters.alpine_x64 }}:
@@ -240,16 +264,39 @@ extends:
             sign: false
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: false
+            targetFramework: ${{ parameters.targetFramework }}
+
+  # Alpine (ARM64)
+      - ${{ if parameters.alpine_arm64 }}:
+        - template: /.azure-pipelines/build-jobs.yml@self
+          parameters:
+            jobName: build_alpine_arm64
+            displayName: Alpine (ARM64)
+            pool:
+              name: 1ES-ABTT-Shared-ARM-64-Pool
+              vmImage: abtt-mariner_arm64
+              os: linux
+            # container: # arm64v8/alpine (N/A)
+            os: linux-musl
+            arch: arm64
+            branch: ${{ parameters.branch }}
+            unitTests: ${{ parameters.test }}
+            functionalTests: false
+            sign: false
+            publishArtifacts: ${{ parameters.publishArtifacts }}
+            buildAlternatePackage: false
+            targetFramework: ${{ parameters.targetFramework }}
 
   # macOS (x64)
       - ${{ if parameters.macOS_x64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
+            disableSdl: true
             jobName: build_osx
             displayName: macOS (x64)
             pool:
               name: Azure Pipelines
-              image: macOS-11
+              image: macOS-12
               os: macOS
             os: osx
             arch: x64
@@ -259,11 +306,13 @@ extends:
             sign: ${{ parameters.sign }}
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
 
   # macOS (ARM64)
       - ${{ if parameters.macOS_arm64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
+            disableSdl: true
             jobName: build_osx_arm64
             displayName: macOS (ARM64)
             pool:
@@ -278,4 +327,5 @@ extends:
             sign: ${{ parameters.sign }}
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+            targetFramework: ${{ parameters.targetFramework }}
     - ${{ parameters.postBuildStages }}

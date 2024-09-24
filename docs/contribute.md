@@ -30,6 +30,25 @@ cd ./src
 ./dev.(sh/cmd) test # run unit tests before git commit/push
 ```
 
+## Debugging
+
+The agent can be run in debug mode by providing the parameter `--debug` to the `run` command.
+This will make the agent recognize the following environment variables:
+
+- `VSTSAGENT_DEBUG_TASK` - for remote debugging node-based pipeline tasks
+
+Note that all of these variables need to be defined on the node that is used to run the agent.
+Also, do not run production agents with this mode as it can cause pipelines to appear stuck.
+
+### `VSTSAGENT_DEBUG_TASK` environment variable
+
+When enabled, the agent will start the Node process with specific parameters. These parameters cause the process to wait for the debugger to attach before continuing with the execution of the pipeline task script. The value must be set to either:
+- Task `id`, which is an unique GUID identifier to be found in `task.json` definition of the task
+- Task `name` and major `version`, e.g. AzureCLIV2
+
+Only one task can be debugged at one time and all other tasks in the same pipeline will proceed as usual.
+If you wish to stop debugging this task either restart that agent without `--debug` option, or unset the variables from above.
+
 ## Editors
 
 [Using Visual Studio 2017](https://www.visualstudio.com/vs/)  

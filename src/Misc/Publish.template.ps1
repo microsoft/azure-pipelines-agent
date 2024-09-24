@@ -18,6 +18,8 @@ if ($pwd -notlike '*tfsgheus20') {
 
     Add-DistributedTaskPackage -PackageType agent -Platform linux-musl-x64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz
 
+    Add-DistributedTaskPackage -PackageType agent -Platform linux-musl-arm64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz
+
     Add-DistributedTaskPackage -PackageType agent -Platform osx-arm64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz
 
     # alternate packages

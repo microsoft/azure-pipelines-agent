@@ -89,6 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <returns></returns>
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
+        void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -116,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private bool _throttlingReported = false;
         private ExecutionTargetInfo _defaultStepTarget;
         private ExecutionTargetInfo _currentStepTarget;
-        private bool _disableLogUploads;
+        private LogsStreamingOptions _logsStreamingOptions;
         private string _buildLogsFolderPath;
         private string _buildLogsFile;
         private FileStream _buildLogsData;
@@ -178,9 +179,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             base.Initialize(hostContext);
 
-            _disableLogUploads = HostContext.GetService<IConfigurationStore>().GetSettings().DisableLogUploads;
+            var agentSettings = HostContext.GetService<IConfigurationStore>().GetSettings();
 
-            if (_disableLogUploads)
+
+            _logsStreamingOptions = LogsStreamingOptions.StreamToServer;
+            if (agentSettings.ReStreamLogsToFiles)
+            {
+                _logsStreamingOptions |= LogsStreamingOptions.StreamToFiles;
+            }
+            else if (agentSettings.DisableLogUploads)
+            {
+                _logsStreamingOptions = LogsStreamingOptions.StreamToFiles;
+            }
+            Trace.Info($"Logs streaming mode: {_logsStreamingOptions}");
+
+            if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
                 _buildLogsFolderPath = Path.Combine(hostContext.GetDiagDirectory(), _buildLogsFolderName);
                 Directory.CreateDirectory(_buildLogsFolderPath);
@@ -263,7 +276,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
 
-            if (_disableLogUploads)
+            if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
                 var buildLogsJobFolder = Path.Combine(_buildLogsFolderPath, _mainTimelineId.ToString());
                 Directory.CreateDirectory(buildLogsJobFolder);
@@ -275,7 +288,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _buildLogsData = new FileStream(_buildLogsFile, FileMode.CreateNew);
                 _buildLogsWriter = new StreamWriter(_buildLogsData, System.Text.Encoding.UTF8);
 
-                _logger.Write(StringUtil.Loc("BuildLogsMessage", _buildLogsFile));
+                if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToServerAndFiles))
+                {
+                    _logger.Write(StringUtil.Loc("LogOutputMessage", _buildLogsFile));
+                }
+                else
+                {
+                    _logger.Write(StringUtil.Loc("BuildLogsMessage", _buildLogsFile));
+                }
             }
         }
 
@@ -286,7 +306,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Result = result;
             }
 
-            if (_disableLogUploads)
+            if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
                 _buildLogsWriter.Flush();
                 _buildLogsData.Flush();
@@ -495,6 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var checkouts = message.Steps?.Where(x => Pipelines.PipelineConstants.IsCheckoutTask(x)).ToList();
             JobSettings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = Boolean.FalseString;
+            JobSettings[WellKnownJobSettings.CommandCorrelationId] = Guid.NewGuid().ToString();
             if (checkouts != null && checkouts.Count > 0)
             {
                 JobSettings[WellKnownJobSettings.HasMultipleCheckouts] = checkouts.Count > 1 ? Boolean.TrueString : Boolean.FalseString;
@@ -506,6 +527,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (repo != null)
                     {
                         repo.Properties.Set<bool>(RepositoryUtil.IsPrimaryRepository, true);
+                    }
+                }
+
+                var defaultWorkingDirectoryCheckout = Build.BuildJobExtension.GetDefaultWorkingDirectoryCheckoutTask(message.Steps);
+                if (Repositories != null && defaultWorkingDirectoryCheckout != null && defaultWorkingDirectoryCheckout.Inputs.TryGetValue(Pipelines.PipelineConstants.CheckoutTaskInputs.Repository, out string defaultWorkingDirectoryRepoAlias))
+                {
+                    var defaultWorkingDirectoryRepo = Repositories.Find(r => String.Equals(r.Alias, defaultWorkingDirectoryRepoAlias, StringComparison.OrdinalIgnoreCase));
+                    if (defaultWorkingDirectoryRepo != null)
+                    {
+                        defaultWorkingDirectoryRepo.Properties.Set<bool>(RepositoryUtil.IsDefaultWorkingDirectoryRepository, true);
+                        JobSettings[WellKnownJobSettings.DefaultWorkingDirectoryRepository] = defaultWorkingDirectoryRepoAlias;
+
+                        Trace.Info($"Will set the path of the following repository to be the System.DefaultWorkingDirectory: {defaultWorkingDirectoryRepoAlias}");
                     }
                 }
             }
@@ -702,21 +736,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 totalLines = _logger.TotalLines + 1;
 
-                if (_disableLogUploads)
-                {
-                    _buildLogsWriter.WriteLine(message);
-                }
-                else
+                if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToServer))
                 {
                     _logger.Write(message);
                 }
+                if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
+                {
+                    //Add date time stamp to log line
+                    _buildLogsWriter.WriteLine("{0:O} {1}", DateTime.UtcNow, message);
+                }
             }
 
-            if (!_disableLogUploads)
+            if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToServer))
             {
                 // write to job level execution context's log file.
-                var parentContext = _parentExecutionContext as ExecutionContext;
-                if (parentContext != null)
+                if (_parentExecutionContext is ExecutionContext parentContext)
                 {
                     lock (parentContext._loggerLock)
                     {
@@ -780,6 +814,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var configuration = HostContext.GetService<IConfigurationStore>();
             _record.WorkerName = configuration.GetSettings().AgentName;
+            _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
         }
@@ -909,16 +944,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // This overload is to handle specific types some other way.
         private void PublishTelemetry<T>(
             Dictionary<string, T> telemetryData,
-            string feature = "TaskHandler"
+            string feature = "TaskHandler",
+            bool IsAgentTelemetry = false
         )
         {
             // JsonConvert.SerializeObject always converts to base object.
-            PublishTelemetry((object)telemetryData, feature);
+            PublishTelemetry((object)telemetryData, feature, IsAgentTelemetry);
         }
 
         private void PublishTelemetry(
             object telemetryData,
-            string feature = "TaskHandler"
+            string feature = "TaskHandler",
+            bool IsAgentTelemetry = false
         )
         {
             var cmd = new Command("telemetry", "publish")
@@ -928,9 +965,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             cmd.Properties.Add("area", "PipelinesTasks");
             cmd.Properties.Add("feature", feature);
 
-            var publishTelemetryCmd = new TelemetryCommandExtension();
+            var publishTelemetryCmd = new TelemetryCommandExtension(IsAgentTelemetry);
             publishTelemetryCmd.Initialize(HostContext);
             publishTelemetryCmd.ProcessCommand(this, cmd);
+        }
+
+        public void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData)
+        {
+            PublishTelemetry(taskRunnerData, IsAgentTelemetry: true);
         }
 
         public void Dispose()
@@ -943,6 +985,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _buildLogsData?.Dispose();
             _buildLogsData = null;
         }
+
+        [Flags]
+        private enum LogsStreamingOptions
+        {
+            None = 0,
+            StreamToServer = 1,
+            StreamToFiles = 2,
+            StreamToServerAndFiles = StreamToServer | StreamToFiles
+        }
     }
 
     // The Error/Warning/etc methods are created as extension methods to simplify unit testing.
@@ -954,7 +1005,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(ex, nameof(ex));
 
-            context.Error(ex.Message);
+            context.Error(ex.Message, new Dictionary<string, string> { { TaskWellKnownItems.IssueSourceProperty, Constants.TaskInternalIssueSource } });
             context.Debug(ex.ToString());
         }
 
@@ -963,6 +1014,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(context, nameof(context));
             context.AddIssue(new Issue() { Type = IssueType.Error, Message = message });
+        }
+
+        public static void Error(this IExecutionContext context, string message, Dictionary<string, string> properties)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(properties, nameof(properties));
+
+            var issue = new Issue() { Type = IssueType.Error, Message = message };
+
+            foreach (var property in properties.Keys)
+            {
+                issue.Data[property] = properties[property];
+            }
+
+            context.AddIssue(issue);
         }
 
         // Do not add a format string overload. See comment on ExecutionContext.Write().

@@ -113,12 +113,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 //Start Resource Diagnostics if enabled in the job message 
                 jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
+
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.SetContext(jobContext);
 
                 if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
                 {
-                    resourceDiagnosticManager.Setup(jobContext);
-                    _ = resourceDiagnosticManager.RunDebugResourceMonitor();
+                    if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
+                    {
+                        _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
+                    }
+                    else
+                    {
+                        jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
+                    }
                 }
 
                 agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
@@ -169,7 +177,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
                 if (PlatformUtil.RunningOnWindows)
                 {
-                    jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, HostContext.GetDirectory(WellKnownDirectory.ServerOM), isFilePath: true);
+                    string serverOMDirectoryVariable = AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean()
+                        ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
+                        : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+
+                    jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, serverOMDirectoryVariable, isFilePath: true);
                 }
                 if (!PlatformUtil.RunningOnWindows)
                 {
@@ -179,12 +191,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.System.WorkFolder, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
 
                 var azureVmCheckCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
-                azureVmCheckCommand.InitializeCommandContext(jobContext, "GetAzureVMMetada");
+                azureVmCheckCommand.InitializeCommandContext(jobContext, Constants.AsyncExecution.Commands.Names.GetAzureVMMetada);
                 azureVmCheckCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsAzureVM, PlatformUtil.DetectAzureVM() ? "1" : "0"));
                 jobContext.AsyncCommands.Add(azureVmCheckCommand);
 
                 var dockerDetectCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
-                dockerDetectCommand.InitializeCommandContext(jobContext, "DetectDockerContainer");
+                dockerDetectCommand.InitializeCommandContext(jobContext, Constants.AsyncExecution.Commands.Names.DetectDockerContainer);
                 dockerDetectCommand.Task = Task.Run(() => jobContext.SetVariable(Constants.Variables.System.IsDockerContainer, PlatformUtil.DetectDockerContainer() ? "1" : "0"));
                 jobContext.AsyncCommands.Add(dockerDetectCommand);
 
@@ -277,6 +289,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     this.ExpandProperties(sidecar, jobContext.Variables);
                 }
 
+                // Send telemetry in case if git is preinstalled on windows platform
+                var isSelfHosted = StringUtil.ConvertToBoolean(jobContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted));
+                if (PlatformUtil.RunningOnWindows && isSelfHosted)
+                {
+                    var windowsPreinstalledGitCommand = jobContext.GetHostContext().GetService<IAsyncCommandContext>();
+                    windowsPreinstalledGitCommand.InitializeCommandContext(jobContext, Constants.AsyncExecution.Commands.Names.WindowsPreinstalledGitTelemetry);
+                    windowsPreinstalledGitCommand.Task = Task.Run(() =>
+                    {
+                        var hasPreinstalledGit = false;
+
+                        var filePath = WhichUtil.Which("git.exe", require: false, trace: null);
+                        if (!string.IsNullOrEmpty(filePath))
+                        {
+                            hasPreinstalledGit = true;
+                        }
+
+                        PublishTelemetry(context: jobContext, area: "PipelinesTasks", feature: "WindowsGitTelemetry", properties: new Dictionary<string, string>
+                        {
+                            { "hasPreinstalledGit", hasPreinstalledGit.ToString() }
+                        });
+                    });
+
+                    jobContext.AsyncCommands.Add(windowsPreinstalledGitCommand);
+                }
+
                 // Get the job extension.
                 Trace.Info("Getting job extension.");
                 var hostType = jobContext.Variables.System_HostType;
@@ -301,7 +338,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
-                        PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "111");
+                        PublishTelemetry(context: jobContext, area: "PipelinesTasks", feature: "AgentShutdown", properties: new Dictionary<string, string>
+                        {
+                            { "JobId", jobContext.Variables.System_JobId.ToString() },
+                            { "JobResult", TaskResult.Failed.ToString() },
+                            { "TracePoint", "111"},
+                        });
+
                         Trace.Error($"Job is canceled during initialize.");
                         Trace.Error($"Caught exception: {ex}");
                         return await CompleteJobAsync(jobServer, jobContext, message, TaskResult.Failed);
@@ -391,7 +434,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 legacyTaskConnection?.Dispose();
                 taskConnection?.Dispose();
                 jobConnection?.Dispose();
-                resourceDiagnosticManager?.Dispose();
 
                 await ShutdownQueue(throwOnFailure: false);
             }
@@ -610,20 +652,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private void PublishTelemetry(IExecutionContext context, string Task_Result, string TracePoint)
+        private void PublishTelemetry(IExecutionContext context, string area, String feature, Dictionary<string, string> properties)
         {
             try
             {
-                var telemetryData = new Dictionary<string, string>
-                {
-                    { "JobId", context.Variables.System_JobId.ToString()},
-                    { "JobResult", Task_Result },
-                    { "TracePoint", TracePoint},
-                };
                 var cmd = new Command("telemetry", "publish");
-                cmd.Data = JsonConvert.SerializeObject(telemetryData, Formatting.None);
-                cmd.Properties.Add("area", "PipelinesTasks");
-                cmd.Properties.Add("feature", "AgentShutdown");
+                cmd.Data = JsonConvert.SerializeObject(properties, Formatting.None);
+                cmd.Properties.Add("area", area);
+                cmd.Properties.Add("feature", feature);
 
                 var publishTelemetryCmd = new TelemetryCommandExtension();
                 publishTelemetryCmd.Initialize(HostContext);

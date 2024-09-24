@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Xunit;
@@ -18,9 +19,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
         public void Test_GetProcessList()
         {
             using TestHostContext hc = new TestHostContext(this);
-            Tracing trace = hc.GetTrace();
+            using Tracing trace = hc.GetTrace();
 
-            // This test is based on the current process.
+            // Arrange: This test is based on the current process.
             Process currentProcess = Process.GetCurrentProcess();
 
             // The first three processes in the list.
@@ -31,10 +32,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L0.Util
             string[] vsExpectedProcessNames = { currentProcess.ProcessName, "vstest.console", "ServiceHub.TestWindowStoreHost" };
 
             // Act.
-            string[] actualProcessNames =
-                WindowsProcessUtil
-                    .GetProcessList(currentProcess)
-                    .Take(expectedProcessNames.Length)
+            List<ProcessInfo> processes = WindowsProcessUtil.GetProcessList();
+
+            string[] actualProcessNames = processes.Take(expectedProcessNames.Length)
                     .Select(process => process.ProcessName)
                     .ToArray();
 

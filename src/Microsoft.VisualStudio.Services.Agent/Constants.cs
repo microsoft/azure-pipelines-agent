@@ -22,6 +22,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         Tools,
         Update,
         Work,
+        TfLegacy,
+        ServerOMLegacy,
+        LegacyPSHostLegacy
     }
 
     public enum WellKnownConfigFile
@@ -58,6 +61,18 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Guid AppStorePromoteTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd976");
             public static readonly Guid AppStoreReleaseTask = new Guid("2e371150-da5e-11e5-83da-0943b1acc572");
             public static readonly Guid IpaResignTask = new Guid("cbbf7f14-c386-4c1f-80a3-fe500e2bd977");
+
+            // ms.advancedsecurity-tasks
+            public static readonly Guid AdvancedSecurityPublishTask = new Guid("a95ad3e1-3950-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlAnalyze = new Guid("a9efc1ef-3900-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlAutobuild = new Guid("a63ec2fb-3600-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityCodeqlInit = new Guid("a34f8529-3300-494f-a460-963e3f5f6928");
+            public static readonly Guid AdvancedSecurityDependencyScanning = new Guid("f97aace4-962a-441b-9141-b842d806b9c7");
+
+            // advancedsecurity.iac-tasks
+            public static readonly Guid TemplateAnalyzerSarif = new Guid("2ff4011a-8c38-46ae-9654-29d7d45ce875");
+            public static readonly Guid TerrascanSarif = new Guid("f1af679c-4cbf-4952-98c9-c772c8eb9920");
+            public static readonly Guid TrivySarif = new Guid("93e29b44-e118-445d-b809-ae3c7907bee7");
         }
 
         public static List<Guid> RequiredForTelemetry = new()
@@ -69,7 +84,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             MicrosoftExtensionTaskIds.GooglePlayStatusUpdateTask,
             MicrosoftExtensionTaskIds.AppStorePromoteTask,
             MicrosoftExtensionTaskIds.AppStoreReleaseTask,
-            MicrosoftExtensionTaskIds.IpaResignTask
+            MicrosoftExtensionTaskIds.IpaResignTask,
+            MicrosoftExtensionTaskIds.AdvancedSecurityPublishTask,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlAnalyze,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlAutobuild,
+            MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlInit,
+            MicrosoftExtensionTaskIds.AdvancedSecurityDependencyScanning,
+            MicrosoftExtensionTaskIds.TemplateAnalyzerSarif,
+            MicrosoftExtensionTaskIds.TerrascanSarif,
+            MicrosoftExtensionTaskIds.TrivySarif
         };
     }
 
@@ -88,6 +111,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static string PluginTracePrefix = "##[plugin.trace]";
         public static readonly int AgentDownloadRetryMaxAttempts = 3;
         public const string projectName = "projectName";
+        public const string CommandCorrelationIdEnvVar = "COMMAND_CORRELATION_ID";
+        public const string TaskInternalIssueSource = "TaskInternal";
 
         // Environment variable set on hosted Azure Pipelines images to
         // store the version of the image
@@ -99,6 +124,19 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string Work = "work";
             public static readonly string Tasks = "tasks";
             public static readonly string Tools = "tools";
+        }
+
+        public static class AsyncExecution
+        {
+            public static class Commands
+            {
+                public static class Names
+                {
+                    public static readonly string DetectDockerContainer = "DetectDockerContainer";
+                    public static readonly string GetAzureVMMetada = "GetAzureVMMetada";
+                    public static readonly string WindowsPreinstalledGitTelemetry = "WindowsPreinstalledGitTelemetry";
+                }
+            }
         }
 
         public static class Agent
@@ -165,6 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string Remove = "remove";
                     public const string Run = "run";
                     public const string Warmup = "warmup";
+                    public const string ReAuth = "reauth";
                 }
 
                 //if you are adding a new flag, please make sure you update the
@@ -185,11 +224,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string GitUseSChannel = "gituseschannel";
                     public const string Help = "help";
                     public const string DisableLogUploads = "disableloguploads";
+                    public const string ReStreamLogsToFiles = "restreamlogstofiles";
                     public const string MachineGroup = "machinegroup";
                     public const string Replace = "replace";
                     public const string NoRestart = "norestart";
                     public const string LaunchBrowser = "launchbrowser";
                     public const string Once = "once";
+                    public const string DebugMode = "debug";
                     public const string RunAsAutoLogon = "runasautologon";
                     public const string RunAsService = "runasservice";
                     public const string PreventServiceStart = "preventservicestart";
@@ -275,10 +316,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string DiagDirectory = "_diag";
             public static readonly string ExternalsDirectory = "externals";
             public static readonly string LegacyPSHostDirectory = "vstshost";
+            public static readonly string LegacyPSHostLegacyDirectory = "vstshost-legacy";
             public static readonly string ServerOMDirectory = "vstsom";
+            public static readonly string ServerOMLegacyDirectory = "vstsom-legacy";
             public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
             public static readonly string TfDirectory = "tf";
+            public static readonly string TfLegacyDirectory = "tf-legacy";
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";
@@ -354,7 +398,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ToolsDirectory = "agent.ToolsDirectory";
                 public static readonly string UseGitLongPaths = "USE_GIT_LONG_PATHS";
                 public static readonly string UseGitSingleThread = "USE_GIT_SINGLE_THREAD";
-                public static readonly string UseLatestGitVersion = "USE_LATEST_GIT_VERSION";
                 public static readonly string Version = "agent.version";
                 public static readonly string WorkFolder = "agent.workfolder";
                 public static readonly string WorkingDirectory = "agent.WorkingDirectory";
@@ -558,7 +601,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.ToolsDirectory,
                 Agent.UseGitLongPaths,
                 Agent.UseGitSingleThread,
-                Agent.UseLatestGitVersion,
                 Agent.Version,
                 Agent.WorkFolder,
                 Agent.WorkingDirectory,

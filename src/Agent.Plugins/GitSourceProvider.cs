@@ -718,8 +718,10 @@ namespace Agent.Plugins.Repository
                 await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.proxy", string.Empty);
             }
 
-            List<string> additionalFetchArgs = new List<string>();
-            List<string> additionalLfsFetchArgs = new List<string>();
+            var additionalFetchFilterOptions = ParseFetchFilterOptions(executionContext, fetchFilter);
+            var additionalFetchArgs = new List<string>();
+            var additionalLfsFetchArgs = new List<string>();
+            var additionalCheckoutArgs = new List<string>();
 
             // Force Git to HTTP/1.1. Otherwise IIS will reject large pushes to Azure Repos due to the large content-length header
             // This is caused by these header limits - https://docs.microsoft.com/en-us/iis/configuration/system.webserver/security/requestfiltering/requestlimits/headerlimits/
@@ -738,6 +740,11 @@ namespace Agent.Plugins.Repository
                     string configKey = "http.extraheader";
                     string args = ComposeGitArgs(executionContext, gitCommandManager, configKey, username, password, useBearerAuthType);
                     additionalFetchArgs.Add(args);
+
+                    if (additionalFetchFilterOptions.Any() && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
+                    {
+                        additionalCheckoutArgs.Add(args);
+                    }
                 }
                 else
                 {
@@ -899,7 +906,7 @@ namespace Agent.Plugins.Repository
                 }
             }
 
-            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+            int exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchFilterOptions, fetchTags, additionalFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
             if (exitCode_fetch != 0)
             {
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -911,7 +918,7 @@ namespace Agent.Plugins.Repository
             if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
             {
                 List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
-                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, fetchFilter, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
+                exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchFilterOptions, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
                 if (exitCode_fetch != 0)
                 {
                     throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
@@ -963,7 +970,7 @@ namespace Agent.Plugins.Repository
             }
 
             // Finally, checkout the sourcesToBuild (if we didn't find a valid git object this will throw)
-            int exitCode_checkout = await gitCommandManager.GitCheckout(executionContext, targetPath, sourcesToBuild, cancellationToken);
+            int exitCode_checkout = await gitCommandManager.GitCheckout(executionContext, targetPath, sourcesToBuild, string.Join(" ", additionalCheckoutArgs), cancellationToken);
             if (exitCode_checkout != 0)
             {
                 // local repository is shallow repository, checkout may fail due to lack of commits history.
@@ -1372,6 +1379,59 @@ namespace Agent.Plugins.Repository
                 context.Debug($"The remote.origin.url of the repository under root folder '{repositoryPath}' doesn't matches source repository url.");
                 return false;
             }
+        }
+
+        private IEnumerable<string> ParseFetchFilterOptions(AgentTaskPluginExecutionContext context, string fetchFilter)
+        {
+            if (!AgentKnobs.UseFetchFilterInCheckoutTask.GetValue(context).AsBoolean())
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            if (string.IsNullOrEmpty(fetchFilter))
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            // parse filter and only include valid options
+            var filters = new List<string>();
+            var splitFilter = fetchFilter.Split('+').Where(filter => !string.IsNullOrWhiteSpace(filter)).ToList();
+
+            foreach (string filter in splitFilter)
+            {
+                var parsedFilter = filter.Split(':')
+                    .Where(filter => !string.IsNullOrWhiteSpace(filter))
+                    .Select(filter => filter.Trim())
+                    .ToList();
+
+                if (parsedFilter.Count == 2)
+                {
+                    switch (parsedFilter[0].ToLower())
+                    {
+                        case "tree":
+                            // currently only supporting treeless filter
+                            if (int.TryParse(parsedFilter[1], out int treeSize) && treeSize == 0)
+                            {
+                                filters.Add($"{parsedFilter[0]}:{treeSize}");
+                            }
+                            break;
+
+                        case "blob":
+                            // currently only supporting blobless filter
+                            if (parsedFilter[1].Equals("none", StringComparison.OrdinalIgnoreCase))
+                            {
+                                filters.Add($"{parsedFilter[0]}:{parsedFilter[1]}");
+                            }
+                            break;
+
+                        default:
+                            // either invalid or unsupported git object
+                            break;
+                    }
+                }
+            }
+
+            return filters;
         }
 
         private async Task RunGitStatusIfSystemDebug(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)

@@ -12,7 +12,7 @@ function Get-VisualStudio {
         # Note, the capability is registered as VisualStudio_15.0/VisualStudio_16.0/VisualStudio_17.0 however the actual
         # version may something like 15.2/16.2.
         $preReleaseFlag = [string]::Empty;
-        if($env:IncludePrereleaseVersions -eq $true)
+        if ($env:IncludePrereleaseVersions -eq $true)
         {
             $preReleaseFlag = "-prerelease"
         }
@@ -37,8 +37,8 @@ function Get-VisualStudio {
             if (!$instance) {
                 Write-Host "Getting latest BuildTools $MajorVersion setup instance."
                 $output = New-Object System.Text.StringBuilder
-                Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[$MajorVersion.0,$($MajorVersion+1).0)' -products Microsoft.VisualStudio.Product.BuildTools -latest -format json"
-                & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version "[$MajorVersion.0,$($MajorVersion+1).0)" -products Microsoft.VisualStudio.Product.BuildTools -latest -format json 2>&1 |
+                Write-Host "& $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version '[$MajorVersion.0,$($MajorVersion+1).0)' -products Microsoft.VisualStudio.Product.BuildTools -latest $preReleaseFlag -format json"
+                & $PSScriptRoot\..\..\..\externals\vswhere\vswhere.exe -version "[$MajorVersion.0,$($MajorVersion+1).0)" -products Microsoft.VisualStudio.Product.BuildTools -latest $preReleaseFlag -format json 2>&1 |
                     ForEach-Object {
                         if ($_ -is [System.Management.Automation.ErrorRecord]) {
                             Write-Host "STDERR: $($_.Exception.Message)"

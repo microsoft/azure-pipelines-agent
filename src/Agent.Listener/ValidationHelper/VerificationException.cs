@@ -19,9 +19,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
         }
 
+#if NET6_0
         protected VerificationException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#endif
     }
 }
