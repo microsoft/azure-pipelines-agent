@@ -8,14 +8,6 @@
 
 set -eo pipefail
 
-# .NET version for agent build.  
-NET_VERSIONS="
-net6.0-sdk=6.0.424
-net6.0-runtime=6.0.32
-
-net8.0-sdk=8.0.401
-net8.0-runtime=8.0.8"
-
 ALL_ARGS=("$@")
 DEV_CMD=$1
 TARGET_FRAMEWORK=$2
@@ -48,20 +40,25 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
-function get_net_version ()
+function get_runtime_version ()
 {
-    echo "$NET_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
+    DOTNET_RUNTIME_VERSIONS="
+    net6.0=6.0.32
+
+    net8.0=8.0.8"
+
+    echo "$DOTNET_RUNTIME_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNETSDK_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-sdk")
-DOTNETRUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
+DOTNET_SDK_VERSION="8.0.401"
+DOTNET_RUNTIME_VERSION=$(get_runtime_version "$TARGET_FRAMEWORK")
 
-if [[ ($DOTNETSDK_VERSION == "") || ($DOTNETRUNTIME_VERSION == "") ]]; then
+if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
     failed "Incorrect target framework is specified"
 fi
 
-DOTNETSDK_ROOT="${REPO_ROOT}/_dotnetsdk"
-DOTNETSDK_INSTALLDIR="$DOTNETSDK_ROOT/$DOTNETSDK_VERSION"
+DOTNET_SDK_ROOT="${REPO_ROOT}/_dotnetsdk"
+DOTNET_SDK_INSTALLDIR="$DOTNET_SDK_ROOT/$DOTNET_SDK_VERSION"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
@@ -124,12 +121,12 @@ function make_build (){
 
     if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" \
          | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
          | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
          || failed build
     else
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" \
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" \
          || failed build
     fi
 
@@ -176,7 +173,7 @@ function cmd_test_l0 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test_l1 ()
@@ -198,7 +195,7 @@ function cmd_test_l1 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:NetTargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNETRUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test ()
@@ -340,7 +337,7 @@ DOWNLOAD_DIR="${REPO_ROOT}/_downloads/${RUNTIME_ID}/netcore2x"
 PACKAGE_DIR="${REPO_ROOT}/_package/${RUNTIME_ID}"
 REPORT_DIR="${REPO_ROOT}/_reports/${RUNTIME_ID}"
 
-if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}") || (! -e "${DOTNETSDK_INSTALLDIR}/dotnet") ]]; then
+if [[ (! -d "${DOTNET_SDK_INSTALLDIR}") || (! -e "${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}") || (! -e "${DOTNET_SDK_INSTALLDIR}/dotnet") ]]; then
 
     # Download dotnet SDK to ../_dotnetsdk directory
     heading "Install .NET SDK"
@@ -349,7 +346,7 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
     #           \1.0.x
     #                            \dotnet
     #                            \.1.0.x
-    echo "Download dotnetsdk into ${DOTNETSDK_INSTALLDIR}"
+    echo "Download dotnetsdk into ${DOTNET_SDK_INSTALLDIR}"
     rm -Rf "${DOTNETSDK_DIR}"
 
     # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
@@ -367,22 +364,22 @@ if [[ (! -d "${DOTNETSDK_INSTALLDIR}") || (! -e "${DOTNETSDK_INSTALLDIR}/.${DOTN
     fi
 
     if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
-        echo "Convert ${DOTNETSDK_INSTALLDIR} to Windows style path"
-        sdkinstallwindow_path=${DOTNETSDK_INSTALLDIR:1}
+        echo "Convert ${DOTNET_SDK_INSTALLDIR} to Windows style path"
+        sdkinstallwindow_path=${DOTNET_SDK_INSTALLDIR:1}
         sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
         architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNETSDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
     else
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version ${DOTNETSDK_VERSION} --install-dir "${DOTNETSDK_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version ${DOTNET_SDK_VERSION} --install-dir "${DOTNET_SDK_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
     fi
 
-    echo "${DOTNETSDK_VERSION}" > "${DOTNETSDK_INSTALLDIR}/.${DOTNETSDK_VERSION}"
+    echo "${DOTNET_SDK_VERSION}" > "${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}"
 fi
 
 heading ".NET SDK to path"
 
-echo "Adding .NET to PATH (${DOTNETSDK_INSTALLDIR})"
-export PATH=${DOTNETSDK_INSTALLDIR}:$PATH
+echo "Adding .NET to PATH (${DOTNET_SDK_INSTALLDIR})"
+export PATH=${DOTNET_SDK_INSTALLDIR}:$PATH
 echo "Path = $PATH"
 echo ".NET Version = $(dotnet --version)"
 
