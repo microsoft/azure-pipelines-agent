@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     CheckForTaskDeprecation(executionContext, task);
                 }
 
-                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated.GetValue(executionContext).AsBoolean())
+                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated246.GetValue(executionContext).AsBoolean())
                 {
                     if (!exceptionList.Contains(task.Id))
                     {
