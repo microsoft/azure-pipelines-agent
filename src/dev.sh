@@ -82,10 +82,8 @@ restore_dotnet_install_script() {
     fi
 }
 
-function restore_sdk() {
-    heading "Install .NET SDK ${DOTNET_SDK_VERSION}"
-
-    restore_dotnet_install_script
+function restore_sdk_and_runtime() {
+    heading "Install .NET SDK ${DOTNET_SDK_VERSION} and Runtime ${DOTNET_RUNTIME_VERSION}"
 
     if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
         echo "Convert ${DOTNET_DIR} to Windows style path"
@@ -93,26 +91,18 @@ function restore_sdk() {
         dotnet_windows_dir=${dotnet_windows_dir:0:1}:${dotnet_windows_dir:1}
         local architecture
         architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+
+        echo "Installing SDK..."
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
+
+        echo "Installing Runtime..."
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
     else
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
-    fi
-}
+        echo "Installing SDK..."
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
 
-function restore_runtime() {
-    heading "Install .NET Runtime ${DOTNET_RUNTIME_VERSION}"
-
-    restore_dotnet_install_script
-
-    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
-        echo "Convert ${DOTNET_DIR} to Windows style path"
-        local dotnet_windows_dir=${DOTNET_DIR:1}
-        dotnet_windows_dir=${dotnet_windows_dir:0:1}:${dotnet_windows_dir:1}
-        local architecture
-        architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
-    else
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        echo "Installing Runtime..."
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
     fi
 }
 
@@ -211,8 +201,6 @@ function cmd_layout() {
 function cmd_test_l0() {
     heading "Testing L0"
 
-    restore_runtime
-
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         ulimit -n 1024
     fi
@@ -227,8 +215,6 @@ function cmd_test_l0() {
 
 function cmd_test_l1() {
     heading "Clean"
-
-    restore_runtime
 
     dotnet msbuild -t:cleanl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
 
@@ -384,7 +370,8 @@ DOWNLOAD_DIR="${REPO_ROOT}/_downloads/${RUNTIME_ID}/netcore2x"
 PACKAGE_DIR="${REPO_ROOT}/_package/${RUNTIME_ID}"
 REPORT_DIR="${REPO_ROOT}/_reports/${RUNTIME_ID}"
 
-restore_sdk
+restore_dotnet_install_script
+restore_sdk_and_runtime
 
 heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
