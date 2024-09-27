@@ -40,33 +40,114 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
-function get_runtime_version ()
-{
-    DOTNET_RUNTIME_VERSIONS="
-    net6.0=6.0.32
+function get_net_version() {
+    DOTNET_VERSIONS="
+        net6.0-sdk=6.0.424
+        net6.0-runtime=6.0.32
 
-    net8.0=8.0.8"
+        net8.0-sdk=8.0.401
+        net8.0-runtime=8.0.8
+    "
 
-    echo "$DOTNET_RUNTIME_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
+    echo "$DOTNET_VERSIONS" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNET_SDK_VERSION="8.0.401"
-DOTNET_RUNTIME_VERSION=$(get_runtime_version "$TARGET_FRAMEWORK")
+DOTNET_SDK_VERSION=$(get_net_version "net8.0-sdk")
+DOTNET_RUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
 
 if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
     failed "Incorrect target framework is specified"
 fi
 
-DOTNET_SDK_ROOT="${REPO_ROOT}/_dotnetsdk"
-DOTNET_SDK_INSTALLDIR="$DOTNET_SDK_ROOT/$DOTNET_SDK_VERSION"
+DOTNET_SDK_INSTALLDIR="${REPO_ROOT}/_dotnetsdk/$DOTNET_SDK_VERSION"
+DOTNET_RUNTIME_INSTALLDIR="${REPO_ROOT}/_dotnetruntime/$DOTNET_RUNTIME_VERSION"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
     BUILD_CONFIG="Release"
 fi
 
-function detect_platform_and_runtime_id ()
-{
+restore_dotnet_install_script() {
+    # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
+    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
+        ext="ps1"
+    else
+        ext="sh"
+    fi
+
+    DOTNET_INSTALL_SCRIPT_NAME="dotnet-install.${ext}"
+    DOTNET_INSTALL_SCRIPT_PATH="./Misc/${DOTNET_INSTALL_SCRIPT_NAME}"
+
+    if [[ ! -e "${DOTNET_INSTALL_SCRIPT_PATH}" ]]; then
+        curl -sSL "https://dot.net/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
+    fi
+}
+
+function restore_sdk() {
+    if [[ (! -d "${DOTNET_SDK_INSTALLDIR}") || (! -e "${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}") || (! -e "${DOTNET_SDK_INSTALLDIR}/dotnet") ]]; then
+
+        # Download dotnet SDK to ../_dotnetsdk directory
+        heading "Install .NET SDK"
+
+        # _dotnetsdk
+        #           \1.0.x
+        #                            \dotnet
+        #                            \.1.0.x
+        echo "Download dotnetsdk into ${DOTNET_SDK_INSTALLDIR}"
+        rm -Rf "${DOTNETSDK_DIR}"
+
+        restore_dotnet_install_script
+
+        if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
+            echo "Convert ${DOTNET_SDK_INSTALLDIR} to Windows style path"
+            sdkinstallwindow_path=${DOTNET_SDK_INSTALLDIR:1}
+            sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
+            architecture=$(echo $RUNTIME_ID | cut -d "-" -f2)
+            powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        else
+            bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version ${DOTNET_SDK_VERSION} --install-dir "${DOTNET_SDK_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        fi
+
+        echo "${DOTNET_SDK_VERSION}" >"${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}"
+    fi
+
+    heading ".NET SDK to path"
+    echo "Adding .NET SDK to PATH (${DOTNET_SDK_INSTALLDIR})"
+    export PATH=${DOTNET_SDK_INSTALLDIR}:$PATH
+    echo "Path = $PATH"
+    echo ".NET Version = $(dotnet --version)"
+}
+
+function restore_runtime() {
+    if [[ (! -d "${DOTNET_RUNTIME_INSTALLDIR}") || (! -e "${DOTNET_RUNTIME_INSTALLDIR}/.${DOTNET_RUNTIME_VERSION}") || (! -e "${DOTNET_RUNTIME_INSTALLDIR}/dotnet") ]]; then
+        # Download dotnet runtime to ../_dotnetruntime directory
+        heading "Install .NET Runtime"
+
+        echo "Download dotnet runtime into ${DOTNET_RUNTIME_INSTALLDIR}"
+
+        restore_dotnet_install_script
+
+        if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
+            echo "Convert ${DOTNET_RUNTIME_INSTALLDIR} to Windows style path"
+            runtimeinstallwindow_path=${DOTNET_RUNTIME_INSTALLDIR:1}
+            runtimeinstallwindow_path=${runtimeinstallwindow_path:0:1}:${runtimeinstallwindow_path:1}
+            architecture=$(echo "${RUNTIME_ID}" | cut -d "-" -f2)
+            powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${runtimeinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        else
+            bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_RUNTIME_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
+        fi
+
+        echo "${DOTNET_RUNTIME_VERSION}" >"${DOTNET_RUNTIME_INSTALLDIR}/.${DOTNET_RUNTIME_VERSION}"
+    fi
+
+    heading ".NET runtime to path"
+    echo "Adding .NET runtime to PATH (${DOTNET_RUNTIME_INSTALLDIR})"
+    export PATH=${DOTNET_RUNTIME_INSTALLDIR}:$PATH
+    echo "Path = $PATH"
+    echo ".NET Version = $(dotnet --version)"
+}
+
+function detect_platform_and_runtime_id() {
     heading "Platform / RID detection"
 
     CURRENT_PLATFORM="windows"
@@ -81,11 +162,11 @@ function detect_platform_and_runtime_id ()
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
         DETECTED_RUNTIME_ID="linux-x64"
-        if command -v uname > /dev/null; then
+        if command -v uname >/dev/null; then
             local CPU_NAME=$(uname -m)
             case $CPU_NAME in
-                armv7l) DETECTED_RUNTIME_ID="linux-arm";;
-                aarch64) DETECTED_RUNTIME_ID="linux-arm64";;
+            armv7l) DETECTED_RUNTIME_ID="linux-arm" ;;
+            aarch64) DETECTED_RUNTIME_ID="linux-arm64" ;;
             esac
         fi
 
@@ -105,45 +186,43 @@ function detect_platform_and_runtime_id ()
         fi
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
-         if command -v uname > /dev/null; then
+        if command -v uname >/dev/null; then
             local CPU_NAME=$(uname -m)
             case $CPU_NAME in
-                arm64) DETECTED_RUNTIME_ID="osx-arm64";;
+            arm64) DETECTED_RUNTIME_ID="osx-arm64" ;;
             esac
         fi
     fi
 }
 
-function make_build (){
+function make_build() {
     TARGET=$1
 
     echo "MSBuild target = ${TARGET}"
 
-    if  [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
+    if [[ "$ADO_ENABLE_LOGISSUE" == "true" ]]; then
 
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" \
-         | sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" \
-         | sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" \
-         || failed build
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" |
+            sed -e "/\: warning /s/^/${DOTNET_WARNING_PREFIX} /;" |
+            sed -e "/\: error /s/^/${DOTNET_ERROR_PREFIX} /;" ||
+            failed build
     else
-        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" \
-         || failed build
+        dotnet msbuild -t:"${TARGET}" -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:CodeAnalysis="true" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" ||
+            failed build
     fi
 
     mkdir -p "${LAYOUT_DIR}/bin/en-US"
 
-    grep -v '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json > "${LAYOUT_DIR}/bin/en-US/strings.json"
+    grep -v '^ *"CLI-WIDTH-' ./Misc/layoutbin/en-US/strings.json >"${LAYOUT_DIR}/bin/en-US/strings.json"
 }
 
-function cmd_build ()
-{
+function cmd_build() {
     heading "Building"
 
     make_build "Build"
 }
 
-function cmd_layout ()
-{
+function cmd_layout() {
     heading "Creating layout"
 
     make_build "Layout"
@@ -160,9 +239,10 @@ function cmd_layout ()
     bash ./Misc/externals.sh $RUNTIME_ID || checkRC externals.sh
 }
 
-function cmd_test_l0 ()
-{
+function cmd_test_l0() {
     heading "Testing L0"
+
+    restore_runtime
 
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         ulimit -n 1024
@@ -173,12 +253,14 @@ function cmd_test_l0 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
-function cmd_test_l1 ()
-{
+function cmd_test_l1() {
     heading "Clean"
+
+    restore_runtime
+
     dotnet msbuild -t:cleanl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" || failed build
 
     heading "Setup externals folder for $RUNTIME_ID agent's layout"
@@ -195,18 +277,16 @@ function cmd_test_l1 ()
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
-function cmd_test ()
-{
+function cmd_test() {
     cmd_test_l0
 
     cmd_test_l1
 }
 
-function cmd_package ()
-{
+function cmd_package() {
     if [ ! -d "${LAYOUT_DIR}/bin" ]; then
         echo "You must build first.  Expecting to find ${LAYOUT_DIR}/bin"
     fi
@@ -234,7 +314,7 @@ function cmd_package ()
     mkdir -p "$PACKAGE_DIR"
     rm -Rf "${PACKAGE_DIR:?}"/*
 
-    pushd "$PACKAGE_DIR" > /dev/null
+    pushd "$PACKAGE_DIR" >/dev/null
 
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
@@ -249,16 +329,15 @@ function cmd_package ()
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "Add-Type -Assembly \"System.IO.Compression.FileSystem\"; [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")"
     fi
 
-    popd > /dev/null
+    popd >/dev/null
 }
 
-function cmd_hash ()
-{
-    pushd "$PACKAGE_DIR" > /dev/null
+function cmd_hash() {
+    pushd "$PACKAGE_DIR" >/dev/null
 
-    files=`ls -1`
+    files=$(ls -1)
 
-    number_of_files=`wc -l <<< "$files"`
+    number_of_files=$(wc -l <<<"$files")
 
     if [[ number_of_files -ne 1 ]]; then
         echo "Expecting to find exactly one file (agent package) in $PACKAGE_DIR"
@@ -269,13 +348,12 @@ function cmd_hash ()
 
     rm -rf ../../_package_hash
     mkdir ../../_package_hash
-    openssl dgst -sha256 $agent_package_file >> "../../_package_hash/$agent_package_file.sha256"
+    openssl dgst -sha256 $agent_package_file >>"../../_package_hash/$agent_package_file.sha256"
 
-    popd > /dev/null
+    popd >/dev/null
 }
 
-function cmd_report ()
-{
+function cmd_report() {
     heading "Generating Reports"
 
     if [[ ("$CURRENT_PLATFORM" != "windows") ]]; then
@@ -299,11 +377,11 @@ function cmd_report ()
         echo "Converting to XML file $COVERAGE_XML_FILE"
 
         # for some reason CodeCoverage.exe will only write the output file in the current directory
-        pushd $COVERAGE_REPORT_DIR > /dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze  "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
-        popd > /dev/null
+        pushd $COVERAGE_REPORT_DIR >/dev/null
+        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        popd >/dev/null
 
-        if ! command -v reportgenerator.exe > /dev/null; then
+        if ! command -v reportgenerator.exe >/dev/null; then
             echo "reportgenerator not installed. Skipping generation of HTML reports"
             echo "To install: "
             echo "  % dotnet tool install --global dotnet-reportgenerator-globaltool"
@@ -337,51 +415,7 @@ DOWNLOAD_DIR="${REPO_ROOT}/_downloads/${RUNTIME_ID}/netcore2x"
 PACKAGE_DIR="${REPO_ROOT}/_package/${RUNTIME_ID}"
 REPORT_DIR="${REPO_ROOT}/_reports/${RUNTIME_ID}"
 
-if [[ (! -d "${DOTNET_SDK_INSTALLDIR}") || (! -e "${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}") || (! -e "${DOTNET_SDK_INSTALLDIR}/dotnet") ]]; then
-
-    # Download dotnet SDK to ../_dotnetsdk directory
-    heading "Install .NET SDK"
-
-    # _dotnetsdk
-    #           \1.0.x
-    #                            \dotnet
-    #                            \.1.0.x
-    echo "Download dotnetsdk into ${DOTNET_SDK_INSTALLDIR}"
-    rm -Rf "${DOTNETSDK_DIR}"
-
-    # run dotnet-install.ps1 on windows, dotnet-install.sh on linux
-    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
-        ext="ps1"
-    else
-        ext="sh"
-    fi
-
-    DOTNET_INSTALL_SCRIPT_NAME="dotnet-install.${ext}"
-    DOTNET_INSTALL_SCRIPT_PATH="./Misc/${DOTNET_INSTALL_SCRIPT_NAME}"
-
-    if [[ ! -e "${DOTNET_INSTALL_SCRIPT_PATH}" ]]; then
-        curl -sSL "https://dot.net/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
-    fi
-
-    if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
-        echo "Convert ${DOTNET_SDK_INSTALLDIR} to Windows style path"
-        sdkinstallwindow_path=${DOTNET_SDK_INSTALLDIR:1}
-        sdkinstallwindow_path=${sdkinstallwindow_path:0:1}:${sdkinstallwindow_path:1}
-        architecture=$( echo $RUNTIME_ID | cut -d "-" -f2)
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${sdkinstallwindow_path}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
-    else
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version ${DOTNET_SDK_VERSION} --install-dir "${DOTNET_SDK_INSTALLDIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME}"
-    fi
-
-    echo "${DOTNET_SDK_VERSION}" > "${DOTNET_SDK_INSTALLDIR}/.${DOTNET_SDK_VERSION}"
-fi
-
-heading ".NET SDK to path"
-
-echo "Adding .NET to PATH (${DOTNET_SDK_INSTALLDIR})"
-export PATH=${DOTNET_SDK_INSTALLDIR}:$PATH
-echo "Path = $PATH"
-echo ".NET Version = $(dotnet --version)"
+restore_sdk
 
 heading "Pre-caching external resources for $RUNTIME_ID"
 mkdir -p "${LAYOUT_DIR}" >/dev/null
@@ -404,21 +438,21 @@ if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
 fi
 
 case $DEV_CMD in
-   "build") cmd_build;;
-   "b") cmd_build;;
-   "test") cmd_test;;
-   "t") cmd_test;;
-   "testl0") cmd_test_l0;;
-   "l0") cmd_test_l0;;
-   "testl1") cmd_test_l1;;
-   "l1") cmd_test_l1;;
-   "layout") cmd_layout;;
-   "l") cmd_layout;;
-   "package") cmd_package;;
-   "p") cmd_package;;
-   "hash") cmd_hash;;
-   "report") cmd_report;;
-   *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage.";;
+"build") cmd_build ;;
+"b") cmd_build ;;
+"test") cmd_test ;;
+"t") cmd_test ;;
+"testl0") cmd_test_l0 ;;
+"l0") cmd_test_l0 ;;
+"testl1") cmd_test_l1 ;;
+"l1") cmd_test_l1 ;;
+"layout") cmd_layout ;;
+"l") cmd_layout ;;
+"package") cmd_package ;;
+"p") cmd_package ;;
+"hash") cmd_hash ;;
+"report") cmd_report ;;
+*) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage." ;;
 esac
 
 popd
