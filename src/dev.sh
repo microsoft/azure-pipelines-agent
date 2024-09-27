@@ -144,7 +144,7 @@ function restore_runtime() {
     echo "Adding .NET runtime to PATH (${DOTNET_RUNTIME_INSTALLDIR})"
     export PATH=${DOTNET_RUNTIME_INSTALLDIR}:$PATH
     echo "Path = $PATH"
-    echo ".NET Version = $(dotnet --version)"
+    echo ".NET info = $(dotnet --info)"
 }
 
 function detect_platform_and_runtime_id() {
