@@ -19,6 +19,14 @@
     ]
   },
   {
+    "id": "rocky",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
     "id": "debian",
     "versions": [
       {
