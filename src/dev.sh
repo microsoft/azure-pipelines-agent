@@ -85,6 +85,9 @@ restore_dotnet_install_script() {
 function restore_sdk_and_runtime() {
     heading "Install .NET SDK ${DOTNET_SDK_VERSION} and Runtime ${DOTNET_RUNTIME_VERSION}"
 
+    readonly DOTNET_SDK_INSTALL_CHECKFILE="${DOTNET_DIR}/.sdk.${DOTNET_SDK_VERSION}"
+    readonly DOTNET_RUNTIME_INSTALL_CHECKFILE="${DOTNET_DIR}/.runtime.${DOTNET_RUNTIME_VERSION}"
+
     if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
         echo "Convert ${DOTNET_DIR} to Windows style path"
         local dotnet_windows_dir=${DOTNET_DIR:1}
@@ -92,17 +95,41 @@ function restore_sdk_and_runtime() {
         local architecture
         architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
 
-        printf "\nInstalling SDK...\n"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
+        if [[ (! -e "${DOTNET_SDK_INSTALL_CHECKFILE}") ]]; then
+            printf "\nInstalling SDK...\n"
+            powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
 
-        printf "\nInstalling Runtime...\n"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+            echo "${DOTNET_SDK_VERSION}" >"${DOTNET_SDK_INSTALL_CHECKFILE}"
+        else
+            printf "\nSDK already installed.\n"
+        fi
+
+        if [[ (! -e "${DOTNET_RUNTIME_INSTALL_CHECKFILE}") ]]; then
+            printf "\nInstalling Runtime...\n"
+            powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+
+            echo "${DOTNET_RUNTIME_VERSION}" >"${DOTNET_RUNTIME_INSTALL_CHECKFILE}"
+        else
+            printf "n\Runtime already installed.\n"
+        fi
     else
-        printf "\nInstalling SDK...\n"
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
+        if [[ (! -e "${DOTNET_SDK_INSTALL_CHECKFILE}") ]]; then
+            printf "\nInstalling SDK...\n"
+            bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
 
-        printf "\nInstalling Runtime...\n"
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+            echo "${DOTNET_SDK_VERSION}" >"${DOTNET_SDK_INSTALL_CHECKFILE}"
+        else
+            printf "\nSDK already installed.\n"
+        fi
+
+        if [[ (! -e "${DOTNET_RUNTIME_INSTALL_CHECKFILE}") ]]; then
+            printf "\nInstalling Runtime...\n"
+            bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+
+            echo "${DOTNET_RUNTIME_VERSION}" >"${DOTNET_RUNTIME_INSTALL_CHECKFILE}"
+        else
+            printf "n\Runtime already installed.\n"
+        fi
     fi
 }
 
