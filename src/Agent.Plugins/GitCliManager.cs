@@ -320,10 +320,10 @@ namespace Agent.Plugins.Repository
             return fetchExitCode;
         }
 
-        // git sparse-checkout init
-        public async Task<int> GitSparseCheckoutSet(AgentTaskPluginExecutionContext context, string repositoryPath, string directories, string patterns, CancellationToken cancellationToken)
+        // git sparse-checkout
+        public async Task<int> GitSparseCheckout(AgentTaskPluginExecutionContext context, string repositoryPath, string directories, string patterns, CancellationToken cancellationToken)
         {
-            context.Debug($"Sparse checkout init");
+            context.Debug($"Sparse checkout");
 
             bool useConeMode = !string.IsNullOrWhiteSpace(directories);
             string options = useConeMode ? "--cone" : "--no-cone";
@@ -344,14 +344,6 @@ namespace Agent.Plugins.Repository
             {
                 return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout set", useConeMode ? directories : patterns, cancellationToken);
             }
-        }
-
-        // git sparse-checkout set
-        public async Task<int> GitSparseCheckoutSet(AgentTaskPluginExecutionContext context, string repositoryPath, string patterns, CancellationToken cancellationToken)
-        {
-            context.Debug($"Sparse checkout set");
-
-            return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout set", patterns, cancellationToken);
         }
 
         // git sparse-checkout disable

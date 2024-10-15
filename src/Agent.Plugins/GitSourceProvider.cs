@@ -979,11 +979,11 @@ namespace Agent.Plugins.Repository
                 if (enableSparseCheckout)
                 {
                     // Set up sparse checkout
-                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckoutSet(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
+                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
 
                     if (exitCode_sparseCheckout != 0)
                     {
-                        executionContext.Warning($"git sparse-checkout failed with exit code: {exitCode_sparseCheckout}");
+                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
                     }
                 }
                 else
@@ -993,7 +993,7 @@ namespace Agent.Plugins.Repository
 
                     if (exitCode_sparseCheckoutDisable != 0)
                     {
-                        executionContext.Warning($"git sparse-checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
                     }
                 }
             }
