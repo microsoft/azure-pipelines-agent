@@ -517,6 +517,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return TestFlag(Configure?.SslSkipCertValidation, Constants.Agent.CommandLine.Flags.SslSkipCertValidation);
         }
 
+        public bool GetSkipCapabilitiesScan()
+        {
+            return TestFlag(Configure?.SkipCapabilitiesScan, Constants.Agent.CommandLine.Flags.SkipCapabilitiesScan);
+        }
+
         public string GetCACertificate()
         {
             return GetArg(Configure?.SslCACert, Constants.Agent.CommandLine.Args.SslCACert);
