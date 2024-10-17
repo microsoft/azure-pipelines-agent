@@ -320,6 +320,40 @@ namespace Agent.Plugins.Repository
             return fetchExitCode;
         }
 
+        // git sparse-checkout
+        public async Task<int> GitSparseCheckout(AgentTaskPluginExecutionContext context, string repositoryPath, string directories, string patterns, CancellationToken cancellationToken)
+        {
+            context.Debug($"Sparse checkout");
+
+            bool useConeMode = !string.IsNullOrWhiteSpace(directories);
+            string options = useConeMode ? "--cone" : "--no-cone";
+
+            context.PublishTelemetry(area: "AzurePipelinesAgent", feature: "GitSparseCheckout", properties: new Dictionary<string, string>
+            {
+                { "Mode", useConeMode ? "cone" : "non-cone" },
+                { "Patterns", useConeMode ? directories : patterns }
+            });
+
+            int exitCode_sparseCheckoutInit = await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout init", options, cancellationToken);
+
+            if (exitCode_sparseCheckoutInit != 0)
+            {
+                return exitCode_sparseCheckoutInit;
+            }
+            else
+            {
+                return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout set", useConeMode ? directories : patterns, cancellationToken);
+            }
+        }
+
+        // git sparse-checkout disable
+        public async Task<int> GitSparseCheckoutDisable(AgentTaskPluginExecutionContext context, string repositoryPath, CancellationToken cancellationToken)
+        {
+            context.Debug($"Sparse checkout disable");
+
+            return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout disable", string.Empty, cancellationToken);
+        }
+
         // git checkout -f --progress <commitId/branch>
         public async Task<int> GitCheckout(AgentTaskPluginExecutionContext context, string repositoryPath, string committishOrBranchSpec, string additionalCommandLine, CancellationToken cancellationToken)
         {

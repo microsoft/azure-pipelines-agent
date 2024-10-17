@@ -773,5 +773,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_INSTALL_LEGACY_TF_EXE"),
             new PipelineFeatureSource("InstallLegacyTfExe"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseSparseCheckoutInCheckoutTask = new Knob(
+            nameof(UseSparseCheckoutInCheckoutTask),
+            "If true, agent will use sparse checkout in checkout task.",
+            new RuntimeKnobSource("AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

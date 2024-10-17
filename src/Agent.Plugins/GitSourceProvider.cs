@@ -342,6 +342,10 @@ namespace Agent.Plugins.Repository
 
             string fetchFilter = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.FetchFilter);
 
+            string sparseCheckoutDirectories = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.SparseCheckoutDirectories);
+            string sparseCheckoutPatterns = executionContext.GetInput(Pipelines.PipelineConstants.CheckoutTaskInputs.SparseCheckoutPatterns);
+            bool enableSparseCheckout = !string.IsNullOrWhiteSpace(sparseCheckoutDirectories) || !string.IsNullOrWhiteSpace(sparseCheckoutPatterns);
+
             executionContext.Debug($"repository url={repositoryUrl}");
             executionContext.Debug($"targetPath={targetPath}");
             executionContext.Debug($"sourceBranch={sourceBranch}");
@@ -355,6 +359,7 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"fetchTags={fetchTags}");
             executionContext.Debug($"gitLfsSupport={gitLfsSupport}");
             executionContext.Debug($"acceptUntrustedCerts={acceptUntrustedCerts}");
+            executionContext.Debug($"sparseCheckout={enableSparseCheckout}");
 
             bool schannelSslBackend = StringUtil.ConvertToBoolean(executionContext.Variables.GetValueOrDefault("agent.gituseschannel")?.Value);
             executionContext.Debug($"schannelSslBackend={schannelSslBackend}");
@@ -966,6 +971,30 @@ namespace Agent.Plugins.Repository
                     int exitCode_lfsLogs = await gitCommandManager.GitLFSLogs(executionContext, targetPath);
                     executionContext.Output($"Git lfs fetch failed with exit code: {exitCode_lfsFetch}. Git lfs logs returned with exit code: {exitCode_lfsLogs}.");
                     executionContext.Output($"Checkout will continue.  \"git checkout\" will fetch lfs files, however this could cause poor performance on old versions of git.");
+                }
+            }
+
+            if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
+            {
+                if (enableSparseCheckout)
+                {
+                    // Set up sparse checkout
+                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
+
+                    if (exitCode_sparseCheckout != 0)
+                    {
+                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
+                    }
+                }
+                else
+                {
+                    // Disable sparse checkout in case it was enabled in a previous checkout
+                    int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
+
+                    if (exitCode_sparseCheckoutDisable != 0)
+                    {
+                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                    }
                 }
             }
 
