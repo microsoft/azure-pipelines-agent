@@ -120,6 +120,7 @@ function detect_platform_and_runtime_id() {
             DETECTED_RUNTIME_ID='win-x86'
         elif [[ "$PROCESSOR_ARCHITECTURE" == 'ARM64' ]]; then
             DETECTED_RUNTIME_ID='win-arm64'
+        if
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
         DETECTED_RUNTIME_ID="linux-x64"
         if command -v uname >/dev/null; then
