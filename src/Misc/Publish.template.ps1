@@ -8,6 +8,8 @@ if ($pwd -notlike '*tfsgheus20') {
 
     Add-DistributedTaskPackage -PackageType agent -Platform win-x86 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-x86-<AGENT_VERSION>.zip -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-win-x86-<AGENT_VERSION>.zip
 
+    Add-DistributedTaskPackage -PackageType agent -Platform win-arm64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-arm64-<AGENT_VERSION>.zip -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-win-arm64-<AGENT_VERSION>.zip
+
     Add-DistributedTaskPackage -PackageType agent -Platform osx-x64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz
 
     Add-DistributedTaskPackage -PackageType agent -Platform linux-x64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz
@@ -27,6 +29,8 @@ if ($pwd -notlike '*tfsgheus20') {
     Add-DistributedTaskPackage -PackageType pipelines-agent -Platform win-x64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x64-<AGENT_VERSION>.zip -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename pipelines-agent-win-x64-<AGENT_VERSION>.zip
 
     Add-DistributedTaskPackage -PackageType pipelines-agent -Platform win-x86 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename pipelines-agent-win-x86-<AGENT_VERSION>.zip
+
+    Add-DistributedTaskPackage -PackageType pipelines-agent -Platform win-arm64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-arm64-<AGENT_VERSION>.zip -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename pipelines-agent-win-arm64-<AGENT_VERSION>.zip
 
     Add-DistributedTaskPackage -PackageType pipelines-agent -Platform osx-x64 -Version <AGENT_VERSION> -DownloadUrl https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz -HashValue <HASH_VALUE> -InfoUrl https://go.microsoft.com/fwlink/?LinkId=798199 -Filename pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz
 
