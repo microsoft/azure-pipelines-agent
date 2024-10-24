@@ -42,6 +42,9 @@ parameters:
 - name: win_x86
   type: boolean
   default: true
+- name: win_arm64
+  type: boolean
+  default: true
 - name: linux_x64
   type: boolean
   default: true
@@ -182,6 +185,26 @@ extends:
             publishArtifacts: ${{ parameters.publishArtifacts }}
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
             targetFramework: ${{ parameters.targetFramework }}
+  
+  # Windows (ARM)
+      - ${{ if parameters.win_arm64 }}:
+          - template: /.azure-pipelines/build-jobs.yml@self
+            parameters:
+              jobName: build_windows_arm64
+              displayName: Windows (ARM64)
+              pool:
+                name: 1ES-ABTT-Shared-ARM-64-Pool
+                image: abtt-windows-2022_arm64
+                os: windows
+              os: win
+              arch: x64
+              branch: ${{ parameters.branch }}
+              unitTests: ${{ parameters.test }}
+              functionalTests: ${{ parameters.test }}
+              sign: ${{ parameters.sign }}
+              publishArtifacts: ${{ parameters.publishArtifacts }}
+              buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
+              targetFramework: ${{ parameters.targetFramework }}
 
   # Linux (x64)
       - ${{ if parameters.linux_x64 }}:
