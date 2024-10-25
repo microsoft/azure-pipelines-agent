@@ -437,15 +437,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 bool shouldDrain = ForceDrainTimelineQueue;
 
-                List<PendingTimelineRecord> pendingUpdates = new List<PendingTimelineRecord>();
+                var pendingUpdates = new List<PendingTimelineRecord>();
                 foreach (var timeline in _allTimelines)
                 {
-                    ConcurrentQueue<TimelineRecord> recordQueue;
-                    if (_timelineUpdateQueue.TryGetValue(timeline, out recordQueue))
+                    if (_timelineUpdateQueue.TryGetValue(timeline, out ConcurrentQueue<TimelineRecord> recordQueue))
                     {
-                        List<TimelineRecord> records = new List<TimelineRecord>();
-                        TimelineRecord record;
-                        while (recordQueue.TryDequeue(out record))
+                        var records = new List<TimelineRecord>();
+                        while (recordQueue.TryDequeue(out TimelineRecord record))
                         {
                             records.Add(record);
                             // process at most 25 timeline records update for each timeline.
@@ -470,8 +468,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     foreach (var update in pendingUpdates)
                     {
-                        List<TimelineRecord> bufferedRecords;
-                        if (_bufferedRetryRecords.TryGetValue(update.TimelineId, out bufferedRecords))
+                        if (_bufferedRetryRecords.TryGetValue(update.TimelineId, out List<TimelineRecord> bufferedRecords))
                         {
                             update.PendingRecords.InsertRange(0, bufferedRecords);
                         }
@@ -484,7 +481,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             {
                                 try
                                 {
-                                    Timeline newTimeline = await _jobServer.CreateTimelineAsync(_scopeIdentifier, _hubName, _planId, detailTimeline.Details.Id, default(CancellationToken));
+                                    Timeline newTimeline = await _jobServer.CreateTimelineAsync(_scopeIdentifier, _hubName, _planId, detailTimeline.Details.Id, CancellationToken.None);
                                     _allTimelines.Add(newTimeline.Id);
                                     pendingSubtimelineUpdate = true;
                                 }
@@ -502,7 +499,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                         try
                         {
-                            await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, default(CancellationToken));
+                            await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, CancellationToken.None);
                             if (_bufferedRetryRecords.Remove(update.TimelineId))
                             {
                                 Trace.Verbose("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId);
@@ -512,7 +509,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         {
                             Trace.Info("Catch exception during update timeline records, try to update these timeline records next time.");
                             Trace.Error(ex);
-                            _bufferedRetryRecords[update.TimelineId] = update.PendingRecords.ToList();
+                            _bufferedRetryRecords[update.TimelineId] = update.PendingRecords;
                             if (update.TimelineId == _jobTimelineId)
                             {
                                 mainTimelineRecordsUpdateErrors.Add(ex);
@@ -532,26 +529,25 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     else
                     {
-                        if (mainTimelineRecordsUpdateErrors.Count > 0 &&
+                        if (ForceDrainTimelineQueue)
+                        {
+                            ForceDrainTimelineQueue = false;
+                        }
+                    }
+                }
+
+                if (runOnce)
+                {
+                    if (mainTimelineRecordsUpdateErrors.Count > 0 &&
                             _bufferedRetryRecords.ContainsKey(_jobTimelineId) &&
                             _bufferedRetryRecords[_jobTimelineId] != null &&
                             _bufferedRetryRecords[_jobTimelineId].Any(r => r.Variables.Count > 0))
-                        {
-                            Trace.Info("Fail to update timeline records with output variables. Throw exception to fail the job since output variables are critical to downstream jobs.");
-                            throw new AggregateException(StringUtil.Loc("OutputVariablePublishFailed"), mainTimelineRecordsUpdateErrors);
-                        }
-                        else
-                        {
-                            if (ForceDrainTimelineQueue)
-                            {
-                                ForceDrainTimelineQueue = false;
-                            }
-                            if (runOnce)
-                            {
-                                break;
-                            }
-                        }
+                    {
+                        Trace.Info("Fail to update timeline records with output variables. Throw exception to fail the job since output variables are critical to downstream jobs.");
+                        throw new AggregateException(StringUtil.Loc("OutputVariablePublishFailed"), mainTimelineRecordsUpdateErrors);
                     }
+
+                    break;
                 }
 
                 await Task.Delay(_delayForTimelineUpdateDequeue);
