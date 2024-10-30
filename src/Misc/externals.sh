@@ -154,12 +154,12 @@ function acquireExternalTool() {
         fi
     fi
 }
-
-if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
+# TODO: Check external tools for ARM-64
+if [[ "$PACKAGERUNTIME" == "win-x"* || "$PACKAGERUNTIME" == "win-arm64" ]]; then
     # Download external tools for Windows.
 
     BIT="32"
-    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
+    if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-arm64" ]]; then
         BIT="64"
 
         acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
