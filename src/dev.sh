@@ -113,7 +113,7 @@ function detect_platform_and_runtime_id() {
     if [[ ($(uname) == "Linux") || ($(uname) == "Darwin") ]]; then
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
-
+    echo "ARCH ###: $PROCESSOR_ARCHITECTURE"
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
         DETECTED_RUNTIME_ID='win-x64'
         if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
