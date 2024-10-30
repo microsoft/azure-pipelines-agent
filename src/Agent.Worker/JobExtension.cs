@@ -747,7 +747,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var value = knob.GetValue(jobContext);
                 if (value.Source.GetType() != typeof(BuiltInDefaultKnobSource))
                 {
-                    var stringValue = value.AsString();
+                    var stringValue = HostContext.SecretMasker.MaskSecrets(value.AsString());
                     telemetryData.Add($"{knob.Name}-{value.Source.GetDisplayString()}", stringValue);
                 }
             }

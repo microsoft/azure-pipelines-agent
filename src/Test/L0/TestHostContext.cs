@@ -76,6 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
+            _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
 

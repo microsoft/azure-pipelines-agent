@@ -10,8 +10,11 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Xunit;
+using System.Text.Json;
 using System.Threading;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -61,6 +64,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private Mock<IPagingLogger> _logger;
         private Mock<IExpressionManager> _express;
         private Mock<IContainerOperationProvider> _containerProvider;
+        private Mock<ICustomerIntelligenceServer> _mockCiService;
+        private Mock<IAsyncCommandContext> _asyncCommandContext;
         private TestHostContext CreateTestContext(CancellationTokenSource _tokenSource, [CallerMemberName] String testName = "")
         {
             var hc = new TestHostContext(this, testName);
@@ -291,6 +296,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _express = new Mock<IExpressionManager>();
             _containerProvider = new Mock<IContainerOperationProvider>();
             _logPlugin = new Mock<IAgentLogPlugin>();
+            _mockCiService = new Mock<ICustomerIntelligenceServer>();
+            _asyncCommandContext = new Mock<IAsyncCommandContext>();
+
 
             TaskRunner step1 = new TaskRunner();
             TaskRunner step2 = new TaskRunner();
@@ -333,7 +341,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Url = new Uri("https://test.visualstudio.com"),
                 Authorization = new EndpointAuthorization()
                 {
-                    Scheme = "ManagedServiceIdentity",
+                    Scheme = "OAuth",
                 }
             };
             environment.SystemConnection.Authorization.Parameters["AccessToken"] = "token";
@@ -462,6 +470,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             hc.SetSingleton(_express.Object);
             hc.SetSingleton(_containerProvider.Object);
             hc.SetSingleton(_logPlugin.Object);
+            hc.SetSingleton(_mockCiService.Object);
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // jobcontext logger
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // init step logger
             hc.EnqueueInstance<IPagingLogger>(_logger.Object); // step 1
@@ -760,6 +769,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 Environment.SetEnvironmentVariable("VSTS_AGENT_INIT_INTERNAL_TEMP_HACK", "");
                 Environment.SetEnvironmentVariable("VSTS_AGENT_CLEANUP_INTERNAL_TEMP_HACK", "");
+            }
+        }
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task JobExtensionTelemetryPublisherSecretValue()
+        {
+            using CancellationTokenSource tokenSource = new CancellationTokenSource();
+            using TestHostContext hc = CreateMSITestContext(tokenSource);
+
+            hc.EnqueueInstance<IAsyncCommandContext>(_asyncCommandContext.Object);
+            hc.EnqueueInstance<IAsyncCommandContext>(_asyncCommandContext.Object);
+            hc.EnqueueInstance<IAsyncCommandContext>(_asyncCommandContext.Object);
+
+            hc.SetSingleton(new TaskRestrictionsChecker() as ITaskRestrictionsChecker);
+
+            try
+            {
+                Environment.SetEnvironmentVariable("http_proxy", "http://admin:password@localhost.com");
+
+                var expectedEvent = new Dictionary<string, object>()
+                {
+                    { "JobId", null },
+                    { "ProxyAddress-${http_proxy}", "http://admin:***@localhost.com"},
+                };
+
+                var actualEvents = new List<CustomerIntelligenceEvent[]>();
+
+                _mockCiService.Setup(s => s.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()))
+                    .Callback<CustomerIntelligenceEvent[]>(actualEvents.Add)
+                    .Returns(Task.CompletedTask);
+
+
+                TestJobExtension testExtension = new TestJobExtension();
+                testExtension.Initialize(hc);
+                await testExtension.InitializeJob(_jobEc, _message);
+
+                var result = actualEvents.Where(w => w[0].Properties.ContainsKey("ProxyAddress-${http_proxy}"));
+
+                Assert.True(result?.Count() == 1);
+
+                Assert.True(
+                    !expectedEvent.Except(result.First()[0].Properties).Any(),
+                    $"Event does not match. " +
+                    $"Expected:{JsonSerializer.Serialize(expectedEvent)};" +
+                    $"Actual:{JsonSerializer.Serialize(result.First()[0].Properties)}"
+                );
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("http_proxy", "");
             }
         }
     }
