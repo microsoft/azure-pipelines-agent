@@ -317,6 +317,26 @@ then
                 print_errormessage
                 exit 1
             fi
+        elif [ -e /etc/azurelinux-release ]
+        then
+            echo "The current OS is Azure Linux based"
+            print_banner "Azure Linux Version" $(cat /etc/azurelinux-release)
+
+            command -v tdnf
+            if [ $? -eq 0 ]
+                then
+                tdnf install -y icu
+                if [ $? -ne 0 ]
+                then
+                    echo "'tdnf' failed with exit code '$?'"
+                    print_errormessage
+                    exit 1
+                fi
+            else
+                echo "Can not find 'tdnf'"
+                print_errormessage
+                exit 1
+            fi
         else
             echo "Can't detect current OS type based on $filepath."
             print_errormessage
