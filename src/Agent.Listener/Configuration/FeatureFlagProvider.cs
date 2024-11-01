@@ -61,19 +61,9 @@ namespace Agent.Listener.Configuration
             {
                 return await client.GetFeatureFlagByNameAsync(featureFlagName, checkFeatureExists: false, ctk);
             }
-            catch (VssServiceException e)
+            catch (Exception e)
             {
                 Trace.Warning("Unable to retrieve feature flag status: " + e.ToString());
-                return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
-            }
-            catch (VssUnauthorizedException e)
-            {
-                Trace.Warning("Unable to retrieve feature flag with following exception: " + e.ToString());
-                return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
-            }
-            catch (TimeoutException e)
-            {
-                Trace.Warning("Unable to retrieve feature flag status due to timeout error: " + e.ToString());
                 return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
             }
         }
