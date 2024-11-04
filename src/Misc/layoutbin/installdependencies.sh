@@ -52,6 +52,13 @@ function print_rhel6depricationmessage()
     echo "You can check supported OS on the following documentation: https://github.com/dotnet/core/blob/main/release-notes/6.0/supported-os.md"
 }
 
+function print_banner()
+{
+    echo "--------$1--------"
+    echo $2
+    echo "------------------------------"
+}
+
 if [ -e /etc/os-release ]
 then
     filepath='/etc/os-release'
@@ -271,7 +278,7 @@ then
             is_sles=1
         fi
 
-        if  ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"suse"* ]]  || [[$is_sles == 1]]))
+        if  ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"suse"* ]] || ([[ -n $is_sles ]] && [[ $is_sles == 1 ]])))
         then
             echo "The current OS is SUSE based"
             command -v zypper
