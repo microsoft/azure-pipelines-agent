@@ -10,14 +10,22 @@ INCLUDE_NODE10=${INCLUDE_NODE10:-true}
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
 NODE_URL=https://nodejs.org/dist
+NODE_UNOFFICIAL_URL=https://unofficial-builds.nodejs.org/download/release
+
 if [[ "$PACKAGERUNTIME" == "linux-musl-x64" ]]; then
     NODE_URL=https://unofficial-builds.nodejs.org/download/release
     INCLUDE_NODE6=false
 fi
 
+if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
+    INCLUDE_NODE6=false
+    INCLUDE_NODE10=false;
+fi
+
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
+NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.17.0"
 MINGIT_VERSION="2.47.0.2"
 LFS_VERSION="3.4.0"
@@ -154,13 +162,16 @@ function acquireExternalTool() {
         fi
     fi
 }
+
+echo "PACKAGE RUNTIME: $PACKAGERUNTIME"
+
 # TODO: Check external tools for ARM-64
-if [[ "$PACKAGERUNTIME" == "win-x"* || "$PACKAGERUNTIME" == "win-arm64" ]]; then
+if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     # Download external tools for Windows.
 
     BIT="32"
-    if [[ "$PACKAGERUNTIME" == "win-x64" || "$PACKAGERUNTIME" == "win-arm64" ]]; then
-        BIT="64"
+    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
+        BIT="64" # QQ: Why are these tools being installed for Win 64 only?
 
         acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
@@ -185,6 +196,44 @@ if [[ "$PACKAGERUNTIME" == "win-x"* || "$PACKAGERUNTIME" == "win-arm64" ]]; then
     fi
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
+    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
+    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
+    # Download external tools for Windows.
+
+    BIT="32"
+    if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
+        BIT="64"
+
+        acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy # Unavailable for Win ARM 64 - https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10?tabs=dnf#download-the-azcopy-portable-binary
+        acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
+        acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
+    fi
+
+    acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
+    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin" # AVAILABLE FOR WINDOWS ARM 64 - https://github.com/git-lfs/git-lfs/releases?utm_source=gitlfs_site&utm_medium=releases_link&utm_campaign=gitlfs
+    acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr # Where was this exe sourced from? I see that it ships with Windows
+    acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore # Shipped with Debugging Tools for Windows (https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/) - https://learn.microsoft.com/en-us/windows/win32/debug/using-symstore
+    # Requires installation of Debugging Tools for Windows and taking the symstore from Debuggers\Arm64
+    # https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugging-arm64#getting-arm--debugging-tools-for-windows
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
+
+    if [[ "$INCLUDE_NODE6" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin # Not available for Windows ARM
+        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.lib" node/bin # Not available for Windows ARM
+    fi
+    if [[ "$INCLUDE_NODE10" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin # Not available for Windows ARM
+        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin # Not available for Windows ARM
+    fi
+
+    # Unofficial distribution of Node contains Node 16 for Windows ARM
+    acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
+    acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
+
+    # Official distribution of Node contains Node 20 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
 else
