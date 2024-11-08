@@ -199,24 +199,22 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
-    # Download external tools for Windows.
+    # Download external tools for Windows ARM
 
     BIT="32"
     if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
         BIT="64"
 
-        acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy # Unavailable for Win ARM 64 - https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10?tabs=dnf#download-the-azcopy-portable-binary
+        # acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy # Unavailable for Win ARM 64 - https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10?tabs=dnf#download-the-azcopy-portable-binary
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
         acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
-    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin" # AVAILABLE FOR WINDOWS ARM 64 - https://github.com/git-lfs/git-lfs/releases?utm_source=gitlfs_site&utm_medium=releases_link&utm_campaign=gitlfs
-    acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr # Where was this exe sourced from? I see that it ships with Windows
-    acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore # Shipped with Debugging Tools for Windows (https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/) - https://learn.microsoft.com/en-us/windows/win32/debug/using-symstore
-    # Requires installation of Debugging Tools for Windows and taking the symstore from Debuggers\Arm64
-    # https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugging-arm64#getting-arm--debugging-tools-for-windows
-    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/win-arm{BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
+    acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm{BIT}/1/pdbstr.zip" pdbstr
+    acquireExternalTool "$CONTAINER_URL/symstore/win-arm{BIT}/1/symstore.zip" symstore
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf # Custom package. Will the same work for Win ARM 64? 
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
 
