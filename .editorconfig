@@ -59,7 +59,7 @@ dotnet_diagnostic.IDE0007.severity = none
 dotnet_diagnostic.IDE0008.severity = none
 
 # IDE0010: Add missing cases
-dotnet_diagnostic.IDE0010.severity = warning
+dotnet_diagnostic.IDE0010.severity = none
 
 # IDE0011: Add braces
 dotnet_diagnostic.IDE0011.severity = suggestion
