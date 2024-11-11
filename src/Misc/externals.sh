@@ -211,9 +211,9 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
-    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/win-arm{BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
-    acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm{BIT}/1/pdbstr.zip" pdbstr
-    acquireExternalTool "$CONTAINER_URL/symstore/win-arm{BIT}/1/symstore.zip" symstore
+    acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/win-arm${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
+    acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm${BIT}/1/pdbstr.zip" pdbstr
+    acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf # Custom package. Will the same work for Win ARM 64? 
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v3.4.4/nuget.exe" nuget
