@@ -111,9 +111,9 @@
 
     <ItemGroup>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' Or '$(PackageRuntime)' != 'win-x86' Or '$(PackageRuntime)' != 'win-arm64'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' != 'win-arm64'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' != 'win-arm64'"/>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' != 'win-arm64'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
     </ItemGroup>
 
     <Delete Files="@(LayoutRootFilesToDelete)" />

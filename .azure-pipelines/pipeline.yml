@@ -193,11 +193,11 @@ extends:
               jobName: build_windows_arm64
               displayName: Windows (ARM64)
               pool:
-                name: 1ES-ABTT-Shared-ARM-64-Pool
-                image: abtt-windows-2022_arm64
+                name: 1ES-ABTT-Shared-Pool
+                image: abtt-windows-2022
                 os: windows
               os: win
-              arch: x64
+              arch: arm64
               branch: ${{ parameters.branch }}
               unitTests: ${{ parameters.test }}
               functionalTests: ${{ parameters.test }}
