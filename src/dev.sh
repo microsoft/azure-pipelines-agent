@@ -348,6 +348,18 @@ function cmd_report() {
     fi
 }
 
+function cmd_lint() {
+    heading "Linting source code"
+
+    "${DOTNET_DIR}/dotnet" format -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint"
+}
+
+function cmd_lint_verify() {
+    heading "Validating linted code"
+
+    "${DOTNET_DIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint_verify"
+}
+
 detect_platform_and_runtime_id
 echo "Current platform: $CURRENT_PLATFORM"
 echo "Current runtime ID: $DETECTED_RUNTIME_ID"
@@ -414,6 +426,8 @@ case $DEV_CMD in
 "p") cmd_package ;;
 "hash") cmd_hash ;;
 "report") cmd_report ;;
+"lint") cmd_lint ;;
+"lint-verify") cmd_lint_verify ;;
 *) echo "Invalid command. Use (l)ayout, (b)uild, (t)est, test(l0), test(l1), or (p)ackage." ;;
 esac
 
