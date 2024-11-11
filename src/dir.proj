@@ -110,7 +110,7 @@
     <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/bin/%(RecursiveDir)"/>
 
     <ItemGroup>
-        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' Or '$(PackageRuntime)' != 'win-x86' Or '$(PackageRuntime)' != 'win-arm64'"/>
+        <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' And '$(PackageRuntime)' != 'win-x86' And '$(PackageRuntime)' != 'win-arm64'"/>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.sh" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/license.html" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/bin/AgentService.js" Condition="'$(PackageRuntime)' == 'win-x64' Or '$(PackageRuntime)' == 'win-x86' Or '$(PackageRuntime)' == 'win-arm64'"/>
