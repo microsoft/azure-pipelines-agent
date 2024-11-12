@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <LangVersion>10.0</LangVersion>
     <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
     <RuntimeIdentifier Condition="'$(BuildingInsideVisualStudio)' != 'true'">$(PackageRuntime)</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
