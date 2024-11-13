@@ -91,6 +91,11 @@ function restore_sdk_and_runtime() {
         dotnet_windows_dir=${dotnet_windows_dir:0:1}:${dotnet_windows_dir:1}
         local architecture
         architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
+        
+        # We compile on an x64 machine, even when targeting ARM64. Thereby we are installing the x64 version of .NET instead of the arm64 version.
+        if [[ "$architecture" == "arm64" ]]; then
+            architecture="x64"
+        fi
 
         printf "\nInstalling SDK...\n"
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
