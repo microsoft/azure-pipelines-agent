@@ -35,7 +35,9 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(clientCertificateArchiveFile))
             {
+                #pragma warning disable SYSLIB0057
                 _clientCertificates.Add(new X509Certificate2(clientCertificateArchiveFile, clientCertificatePassword));
+                #pragma warning restore SYSLIB0057
             }
         }
     }
