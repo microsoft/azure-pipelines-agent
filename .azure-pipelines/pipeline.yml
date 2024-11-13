@@ -112,6 +112,8 @@ extends:
                   targetFramework: 'net6.0'
                 NET8.0:
                   targetFramework: 'net8.0'
+                NET9.0:
+                  targetFramework: 'net9.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
               image: abtt-ubuntu-2204
