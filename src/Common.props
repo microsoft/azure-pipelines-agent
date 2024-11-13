@@ -33,7 +33,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'AMD64'">
-    <OSArchitecture>ARM64</OSArchitecture>
+    <OSArchitecture>X64</OSArchitecture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'X86'">
     <OSArchitecture>X86</OSArchitecture>
@@ -69,7 +69,7 @@
     <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X64'">win-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X86'">win-x86</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'ARM64'">win-arm64</RuntimeIdentifier>
-    <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'AMD64'">win-arm64</RuntimeIdentifier>
+    <!-- <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'AMD64'">win-arm64</RuntimeIdentifier> -->
   </PropertyGroup>
 
   <PropertyGroup>
