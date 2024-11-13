@@ -47,12 +47,15 @@ function get_net_version() {
 
         net8.0-sdk=8.0.401
         net8.0-runtime=8.0.8
+
+        net9.0-sdk=9.0.100
+        net9.0-runtime=9.0.0
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNET_SDK_VERSION=$(get_net_version "net8.0-sdk")
+DOTNET_SDK_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-sdk")
 DOTNET_RUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
 
 if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
