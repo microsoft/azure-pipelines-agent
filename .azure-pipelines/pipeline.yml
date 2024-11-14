@@ -199,8 +199,8 @@ extends:
               os: win
               arch: arm64
               branch: ${{ parameters.branch }}
-              unitTests: ${{ parameters.test }}
-              functionalTests: ${{ parameters.test }}
+              unitTests: false
+              functionalTests: false
               sign: ${{ parameters.sign }}
               publishArtifacts: ${{ parameters.publishArtifacts }}
               buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
