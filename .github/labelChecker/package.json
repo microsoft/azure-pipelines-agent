@@ -9,8 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@actions/core": "1.2.6",
-    "@actions/github": "2.1.1",
+    "@actions/core": "1.9.1",
+    "@actions/github": "6.0.0",
     "typed-rest-client": "^1.8.9"
   }
 }
