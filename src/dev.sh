@@ -374,10 +374,8 @@ echo "Current runtime ID: $DETECTED_RUNTIME_ID"
 
 if [ "$DEV_RUNTIME_ID" ]; then
     RUNTIME_ID=$DEV_RUNTIME_ID
-    echo "Proceeding with DEV_RUNTIME_ID"
 else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
-    echo "Proceeding with detected DETECTED_RUNTIME_ID"
 fi
 
 _VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86:win-arm64'

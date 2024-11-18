@@ -41,6 +41,10 @@
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">
     <OSArchitecture>ARM64</OSArchitecture>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PackageRuntime)' == 'win-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
+  </PropertyGroup>
+  <!-- PROCESSOR_ARCHITECTURE does not always return ARM64 on all ARM-64 machines. So added a fallback condition to check the PackageRuntime variable -->
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-x64'">
     <OSArchitecture>X64</OSArchitecture>
