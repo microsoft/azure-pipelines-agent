@@ -186,7 +186,7 @@ extends:
             buildAlternatePackage: ${{ parameters.buildAlternatePackage }}
             targetFramework: ${{ parameters.targetFramework }}
   
-  # Windows (ARM)
+  # Windows (ARM64)
       - ${{ if parameters.win_arm64 }}:
           - template: /.azure-pipelines/build-jobs.yml@self
             parameters:
