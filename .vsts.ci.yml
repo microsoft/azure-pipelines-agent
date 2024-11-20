@@ -14,6 +14,10 @@ parameters:
   type: boolean
   displayName: Windows (x86)
   default: true
+- name: win_arm64
+  type: boolean
+  displayName: Windows (ARM64)
+  default: true
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
@@ -59,6 +63,7 @@ extends:
     testProxyAgent: ${{ parameters.testProxyAgent }}
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
+    win_arm64: ${{ parameters.win_arm64 }}
     linux_x64: ${{ parameters.linux_x64 }}
     linux_arm: ${{ parameters.linux_arm }}
     linux_arm64: ${{ parameters.linux_arm64 }}

@@ -91,6 +91,11 @@ function restore_sdk_and_runtime() {
         dotnet_windows_dir=${dotnet_windows_dir:0:1}:${dotnet_windows_dir:1}
         local architecture
         architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
+        
+        # We compile on an x64 machine, even when targeting ARM64. Thereby we are installing the x64 version of .NET instead of the arm64 version.
+        if [[ "$architecture" == "arm64" ]]; then
+            architecture="x64"
+        fi
 
         printf "\nInstalling SDK...\n"
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
@@ -113,11 +118,14 @@ function detect_platform_and_runtime_id() {
     if [[ ($(uname) == "Linux") || ($(uname) == "Darwin") ]]; then
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
-
+    
+    echo "Detected Process Arch: $PROCESSOR_ARCHITECTURE"
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
         DETECTED_RUNTIME_ID='win-x64'
         if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
+        elif [[ "$PROCESSOR_ARCHITECTURE" == 'ARM64' ]]; then
+            DETECTED_RUNTIME_ID='win-arm64'
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
         DETECTED_RUNTIME_ID="linux-x64"
@@ -370,7 +378,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86:win-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi

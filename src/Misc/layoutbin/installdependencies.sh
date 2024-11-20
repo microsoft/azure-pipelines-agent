@@ -271,7 +271,7 @@ then
             is_sles=1
         fi
 
-        if  ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"suse"* ]]  || [[$is_sles == 1]]))
+        if  ([[ -n $OSTYPE ]] && ([[ $OSTYPE == *"suse"* ]] || ([[ -n $is_sles ]] && [[ $is_sles == 1 ]])))
         then
             echo "The current OS is SUSE based"
             command -v zypper
@@ -314,6 +314,28 @@ then
                 fi
             else
                 echo "Can not find 'yum'"
+                print_errormessage
+                exit 1
+            fi
+        elif [ -e /etc/azurelinux-release ]
+        then
+            echo "The current OS is Azure Linux based"
+            echo "--------Azure Linux Version--------"
+            cat /etc/azurelinux-release
+            echo "------------------------------"
+
+            command -v tdnf
+            if [ $? -eq 0 ]
+                then
+                tdnf install -y icu
+                if [ $? -ne 0 ]
+                then
+                    echo "'tdnf' failed with exit code '$?'"
+                    print_errormessage
+                    exit 1
+                fi
+            else
+                echo "Can not find 'tdnf'"
                 print_errormessage
                 exit 1
             fi
