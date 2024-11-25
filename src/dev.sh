@@ -119,7 +119,7 @@ function detect_platform_and_runtime_id() {
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
     
-    local processor_type = $(get_processor_type);
+    local processor_type=$(get_processor_type)
     echo "Detected Process Arch: $processor_type"
 
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
@@ -371,8 +371,6 @@ function cmd_lint_verify() {
 }
 
 function get_processor_type() {
-     heading "Reading PROCESSOR_IDENTIFIER"
-
     # Retrieve the PROCESSOR_IDENTIFIER environment variable, or default to an empty string if not set
     local identifier="${PROCESSOR_IDENTIFIER:-}"
 
