@@ -382,7 +382,7 @@ function detect_system_architecture() {
     if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel" ]]; then
         processor="x"
     # Check for ARM64 in the variable to classify as "ARM"
-    elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM64" ]]; then
+    elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM" || "$PROCESSOR_IDENTIFIER" =~ "Arm" ]]; then
         processor="ARM"
     # Default to "x" for unknown or unhandled cases
     else
@@ -396,6 +396,9 @@ function detect_system_architecture() {
     # "i686" or "i386" indicates a 32-bit operating system
     elif [[ "$(uname -m)" == "i686" || "$(uname -m)" == "i386" ]]; then
         os_arch="86"
+    # "aarch64" indicates a 64-bit ARM operating system
+    elif [[ "$(uname -m)" == "aarch64" ]]; then
+        os_arch="64"
     # Default to "64" for unknown or unhandled cases
     else
         os_arch="64"
