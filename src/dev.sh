@@ -119,11 +119,14 @@ function detect_platform_and_runtime_id() {
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
     
-    local processor_type=$(get_processor_type)
-    echo "Detected Process Arch: $processor_type"
-
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
+        
+        local processor_type=$(detect_system_architecture)
+        echo "Detected Process Arch: $processor_type"
+
+        # Default to win-x64
         DETECTED_RUNTIME_ID='win-x64'
+        
         if [[ "$processor_type" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
         elif [[ "$processor_type" == 'ARM64' ]]; then
@@ -370,26 +373,43 @@ function cmd_lint_verify() {
     "${DOTNET_DIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint_verify"
 }
 
-function get_processor_type() {
-    # Retrieve the PROCESSOR_IDENTIFIER environment variable, or default to an empty string if not set
-    local identifier="${PROCESSOR_IDENTIFIER:-}"
+function detect_system_architecture() {
+    local processor  # Variable to hold the processor type (e.g., x, ARM)
+    local os_arch    # Variable to hold the OS bitness (e.g., 64, 86)
 
-    # Check if the processor is a 32-bit x86
-    # - Matches "86" in the identifier (common for x86 processors)
-    # - Ensures it does NOT match "64" (to exclude 64-bit processors with "Intel64")
-    if [[ "$identifier" == *"86"* && "$identifier" != *"64"* ]]; then
-        echo "x86"  # Return x86 for 32-bit processors
-
-    # Check if the processor is a 64-bit ARM
-    # - Matches common ARM64-related strings in the identifier ("ARM64" or "ARMv8")
-    elif [[ "$identifier" == *"ARM64"* || "$identifier" == *"ARMv8"* ]]; then
-        echo "ARM64"  # Return ARM64 for 64-bit ARM processors
-
-    # Fallback to x64 for any other case
-    # - Includes most modern 64-bit processors, such as Intel64 or AMD64
+    # Detect processor type using PROCESSOR_IDENTIFIER
+    # Check for AMD64 or Intel in the variable to classify as "x" (covers x86 and x64 processors)
+    if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel" ]]; then
+        processor="x"
+    # Check for ARM64 in the variable to classify as "ARM"
+    elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM64" ]]; then
+        processor="ARM"
+    # Default to "x" for unknown or unhandled cases
     else
-        echo "x64"
+        processor="x"
     fi
+
+    # Detect OS bitness using uname
+    # "x86_64" indicates a 64-bit operating system
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+        os_arch="64"
+    # "i686" or "i386" indicates a 32-bit operating system
+    elif [[ "$(uname -m)" == "i686" || "$(uname -m)" == "i386" ]]; then
+        os_arch="86"
+    # Default to "64" for unknown or unhandled cases
+    else
+        os_arch="64"
+    fi
+
+    # Note: AMD32 does not exist as a specific label; 32-bit AMD processors are referred to as x86.
+    # ARM32 also does not exist in this context; ARM processors are always 64-bit.
+    
+    # Combine processor type and OS bitness for the final result
+    # Examples:
+    # - "x64" for Intel/AMD 64-bit
+    # - "x86" for Intel/AMD 32-bit
+    # - "ARM64" for ARM 64-bit
+    echo "${processor}${os_arch}"
 }
 
 detect_platform_and_runtime_id
