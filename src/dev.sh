@@ -119,12 +119,14 @@ function detect_platform_and_runtime_id() {
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
     
-    echo "Detected Process Arch: $PROCESSOR_ARCHITECTURE"
+    local processor_type = $(get_processor_type);
+    echo "Detected Process Arch: $processor_type"
+
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
         DETECTED_RUNTIME_ID='win-x64'
-        if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
+        if [[ "$processor_type" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
-        elif [[ "$PROCESSOR_ARCHITECTURE" == 'ARM64' ]]; then
+        elif [[ "$processor_type" == 'ARM64' ]]; then
             DETECTED_RUNTIME_ID='win-arm64'
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
@@ -366,6 +368,30 @@ function cmd_lint_verify() {
     heading "Validating linted code"
 
     "${DOTNET_DIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint_verify"
+}
+
+function get_processor_type() {
+     heading "Reading PROCESSOR_IDENTIFIER"
+
+    # Retrieve the PROCESSOR_IDENTIFIER environment variable, or default to an empty string if not set
+    local identifier="${PROCESSOR_IDENTIFIER:-}"
+
+    # Check if the processor is a 32-bit x86
+    # - Matches "86" in the identifier (common for x86 processors)
+    # - Ensures it does NOT match "64" (to exclude 64-bit processors with "Intel64")
+    if [[ "$identifier" == *"86"* && "$identifier" != *"64"* ]]; then
+        echo "x86"  # Return x86 for 32-bit processors
+
+    # Check if the processor is a 64-bit ARM
+    # - Matches common ARM64-related strings in the identifier ("ARM64" or "ARMv8")
+    elif [[ "$identifier" == *"ARM64"* || "$identifier" == *"ARMv8"* ]]; then
+        echo "ARM64"  # Return ARM64 for 64-bit ARM processors
+
+    # Fallback to x64 for any other case
+    # - Includes most modern 64-bit processors, such as Intel64 or AMD64
+    else
+        echo "x64"
+    fi
 }
 
 detect_platform_and_runtime_id
