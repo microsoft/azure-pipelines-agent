@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// </summary>
         /// <param name="filePath">File path</param>
         /// <returns>TestRunData</returns>
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext)
+        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext, bool isParallelProcessingFFEnabled = false)
         {
             _executionContext = executionContext;
 
