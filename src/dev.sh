@@ -120,13 +120,11 @@ function detect_platform_and_runtime_id() {
     fi
     
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
-        
         local processor_type=$(detect_system_architecture)
         echo "Detected Process Arch: $processor_type"
 
         # Default to win-x64
         DETECTED_RUNTIME_ID='win-x64'
-        
         if [[ "$processor_type" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
         elif [[ "$processor_type" == 'ARM64' ]]; then
@@ -379,7 +377,7 @@ function detect_system_architecture() {
 
     # Detect processor type using PROCESSOR_IDENTIFIER
     # Check for AMD64 or Intel in the variable to classify as "x" (covers x86 and x64 processors)
-    if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel" ]]; then
+    if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel64" ]]; then
         processor="x"
     # Check for ARM64 in the variable to classify as "ARM"
     elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM" || "$PROCESSOR_IDENTIFIER" =~ "Arm" ]]; then
