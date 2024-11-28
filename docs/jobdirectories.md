@@ -5,7 +5,7 @@
 
 ## Work Folder Layout
 
-The agent keeps working files and folders in a directory named _work under the agent by default but can be configured for another location.
+The agent keeps working files and folders in a directory named _work under the agent by default.
 
 This is available to scripts and tasks as:
 
