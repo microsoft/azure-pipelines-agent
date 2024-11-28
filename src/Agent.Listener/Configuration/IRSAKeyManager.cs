@@ -35,11 +35,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         void DeleteKey();
 
         /// <summary>
-        /// Gets the <c>RSACryptoServiceProvider</c> instance currently stored by the key manager. 
+        /// Gets the <c>RSA</c> instance currently stored by the key manager. 
         /// </summary>
-        /// <returns>An <c>RSACryptoServiceProvider</c> instance representing the key for the agent</returns>
+        /// <param name="useLegacyRsaImpl">Use RSACryptoServiceProvider as the underlying implementation.</param>
+        /// <returns>An <c>RSA</c> implementation representing the key for the agent</returns>
         /// <exception cref="CryptographicException">No key exists in the store</exception>
-        RSA GetKey();
+        RSA GetKey(bool useLegacyRsaImpl);
     }
 
     public static class IRSAKeyManagerExtensions
