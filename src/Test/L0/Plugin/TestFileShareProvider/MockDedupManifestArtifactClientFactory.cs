@@ -44,7 +44,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             int maxParallelism,
             IDomainId domainId,
             BlobstoreClientSettings clientSettings,
-            AgentTaskPluginExecutionContext context,
             CancellationToken cancellationToken)
         {
             telemetrySender = new TestTelemetrySender();
