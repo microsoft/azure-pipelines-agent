@@ -777,6 +777,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
         public async Task JobExtensionTelemetryPublisherSecretValue()
+
         {
             using CancellationTokenSource tokenSource = new CancellationTokenSource();
             using TestHostContext hc = CreateMSITestContext(tokenSource);

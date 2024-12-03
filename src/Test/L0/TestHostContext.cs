@@ -11,13 +11,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Loader;
 using System.Reflection;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Net.Http.Headers;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Agent.Sdk.SecretMasking;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using SecretMasker = Agent.Sdk.SecretMasking.SecretMasker;
+using Microsoft.Security.Utilities;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -73,9 +72,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var traceListener = new HostTraceListener(TraceFileName);
             traceListener.DisableConsoleReporting = true;
             _secretMasker = new LoggedSecretMasker(new SecretMasker());
-            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
+            //_secretMasker.AddValueEncoder(LiteralEncoder.JsonStringEscape);
+            //_secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
+            //_secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
             _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
@@ -469,6 +468,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _traceManager?.Dispose();
                 _term?.Dispose();
                 _trace?.Dispose();
+
+                _secretMasker?.Dispose();
+
                 _agentShutdownTokenSource?.Dispose();
                 try
                 {

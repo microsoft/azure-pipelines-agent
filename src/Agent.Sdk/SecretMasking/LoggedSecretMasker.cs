@@ -1,9 +1,10 @@
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-using System;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
-using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
+using Microsoft.Security.Utilities;
+using System.Collections.Generic;
+using System;
 
 namespace Agent.Sdk.SecretMasking
 {
@@ -12,7 +13,7 @@ namespace Agent.Sdk.SecretMasking
     /// </summary>
     public class LoggedSecretMasker : ILoggedSecretMasker
     {
-        private ISecretMasker _secretMasker;
+        private SecretMasker _secretMasker;
         private ITraceWriter _trace;
 
 
@@ -21,7 +22,7 @@ namespace Agent.Sdk.SecretMasking
             this._trace?.Info(msg);
         }
 
-        public LoggedSecretMasker(ISecretMasker secretMasker)
+        public LoggedSecretMasker(SecretMasker secretMasker)
         {
             this._secretMasker = secretMasker;
         }
@@ -54,7 +55,6 @@ namespace Agent.Sdk.SecretMasking
         }
         public void AddRegex(string pattern)
         {
-            this._secretMasker.AddRegex(pattern);
         }
 
         /// <summary>
@@ -82,17 +82,17 @@ namespace Agent.Sdk.SecretMasking
         {
             get
             {
-                return _secretMasker.MinSecretLength;
+                return _secretMasker.MinimumSecretLength;
             }
             set
             {
                 if (value > MinSecretLengthLimit)
                 {
-                    _secretMasker.MinSecretLength = MinSecretLengthLimit;
+                    _secretMasker.MinimumSecretLength = MinSecretLengthLimit;
                 }
                 else
                 {
-                    _secretMasker.MinSecretLength = value;
+                    _secretMasker.MinimumSecretLength = value;
                 }
             }
         }
@@ -100,12 +100,12 @@ namespace Agent.Sdk.SecretMasking
         public void RemoveShortSecretsFromDictionary()
         {
             this._trace?.Info("Removing short secrets from masking dictionary");
-            _secretMasker.RemoveShortSecretsFromDictionary();
+            _secretMasker.RemovePatternsThatDoNotMeetLengthLimits();
         }
 
-        public void AddValueEncoder(ValueEncoder encoder)
+        public void AddValueEncoder(LiteralEncoder encoder)
         {
-            this._secretMasker.AddValueEncoder(encoder);
+            this._secretMasker.AddLiteralEncoder(encoder);
         }
 
 
@@ -114,7 +114,7 @@ namespace Agent.Sdk.SecretMasking
         /// </summary>
         /// <param name="encoder"></param>
         /// <param name="origin"></param>
-        public void AddValueEncoder(ValueEncoder encoder, string origin)
+        public void AddValueEncoder(LiteralEncoder encoder, string origin)
         {
             this.Trace($"Setting up value for origin: {origin}");
             this.Trace($"Length: {encoder.ToString().Length}.");
@@ -129,7 +129,8 @@ namespace Agent.Sdk.SecretMasking
 
         public ISecretMasker Clone()
         {
-            return new LoggedSecretMasker(this._secretMasker.Clone());
+            return null;
+            //return new LoggedSecretMasker(this._secretMasker.Clone());
         }
 
         public string MaskSecrets(string input)
@@ -137,6 +138,34 @@ namespace Agent.Sdk.SecretMasking
             return this._secretMasker.MaskSecrets(input);
         }
 
-        ISecretMaskerVSO ISecretMaskerVSO.Clone() => this.Clone();
+        public IEnumerable<Detection> DetectSecrets(string input)
+        {
+            return this._secretMasker.DetectSecrets(input);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                this._secretMasker?.Dispose();
+                this._secretMasker = null;
+            }
+        }
+
+        public void AddValueEncoder(ValueEncoder encoder)
+        {
+            //return this.AddValueEncoder((LiteralEncoder)encoder)
+        }
+
+        Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker.Clone()
+        {
+            // WRONG: should do this return new LoggedSecretMasker(this._secretMasker.Clone());
+            return new LoggedSecretMasker(this._secretMasker);
+        }
     }
 }

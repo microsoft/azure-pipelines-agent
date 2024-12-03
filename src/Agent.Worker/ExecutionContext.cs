@@ -567,14 +567,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             PrependPath = new List<string>();
 
             var minSecretLen = AgentKnobs.MaskedSecretMinLength.GetValue(this).AsInt();
-            HostContext.SecretMasker.MinSecretLength = minSecretLen;
-
-            if (HostContext.SecretMasker.MinSecretLength < minSecretLen)
-            {
-                warnings.Add(StringUtil.Loc("MinSecretsLengtLimitWarning", HostContext.SecretMasker.MinSecretLength));
-            }
-
-            HostContext.SecretMasker.RemoveShortSecretsFromDictionary();
 
             // Docker (JobContainer)
             string imageName = Variables.Get("_PREVIEW_VSTS_DOCKER_IMAGE");
