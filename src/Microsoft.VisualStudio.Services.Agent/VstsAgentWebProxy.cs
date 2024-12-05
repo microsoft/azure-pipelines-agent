@@ -188,9 +188,22 @@ namespace Microsoft.VisualStudio.Services.Agent
                     if (!string.IsNullOrEmpty(lookupKey))
                     {
                         var credStore = HostContext.GetService<IAgentCredentialStore>();
-                        var proxyCred = credStore.Read($"VSTS_AGENT_PROXY_{lookupKey}");
-                        ProxyUsername = proxyCred.UserName;
-                        ProxyPassword = proxyCred.Password;
+                        var avoidNetCredentialFF = AgentKnobs.AvoidNetCredentialObjectsOnMac.GetValue(HostContext).AsBoolean();
+                        var target = $"VSTS_AGENT_PROXY_{lookupKey}";
+
+                        if (avoidNetCredentialFF)
+                        {
+                            var proxyCred = credStore.Read2(target);
+                            ProxyUsername = proxyCred.UserName;
+                            ProxyPassword = proxyCred.Password;
+                        }
+                        else
+                        {
+                            NetworkCredential proxyCred = credStore.Read(target);
+                            ProxyUsername = proxyCred.UserName;
+                            ProxyPassword = proxyCred.Password;
+                        }
+
                     }
                 }
 
