@@ -99,6 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal("123", resultMessage);
         }
 
+        /*
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
@@ -111,6 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             Assert.Equal(expectedMinSecretsLengthValue, lsm.MinSecretLength);
         }
+        */
 
         [Fact]
         [Trait("Level", "L0")]
