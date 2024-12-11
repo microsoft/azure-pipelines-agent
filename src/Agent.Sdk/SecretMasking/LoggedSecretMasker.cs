@@ -4,6 +4,8 @@
 using System;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
 using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
+using System.Collections.Generic;
+using Microsoft.Security.Utilities;
 
 namespace Agent.Sdk.SecretMasking
 {
@@ -12,16 +14,15 @@ namespace Agent.Sdk.SecretMasking
     /// </summary>
     public class LoggedSecretMasker : ILoggedSecretMasker
     {
-        private ISecretMasker _secretMasker;
+        private readonly ISecretMaskerVSO _secretMasker;
         private ITraceWriter _trace;
-
 
         private void Trace(string msg)
         {
             this._trace?.Info(msg);
         }
 
-        public LoggedSecretMasker(ISecretMasker secretMasker)
+        public LoggedSecretMasker(ISecretMaskerVSO secretMasker)
         {
             this._secretMasker = secretMasker;
         }
@@ -127,16 +128,31 @@ namespace Agent.Sdk.SecretMasking
             AddValueEncoder(encoder);
         }
 
-        public ISecretMasker Clone()
-        {
-            return new LoggedSecretMasker(this._secretMasker.Clone());
-        }
-
         public string MaskSecrets(string input)
         {
             return this._secretMasker.MaskSecrets(input);
         }
 
-        ISecretMaskerVSO ISecretMaskerVSO.Clone() => this.Clone();
+        ISecretMaskerVSO ISecretMaskerVSO.Clone() => new LoggedSecretMasker(this);
+
+        public IEnumerable<Detection> DetectSecrets(string input)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool _)
+        {
+        }
+
+        string ILoggedSecretMasker.MaskSecrets(string input)
+        {
+            return this._secretMasker.MaskSecrets(input);
+        }
     }
 }

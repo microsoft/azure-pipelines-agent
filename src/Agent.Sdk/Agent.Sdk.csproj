@@ -23,4 +23,11 @@
     <PackageReference Include="System.Security.Cryptography.Xml" Version="6.0.1" />
     <PackageReference Include="Azure.Core" Version="1.44.1" />
   </ItemGroup>
+
+
+  <ItemGroup>
+    <Compile Include="d:\src\su0\src\Microsoft.Security.Utilities.Core\*.cs" />
+    <Compile Include="d:\src\su0\src\Microsoft.Security.Utilities.Core\PreciselyClassifiedSecurityKeys\*.cs" />
+    <Compile Include="d:\src\su0\src\Microsoft.Security.Utilities.Core\PotentialSecurityKeys\*.cs" />
+  </ItemGroup>
 </Project>

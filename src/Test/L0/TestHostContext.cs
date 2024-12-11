@@ -17,7 +17,7 @@ using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Agent.Sdk.SecretMasking;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using SecretMasker = Agent.Sdk.SecretMasking.SecretMasker;
+using SecretMasker = Agent.Sdk.SecretMasking.BuiltInSecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -469,6 +469,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _traceManager?.Dispose();
                 _term?.Dispose();
                 _trace?.Dispose();
+                _secretMasker?.Dispose();
                 _agentShutdownTokenSource?.Dispose();
                 try
                 {

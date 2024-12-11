@@ -22,9 +22,9 @@ using Agent.Sdk.SecretMasking;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
-using SecretMasker = Agent.Sdk.SecretMasking.SecretMasker;
-using LegacySecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
-using Agent.Sdk.Util.SecretMasking;
+using BuiltInSecretMasker = Agent.Sdk.SecretMasking.BuiltInSecretMasker;
+using SecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
+using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -83,8 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         private AssemblyLoadContext _loadContext;
         private IDisposable _httpTraceSubscription;
         private IDisposable _diagListenerSubscription;
-        private LegacySecretMasker _legacySecretMasker = new LegacySecretMasker();
-        private SecretMasker _newSecretMasker = new SecretMasker();
+        private SecretMaskerVSO _legacyVsoSecretMasker = new SecretMaskerVSO();
+        private BuiltInSecretMasker _newSecretMasker = new BuiltInSecretMasker();
         private StartupType _startupType;
         private string _perfFile;
         private HostType _hostType;
@@ -97,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public HostContext(HostType hostType, string logFile = null)
         {
             var useNewSecretMasker =  AgentKnobs.EnableNewSecretMasker.GetValue(this).AsBoolean();
-            _secretMasker = useNewSecretMasker ? new LoggedSecretMasker(_newSecretMasker) : new LegacyLoggedSecretMasker(_legacySecretMasker);
+            _secretMasker = useNewSecretMasker ? new LoggedSecretMasker(_newSecretMasker) : new LoggedSecretMasker(_legacyVsoSecretMasker);
             // Validate args.
             if (hostType == HostType.Undefined)
             {
@@ -612,8 +612,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _trace = null;
                 _httpTrace?.Dispose();
                 _httpTrace = null;
-                _legacySecretMasker?.Dispose();
-                _legacySecretMasker = null;
+                _legacyVsoSecretMasker?.Dispose();
+                _legacyVsoSecretMasker = null;
+                _secretMasker?.Dispose();
+                _secretMasker = null;
                 _newSecretMasker?.Dispose();
                 _newSecretMasker = null;
 

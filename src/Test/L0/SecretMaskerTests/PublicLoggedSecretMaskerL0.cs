@@ -9,22 +9,16 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public class LoggedSecretMaskerL0 : IDisposable
+    public class PublicLoggedSecretMaskerL0 : IDisposable
     {
-        ISecretMaskerVSO _secretMasker;
         private bool disposedValue;
-
-        public LoggedSecretMaskerL0()
-        {
-            _secretMasker = new BuiltInSecretMasker();
-        }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_MaskingSecrets()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = 0
             };
@@ -41,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = 0
             };
@@ -60,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -77,7 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_ShortSecret_Removes_From_Dictionary_BoundaryValue2()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit
             };
@@ -94,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Skipping_ShortSecrets()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = 3
             };
@@ -110,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_Sets_MinSecretLength_To_MaxValue()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker);
+            using var lsm = new PublicLoggedSecretMasker();
             var expectedMinSecretsLengthValue = LoggedSecretMasker.MinSecretLengthLimit;
 
             lsm.MinSecretLength = LoggedSecretMasker.MinSecretLengthLimit + 1;
@@ -123,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "SecretMasker")]
         public void LoggedSecretMasker_NegativeValue_Passed()
         {
-            using var lsm = new LoggedSecretMasker(_secretMasker)
+            using var lsm = new PublicLoggedSecretMasker()
             {
                 MinSecretLength = -2
             };
@@ -142,9 +136,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 if (disposing)
                 {
                 }
-
-                ((IDisposable)_secretMasker)?.Dispose();
-                _secretMasker = null;
 
                 disposedValue = true;
             }

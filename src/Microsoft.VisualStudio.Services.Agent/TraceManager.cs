@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Agent.Sdk.SecretMasking;
+using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -20,14 +21,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly ConcurrentDictionary<string, Tracing> _sources = new ConcurrentDictionary<string, Tracing>(StringComparer.OrdinalIgnoreCase);
         private readonly HostTraceListener _hostTraceListener;
         private TraceSetting _traceSetting;
-        private ISecretMasker _secretMasker;
+        private ISecretMaskerVSO _secretMasker;
 
-        public TraceManager(HostTraceListener traceListener, ISecretMasker secretMasker)
+        public TraceManager(HostTraceListener traceListener, ISecretMaskerVSO secretMasker)
             : this(traceListener, new TraceSetting(), secretMasker)
         {
         }
 
-        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ISecretMasker secretMasker)
+        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ISecretMaskerVSO secretMasker)
         {
             // Validate and store params.
             ArgUtil.NotNull(traceListener, nameof(traceListener));
