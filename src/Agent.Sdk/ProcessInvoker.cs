@@ -332,10 +332,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
             using (var registration = cancellationToken.Register(async () =>
             {
+                Trace.Info("##DEBUG_SB: Cancellation requested, attempting to cancel and kill process tree.");
                 await CancelAndKillProcessTree(killProcessOnCancel);
 
                 // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
                 afterCancelKillProcessTreeAttemptSignal.Set();
+                Trace.Info("##DEBUG_SB: Cancellation requested, process tree killed.");
             }))
             {
                 Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
@@ -460,6 +462,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
             ArgUtil.NotNull(_proc, nameof(_proc));
+
+            Trace.Info($"##DEBUG_SB: Cancel and kill process tree for process {_proc.Id}.");
+
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);

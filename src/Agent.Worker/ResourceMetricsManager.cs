@@ -181,6 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             if (PlatformUtil.RunningOnMacOS)
             {
+                Trace.Info("##DEBUG_SB: CPU info - Getting CPU usage on MacOS");
                 using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                 List<string> outputs = new List<string>();
@@ -196,6 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var filePath = "/bin/bash";
                 var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
+                Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}");
                 await processInvoker.ExecuteAsync(
                         workingDirectory: string.Empty,
                         fileName: filePath,
@@ -291,6 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // but unfortunately it returns values in pages and has no built-in arguments for custom output
                 // so we need to parse and cast the output manually
 
+                Trace.Info("##DEBUG_SB: Getting memory info on MacOS");
                 using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                 List<string> outputs = new List<string>();
@@ -305,6 +308,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 };
 
                 var filePath = "vm_stat";
+                Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}");
+
                 await processInvoker.ExecuteAsync(
                         workingDirectory: string.Empty,
                         fileName: filePath,
@@ -389,6 +394,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MonitorLoops
         public async Task RunDebugResourceMonitorAsync()
         {
+            Trace.Info("##DEBUG_SB: Starting debug resource monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 using var timeoutTokenSource = new CancellationTokenSource();
@@ -398,17 +404,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
 
+                Trace.Info("##DEBUG_SB: Debug Resource Monitor");
                 _context.Debug(StringUtil.Loc("ResourceMonitorAgentEnvironmentResource",
                     GetDiskInfoString(),
                     await GetMemoryInfoStringAsync(linkedTokenSource.Token),
                     await GetCpuInfoStringAsync(linkedTokenSource.Token)));
 
+                Trace.Info($"##DEBUG_SB: Waiting for {ACTIVE_MODE_INTERVAL} ms");
                 await Task.Delay(ACTIVE_MODE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: Done waiting for {ACTIVE_MODE_INTERVAL} ms");
             }
+            Trace.Info("##DEBUG_SB: Exiting debug resource monitor");
         }
 
         public async Task RunDiskSpaceUtilizationMonitorAsync()
         {
+            Trace.Info("##DEBUG_SB: Starting disk space utilization monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 try
@@ -435,12 +446,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
+                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
             }
+            Trace.Info("##DEBUG_SB: Exiting disk space utilization monitor");
         }
 
         public async Task RunMemoryUtilizationMonitorAsync()
         {
+            Trace.Info("##DEBUG_SB: Starting memory utilization monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 using var timeoutTokenSource = new CancellationTokenSource();
@@ -449,6 +464,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
+
+                // display cancellation token and properties
+                Trace.Info($"##DEBUG_SB: Memory Utilization - CancellationToken: {linkedTokenSource.Token}");
 
                 try
                 {
@@ -472,12 +490,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
+                Trace.Info($"##DEBUG_SB: Memory Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: Memory Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
             }
+
+            Trace.Info("##DEBUG_SB: Exiting memory utilization monitor");
         }
 
         public async Task RunCpuUtilizationMonitorAsync(string taskId)
         {
+            Trace.Info("##DEBUG_SB: Starting CPU utilization monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 using var timeoutTokenSource = new CancellationTokenSource();
@@ -486,6 +509,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
+
+                Trace.Info($"##DEBUG_SB: CPU Utilization - CancellationToken: {linkedTokenSource.Token}");
 
                 try
                 {
@@ -508,8 +533,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
             }
+            Trace.Info("##DEBUG_SB: Exiting CPU utilization monitor");
         }
         #endregion
     }

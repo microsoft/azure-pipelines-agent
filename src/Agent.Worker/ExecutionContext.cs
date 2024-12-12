@@ -212,11 +212,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Force finish current task in 5 sec.");
             Task.Run(async () =>
             {
+                Trace.Info("##DEBUG_SB: Force finish task delay 5 sec.");
                 await Task.Delay(TimeSpan.FromSeconds(5), ForceCompleteCancellationToken);
                 if (!ForceCompleteCancellationToken.IsCancellationRequested)
                 {
+                    Trace.Info("##DEBUG_SB: if block trysetresult");
                     _forceCompleted?.TrySetResult(1);
+                    Trace.Info("##DEBUG_SB: if block trysetresult done");
                 }
+                Trace.Info("##DEBUG_SB: Force finish task delay 5 sec. Done.");
             });
         }
 
