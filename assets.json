@@ -24,6 +24,18 @@
         "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip"
     },
     {
+        "name": "vsts-agent-win-arm64-<AGENT_VERSION>.zip",
+        "platform": "win-arm64",
+        "version": "<AGENT_VERSION>",
+        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-arm64-<AGENT_VERSION>.zip"
+    },
+    {
+        "name": "pipelines-agent-win-arm64-<AGENT_VERSION>.zip",
+        "platform": "win-arm64",
+        "version": "<AGENT_VERSION>",
+        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-arm64-<AGENT_VERSION>.zip"
+    },
+    {
         "name": "vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz",
         "platform": "osx-x64",
         "version": "<AGENT_VERSION>",
