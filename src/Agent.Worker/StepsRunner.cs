@@ -371,41 +371,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else
             {
                 // display status of TaskResult
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.Succeeded: {TaskResult.Succeeded}');
-                catch (Exception ex)
+                try
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.Succeeded: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: TaskResult.Succeeded: {TaskResult.Succeeded}");
                 }
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.SucceededWithIssues: {TaskResult.SucceededWithIssues}');
                 catch (Exception ex)
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.SucceededWithIssues: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Succeeded: {ex.Message}");
                 }
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.Failed: {TaskResult.Failed}');
-                catch (Exception ex)
+                try
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.Failed: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: TaskResult.SucceededWithIssues: {TaskResult.SucceededWithIssues}");
                 }
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.Canceled: {TaskResult.Canceled}');
                 catch (Exception ex)
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.Canceled: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.SucceededWithIssues: {ex.Message}");
                 }
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.Skipped: {TaskResult.Skipped}');
-                catch (Exception ex)
+                try
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.Skipped: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: TaskResult.Failed: {TaskResult.Failed}");
                 }
-                try:
-                    Trace.Info($'##DEBUG_SB: TaskResult.Abandoned: {TaskResult.Abandoned}');
                 catch (Exception ex)
                 {
-                    Trace.Info($'##DEBUG_SB: Could not display TaskResult.Abandoned: {ex.Message}');
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Failed: {ex.Message}");
+                }
+                try
+                {
+                    Trace.Info($"##DEBUG_SB: TaskResult.Canceled: {TaskResult.Canceled}");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Canceled: {ex.Message}");
+                }
+                try
+                {
+                    Trace.Info($"##DEBUG_SB: TaskResult.Skipped: {TaskResult.Skipped}");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Skipped: {ex.Message}");
+                }
+                try
+                {
+                    Trace.Info($"##DEBUG_SB: TaskResult.Abandoned: {TaskResult.Abandoned}");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Abandoned: {ex.Message}");
                 }
                 
                 
