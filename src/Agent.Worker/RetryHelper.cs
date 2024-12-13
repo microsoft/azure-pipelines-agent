@@ -81,7 +81,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (retryCounter > 0)
                         {
                             //ReInitialize _forceCompleted and _forceCompleteCancellationTokenSource
+                            Trace.Info("##DEBUG_SB: Calling ReInitializeForceCompletedin RetryHelper.RetryStep");
                             ExecutionContext.ReInitializeForceCompleted();
+                            Trace.Info("##DEBUG_SB: Called ReInitializeForceCompletedin RetryHelper.RetryStep");
                         }
 
                         Debug($"Invoking Method: {action.Method}. Attempt count: {retryCounter}");

@@ -90,6 +90,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
         void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
+
+        /// TO-DO: <summary>
+        /// Disposes the execution context.
+        /// </summary>
+        // void Dispose();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -337,7 +342,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.ResultCode = resultCode ?? _record.ResultCode;
             _record.FinishTime = DateTime.UtcNow;
             _record.PercentComplete = 100;
+            Trace.Info($"##DEBUG_SB: BEFORE Task result: '{_record.Result}'.");
             _record.Result = _record.Result ?? TaskResult.Succeeded;
+            Trace.Info($"##DEBUG_SB: AFTER Task result: '{_record.Result}'.");
             _record.State = TimelineRecordState.Completed;
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
@@ -981,6 +988,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Dispose()
         {
+            Trace.Info("##DEBUG_SB: ExecutionContext.Dispose() was called");
             _cancellationTokenSource?.Dispose();
             _forceCompleteCancellationTokenSource?.Dispose();
 
