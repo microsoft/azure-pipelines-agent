@@ -348,7 +348,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             try
             {
-                await GetCpuInfoAsync(cancellationToken, source);
+                await GetCpuInfoAsync(cancellationToken);
 
                 return StringUtil.Loc("ResourceMonitorCPUInfo", $"{_cpuInfo.Usage:0.00}");
             }
@@ -362,7 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             try
             {
-                GetDiskInfo(source);
+                GetDiskInfo();
 
                 return StringUtil.Loc("ResourceMonitorDiskInfo",
                     _diskInfo.VolumeRoot,
@@ -379,7 +379,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             try
             {
-                await GetMemoryInfoAsync(cancellationToken, source);
+                await GetMemoryInfoAsync(cancellationToken);
 
                 return StringUtil.Loc("ResourceMonitorMemoryInfo",
                     $"{_memoryInfo.UsedMemoryMB:0.00}", 
