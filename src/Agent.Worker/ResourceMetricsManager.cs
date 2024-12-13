@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #endregion
 
         #region MetricMethods
-        private async Task GetCpuInfoAsync(CancellationToken cancellationToken, string source)
+        private async Task GetCpuInfoAsync(CancellationToken cancellationToken)
         {
             if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
@@ -181,7 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             if (PlatformUtil.RunningOnMacOS)
             {
-                Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: {source}");
+                Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: ");
                 using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                 List<string> outputs = new List<string>();
@@ -197,7 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var filePath = "/bin/bash";
                 var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
-                Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: {source}");
+                Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: ");
                 await processInvoker.ExecuteAsync(
                         workingDirectory: string.Empty,
                         fileName: filePath,
@@ -219,9 +219,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private void GetDiskInfo(string source)
+        private void GetDiskInfo()
         {
-            Trace.Info($"##DEBUG_SB: Getting disk info from source: {source}");
+            Trace.Info($"##DEBUG_SB: Getting disk info from source: ");
             if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
                 return;
@@ -239,7 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task GetMemoryInfoAsync(CancellationToken cancellationToken, string source)
+        private async Task GetMemoryInfoAsync(CancellationToken cancellationToken)
         {
             if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
@@ -294,7 +294,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // but unfortunately it returns values in pages and has no built-in arguments for custom output
                 // so we need to parse and cast the output manually
 
-                Trace.Info($"##DEBUG_SB: Getting memory info on MacOS from source: {source}");
+                Trace.Info($"##DEBUG_SB: Getting memory info on MacOS from source: ");
                 using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                 List<string> outputs = new List<string>();
@@ -309,7 +309,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 };
 
                 var filePath = "vm_stat";
-                Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}; statement source: {source}");
+                Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}; statement source: ");
 
                 await processInvoker.ExecuteAsync(
                         workingDirectory: string.Empty,
@@ -344,7 +344,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #endregion
 
         #region StringMethods
-        private async Task<string> GetCpuInfoStringAsync(CancellationToken cancellationToken, string source)
+        private async Task<string> GetCpuInfoStringAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -358,7 +358,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private string GetDiskInfoString(string source)
+        private string GetDiskInfoString()
         {
             try
             {
@@ -375,7 +375,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private async Task<string> GetMemoryInfoStringAsync(CancellationToken cancellationToken, string source)
+        private async Task<string> GetMemoryInfoStringAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -407,9 +407,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 Trace.Info("##DEBUG_SB: Debug Resource Monitor");
                 _context.Debug(StringUtil.Loc("ResourceMonitorAgentEnvironmentResource",
-                    GetDiskInfoString("Debug Resource Monitor"),
-                    await GetMemoryInfoStringAsync(linkedTokenSource.Token, "Debug Resource Monitor"),
-                    await GetCpuInfoStringAsync(linkedTokenSource.Token, "Debug Resource Monitor")));
+                    GetDiskInfoString(),
+                    await GetMemoryInfoStringAsync(linkedTokenSource.Token),
+                    await GetCpuInfoStringAsync(linkedTokenSource.Token)));
 
                 Trace.Info($"##DEBUG_SB: Waiting for {ACTIVE_MODE_INTERVAL} ms");
                 await Task.Delay(ACTIVE_MODE_INTERVAL, _context.CancellationToken);
@@ -425,7 +425,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 try
                 {
-                    GetDiskInfo("Resource Utilization Warnings");
+                    GetDiskInfo();
 
                     var freeDiskSpacePercentage = Math.Round(((_diskInfo.FreeDiskSpaceMB / (double)_diskInfo.TotalDiskSpaceMB) * 100.0), 2);
                     var usedDiskSpacePercentage = 100.0 - freeDiskSpacePercentage;
@@ -471,7 +471,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    await GetMemoryInfoAsync(linkedTokenSource.Token, "Resource Utilization Warnings");
+                    await GetMemoryInfoAsync(linkedTokenSource.Token);
 
                     var usedMemoryPercentage = Math.Round(((_memoryInfo.UsedMemoryMB / (double)_memoryInfo.TotalMemoryMB) * 100.0), 2);
 
@@ -515,7 +515,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    await GetCpuInfoAsync(linkedTokenSource.Token, "Resource Utilization Warnings");
+                    await GetCpuInfoAsync(linkedTokenSource.Token);
 
                     if (_cpuInfo.Usage >= CPU_UTILIZATION_PERCENTAGE_THRESHOLD)
                     {

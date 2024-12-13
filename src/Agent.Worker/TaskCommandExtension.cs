@@ -529,7 +529,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 !String.IsNullOrEmpty(doneText) &&
                 StringUtil.ConvertToBoolean(doneText))
             {
-                Trace.Info("##DEBUG_SB: Calling ForceTaskComplete from TaskCompleteCommand");
+                // Trace.Info("##DEBUG_SB: Calling ForceTaskComplete from TaskCompleteCommand");
                 context.ForceTaskComplete();
             }
         }
