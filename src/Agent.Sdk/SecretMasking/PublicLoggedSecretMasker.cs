@@ -4,6 +4,7 @@ using System;
 using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
 using ISecretMaskerVSO = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 using Microsoft.Security.Utilities;
+using System.Collections.Generic;
 
 namespace Agent.Sdk.SecretMasking;
 
@@ -48,8 +49,66 @@ public sealed class PublicLoggedSecretMasker : SecretMasker, ISecretMaskerVSO
 
     public void RemoveShortSecretsFromDictionary()
     {
-        this.RemovePatternsThatDoNotMeetLengthLimits();
+        var filteredValueSecrets = new HashSet<SecretLiteral>();
+        var filteredRegexSecrets = new HashSet<RegexPattern>();
+
+        try
+        {
+            SyncObject.EnterReadLock();
+
+            foreach (var secret in EncodedSecretLiterals)
+            {
+                if (secret.m_value.Length < MinimumSecretLength)
+                {
+                    filteredValueSecrets.Add(secret);
+                }
+            }
+
+            foreach (var secret in RegexPatterns)
+            {
+                if (secret.Pattern.Length < MinimumSecretLength)
+                {
+                    filteredRegexSecrets.Add(secret);
+                }
+            }
+        }
+        finally
+        {
+            if (SyncObject.IsReadLockHeld)
+            {
+                SyncObject.ExitReadLock();
+            }
+        }
+
+        try
+        {
+            SyncObject.EnterWriteLock();
+
+            foreach (var secret in filteredValueSecrets)
+            {
+                EncodedSecretLiterals.Remove(secret);
+            }
+
+            foreach (var secret in filteredRegexSecrets)
+            {
+                RegexPatterns.Remove(secret);
+            }
+
+            foreach (var secret in filteredValueSecrets)
+            {
+                ExplicitlyAddedSecretLiterals.Remove(secret);
+            }
+        }
+        finally
+        {
+            if (SyncObject.IsWriteLockHeld)
+            {
+                SyncObject.ExitWriteLock();
+            }
+        }
     }
+
+
 
     ISecretMaskerVSO ISecretMaskerVSO.Clone()
     {
