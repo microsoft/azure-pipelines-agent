@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public NetworkCredential Write(string target, string username, string password)
+        public void Write(string target, string username, string password)
         {
             Trace.Entering();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -67,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             SyncCredentialStoreFile();
 
             // save to Windows Credential Store
-            return WriteInternal(target, username, password);
+            WriteInternal(target, username, password);
         }
 
         public NetworkCredential Read(string target)
@@ -138,6 +138,13 @@ namespace Microsoft.VisualStudio.Services.Agent
                     CredFree(credPtr);
                 }
             }
+        }
+
+        public (string UserName, string Password) Read2(string target)
+        {
+            // NetworkCredential objects cause crashes only on macOS => we can invoke the original implemantation here
+            var ret = Read(target);
+            return (ret.UserName, ret.Password);
         }
 
         public void Delete(string target)
