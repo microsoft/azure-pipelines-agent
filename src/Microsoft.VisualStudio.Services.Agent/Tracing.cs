@@ -14,10 +14,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class Tracing : ITraceWriter, IDisposable
     {
-        private ISecretMasker _secretMasker;
+        private ILoggedSecretMasker _secretMasker;
         private TraceSource _traceSource;
 
-        public Tracing(string name, ISecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
+        public Tracing(string name, ILoggedSecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
         {
             ArgUtil.NotNull(secretMasker, nameof(secretMasker));
             _secretMasker = secretMasker;

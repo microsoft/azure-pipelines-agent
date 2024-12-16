@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.Security.Utilities;
 using Agent.Sdk.SecretMasking;
 
 namespace Microsoft.VisualStudio.Services.Agent
@@ -20,14 +21,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly ConcurrentDictionary<string, Tracing> _sources = new ConcurrentDictionary<string, Tracing>(StringComparer.OrdinalIgnoreCase);
         private readonly HostTraceListener _hostTraceListener;
         private TraceSetting _traceSetting;
-        private ISecretMasker _secretMasker;
+        private ILoggedSecretMasker _secretMasker;
 
-        public TraceManager(HostTraceListener traceListener, ISecretMasker secretMasker)
+        public TraceManager(HostTraceListener traceListener, ILoggedSecretMasker secretMasker)
             : this(traceListener, new TraceSetting(), secretMasker)
         {
         }
 
-        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ISecretMasker secretMasker)
+        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ILoggedSecretMasker secretMasker)
         {
             // Validate and store params.
             ArgUtil.NotNull(traceListener, nameof(traceListener));
