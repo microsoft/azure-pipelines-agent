@@ -5,6 +5,8 @@ using Agent.Sdk.Knob;
 using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using Microsoft.TeamFoundation.TestClient.PublishTestResults;
+using System.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
@@ -30,6 +32,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
             {
                 executionContext.Debug($"Unable to set the METADATA_* env variable, error details: {ex}");
             }
+        }
+
+        public static TestCaseResultData CloneTestCaseResultData(TestCaseResultData original)
+        {
+            return new TestCaseResultData
+            {
+                Id = original.Id,
+                Comment = original.Comment,
+                Configuration = original.Configuration,
+                Project = original.Project,
+                StartedDate = original.StartedDate,
+                CompletedDate = original.CompletedDate,
+                DurationInMs = original.DurationInMs,
+                Outcome = original.Outcome,
+                Revision = original.Revision,
+                State = original.State,
+                TestCase = original.TestCase,
+                TestPoint = original.TestPoint,
+                TestRun = original.TestRun,
+                ResolutionStateId = original.ResolutionStateId,
+                ResolutionState = original.ResolutionState,
+                LastUpdatedDate = original.LastUpdatedDate,
+                Priority = original.Priority,
+                ComputerName = original.ComputerName,
+                ResetCount = original.ResetCount,
+                Build = original.Build,
+                Release = original.Release,
+                ErrorMessage = original.ErrorMessage,
+                CreatedDate = original.CreatedDate,
+                IterationDetails = original.IterationDetails?.ToList(),
+                AssociatedBugs = original.AssociatedBugs?.ToList(),
+                Url = original.Url,
+                FailureType = original.FailureType,
+                AutomatedTestName = original.AutomatedTestName,
+                AutomatedTestStorage = original.AutomatedTestStorage,
+                AutomatedTestType = original.AutomatedTestType,
+                AutomatedTestTypeId = original.AutomatedTestTypeId,
+                AutomatedTestId = original.AutomatedTestId,
+                Area = original.Area,
+                TestCaseTitle = original.TestCaseTitle,
+                StackTrace = original.StackTrace,
+                CustomFields = original.CustomFields?.ToList(),
+                BuildReference = original.BuildReference,
+                ReleaseReference = original.ReleaseReference,
+                TestPlan = original.TestPlan,
+                TestSuite = original.TestSuite,
+                TestCaseReferenceId = original.TestCaseReferenceId,
+                Owner = original.Owner,
+                RunBy = original.RunBy,
+                LastUpdatedBy = original.LastUpdatedBy,
+                ResultGroupType = original.ResultGroupType,
+                TestCaseRevision = original.TestCaseRevision,
+                TestCaseSubResultData = original.TestCaseSubResultData?.ToList(),
+                AttachmentData = original.AttachmentData
+            };
         }
 
         private static string GetEvidenceStoreMetadata(IExecutionContext executionContext, TestRunSummary testRunSummary, string testRunner, string name, string description)
