@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
+using System.Net.Security;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -167,7 +168,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             using (var handler = new HttpClientHandler())
             {
-                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return true; };
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return errors == SslPolicyErrors.None; };
 
                 using (var client = new HttpClient(handler))
                 {
