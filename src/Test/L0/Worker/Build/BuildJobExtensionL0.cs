@@ -274,6 +274,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .Callback((string varName, string varValue, bool isSecret, bool isOutput, bool isFilePath, bool isReadOnly, bool preserveCase) => { _variables.Set(varName, varValue, false); });
 
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+
             _extensionManager.Setup(x => x.GetExtensions<ISourceProvider>())
                 .Returns(new List<ISourceProvider> { _sourceProvider.Object });
 
