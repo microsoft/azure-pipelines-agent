@@ -47,9 +47,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             try
             {
+                Trace.Info("##DEBUG_SB: In try block of NixKillProcessTree");
                 if (_proc?.HasExited == false)
                 {
+                    Trace.Info($"##DEBUG_SB: before proc.Kill() in NixKillProcessTree, proc id is {_proc?.Id}");
                     _proc?.Kill();
+                    Trace.Info($"##DEBUG_SB: after proc.Kill() in NixKillProcessTree, proc is {_proc?.Id}");
                 }
             }
             catch (InvalidOperationException ex)

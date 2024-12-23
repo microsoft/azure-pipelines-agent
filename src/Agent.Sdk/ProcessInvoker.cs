@@ -253,13 +253,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Ensure we process STDERR even the process exit event happen before we start read STDERR stream.
             if (_proc.StartInfo.RedirectStandardError)
             {
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount}");
                 Interlocked.Increment(ref _asyncStreamReaderCount);
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount}");
             }
 
             // Ensure we process STDOUT even the process exit event happen before we start read STDOUT stream.
             if (_proc.StartInfo.RedirectStandardOutput)
             {
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount}");
                 Interlocked.Increment(ref _asyncStreamReaderCount);
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount}");
             }
 
             // If StandardErrorEncoding or StandardOutputEncoding is not specified the on the
@@ -346,24 +350,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
                     Task[] tasks;
+                    Trace.Info("##DEBUG_SB: whiletrueblock_processinvoker using block");
 
                     if (continueAfterCancelProcessTreeKillAttempt)
                     {
+                        Trace.Info("##DEBUG_SB: PInvokerA");
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
+                        Trace.Info("##DEBUG_SB: PInvokerB");
                     }
                     else
                     {
+                        Trace.Info("##DEBUG_SB: PInvokerC");
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task };
+                        Trace.Info("##DEBUG_SB: PInvokerD");
                     }
 
+                    Trace.Info("##DEBUG_SB: before signaled await");
                     var signaled = await Task.WhenAny(tasks);
+                    Trace.Info("##DEBUG_SB: after signaled await");
 
                     if (signaled == outputSignal)
                     {
+                        Trace.Info("##DEBUG_SB: ProcessOutput if signaled == outputSignal");
                         ProcessOutput();
                     }
                     else
                     {
+                        Trace.Info("##DEBUG_SB: ProcessOutput if signaled != outputSignal");
                         _stopWatch.Stop();
                         break;
                     }
@@ -371,6 +384,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 // Just in case there was some pending output when the process shut down go ahead and check the
                 // data buffers one last time before returning
+                Trace.Info("##DEBUG_SB: ProcessOutput before exit");
                 ProcessOutput();
 
                 if (_proc.HasExited)
@@ -417,20 +431,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             List<string> errorData = new List<string>();
             List<string> outputData = new List<string>();
 
+            Trace.Info("##DEBUG_SB: before errorLine dequeue.");
             string errorLine;
             while (_errorData.TryDequeue(out errorLine))
             {
                 errorData.Add(errorLine);
             }
 
+            Trace.Info("##DEBUG_SB: before outputLine dequeue.");
             string outputLine;
             while (_outputData.TryDequeue(out outputLine))
             {
                 outputData.Add(outputLine);
             }
 
+            Trace.Info($"##DEBUG_SB: Before reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId}");
             _outputProcessEvent.Reset();
+            Trace.Info($"##DEBUG_SB: After reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId}");
 
+            Trace.Info("##DEBUG_SB: Writing the error lines");
             // Write the error lines.
             if (errorData != null && this.ErrorDataReceived != null)
             {
@@ -443,6 +462,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
             }
 
+            Trace.Info("##DEBUG_SB: Writing the output lines");
             // Process the output lines.
             if (outputData != null && this.OutputDataReceived != null)
             {
@@ -459,6 +479,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
+            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Entering CancelAndKillProcessTree");
+
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
             ArgUtil.NotNull(_proc, nameof(_proc));
@@ -471,11 +493,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigint_succeed)
                 {
                     Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
                     return;
                 }
 
                 if (gracefulShoutdown)
                 {
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
                     return;
                 }
 
@@ -483,12 +507,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigterm_succeed)
                 {
                     Trace.Info("Process terminate successfully through Ctrl+Break/SIGTERM.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
                     return;
                 }
             }
 
             Trace.Info("Kill entire process tree since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
+            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
         }
 
         private async Task<bool> SendSIGINT(TimeSpan timeout)

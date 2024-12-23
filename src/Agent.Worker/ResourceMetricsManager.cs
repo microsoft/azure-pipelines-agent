@@ -209,7 +209,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         cancellationToken: cancellationToken);
 
                 // Use second sample for more accurate calculation
+                Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
                 var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));
+                Trace.Info($"##DEBUG_SB: CPU Info Idle: {cpuInfoIdle}");
 
                 lock (_cpuInfoLock)
                 {
@@ -321,6 +323,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         killProcessOnCancel: true,
                         cancellationToken: cancellationToken);
 
+                Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
+
                 var pageSize = int.Parse(outputs[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
 
                 var pagesFree = long.Parse(outputs[1].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
@@ -332,6 +336,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var freeMemory = (pagesFree + pagesInactive) * pageSize;
                 var usedMemory = (pagesActive + pagesSpeculative + pagesWiredDown + pagesOccupied) * pageSize;
+
+                Trace.Info($"##DEBUG_SB: Free Memory: {freeMemory}");
+                Trace.Info($"##DEBUG_SB: Used Memory: {usedMemory}");
 
                 lock (_memoryInfoLock)
                 {
