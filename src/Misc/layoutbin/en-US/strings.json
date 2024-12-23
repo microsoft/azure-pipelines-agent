@@ -107,6 +107,7 @@
     "                                    negotiate  (Kerberos or NTLM)",
     "                                    alt        (Basic authentication)",
     "                                    integrated (Windows default credentials)",
+    "                                    sp         (Service Principal)",
     " --token <token>                   Used with --auth pat. Personal access token.",
     " --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user",
     "                                   name in the format: domain\\userName or userName@domain.com",
