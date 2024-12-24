@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return await _buildHttpClient.AddBuildTagAsync(projectId, buildId, buildTag, cancellationToken: cancellationToken);
+            return await _buildHttpClient.AddBuildTagsAsync(new[] { buildTag }, projectId, buildId, cancellationToken: cancellationToken);
         }
     }
 }
