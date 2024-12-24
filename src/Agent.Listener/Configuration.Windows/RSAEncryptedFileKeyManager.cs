@@ -132,12 +132,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSA GetKey()
+        public RSA GetKey(bool useLegacyRsaImpl)
         {
-            return GetKeyFromFile();
+            return GetKeyFromFile(useLegacyRsaImpl);
         }
 
-        private RSA GetKeyFromNamedContainer()
+        private RSA GetKeyFromNamedContainer(bool useLegacyRsaImpl)
         {
             if (!File.Exists(_keyFile))
             {
@@ -151,7 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if (string.IsNullOrEmpty(result.containerName))
             {
                 // we should not get here.  GetKeyFromNamedContainer is only called from GetKeyFromFile when result.containerName is not empty
-                return GetKeyFromFile();
+                return GetKeyFromFile(useLegacyRsaImpl);
             }
 
             if (result.useCng)
@@ -170,13 +170,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Using RSACryptoServiceProvider");
                 CspParameters Params = new CspParameters();
                 Params.KeyContainerName = result.containerName;
-                Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-                var rsa = new RSACryptoServiceProvider(Params);
-                return rsa;
+                if (useLegacyRsaImpl)
+                {
+                    Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
+                    var rsa = new RSACryptoServiceProvider(Params);
+                    return rsa;
+                }
+                else
+                {
+                    Params.Flags |= CspProviderFlags.UseMachineKeyStore;
+                    using (var csp = new RSACryptoServiceProvider(Params))
+                    {
+                        return RSA.Create(csp.ExportParameters(includePrivateParameters: true));
+                    }
+                }
             }
         }
 
-        private RSA GetKeyFromFile()
+        private RSA GetKeyFromFile(bool useLegacyRsaImpl)
         {
             if (!File.Exists(_keyFile))
             {
@@ -190,10 +201,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             if(!string.IsNullOrEmpty(result.containerName))
             {
                 Trace.Info("Keyfile has ContainerName, reading from NamedContainer");
-                return GetKeyFromNamedContainer();
+                return GetKeyFromNamedContainer(useLegacyRsaImpl);
             }
 
-            var rsa = new RSACryptoServiceProvider();
+            var rsa = useLegacyRsaImpl ? new RSACryptoServiceProvider() : RSA.Create();
             rsa.ImportParameters(result.rsaParameters);
             return rsa;
         }
