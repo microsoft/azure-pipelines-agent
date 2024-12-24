@@ -29,6 +29,9 @@ namespace Agent.Sdk
 
         public ICredentials Credentials { get; set; }
 
+        // This was added to work around malloc-related crashes on MacOS
+        private static readonly NetworkCredential _neverDisposedCredentialObject = new();
+
         public AgentWebProxy()
         {
         }
@@ -48,7 +51,21 @@ namespace Agent.Sdk
             }
             else
             {
-                Credentials = new NetworkCredential(proxyUsername, proxyPassword);
+                bool avoidConstructingNetCredential =
+                       PlatformUtil.HostOS == PlatformUtil.OS.OSX
+                       && Boolean.TryParse(Environment.GetEnvironmentVariable("AVOID_NET_CREDENTIAL_OBJECTS_ON_MAC"), out bool ffEnabled)
+                       && ffEnabled;
+
+                if (avoidConstructingNetCredential)
+                {
+                    _neverDisposedCredentialObject.UserName = proxyUsername;
+                    _neverDisposedCredentialObject.Password = proxyPassword;
+                    Credentials = _neverDisposedCredentialObject;
+                }
+                else
+                {
+                    Credentials = new NetworkCredential(proxyUsername, proxyPassword);
+                }
             }
 
             if (proxyBypassList != null)
