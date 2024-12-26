@@ -562,6 +562,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             Task.Run(() =>
             {
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream.");
                 while (!reader.EndOfStream)
                 {
                     string line = reader.ReadLine();
@@ -569,17 +570,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     {
                         if (DisableWorkerCommands)
                         {
+                            Trace.Info("##DEBUG_SB: Deactivating VSO commands.");
                             line = StringUtil.DeactivateVsoCommands(line);
                         }
                         dataBuffer.Enqueue(line);
+                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Enqueued line: {line}");
                         _outputProcessEvent.Set();
                     }
                 }
 
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR stream read finished.");
                 Trace.Info("STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source.");
                     _processExitedCompletionSource.TrySetResult(true);
                 }
             });

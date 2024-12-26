@@ -765,10 +765,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
+                        Trace.Info($"##DEBUG_SB: Write to parent context log file: {message}");
                         parentContext._logger.Write(message);
                     }
                 }
-
+                Trace.Info($"##DEBUG_SB: Execution Context - message write - Write to job level log file: {message}");
                 _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
