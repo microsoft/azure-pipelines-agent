@@ -415,7 +415,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IResourceMetricsManager resourceDiagnosticManager = null;
 
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                resourceDiagnosticManager.SetContext(ExecutionContext);
+                resourceDiagnosticManager.SetContext(ExecutionContext.CreateChild(Guid.NewGuid(), nameof(ResourceMetricsManager), $"{nameof(ResourceMetricsManager)}_Run"));
 
                 if (enableResourceUtilizationWarnings)
                 {
