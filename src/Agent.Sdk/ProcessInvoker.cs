@@ -537,20 +537,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return await SendPosixSignal(PosixSignals.SIGTERM, timeout);
         }
 
-        private readonly object _exithandlerlock = new object();
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
             Trace.Info($"Exited process {_proc.Id} with exit code {_proc.ExitCode}");
 
-            // int asyncStreamReaderCount = Interlocked.CompareExchange(ref _asyncStreamReaderCount, 0, 0);
-            int asyncStreamReaderCount;
-            lock (_exithandlerlock)
-            {
-                asyncStreamReaderCount = _asyncStreamReaderCount;
-            }
-            Trace.Info($"##DEBUG_SB: Setting asyncStreamReaderCount to {asyncStreamReaderCount} using lock");
 
-            if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && asyncStreamReaderCount != 0)
+            if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && Interlocked.CompareExchange(ref _asyncStreamReaderCount, 0, 0) != 0)
             {
                 _waitingOnStreams = true;
 
