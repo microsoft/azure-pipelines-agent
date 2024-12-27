@@ -562,6 +562,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             Task.Run(() =>
             {
+                //add _proc.id info everywhere that thread id is being logged
                 Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream.");
                 while (!reader.EndOfStream)
                 {

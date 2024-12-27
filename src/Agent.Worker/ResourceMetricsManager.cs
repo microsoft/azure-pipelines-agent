@@ -528,7 +528,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         string message = $"CPU utilization is higher than {CPU_UTILIZATION_PERCENTAGE_THRESHOLD}%; currently used: {_cpuInfo.Usage:0.00}%";
 
-                        PublishTelemetry(message, taskId);
+                        Trace.Info($"##DEBUG_SB: CPU Utilization instead of publishTelemetry - {message}");
+                        //commented out PublishTelemetry for now
+                        // PublishTelemetry(message, taskId);
 
                         break;
                     }
