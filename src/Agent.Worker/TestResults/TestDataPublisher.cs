@@ -153,6 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                         for (testRunDataIterator = 0; testRunDataIterator < testRunData.Count; testRunDataIterator++)
                         {
+                            var testResultsUpdated = new List<TestCaseResultData>();
                             for (testResultDataIterator = 0; testResultDataIterator < testRunData[testRunDataIterator].TestResults.Count; testResultDataIterator++)
                             {
                                 var testResultFQN = testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestStorage +
@@ -160,17 +161,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                                 if (testResultByFQN.TryGetValue(testResultFQN, out List<TestCaseResult> inputs))
                                 {
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestPoint = inputs[0].TestPoint;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseTitle = inputs[0].TestCaseTitle;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Configuration = inputs[0].Configuration;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCase = inputs[0].TestCase;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Owner = inputs[0].Owner;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].State = "5";
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseRevision = inputs[0].TestCaseRevision;
+                                    foreach (var input in inputs)
+                                    {
+                                        var testCaseResultDataUpdated = TestResultUtils.CloneTestCaseResultData(testRunData[testRunDataIterator].TestResults[testResultDataIterator]);
 
-                                    testResultByFQN[testResultFQN].RemoveAt(0);
+                                        testCaseResultDataUpdated.TestPoint = input.TestPoint;
+                                        testCaseResultDataUpdated.TestCaseTitle = input.TestCaseTitle;
+                                        testCaseResultDataUpdated.Configuration = input.Configuration;
+                                        testCaseResultDataUpdated.TestCase = input.TestCase;
+                                        testCaseResultDataUpdated.Owner = input.Owner;
+                                        testCaseResultDataUpdated.State = "5";
+                                        testCaseResultDataUpdated.TestCaseRevision = input.TestCaseRevision;
+
+                                        testResultsUpdated.Add(testCaseResultDataUpdated);
+                                    }
                                 }
                             }
+                            testRunData[testRunDataIterator].TestResults = testResultsUpdated;
                         }
                     }
 
