@@ -42,9 +42,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static DiskInfo _diskInfo;
         private static MemoryInfo _memoryInfo;
 
+        
+        private static readonly object _cpuInfoLastUpdatedLock = new object();
+        private static readonly object _diskInfoLastUpdatedLock = new object();
+        private static readonly object _memoryInfoLastUpdatedLock = new object();
+
         private static readonly object _cpuInfoLock = new object();
         private static readonly object _diskInfoLock = new object();
         private static readonly object _memoryInfoLock = new object();
+
         #endregion
 
         #region MetricStructs
@@ -113,9 +119,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MetricMethods
         private async Task GetCpuInfoAsync(CancellationToken cancellationToken)
         {
-            if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+            lock (_cpuInfoLastUpdatedLock)
             {
-                return;
+                if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+                {
+                    return;
+                }
             }
 
             if (PlatformUtil.RunningOnWindows)
@@ -224,9 +233,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void GetDiskInfo()
         {
             Trace.Info($"##DEBUG_SB: Getting disk info from source: ");
-            if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+            lock (_diskInfoLastUpdatedLock)
             {
-                return;
+                if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+                {
+                    return;
+                }
             }
 
             string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
@@ -243,9 +255,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task GetMemoryInfoAsync(CancellationToken cancellationToken)
         {
-            if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+            lock (_memoryInfoLastUpdatedLock)
             {
-                return;
+                if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
+                {
+                    return;
+                }
             }
 
             if (PlatformUtil.RunningOnWindows)
