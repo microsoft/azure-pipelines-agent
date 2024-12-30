@@ -419,7 +419,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     await GetCpuInfoStringAsync(linkedTokenSource.Token)));
 
                 Trace.Info($"##DEBUG_SB: Waiting for {ACTIVE_MODE_INTERVAL} ms");
-                await Task.Delay(ACTIVE_MODE_INTERVAL, linkedTokenSource.Token);
+                await Task.Delay(ACTIVE_MODE_INTERVAL, _context.CancellationToken);
                 Trace.Info($"##DEBUG_SB: Done waiting for {ACTIVE_MODE_INTERVAL} ms");
             }
             Trace.Info("##DEBUG_SB: Exiting debug resource monitor");
@@ -464,8 +464,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public async Task RunMemoryUtilizationMonitorAsync()
         {
             Trace.Info("##DEBUG_SB: Starting memory utilization monitor");
+            int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
+                iterationCount++;
                 using var timeoutTokenSource = new CancellationTokenSource();
                 timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
 
@@ -498,9 +500,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: Memory Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
-                await Task.Delay(WARNING_MESSAGE_INTERVAL, linkedTokenSource.Token);
-                Trace.Info($"##DEBUG_SB: Memory Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
+                Trace.Info($"##DEBUG_SB: Memory Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
+                await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: Memory Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
             }
 
             Trace.Info("##DEBUG_SB: Exiting memory utilization monitor");
@@ -509,8 +511,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public async Task RunCpuUtilizationMonitorAsync(string taskId)
         {
             Trace.Info("##DEBUG_SB: Starting CPU utilization monitor");
+            int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
+                iterationCount++;
                 using var timeoutTokenSource = new CancellationTokenSource();
                 timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
 
@@ -543,9 +547,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
-                await Task.Delay(WARNING_MESSAGE_INTERVAL, linkedTokenSource.Token);
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
+                await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
             }
             Trace.Info("##DEBUG_SB: Exiting CPU utilization monitor");
         }
