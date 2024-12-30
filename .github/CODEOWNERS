@@ -1,2 +1,2 @@
 # Global rule:
-* @microsoft/akvelon-build-task-team    @microsoft/azure-pipelines-platform
+* @microsoft/azure-pipelines-tasks-and-agent @microsoft/azure-pipelines-platform
