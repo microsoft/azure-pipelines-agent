@@ -424,7 +424,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // add tracing statement to indicate that resource utilization warnings are enabled
                     Trace.Info("##DEBUG_SB: Resource utilization warnings are enabled.");
-                    _ = resourceDiagnosticManager.StartMonitors(Task.Reference.Id.ToString());
+                    resourceDiagnosticManager.StartMonitors(Task.Reference.Id.ToString());
                     // _ = resourceDiagnosticManager.RunMemoryUtilizationMonitorAsync();
                     // _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitorAsync();
                     // _ = resourceDiagnosticManager.RunCpuUtilizationMonitorAsync(Task.Reference.Id.ToString());
