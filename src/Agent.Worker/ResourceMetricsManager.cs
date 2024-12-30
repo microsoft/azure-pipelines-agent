@@ -207,7 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         outputEncoding: null,
                         killProcessOnCancel: true,
                         cancellationToken: cancellationToken);
-
+                        //try setting killProcessOnCancel to false
                 // Use second sample for more accurate calculation
                 Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
                 var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));

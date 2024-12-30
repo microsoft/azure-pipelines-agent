@@ -542,7 +542,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Trace.Info($"Exited process {_proc.Id} with exit code {_proc.ExitCode}");
 
 
-            if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && Interlocked.CompareExchange(ref _asyncStreamReaderCount, 0, 0) != 0)
+            if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
 
