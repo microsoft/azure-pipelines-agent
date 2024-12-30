@@ -547,9 +547,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
             }
             Trace.Info("##DEBUG_SB: Exiting CPU utilization monitor");
         }
