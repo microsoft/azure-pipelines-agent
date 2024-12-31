@@ -336,12 +336,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
             using (var registration = cancellationToken.Register(async () =>
             {
-                Trace.Info("##DEBUG_SB: Cancellation requested, attempting to cancel and kill process tree.");
+                Trace.Info($"##DEBUG_SB: Cancellation requested, attempting to cancel and kill process tree for process {_proc.Id}.");
                 await CancelAndKillProcessTree(killProcessOnCancel);
 
                 // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
                 afterCancelKillProcessTreeAttemptSignal.Set();
-                Trace.Info("##DEBUG_SB: Cancellation requested, process tree killed.");
+                Trace.Info($"##DEBUG_SB: Cancellation requested, process tree killed for process {_proc.Id}.");
             }))
             {
                 Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
@@ -350,33 +350,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 {
                     Task outputSignal = _outputProcessEvent.WaitAsync();
                     Task[] tasks;
-                    Trace.Info("##DEBUG_SB: whiletrueblock_processinvoker using block");
+                    Trace.Info($"##DEBUG_SB: whiletrueblock_processinvoker using block for process {_proc.Id}.");
 
                     if (continueAfterCancelProcessTreeKillAttempt)
                     {
-                        Trace.Info("##DEBUG_SB: PInvokerA");
+                        Trace.Info($"##DEBUG_SB: PInvokerA for process {_proc.Id}.");
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
-                        Trace.Info("##DEBUG_SB: PInvokerB");
+                        Trace.Info($"##DEBUG_SB: PInvokerB for process {_proc.Id}.");
                     }
                     else
                     {
-                        Trace.Info("##DEBUG_SB: PInvokerC");
+                        Trace.Info($"##DEBUG_SB: PInvokerC for process {_proc.Id}.");
                         tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task };
-                        Trace.Info("##DEBUG_SB: PInvokerD");
+                        Trace.Info($"##DEBUG_SB: PInvokerD for process {_proc.Id}.");
                     }
 
-                    Trace.Info("##DEBUG_SB: before signaled await");
+                    Trace.Info($"##DEBUG_SB: before signaled await for process {_proc.Id}.");
                     var signaled = await Task.WhenAny(tasks);
-                    Trace.Info("##DEBUG_SB: after signaled await");
+                    Trace.Info($"##DEBUG_SB: after signaled await for process {_proc.Id}.");
 
                     if (signaled == outputSignal)
                     {
-                        Trace.Info("##DEBUG_SB: ProcessOutput if signaled == outputSignal");
+                        Trace.Info($"##DEBUG_SB: ProcessOutput if signaled == outputSignal for process {_proc.Id}.");
                         ProcessOutput();
                     }
                     else
                     {
-                        Trace.Info("##DEBUG_SB: ProcessOutput if signaled != outputSignal");
+                        Trace.Info($"##DEBUG_SB: ProcessOutput if signaled != outputSignal for process {_proc.Id}.");
                         _stopWatch.Stop();
                         break;
                     }
@@ -384,7 +384,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 // Just in case there was some pending output when the process shut down go ahead and check the
                 // data buffers one last time before returning
-                Trace.Info("##DEBUG_SB: ProcessOutput before exit");
+                Trace.Info($"##DEBUG_SB: ProcessOutput before exit for process {_proc.Id}.");
                 ProcessOutput();
 
                 if (_proc.HasExited)
@@ -431,25 +431,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             List<string> errorData = new List<string>();
             List<string> outputData = new List<string>();
 
-            Trace.Info("##DEBUG_SB: before errorLine dequeue.");
+            Trace.Info($"##DEBUG_SB: before errorLine dequeue for process {_proc.Id}.");
             string errorLine;
             while (_errorData.TryDequeue(out errorLine))
             {
                 errorData.Add(errorLine);
             }
 
-            Trace.Info("##DEBUG_SB: before outputLine dequeue.");
+            Trace.Info($"##DEBUG_SB: before outputLine dequeue for process {_proc.Id}.");
             string outputLine;
             while (_outputData.TryDequeue(out outputLine))
             {
                 outputData.Add(outputLine);
             }
 
-            Trace.Info($"##DEBUG_SB: Before reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId}");
+            Trace.Info($"##DEBUG_SB: Before reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId} for process {_proc.Id}.");
             _outputProcessEvent.Reset();
-            Trace.Info($"##DEBUG_SB: After reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId}");
+            Trace.Info($"##DEBUG_SB: After reset thread info: Thread.CurrentThread.ManagedThreadId={Thread.CurrentThread.ManagedThreadId} for process {_proc.Id}.");
 
-            Trace.Info("##DEBUG_SB: Writing the error lines");
+            Trace.Info($"##DEBUG_SB: Writing the error lines for process {_proc.Id}.");
             // Write the error lines.
             if (errorData != null && this.ErrorDataReceived != null)
             {
@@ -462,7 +462,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
             }
 
-            Trace.Info("##DEBUG_SB: Writing the output lines");
+            Trace.Info($"##DEBUG_SB: Writing the output lines for process {_proc.Id}.");
             // Process the output lines.
             if (outputData != null && this.OutputDataReceived != null)
             {
@@ -479,7 +479,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
-            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Entering CancelAndKillProcessTree");
+            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Entering CancelAndKillProcessTree for process {_proc.Id}.");
 
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
@@ -493,13 +493,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigint_succeed)
                 {
                     Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
                     return;
                 }
 
                 if (gracefulShoutdown)
                 {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
                     return;
                 }
 
@@ -507,14 +507,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigterm_succeed)
                 {
                     Trace.Info("Process terminate successfully through Ctrl+Break/SIGTERM.");
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
                     return;
                 }
             }
 
             Trace.Info("Kill entire process tree since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
-            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree");
+            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
         }
 
         private async Task<bool> SendSIGINT(TimeSpan timeout)
@@ -565,7 +565,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             Task.Run(() =>
             {
                 //add _proc.id info everywhere that thread id is being logged
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream.");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream for process {_proc.Id}.");
                 while (!reader.EndOfStream)
                 {
                     string line = reader.ReadLine();
@@ -573,21 +573,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     {
                         if (DisableWorkerCommands)
                         {
-                            Trace.Info("##DEBUG_SB: Deactivating VSO commands.");
+                            Trace.Info($"##DEBUG_SB: Deactivating VSO commands for process {_proc.Id}.");
                             line = StringUtil.DeactivateVsoCommands(line);
                         }
                         dataBuffer.Enqueue(line);
-                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Enqueued line: {line}");
+                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Enqueued line: {line} for process {_proc.Id}.");
                         _outputProcessEvent.Set();
                     }
                 }
 
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR stream read finished.");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR stream read finished for process {_proc.Id}.");
                 Trace.Info("STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source for process {_proc.Id}.");
                     _processExitedCompletionSource.TrySetResult(true);
                 }
             });
@@ -614,7 +614,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info("Close STDIN after the first redirect finished.");
+                                Trace.Info($"Close STDIN after the first redirect finished. for process {_proc.Id}.");
                                 standardIn.Close();
                                 break;
                             }

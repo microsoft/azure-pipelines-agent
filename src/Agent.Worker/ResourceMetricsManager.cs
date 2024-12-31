@@ -221,7 +221,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         requireExitCodeZero: true,
                         outputEncoding: null,
                         killProcessOnCancel: true,
-                        cancellationToken: cancellationToken);
+                        cancellationToken: cancellationToken,
+                        continueAfterCancelProcessTreeKillAttempt: true);
                         //try setting killProcessOnCancel to false
                 // Use second sample for more accurate calculation
                 Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
@@ -342,7 +343,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         requireExitCodeZero: true,
                         outputEncoding: null,
                         killProcessOnCancel: true,
-                        cancellationToken: cancellationToken);
+                        cancellationToken: cancellationToken,
+                        continueAfterCancelProcessTreeKillAttempt: true);
 
                 Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
 
