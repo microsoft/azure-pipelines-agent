@@ -476,6 +476,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 Trace.Info($"##DEBUG_SB: Disk Space Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
+                var isCancelled = _context.CancellationToken.IsCancellationRequested;
+                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
                 Trace.Info($"##DEBUG_SB: Disk Space Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
             }
@@ -522,6 +524,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 Trace.Info($"##DEBUG_SB: Memory Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
+                var isCancelled = _context.CancellationToken.IsCancellationRequested;
+                Trace.Info($"##DEBUG_SB: Memory Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
                 Trace.Info($"##DEBUG_SB: Memory Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
             }
@@ -569,6 +573,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
+                //check if cancellation token has been cancelled
+                var isCancelled = _context.CancellationToken.IsCancellationRequested;
+                Trace.Info($"##DEBUG_SB: CPU Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
                 Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
             }
