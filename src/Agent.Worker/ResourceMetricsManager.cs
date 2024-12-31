@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunDiskSpaceUtilizationMonitorAsync();
         Task RunCpuUtilizationMonitorAsync(string taskId);
         void SetContext(IExecutionContext context);
-        void StartMonitors(string taskId);
+        // void StartMonitors(string taskId);
     }
 
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
@@ -44,18 +44,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static MemoryInfo _memoryInfo;
 
         
-        private static readonly object _cpuInfoLastUpdatedLock = new object();
-        private static readonly object _diskInfoLastUpdatedLock = new object();
-        private static readonly object _memoryInfoLastUpdatedLock = new object();
+        // private static readonly object _cpuInfoLastUpdatedLock = new object();
+        // private static readonly object _diskInfoLastUpdatedLock = new object();
+        // private static readonly object _memoryInfoLastUpdatedLock = new object();
 
         private static readonly object _cpuInfoLock = new object();
         private static readonly object _diskInfoLock = new object();
         private static readonly object _memoryInfoLock = new object();
 
-        private Task _cpuMonitorTask;
-        private Task _memoryMonitorTask;
-        private Task _diskMonitorTask;
-        private readonly object _monitorLock = new object();
+        // private Task _cpuMonitorTask;
+        // private Task _memoryMonitorTask;
+        // private Task _diskMonitorTask;
+        // private readonly object _monitorLock = new object();
 
         #endregion
 
@@ -125,13 +125,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MetricMethods
         private async Task GetCpuInfoAsync(CancellationToken cancellationToken)
         {
-            lock (_cpuInfoLastUpdatedLock)
+            // lock (_cpuInfoLastUpdatedLock)
+            // {
+            if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
-                if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
-                {
-                    return;
-                }
+                return;
             }
+            // }
 
             if (PlatformUtil.RunningOnWindows)
             {
@@ -239,13 +239,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void GetDiskInfo()
         {
             Trace.Info($"##DEBUG_SB: Getting disk info from source: ");
-            lock (_diskInfoLastUpdatedLock)
+            // lock (_diskInfoLastUpdatedLock)
+            // {
+            if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
-                if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
-                {
-                    return;
-                }
+                return;
             }
+            // }
 
             string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
             var driveInfo = new DriveInfo(root);
@@ -261,13 +261,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task GetMemoryInfoAsync(CancellationToken cancellationToken)
         {
-            lock (_memoryInfoLastUpdatedLock)
+            // lock (_memoryInfoLastUpdatedLock)
+            // {
+            if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
-                if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
-                {
-                    return;
-                }
+                return;
             }
+            // }
 
             if (PlatformUtil.RunningOnWindows)
             {
@@ -575,26 +575,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("##DEBUG_SB: Exiting CPU utilization monitor");
         }
 
-        public void StartMonitors(string taskId)
-        {
-            lock (_monitorLock)
-            {
-                if (_cpuMonitorTask == null || _cpuMonitorTask.IsCompleted)
-                {
-                    _cpuMonitorTask = RunCpuUtilizationMonitorAsync(taskId);
-                }
+        // public void StartMonitors(string taskId)
+        // {
+        //     lock (_monitorLock)
+        //     {
+        //         if (_cpuMonitorTask == null || _cpuMonitorTask.IsCompleted)
+        //         {
+        //             _cpuMonitorTask = RunCpuUtilizationMonitorAsync(taskId);
+        //         }
 
-                if (_memoryMonitorTask == null || _memoryMonitorTask.IsCompleted)
-                {
-                    _memoryMonitorTask = RunMemoryUtilizationMonitorAsync();
-                }
+        //         if (_memoryMonitorTask == null || _memoryMonitorTask.IsCompleted)
+        //         {
+        //             _memoryMonitorTask = RunMemoryUtilizationMonitorAsync();
+        //         }
 
-                if (_diskMonitorTask == null || _diskMonitorTask.IsCompleted)
-                {
-                    _diskMonitorTask = RunDiskSpaceUtilizationMonitorAsync();
-                }
-            }
-        }
+        //         if (_diskMonitorTask == null || _diskMonitorTask.IsCompleted)
+        //         {
+        //             _diskMonitorTask = RunDiskSpaceUtilizationMonitorAsync();
+        //         }
+        //     }
+        // }
         #endregion
     }
 }

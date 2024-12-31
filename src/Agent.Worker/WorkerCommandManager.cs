@@ -108,12 +108,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     try
                     {
+                        Trace.Info($"##DEBUG_SB: In try block of command serialize lock");
                         extension.ProcessCommand(context, command);
                     }
                     catch (SocketException ex)
                     {
                         using var vssConnection = WorkerUtilities.GetVssConnection(context);
-
+                        Trace.Info($"##DEBUG_SB: SocketException occurred in command serialize lock");
                         ExceptionsUtil.HandleSocketException(ex, vssConnection.Uri.ToString(), context.Error);
                         context.CommandResult = TaskResult.Failed;
                     }
@@ -121,6 +122,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         context.Error(StringUtil.Loc("CommandProcessFailed", input));
                         context.Error(ex);
+                        Trace.Info($"##DEBUG_SB: Exception occurred in command serialize lock");
                         context.CommandResult = TaskResult.Failed;
                     }
                     finally
@@ -129,6 +131,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (!(string.Equals(command.Area, "task", StringComparison.OrdinalIgnoreCase) &&
                               string.Equals(command.Event, "debug", StringComparison.OrdinalIgnoreCase)))
                         {
+                            Trace.Info($"##DEBUG_SB: In finally block of command serialize lock");
                             context.Debug($"Processed: {CommandStringConvertor.Unescape(input, unescapePercents)}");
                         }
                     }

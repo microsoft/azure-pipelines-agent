@@ -339,7 +339,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
+            Trace.Info($"##DEBUG_SB: BEFORE Task result code: '{_record.ResultCode}'.");
             _record.ResultCode = resultCode ?? _record.ResultCode;
+            Trace.Info($"##DEBUG_SB: AFTER Task result code: '{_record.ResultCode}'.");
             _record.FinishTime = DateTime.UtcNow;
             _record.PercentComplete = 100;
             Trace.Info($"##DEBUG_SB: BEFORE Task result: '{_record.Result}'.");
@@ -741,6 +743,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
             string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
+            Trace.Info($"##DEBUG_SB: Raw message: {message}");
 
             long totalLines;
             lock (_loggerLock)
