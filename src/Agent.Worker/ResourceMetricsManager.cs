@@ -225,7 +225,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         inheritConsoleHandler: false,
                         keepStandardInOpen: false,
                         highPriorityProcess: false,
-                        continueAfterCancelProcessTreeKillAttempt: true,
+                        continueAfterCancelProcessTreeKillAttempt: false,
                         cancellationToken: cancellationToken);
                         //try setting killProcessOnCancel to false
                 // Use second sample for more accurate calculation
@@ -351,7 +351,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         inheritConsoleHandler: false,
                         keepStandardInOpen: false,
                         highPriorityProcess: false,
-                        continueAfterCancelProcessTreeKillAttempt: true,
+                        continueAfterCancelProcessTreeKillAttempt: false,
                         cancellationToken: cancellationToken);
 
                 Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
