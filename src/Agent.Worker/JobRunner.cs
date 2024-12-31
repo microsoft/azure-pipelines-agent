@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? agentShutdownRegistration = null;
             VssConnection taskConnection = null;
             VssConnection legacyTaskConnection = null;
-            IResourceMetricsManager resourceDiagnosticManager = null;
+            // IResourceMetricsManager resourceDiagnosticManager = null;
             try
             {
                 // Create the job execution context.
