@@ -221,11 +221,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         requireExitCodeZero: true,
                         outputEncoding: null,
                         killProcessOnCancel: true,
-                        redirectStandardIn: null,
-                        inheritConsoleHandler: false,
-                        keepStandardInOpen: false,
-                        highPriorityProcess: false,
-                        continueAfterCancelProcessTreeKillAttempt: false,
                         cancellationToken: cancellationToken);
                         //try setting killProcessOnCancel to false
                 // Use second sample for more accurate calculation
@@ -347,11 +342,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         requireExitCodeZero: true,
                         outputEncoding: null,
                         killProcessOnCancel: true,
-                        redirectStandardIn: null,
-                        inheritConsoleHandler: false,
-                        keepStandardInOpen: false,
-                        highPriorityProcess: false,
-                        continueAfterCancelProcessTreeKillAttempt: false,
                         cancellationToken: cancellationToken);
 
                 Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");

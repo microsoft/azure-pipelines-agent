@@ -493,13 +493,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigint_succeed)
                 {
                     Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc?.Id}.");
                     return;
                 }
 
                 if (gracefulShoutdown)
                 {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc?.Id}.");
                     return;
                 }
 
@@ -507,14 +507,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 if (sigterm_succeed)
                 {
                     Trace.Info("Process terminate successfully through Ctrl+Break/SIGTERM.");
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc?.Id}.");
                     return;
                 }
             }
 
             Trace.Info("Kill entire process tree since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
-            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc.Id}.");
+            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting CancelAndKillProcessTree for process {_proc?.Id}.");
         }
 
         private async Task<bool> SendSIGINT(TimeSpan timeout)
