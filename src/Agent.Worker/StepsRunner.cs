@@ -88,8 +88,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 // Change the current job context to the step context.
-                var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                resourceDiagnosticManager.SetContext(step.ExecutionContext);
+                // var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                // resourceDiagnosticManager.SetContext(step.ExecutionContext);
 
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);

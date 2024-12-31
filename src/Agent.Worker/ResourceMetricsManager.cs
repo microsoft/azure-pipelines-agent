@@ -460,6 +460,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (freeDiskSpacePercentage <= AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD)
                     {
+                        Trace.Info("##DEBUG_SB: ResourceMonitorFreeDiskSpaceIsLowerThanThreshold, context.Warning called");
                         _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold",
                             _diskInfo.VolumeRoot,
                             AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD,
@@ -509,6 +510,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (100.0 - usedMemoryPercentage <= AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD)
                     {
+                        Trace.Info("##DEBUG_SB: ResourceMonitorMemorySpaceIsLowerThanThreshold, context.Warning called");
                         _context.Warning(StringUtil.Loc("ResourceMonitorMemorySpaceIsLowerThanThreshold",
                             AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD,
                             $"{usedMemoryPercentage:0.00}"));
