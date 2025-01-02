@@ -62,6 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MetricStructs
         private struct CpuInfo
         {
+            public bool IsProcRunning;
             public DateTime Updated;
             public double Usage;
         }
@@ -196,42 +197,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             if (PlatformUtil.RunningOnMacOS)
             {
-                Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: ");
-                using var processInvoker = HostContext.CreateService<IProcessInvoker>();
-
-                List<string> outputs = new List<string>();
-                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                try
                 {
-                    outputs.Add(message.Data);
-                };
+                    if (_cpuInfo.IsProcRunning) return;
 
-                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: ");
+                    using var processInvoker = HostContext.CreateService<IProcessInvoker>();
+
+                    List<string> outputs = new List<string>();
+                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        outputs.Add(message.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        Trace.Error($"Error on receiving CPU info: {message.Data}");
+                    };
+
+                    var filePath = "/bin/bash";
+                    var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
+                    Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: ");
+                    lock (_cpuInfoLock)
+                    {
+                        _cpuInfo.IsProcRunning = true;
+                    }
+                    await processInvoker.ExecuteAsync(
+                            workingDirectory: string.Empty,
+                            fileName: filePath,
+                            arguments: arguments,
+                            environment: null,
+                            requireExitCodeZero: true,
+                            outputEncoding: null,
+                            killProcessOnCancel: true,
+                            cancellationToken: cancellationToken);
+                    //try setting killProcessOnCancel to false
+                    // Use second sample for more accurate calculation
+                    Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
+                    var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));
+                    Trace.Info($"##DEBUG_SB: CPU Info Idle: {cpuInfoIdle}");
+
+                    lock (_cpuInfoLock)
+                    {
+                        _cpuInfo.Updated = DateTime.Now;
+                        _cpuInfo.Usage = 100 - cpuInfoIdle;
+                    }
+                }
+                finally
                 {
-                    Trace.Error($"Error on receiving CPU info: {message.Data}");
-                };
-
-                var filePath = "/bin/bash";
-                var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
-                Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: ");
-                await processInvoker.ExecuteAsync(
-                        workingDirectory: string.Empty,
-                        fileName: filePath,
-                        arguments: arguments,
-                        environment: null,
-                        requireExitCodeZero: true,
-                        outputEncoding: null,
-                        killProcessOnCancel: true,
-                        cancellationToken: cancellationToken);
-                        //try setting killProcessOnCancel to false
-                // Use second sample for more accurate calculation
-                Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
-                var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));
-                Trace.Info($"##DEBUG_SB: CPU Info Idle: {cpuInfoIdle}");
-
-                lock (_cpuInfoLock)
-                {
-                    _cpuInfo.Updated = DateTime.Now;
-                    _cpuInfo.Usage = 100 - cpuInfoIdle;
+                    lock (_cpuInfoLock)
+                    {
+                        _cpuInfo.IsProcRunning= false;
+                    }
                 }
             }
         }

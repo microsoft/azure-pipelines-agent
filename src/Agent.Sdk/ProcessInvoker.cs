@@ -311,13 +311,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
             {
-                StartReadStream(_proc.StandardError, _errorData);
+                StartReadStream(_proc.StandardError, _errorData, "STDERR1");
             }
 
             // Start the standard output notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardOutput)
             {
-                StartReadStream(_proc.StandardOutput, _outputData);
+                StartReadStream(_proc.StandardOutput, _outputData, "STDOUTPUT1");
             }
 
             if (_proc.StartInfo.RedirectStandardInput)
@@ -420,6 +420,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (_proc != null)
                 {
+                    //_proc.StandardInput.Dispose();
+                    //_proc.StandardError.Dispose();
                     _proc.Dispose();
                     _proc = null;
                 }
@@ -560,35 +562,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        private void StartReadStream(StreamReader reader, ConcurrentQueue<string> dataBuffer)
+        private void StartReadStream(StreamReader reader, ConcurrentQueue<string> dataBuffer, string bufferName)
         {
             Task.Run(() =>
             {
-                //add _proc.id info everywhere that thread id is being logged
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                while (!reader.EndOfStream)
+                try
                 {
-                    string line = reader.ReadLine();
-                    if (line != null)
+                    //add _proc.id info everywhere that thread id is being logged
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                    while (!reader.EndOfStream)
                     {
-                        if (DisableWorkerCommands)
+                        string line = reader.ReadLine();
+                        if (line != null)
                         {
-                            Trace.Info($"##DEBUG_SB: Deactivating VSO commands for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                            line = StringUtil.DeactivateVsoCommands(line);
+                            if (DisableWorkerCommands)
+                            {
+                                Trace.Info($"##DEBUG_SB: Deactivating VSO commands for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                                line = StringUtil.DeactivateVsoCommands(line);
+                            }
+                            dataBuffer.Enqueue(line);
+                            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] {bufferName} Enqueued line: {line} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                            _outputProcessEvent.Set();
                         }
-                        dataBuffer.Enqueue(line);
-                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Enqueued line: {line} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                        _outputProcessEvent.Set();
+                    }
+
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR {bufferName} stream read finished for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+
+                    if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
+                    {
+                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                        _processExitedCompletionSource.TrySetResult(true);
                     }
                 }
-
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR stream read finished for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                Trace.Info("STDOUT/STDERR stream read finished.");
-
-                if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
-                {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                    _processExitedCompletionSource.TrySetResult(true);
+                catch {
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] caught exception in {bufferName} for process {_proc.Id}");
+                }
+                finally {
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting readstream {bufferName} for {_proc.Id}");
                 }
             });
         }
