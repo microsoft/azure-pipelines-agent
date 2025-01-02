@@ -253,17 +253,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Ensure we process STDERR even the process exit event happen before we start read STDERR stream.
             if (_proc.StartInfo.RedirectStandardError)
             {
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount}");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
                 Interlocked.Increment(ref _asyncStreamReaderCount);
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount}");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDERR: {_asyncStreamReaderCount} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
             }
 
             // Ensure we process STDOUT even the process exit event happen before we start read STDOUT stream.
             if (_proc.StartInfo.RedirectStandardOutput)
             {
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount}");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Before incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
                 Interlocked.Increment(ref _asyncStreamReaderCount);
-                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount}");
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] After incrementing _asyncStreamReaderCount for STDOUT: {_asyncStreamReaderCount} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
             }
 
             // If StandardErrorEncoding or StandardOutputEncoding is not specified the on the
