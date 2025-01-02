@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public struct MemoryInfo
         {
+            public bool IsProcRunning;
             public DateTime Updated;
             public long TotalMemoryMB;
             public long UsedMemoryMB;
@@ -197,9 +198,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             if (PlatformUtil.RunningOnMacOS)
             {
-                try
+                lock (_cpuInfoLock)
                 {
                     if (_cpuInfo.IsProcRunning) return;
+                    _cpuInfo.IsProcRunning = true;
+                }
+                try
+                {
 
                     Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: ");
                     using var processInvoker = HostContext.CreateService<IProcessInvoker>();
@@ -218,10 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var filePath = "/bin/bash";
                     var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
                     Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: ");
-                    lock (_cpuInfoLock)
-                    {
-                        _cpuInfo.IsProcRunning = true;
-                    }
+
                     await processInvoker.ExecuteAsync(
                             workingDirectory: string.Empty,
                             fileName: filePath,
@@ -330,59 +332,76 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (PlatformUtil.RunningOnMacOS)
             {
-                // vm_stat allows to get the most detailed information about memory usage on MacOS
-                // but unfortunately it returns values in pages and has no built-in arguments for custom output
-                // so we need to parse and cast the output manually
-
-                Trace.Info($"##DEBUG_SB: Getting memory info on MacOS from source: ");
-                using var processInvoker = HostContext.CreateService<IProcessInvoker>();
-
-                List<string> outputs = new List<string>();
-                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
-                {
-                    outputs.Add(message.Data);
-                };
-
-                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
-                {
-                    Trace.Error($"Error on receiving memory info: {message.Data}");
-                };
-
-                var filePath = "vm_stat";
-                Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}; statement source: ");
-
-                await processInvoker.ExecuteAsync(
-                        workingDirectory: string.Empty,
-                        fileName: filePath,
-                        arguments: string.Empty,
-                        environment: null,
-                        requireExitCodeZero: true,
-                        outputEncoding: null,
-                        killProcessOnCancel: true,
-                        cancellationToken: cancellationToken);
-
-                Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
-
-                var pageSize = int.Parse(outputs[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
-
-                var pagesFree = long.Parse(outputs[1].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
-                var pagesActive = long.Parse(outputs[2].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
-                var pagesInactive = long.Parse(outputs[3].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
-                var pagesSpeculative = long.Parse(outputs[4].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
-                var pagesWiredDown = long.Parse(outputs[6].Split(" ", StringSplitOptions.RemoveEmptyEntries)[3].Trim('.'));
-                var pagesOccupied = long.Parse(outputs[16].Split(" ", StringSplitOptions.RemoveEmptyEntries)[4].Trim('.'));
-
-                var freeMemory = (pagesFree + pagesInactive) * pageSize;
-                var usedMemory = (pagesActive + pagesSpeculative + pagesWiredDown + pagesOccupied) * pageSize;
-
-                Trace.Info($"##DEBUG_SB: Free Memory: {freeMemory}");
-                Trace.Info($"##DEBUG_SB: Used Memory: {usedMemory}");
-
                 lock (_memoryInfoLock)
                 {
-                    _memoryInfo.Updated = DateTime.Now;
-                    _memoryInfo.TotalMemoryMB = (freeMemory + usedMemory) / 1048576;
-                    _memoryInfo.UsedMemoryMB = usedMemory / 1048576;
+                    if (_memoryInfo.IsProcRunning) return;
+                    _memoryInfo.IsProcRunning = true;
+                }
+                try
+                {
+
+                    // vm_stat allows to get the most detailed information about memory usage on MacOS
+                    // but unfortunately it returns values in pages and has no built-in arguments for custom output
+                    // so we need to parse and cast the output manually
+
+                    Trace.Info($"##DEBUG_SB: Getting memory info on MacOS from source: ");
+                    using var processInvoker = HostContext.CreateService<IProcessInvoker>();
+
+                    List<string> outputs = new List<string>();
+                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        outputs.Add(message.Data);
+                    };
+
+                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        Trace.Error($"Error on receiving memory info: {message.Data}");
+                    };
+
+                    var filePath = "vm_stat";
+                    Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}; statement source: ");
+
+                    await processInvoker.ExecuteAsync(
+                            workingDirectory: string.Empty,
+                            fileName: filePath,
+                            arguments: string.Empty,
+                            environment: null,
+                            requireExitCodeZero: true,
+                            outputEncoding: null,
+                            killProcessOnCancel: true,
+                            cancellationToken: cancellationToken);
+
+                    Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
+
+                    var pageSize = int.Parse(outputs[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
+
+                    var pagesFree = long.Parse(outputs[1].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
+                    var pagesActive = long.Parse(outputs[2].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
+                    var pagesInactive = long.Parse(outputs[3].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
+                    var pagesSpeculative = long.Parse(outputs[4].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
+                    var pagesWiredDown = long.Parse(outputs[6].Split(" ", StringSplitOptions.RemoveEmptyEntries)[3].Trim('.'));
+                    var pagesOccupied = long.Parse(outputs[16].Split(" ", StringSplitOptions.RemoveEmptyEntries)[4].Trim('.'));
+
+                    var freeMemory = (pagesFree + pagesInactive) * pageSize;
+                    var usedMemory = (pagesActive + pagesSpeculative + pagesWiredDown + pagesOccupied) * pageSize;
+
+                    Trace.Info($"##DEBUG_SB: Free Memory: {freeMemory}");
+                    Trace.Info($"##DEBUG_SB: Used Memory: {usedMemory}");
+
+                    lock (_memoryInfoLock)
+                    {
+                        _memoryInfo.Updated = DateTime.Now;
+                        _memoryInfo.TotalMemoryMB = (freeMemory + usedMemory) / 1048576;
+                        _memoryInfo.UsedMemoryMB = usedMemory / 1048576;
+                    }
+                }
+                finally
+                {
+                    lock (_memoryInfoLock)
+                    {
+
+                        _memoryInfo.IsProcRunning = false;
+                    }
                 }
             }
         }
