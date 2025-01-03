@@ -566,40 +566,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             Task.Run(() =>
             {
-                try
+                // try
+                // {
+                //add _proc.id info everywhere that thread id is being logged
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                while (!reader.EndOfStream)
                 {
-                    //add _proc.id info everywhere that thread id is being logged
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Start reading stream for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                    while (!reader.EndOfStream)
+                    string line = reader.ReadLine();
+                    if (line != null)
                     {
-                        string line = reader.ReadLine();
-                        if (line != null)
+                        if (DisableWorkerCommands)
                         {
-                            if (DisableWorkerCommands)
-                            {
-                                Trace.Info($"##DEBUG_SB: Deactivating VSO commands for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                                line = StringUtil.DeactivateVsoCommands(line);
-                            }
-                            dataBuffer.Enqueue(line);
-                            Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] {bufferName} Enqueued line: {line} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                            _outputProcessEvent.Set();
+                            Trace.Info($"##DEBUG_SB: Deactivating VSO commands for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                            line = StringUtil.DeactivateVsoCommands(line);
                         }
-                    }
-
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR {bufferName} stream read finished for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-
-                    if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
-                    {
-                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
-                        _processExitedCompletionSource.TrySetResult(true);
+                        dataBuffer.Enqueue(line);
+                        Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] {bufferName} Enqueued line: {line} for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                        _outputProcessEvent.Set();
                     }
                 }
-                catch {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] caught exception in {bufferName} for process {_proc.Id}");
+
+                Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] STDOUT/STDERR {bufferName} stream read finished for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+
+                if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
+                {
+                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] All stream readers finished. Setting process exited completion source for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                    _processExitedCompletionSource.TrySetResult(true);
                 }
-                finally {
-                    Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting readstream {bufferName} for {_proc.Id}");
-                }
+                // }
+                // catch {
+                //     Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] caught exception in {bufferName} for process {_proc.Id}");
+                // }
+                // finally {
+                //     Trace.Info($"[Thread {Thread.CurrentThread.ManagedThreadId}] Exiting readstream {bufferName} for {_proc.Id}");
+                // }
             });
         }
 
