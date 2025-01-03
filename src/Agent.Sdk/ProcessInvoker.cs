@@ -420,8 +420,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (_proc != null)
                 {
-                    //_proc.StandardInput.Dispose();
-                    //_proc.StandardError.Dispose();
+                    _proc.StandardInput.Dispose();
+                    _proc.StandardError.Dispose();
                     _proc.Dispose();
                     _proc = null;
                 }
