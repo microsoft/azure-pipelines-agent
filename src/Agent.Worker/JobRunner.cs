@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? agentShutdownRegistration = null;
             VssConnection taskConnection = null;
             VssConnection legacyTaskConnection = null;
-            // IResourceMetricsManager resourceDiagnosticManager = null;
+            IResourceMetricsManager resourceDiagnosticManager = null;
             try
             {
                 // Create the job execution context.
@@ -114,20 +114,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 //Start Resource Diagnostics if enabled in the job message 
                 jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
 
-                // resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                // resourceDiagnosticManager.SetContext(jobContext);
+                resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                resourceDiagnosticManager.SetContext(jobContext);
 
-                // if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
-                // {
-                //     if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
-                //     {
-                //         _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
-                //     }
-                //     else
-                //     {
-                //         jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
-                //     }
-                // }
+                if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
+                    {
+                        _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
+                    }
+                    else
+                    {
+                        jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
+                    }
+                }
 
                 agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
                 {
