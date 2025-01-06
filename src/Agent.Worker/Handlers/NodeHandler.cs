@@ -256,27 +256,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                   cancellationToken: ExecutionContext.CancellationToken);
 
                 // Wait for either the node exit or force finish through ##vso command
-                Trace.Info("##DEBUG_SB: Waiting for node process to exit.");
                 await System.Threading.Tasks.Task.WhenAny(step, ExecutionContext.ForceCompleted);
-                Trace.Info("##DEBUG_SB: Node process has exited.");
 
                 if (ExecutionContext.ForceCompleted.IsCompleted)
                 {
-                    Trace.Info("##DEBUG_SB: The task was marked as \"done\", but the process has not closed after 5 seconds. Treating the task as complete.");
                     ExecutionContext.Debug("The task was marked as \"done\", but the process has not closed after 5 seconds. Treating the task as complete.");
                 }
                 else
                 {
-                    Trace.Info("##DEBUG_SB: force completed else block");
                     await step;
-                    Trace.Info("##DEBUG_SB: force completed else block step has completed");
                 }
             }
             catch (ProcessExitCodeException ex)
             {
                 if (enableResourceUtilizationWarnings && ex.ExitCode == 137)
                 {
-                    Trace.Error("##DEBUG_SB: The task was terminated because it consumed too much memory.");
                     ExecutionContext.Error(StringUtil.Loc("AgentOutOfMemoryFailure"));
                 }
 

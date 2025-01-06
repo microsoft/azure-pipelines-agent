@@ -90,11 +90,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
         void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
-
-        /// TO-DO: <summary>
-        /// Disposes the execution context.
-        /// </summary>
-        // void Dispose();
     }
 
     public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
@@ -217,15 +212,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Info("Force finish current task in 5 sec.");
             Task.Run(async () =>
             {
-                Trace.Info("##DEBUG_SB: Force finish task delay 5 sec.");
                 await Task.Delay(TimeSpan.FromSeconds(5), ForceCompleteCancellationToken);
                 if (!ForceCompleteCancellationToken.IsCancellationRequested)
                 {
-                    Trace.Info("##DEBUG_SB: if block trysetresult");
                     _forceCompleted?.TrySetResult(1);
-                    Trace.Info("##DEBUG_SB: if block trysetresult done");
                 }
-                Trace.Info("##DEBUG_SB: Force finish task delay 5 sec. Done.");
             });
         }
 
@@ -339,14 +330,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
-            Trace.Info($"##DEBUG_SB: BEFORE Task result code: '{_record.ResultCode}'.");
             _record.ResultCode = resultCode ?? _record.ResultCode;
-            Trace.Info($"##DEBUG_SB: AFTER Task result code: '{_record.ResultCode}'.");
             _record.FinishTime = DateTime.UtcNow;
             _record.PercentComplete = 100;
-            Trace.Info($"##DEBUG_SB: BEFORE Task result: '{_record.Result}'.");
             _record.Result = _record.Result ?? TaskResult.Succeeded;
-            Trace.Info($"##DEBUG_SB: AFTER Task result: '{_record.Result}'.");
             _record.State = TimelineRecordState.Completed;
 
             _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
@@ -743,7 +730,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public long Write(string tag, string inputMessage, bool canMaskSecrets = true)
         {
             string message = canMaskSecrets ? HostContext.SecretMasker.MaskSecrets($"{tag}{inputMessage}") : inputMessage;
-            Trace.Info($"##DEBUG_SB: Raw message: {message}");
 
             long totalLines;
             lock (_loggerLock)
@@ -768,11 +754,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (parentContext._loggerLock)
                     {
-                        Trace.Info($"##DEBUG_SB: Write to parent context log file: {message}");
                         parentContext._logger.Write(message);
                     }
                 }
-                Trace.Info($"##DEBUG_SB: Execution Context - message write - Write to job level log file: {message}");
+
                 _jobServerQueue.QueueWebConsoleLine(_record.Id, message, totalLines);
             }
 
@@ -992,7 +977,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public void Dispose()
         {
-            Trace.Info("##DEBUG_SB: ExecutionContext.Dispose() was called");
             _cancellationTokenSource?.Dispose();
             _forceCompleteCancellationTokenSource?.Dispose();
 

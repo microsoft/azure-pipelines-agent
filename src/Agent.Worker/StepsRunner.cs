@@ -213,10 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         // Run the step.
-                        Trace.Info("##DEBUG_SB: Running the step in StepsRunner.");
                         await RunStepAsync(step, jobContext.CancellationToken);
-                        Trace.Info($"##DEBUG_SB: Step result: {step.ExecutionContext.Result}");
-                        Trace.Info("##DEBUG_SB: Finished running the step in StepsRunner.");
                     }
                 }
                 finally
@@ -317,7 +314,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
 
                         // if the step already canceled, don't set it to failed.
-                        Trace.Info($"##DEBUG_SB: check 1 step.ExecutionContext.CommandResult: {step.ExecutionContext.CommandResult}");
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                     }
                     else if (AgentKnobs.FailJobWhenAgentDies.GetValue(step.ExecutionContext).AsBoolean() &&
@@ -328,7 +324,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         step.ExecutionContext.Error(ex);
 
                         // if the step already canceled, don't set it to failed.
-                        Trace.Info($"##DEBUG_SB: check 2 step.ExecutionContext.CommandResult: {step.ExecutionContext.CommandResult}");
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                     }
                     else
@@ -338,7 +333,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         step.ExecutionContext.Error(ex);
 
                         // if the step already failed, don't set it to canceled.
-                        Trace.Info($"##DEBUG_SB: check 3 step.ExecutionContext.CommandResult: {step.ExecutionContext.CommandResult}");
                         step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Canceled);
                     }
                 }
@@ -349,7 +343,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.Error(ex);
 
                     // if the step already canceled, don't set it to failed.
-                    Trace.Info($"##DEBUG_SB: check 4 step.ExecutionContext.CommandResult: {step.ExecutionContext.CommandResult}");
                     step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                 }
             }
@@ -357,8 +350,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Merge executioncontext result with command result
             if (step.ExecutionContext.CommandResult != null)
             {
-                Trace.Info($"##DEBUG_SB: Merging step result with command result: {step.ExecutionContext.CommandResult.Value}");
-                Trace.Info($"##DEBUG_SB: Before merge, step result: {step.ExecutionContext.Result}");
                 step.ExecutionContext.Result = TaskResultUtil.MergeTaskResults(step.ExecutionContext.Result, step.ExecutionContext.CommandResult.Value);
             }
 
@@ -370,67 +361,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             else
             {
-                // display status of TaskResult
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.Succeeded: {TaskResult.Succeeded}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Succeeded: {ex.Message}");
-                }
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.SucceededWithIssues: {TaskResult.SucceededWithIssues}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.SucceededWithIssues: {ex.Message}");
-                }
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.Failed: {TaskResult.Failed}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Failed: {ex.Message}");
-                }
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.Canceled: {TaskResult.Canceled}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Canceled: {ex.Message}");
-                }
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.Skipped: {TaskResult.Skipped}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Skipped: {ex.Message}");
-                }
-                try
-                {
-                    Trace.Info($"##DEBUG_SB: TaskResult.Abandoned: {TaskResult.Abandoned}");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"##DEBUG_SB: Could not display TaskResult.Abandoned: {ex.Message}");
-                }
-                
-                
                 Trace.Info($"Step result: {step.ExecutionContext.Result}");
             }
 
             // Complete the step context.
-            Trace.Info("##DEBUG_SB: Finishing step in RunStepAsync.");
-            Trace.Info($"##DEBUG_SB: check1 Step result: {step.ExecutionContext.Result}");
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
-            Trace.Info($"##DEBUG_SB: check2 Step result: {step.ExecutionContext.Result}");
             step.ExecutionContext.Complete();
-            Trace.Info($"##DEBUG_SB: check3 Step result: {step.ExecutionContext.Result}");
         }
 
         private async Task SwitchToUtf8Codepage(IStep step)
