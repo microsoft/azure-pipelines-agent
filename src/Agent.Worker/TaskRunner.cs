@@ -417,14 +417,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.SetContext(ExecutionContext);
 
-                // resourceDiagnosticManager.SetContext(ExecutionContext.CreateChild(Guid.NewGuid(), nameof(ResourceMetricsManager), $"{nameof(ResourceMetricsManager)}_Run"));
-                // Trace.Info("##DEBUG_SB: ResourceDiagnosticManager is initialized with child context.");
-
                 if (enableResourceUtilizationWarnings)
                 {
                     // add tracing statement to indicate that resource utilization warnings are enabled
                     Trace.Info("##DEBUG_SB: Resource utilization warnings are enabled.");
-                    // resourceDiagnosticManager.StartMonitors(Task.Reference.Id.ToString());
                     _ = resourceDiagnosticManager.RunMemoryUtilizationMonitorAsync();
                     _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitorAsync();
                     _ = resourceDiagnosticManager.RunCpuUtilizationMonitorAsync(Task.Reference.Id.ToString());

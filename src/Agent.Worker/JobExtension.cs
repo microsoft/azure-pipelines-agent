@@ -472,7 +472,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             if (await PlatformUtil.IsRunningOnAppleSiliconAsX64Async(timeout.Token))
                             {
-                                Trace.Info("##DEBUG_SB: Rosetta2Warning Found. Running on Apple Silicon as x64.");
                                 jobContext.Warning(StringUtil.Loc("Rosetta2Warning"));
                             }
                         }
