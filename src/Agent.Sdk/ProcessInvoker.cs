@@ -549,6 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         _outputProcessEvent.Set();
                     }
                 }
+
                 Trace.Info("STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
@@ -579,7 +580,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info($"Close STDIN after the first redirect finished.");
+                                Trace.Info("Close STDIN after the first redirect finished.");
                                 standardIn.Close();
                                 break;
                             }

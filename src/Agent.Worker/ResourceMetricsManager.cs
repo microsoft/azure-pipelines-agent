@@ -368,7 +368,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (_memoryInfoLock)
                     {
-
                         _memoryInfo.IsProcRunning = false;
                     }
                 }
@@ -513,7 +512,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
             }
-
         }
 
         public async Task RunCpuUtilizationMonitorAsync(string taskId)
@@ -526,7 +524,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
-
 
                 try
                 {
