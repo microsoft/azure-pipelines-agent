@@ -42,20 +42,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static CpuInfo _cpuInfo;
         private static DiskInfo _diskInfo;
         private static MemoryInfo _memoryInfo;
-
-        
-        // private static readonly object _cpuInfoLastUpdatedLock = new object();
-        // private static readonly object _diskInfoLastUpdatedLock = new object();
-        // private static readonly object _memoryInfoLastUpdatedLock = new object();
-
         private static readonly object _cpuInfoLock = new object();
         private static readonly object _diskInfoLock = new object();
         private static readonly object _memoryInfoLock = new object();
-
-        // private Task _cpuMonitorTask;
-        // private Task _memoryMonitorTask;
-        // private Task _diskMonitorTask;
-        // private readonly object _monitorLock = new object();
 
         #endregion
 
@@ -127,13 +116,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MetricMethods
         private async Task GetCpuInfoAsync(CancellationToken cancellationToken)
         {
-            // lock (_cpuInfoLastUpdatedLock)
-            // {
             if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
                 return;
             }
-            // }
 
             if (PlatformUtil.RunningOnWindows)
             {
@@ -206,7 +192,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 try
                 {
 
-                    Trace.Info($"##DEBUG_SB: CPU info - Getting CPU usage on MacOS from source: ");
                     using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                     List<string> outputs = new List<string>();
@@ -222,7 +207,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     var filePath = "/bin/bash";
                     var arguments = "-c \"top -l 2 -o cpu | grep ^CPU\"";
-                    Trace.Info($"##DEBUG_SB: CPU info - Executing {filePath} {arguments}; source: ");
 
                     await processInvoker.ExecuteAsync(
                             workingDirectory: string.Empty,
@@ -235,9 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             cancellationToken: cancellationToken);
                     //try setting killProcessOnCancel to false
                     // Use second sample for more accurate calculation
-                    Trace.Info($"##DEBUG_SB: All Outputs in CPU Info block: {outputs}");
                     var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));
-                    Trace.Info($"##DEBUG_SB: CPU Info Idle: {cpuInfoIdle}");
 
                     lock (_cpuInfoLock)
                     {
@@ -257,14 +239,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void GetDiskInfo()
         {
-            Trace.Info($"##DEBUG_SB: Getting disk info from source: ");
-            // lock (_diskInfoLastUpdatedLock)
-            // {
             if (_diskInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
                 return;
             }
-            // }
 
             string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
             var driveInfo = new DriveInfo(root);
@@ -280,13 +258,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task GetMemoryInfoAsync(CancellationToken cancellationToken)
         {
-            // lock (_memoryInfoLastUpdatedLock)
-            // {
             if (_memoryInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
             {
                 return;
             }
-            // }
 
             if (PlatformUtil.RunningOnWindows)
             {
@@ -344,7 +319,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // but unfortunately it returns values in pages and has no built-in arguments for custom output
                     // so we need to parse and cast the output manually
 
-                    Trace.Info($"##DEBUG_SB: Getting memory info on MacOS from source: ");
                     using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                     List<string> outputs = new List<string>();
@@ -359,7 +333,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     };
 
                     var filePath = "vm_stat";
-                    Trace.Info($"##DEBUG_SB: Memory info - Executing {filePath}; statement source: ");
 
                     await processInvoker.ExecuteAsync(
                             workingDirectory: string.Empty,
@@ -371,7 +344,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             killProcessOnCancel: true,
                             cancellationToken: cancellationToken);
 
-                    Trace.Info($"##DEBUG_SB: All Outputs in Memory Info block: {outputs}");
 
                     var pageSize = int.Parse(outputs[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
 
@@ -385,8 +357,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var freeMemory = (pagesFree + pagesInactive) * pageSize;
                     var usedMemory = (pagesActive + pagesSpeculative + pagesWiredDown + pagesOccupied) * pageSize;
 
-                    Trace.Info($"##DEBUG_SB: Free Memory: {freeMemory}");
-                    Trace.Info($"##DEBUG_SB: Used Memory: {usedMemory}");
 
                     lock (_memoryInfoLock)
                     {
@@ -459,7 +429,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #region MonitorLoops
         public async Task RunDebugResourceMonitorAsync()
         {
-            Trace.Info("##DEBUG_SB: Starting debug resource monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 using var timeoutTokenSource = new CancellationTokenSource();
@@ -469,22 +438,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
 
-                Trace.Info("##DEBUG_SB: Debug Resource Monitor");
                 _context.Debug(StringUtil.Loc("ResourceMonitorAgentEnvironmentResource",
                     GetDiskInfoString(),
                     await GetMemoryInfoStringAsync(linkedTokenSource.Token),
                     await GetCpuInfoStringAsync(linkedTokenSource.Token)));
 
-                Trace.Info($"##DEBUG_SB: Waiting for {ACTIVE_MODE_INTERVAL} ms");
                 await Task.Delay(ACTIVE_MODE_INTERVAL, _context.CancellationToken);
-                Trace.Info($"##DEBUG_SB: Done waiting for {ACTIVE_MODE_INTERVAL} ms");
             }
-            Trace.Info("##DEBUG_SB: Exiting debug resource monitor");
         }
 
         public async Task RunDiskSpaceUtilizationMonitorAsync()
         {
-            Trace.Info("##DEBUG_SB: Starting disk space utilization monitor");
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 try
@@ -496,7 +460,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (freeDiskSpacePercentage <= AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD)
                     {
-                        Trace.Info("##DEBUG_SB: ResourceMonitorFreeDiskSpaceIsLowerThanThreshold, context.Warning called");
                         _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold",
                             _diskInfo.VolumeRoot,
                             AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD,
@@ -512,18 +475,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms");
                 var isCancelled = _context.CancellationToken.IsCancellationRequested;
-                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
-                Trace.Info($"##DEBUG_SB: Disk Space Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms");
             }
-            Trace.Info("##DEBUG_SB: Exiting disk space utilization monitor");
         }
 
         public async Task RunMemoryUtilizationMonitorAsync()
         {
-            Trace.Info("##DEBUG_SB: Starting memory utilization monitor");
             int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
@@ -536,7 +494,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     timeoutTokenSource.Token);
 
                 // display cancellation token and properties
-                Trace.Info($"##DEBUG_SB: Memory Utilization - CancellationToken: {linkedTokenSource.Token}");
 
                 try
                 {
@@ -546,7 +503,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (100.0 - usedMemoryPercentage <= AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD)
                     {
-                        Trace.Info("##DEBUG_SB: ResourceMonitorMemorySpaceIsLowerThanThreshold, context.Warning called");
                         _context.Warning(StringUtil.Loc("ResourceMonitorMemorySpaceIsLowerThanThreshold",
                             AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD,
                             $"{usedMemoryPercentage:0.00}"));
@@ -561,19 +517,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: Memory Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
                 var isCancelled = _context.CancellationToken.IsCancellationRequested;
-                Trace.Info($"##DEBUG_SB: Memory Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
-                Trace.Info($"##DEBUG_SB: Memory Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, iteration count: {iterationCount}");
             }
 
-            Trace.Info("##DEBUG_SB: Exiting memory utilization monitor");
         }
 
         public async Task RunCpuUtilizationMonitorAsync(string taskId)
         {
-            Trace.Info("##DEBUG_SB: Starting CPU utilization monitor");
             int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
@@ -585,7 +536,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
 
-                Trace.Info($"##DEBUG_SB: CPU Utilization - CancellationToken: {linkedTokenSource.Token}");
 
                 try
                 {
@@ -595,8 +545,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         string message = $"CPU utilization is higher than {CPU_UTILIZATION_PERCENTAGE_THRESHOLD}%; currently used: {_cpuInfo.Usage:0.00}%";
 
-                        // Trace.Info($"##DEBUG_SB: CPU Utilization instead of publishTelemetry - {message}");
-                        //commented out PublishTelemetry for now
                         PublishTelemetry(message, taskId);
 
                         break;
@@ -610,36 +558,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
                 //check if cancellation token has been cancelled
                 var isCancelled = _context.CancellationToken.IsCancellationRequested;
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Is Cancellation Requested, Before Task.Delay: {isCancelled}");
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
-                Trace.Info($"##DEBUG_SB: CPU Utilization - Done waiting for {WARNING_MESSAGE_INTERVAL} ms, taskid: {taskId}, iteration count: {iterationCount}");
             }
-            Trace.Info("##DEBUG_SB: Exiting CPU utilization monitor");
         }
 
-        // public void StartMonitors(string taskId)
-        // {
-        //     lock (_monitorLock)
-        //     {
-        //         if (_cpuMonitorTask == null || _cpuMonitorTask.IsCompleted)
-        //         {
-        //             _cpuMonitorTask = RunCpuUtilizationMonitorAsync(taskId);
-        //         }
-
-        //         if (_memoryMonitorTask == null || _memoryMonitorTask.IsCompleted)
-        //         {
-        //             _memoryMonitorTask = RunMemoryUtilizationMonitorAsync();
-        //         }
-
-        //         if (_diskMonitorTask == null || _diskMonitorTask.IsCompleted)
-        //         {
-        //             _diskMonitorTask = RunDiskSpaceUtilizationMonitorAsync();
-        //         }
-        //     }
-        // }
         #endregion
     }
 }
