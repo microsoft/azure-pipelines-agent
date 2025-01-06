@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Task RunDiskSpaceUtilizationMonitorAsync();
         Task RunCpuUtilizationMonitorAsync(string taskId);
         void SetContext(IExecutionContext context);
-        // void StartMonitors(string taskId);
     }
 
     public sealed class ResourceMetricsManager : AgentService, IResourceMetricsManager
@@ -42,10 +41,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static CpuInfo _cpuInfo;
         private static DiskInfo _diskInfo;
         private static MemoryInfo _memoryInfo;
+
         private static readonly object _cpuInfoLock = new object();
         private static readonly object _diskInfoLock = new object();
         private static readonly object _memoryInfoLock = new object();
-
         #endregion
 
         #region MetricStructs
@@ -475,25 +474,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                var isCancelled = _context.CancellationToken.IsCancellationRequested;
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
             }
         }
 
         public async Task RunMemoryUtilizationMonitorAsync()
         {
-            int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
-                iterationCount++;
                 using var timeoutTokenSource = new CancellationTokenSource();
                 timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
 
                 using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
                     _context.CancellationToken,
                     timeoutTokenSource.Token);
-
-                // display cancellation token and properties
 
                 try
                 {
@@ -517,7 +511,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                var isCancelled = _context.CancellationToken.IsCancellationRequested;
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
             }
 
@@ -525,10 +518,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task RunCpuUtilizationMonitorAsync(string taskId)
         {
-            int iterationCount = 0;
             while (!_context.CancellationToken.IsCancellationRequested)
             {
-                iterationCount++;
                 using var timeoutTokenSource = new CancellationTokenSource();
                 timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
 
@@ -558,12 +549,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     break;
                 }
 
-                //check if cancellation token has been cancelled
-                var isCancelled = _context.CancellationToken.IsCancellationRequested;
                 await Task.Delay(WARNING_MESSAGE_INTERVAL, _context.CancellationToken);
             }
         }
-
         #endregion
     }
 }

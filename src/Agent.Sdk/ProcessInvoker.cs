@@ -307,13 +307,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Start the standard error notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardError)
             {
-                StartReadStream(_proc.StandardError, _errorData, "STDERR1");
+                StartReadStream(_proc.StandardError, _errorData);
             }
 
             // Start the standard output notifications, if appropriate.
             if (_proc.StartInfo.RedirectStandardOutput)
             {
-                StartReadStream(_proc.StandardOutput, _outputData, "STDOUTPUT1");
+                StartReadStream(_proc.StandardOutput, _outputData);
             }
 
             if (_proc.StartInfo.RedirectStandardInput)
@@ -462,12 +462,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         internal protected virtual async Task CancelAndKillProcessTree(bool killProcessOnCancel)
         {
-
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
             ArgUtil.NotNull(_proc, nameof(_proc));
-
-
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);
@@ -517,8 +514,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
             Trace.Info($"Exited process {_proc.Id} with exit code {_proc.ExitCode}");
-
-            // if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && Interlocked.CompareExchange(ref _asyncStreamReaderCount, 0, 0) > 0)
             if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
@@ -537,13 +532,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
-        private void StartReadStream(StreamReader reader, ConcurrentQueue<string> dataBuffer, string bufferName)
+        private void StartReadStream(StreamReader reader, ConcurrentQueue<string> dataBuffer)
         {
             Task.Run(() =>
             {
-                // try
-                // {
-                //add _proc.id info everywhere that thread id is being logged
                 while (!reader.EndOfStream)
                 {
                     string line = reader.ReadLine();
@@ -557,7 +549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                         _outputProcessEvent.Set();
                     }
                 }
-
+                Trace.Info("STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
@@ -587,7 +579,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info($"Close STDIN after the first redirect finished. for process {_proc.Id} that has filename {_proc.StartInfo.FileName}.");
+                                Trace.Info($"Close STDIN after the first redirect finished.");
                                 standardIn.Close();
                                 break;
                             }
