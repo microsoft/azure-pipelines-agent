@@ -216,7 +216,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             outputEncoding: null,
                             killProcessOnCancel: true,
                             cancellationToken: cancellationToken);
-                    //try setting killProcessOnCancel to false
                     // Use second sample for more accurate calculation
                     var cpuInfoIdle = double.Parse(outputs[1].Split(' ', (char)StringSplitOptions.RemoveEmptyEntries)[6].Trim('%'));
 
@@ -230,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     lock (_cpuInfoLock)
                     {
-                        _cpuInfo.IsProcRunning= false;
+                        _cpuInfo.IsProcRunning = false;
                     }
                 }
             }
