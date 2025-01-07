@@ -185,12 +185,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 lock (_cpuInfoLock)
                 {
-                    if (_cpuInfo.IsProcRunning) return;
+                    if (_cpuInfo.IsProcRunning)
+                    {
+                        return;
+                    }
                     _cpuInfo.IsProcRunning = true;
                 }
+
                 try
                 {
-
                     using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
                     List<string> outputs = new List<string>();
@@ -307,12 +310,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 lock (_memoryInfoLock)
                 {
-                    if (_memoryInfo.IsProcRunning) return;
+                    if (_memoryInfo.IsProcRunning)
+                    {
+                        return;
+                    }
                     _memoryInfo.IsProcRunning = true;
                 }
+
                 try
                 {
-
                     // vm_stat allows to get the most detailed information about memory usage on MacOS
                     // but unfortunately it returns values in pages and has no built-in arguments for custom output
                     // so we need to parse and cast the output manually
@@ -342,7 +348,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             killProcessOnCancel: true,
                             cancellationToken: cancellationToken);
 
-
                     var pageSize = int.Parse(outputs[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[7]);
 
                     var pagesFree = long.Parse(outputs[1].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2].Trim('.'));
@@ -354,7 +359,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     var freeMemory = (pagesFree + pagesInactive) * pageSize;
                     var usedMemory = (pagesActive + pagesSpeculative + pagesWiredDown + pagesOccupied) * pageSize;
-
 
                     lock (_memoryInfoLock)
                     {
