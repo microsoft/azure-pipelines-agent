@@ -17,7 +17,7 @@ parameters:
 - name: win_arm64
   type: boolean
   displayName: Windows (ARM64)
-  default: true
+  default: false
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
