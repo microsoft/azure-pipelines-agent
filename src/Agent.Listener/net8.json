@@ -35,14 +35,6 @@
     ]
   },
   {
-    "id": "ol",
-    "versions": [
-      {
-        "name": "8+"
-      }
-    ]
-  },
-  {
     "id": "macOS",
     "versions": [
       {
@@ -76,6 +68,22 @@
   },
   {
     "id": "rhel",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "ol",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "rocky",
     "versions": [
       {
         "name": "8+"

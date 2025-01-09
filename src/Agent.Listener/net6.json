@@ -72,6 +72,22 @@
     ]
   },
   {
+    "id": "ol",
+    "versions": [
+      {
+        "name": "7+"
+      }
+    ]
+  },
+  {
+    "id": "rocky",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
     "id": "sles",
     "versions": [
       {
