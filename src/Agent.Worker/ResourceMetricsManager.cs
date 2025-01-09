@@ -238,7 +238,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _cpuInfo.IsProcRunning = false;
                 }
             }
-
         }
 
         private void GetDiskInfo()
@@ -397,7 +396,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _memoryInfo.IsProcRunning = false;
                 }
             }
-
         }
         #endregion
 
