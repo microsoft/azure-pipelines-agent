@@ -57,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private struct DiskInfo
         {
+            public bool IsProcRunning;
             public DateTime Updated;
             public double TotalDiskSpaceMB;
             public double FreeDiskSpaceMB;
@@ -120,79 +121,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            if (PlatformUtil.RunningOnWindows)
+            lock (_cpuInfoLock)
             {
-                await Task.Run(() =>
+                if (_cpuInfo.IsProcRunning)
                 {
-                    using var query = new ManagementObjectSearcher("SELECT PercentIdleTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE Name=\"_Total\"");
+                    return;
+                }
+                _cpuInfo.IsProcRunning = true;
+            }
 
-                    ManagementObject cpuInfo = query.Get().OfType<ManagementObject>().FirstOrDefault() ?? throw new Exception("Failed to execute WMI query");
-                    var cpuInfoIdle = Convert.ToDouble(cpuInfo["PercentIdleTime"]);
+            try
+            {
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    await Task.Run(() =>
+                    {
+                        using var query = new ManagementObjectSearcher("SELECT PercentIdleTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE Name=\"_Total\"");
+
+                        ManagementObject cpuInfo = query.Get().OfType<ManagementObject>().FirstOrDefault() ?? throw new Exception("Failed to execute WMI query");
+                        var cpuInfoIdle = Convert.ToDouble(cpuInfo["PercentIdleTime"]);
+
+                        lock (_cpuInfoLock)
+                        {
+                            _cpuInfo.Updated = DateTime.Now;
+                            _cpuInfo.Usage = 100 - cpuInfoIdle;
+                        }
+                    }, cancellationToken);
+                }
+
+                if (PlatformUtil.RunningOnLinux)
+                {
+                    List<float[]> samples = new();
+                    int samplesCount = 10;
+
+                    // /proc/stat updates linearly in real time and shows CPU time counters during the whole system uptime
+                    // so we need to collect multiple samples to calculate CPU usage
+                    for (int i = 0; i < samplesCount + 1; i++)
+                    {
+                        string[] strings = await File.ReadAllLinesAsync("/proc/stat", cancellationToken);
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        samples.Add(strings[0]
+                                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                .Skip(1)
+                                .Select(float.Parse)
+                                .ToArray());
+
+                        await Task.Delay(100, cancellationToken);
+                    }
+
+                    // The CPU time counters in the /proc/stat are:
+                    // user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
+                    //
+                    // We need to get deltas for idle and total CPU time using the gathered samples
+                    // and calculate the average to provide the CPU utilization in the moment
+                    double cpuUsage = 0.0;
+                    for (int i = 1; i < samplesCount + 1; i++)
+                    {
+                        double idle = samples[i][3] - samples[i - 1][3];
+                        double total = samples[i].Sum() - samples[i - 1].Sum();
+
+                        cpuUsage += 1.0 - (idle / total);
+                    }
 
                     lock (_cpuInfoLock)
                     {
                         _cpuInfo.Updated = DateTime.Now;
-                        _cpuInfo.Usage = 100 - cpuInfoIdle;
+                        _cpuInfo.Usage = (cpuUsage / samplesCount) * 100;
                     }
-                }, cancellationToken);
-            }
-
-            if (PlatformUtil.RunningOnLinux)
-            {
-                List<float[]> samples = new();
-                int samplesCount = 10;
-
-                // /proc/stat updates linearly in real time and shows CPU time counters during the whole system uptime
-                // so we need to collect multiple samples to calculate CPU usage
-                for (int i = 0; i < samplesCount + 1; i++)
-                {
-                    string[] strings = await File.ReadAllLinesAsync("/proc/stat", cancellationToken);
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
-
-                    samples.Add(strings[0]
-                            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                            .Skip(1)
-                            .Select(float.Parse)
-                            .ToArray());
-
-                    await Task.Delay(100, cancellationToken);
                 }
 
-                // The CPU time counters in the /proc/stat are:
-                // user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
-                //
-                // We need to get deltas for idle and total CPU time using the gathered samples
-                // and calculate the average to provide the CPU utilization in the moment
-                double cpuUsage = 0.0;
-                for (int i = 1; i < samplesCount + 1; i++)
-                {
-                    double idle = samples[i][3] - samples[i - 1][3];
-                    double total = samples[i].Sum() - samples[i - 1].Sum();
-
-                    cpuUsage += 1.0 - (idle / total);
-                }
-
-                lock (_cpuInfoLock)
-                {
-                    _cpuInfo.Updated = DateTime.Now;
-                    _cpuInfo.Usage = (cpuUsage / samplesCount) * 100;
-                }
-            }
-            if (PlatformUtil.RunningOnMacOS)
-            {
-                lock (_cpuInfoLock)
-                {
-                    if (_cpuInfo.IsProcRunning)
-                    {
-                        return;
-                    }
-                    _cpuInfo.IsProcRunning = true;
-                }
-
-                try
+                if (PlatformUtil.RunningOnMacOS)
                 {
                     using var processInvoker = HostContext.CreateService<IProcessInvoker>();
 
@@ -228,14 +230,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _cpuInfo.Usage = 100 - cpuInfoIdle;
                     }
                 }
-                finally
+            }
+            finally
+            {
+                lock (_cpuInfoLock)
                 {
-                    lock (_cpuInfoLock)
-                    {
-                        _cpuInfo.IsProcRunning = false;
-                    }
+                    _cpuInfo.IsProcRunning = false;
                 }
             }
+
         }
 
         private void GetDiskInfo()
@@ -245,15 +248,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
-            var driveInfo = new DriveInfo(root);
-
             lock (_diskInfoLock)
             {
-                _diskInfo.Updated = DateTime.Now;
-                _diskInfo.TotalDiskSpaceMB = (double)driveInfo.TotalSize / 1048576;
-                _diskInfo.FreeDiskSpaceMB = (double)driveInfo.AvailableFreeSpace / 1048576;
-                _diskInfo.VolumeRoot = root;
+                if (_diskInfo.IsProcRunning)
+                {
+                    return;
+                }
+                _diskInfo.IsProcRunning = true;
+            }
+
+            try
+            {
+                string root = Path.GetPathRoot(_context.GetVariableValueOrDefault(Constants.Variables.Agent.WorkFolder));
+                var driveInfo = new DriveInfo(root);
+
+                lock (_diskInfoLock)
+                {
+                    _diskInfo.Updated = DateTime.Now;
+                    _diskInfo.TotalDiskSpaceMB = (double)driveInfo.TotalSize / 1048576;
+                    _diskInfo.FreeDiskSpaceMB = (double)driveInfo.AvailableFreeSpace / 1048576;
+                    _diskInfo.VolumeRoot = root;
+                }
+            }
+            finally
+            {
+                lock (_diskInfoLock)
+                {
+                    _diskInfo.IsProcRunning = false;
+                }
             }
         }
 
@@ -264,60 +286,60 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            if (PlatformUtil.RunningOnWindows)
+            lock (_memoryInfoLock)
             {
-                await Task.Run(() =>
+                if (_memoryInfo.IsProcRunning)
                 {
-                    using var query = new ManagementObjectSearcher("SELECT FreePhysicalMemory, TotalVisibleMemorySize FROM CIM_OperatingSystem");
+                    return;
+                }
+                _memoryInfo.IsProcRunning = true;
+            }
 
-                    ManagementObject memoryInfo = query.Get().OfType<ManagementObject>().FirstOrDefault() ?? throw new Exception("Failed to execute WMI query");
-                    var freeMemory = Convert.ToInt64(memoryInfo["FreePhysicalMemory"]);
-                    var totalMemory = Convert.ToInt64(memoryInfo["TotalVisibleMemorySize"]);
+            try
+            {
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    await Task.Run(() =>
+                    {
+                        using var query = new ManagementObjectSearcher("SELECT FreePhysicalMemory, TotalVisibleMemorySize FROM CIM_OperatingSystem");
+
+                        ManagementObject memoryInfo = query.Get().OfType<ManagementObject>().FirstOrDefault() ?? throw new Exception("Failed to execute WMI query");
+                        var freeMemory = Convert.ToInt64(memoryInfo["FreePhysicalMemory"]);
+                        var totalMemory = Convert.ToInt64(memoryInfo["TotalVisibleMemorySize"]);
+
+                        lock (_memoryInfoLock)
+                        {
+                            _memoryInfo.Updated = DateTime.Now;
+                            _memoryInfo.TotalMemoryMB = totalMemory / 1024;
+                            _memoryInfo.UsedMemoryMB = (totalMemory - freeMemory) / 1024;
+                        }
+                    }, cancellationToken);
+                }
+
+                if (PlatformUtil.RunningOnLinux)
+                {
+                    string[] memoryInfo = await File.ReadAllLinesAsync("/proc/meminfo", cancellationToken);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    // The /proc/meminfo file contains several memory counters. To calculate the available memory
+                    // we need to get the total memory and the available memory counters
+                    // The available memory contains the sum of free, cached, and buffer memory
+                    // it shows more accurate information about the memory usage than the free memory counter
+                    int totalMemory = int.Parse(memoryInfo[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]);
+                    int availableMemory = int.Parse(memoryInfo[2].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]);
 
                     lock (_memoryInfoLock)
                     {
                         _memoryInfo.Updated = DateTime.Now;
                         _memoryInfo.TotalMemoryMB = totalMemory / 1024;
-                        _memoryInfo.UsedMemoryMB = (totalMemory - freeMemory) / 1024;
+                        _memoryInfo.UsedMemoryMB = (totalMemory - availableMemory) / 1024;
                     }
-                }, cancellationToken);
-            }
-
-            if (PlatformUtil.RunningOnLinux)
-            {
-                string[] memoryInfo = await File.ReadAllLinesAsync("/proc/meminfo", cancellationToken);
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return;
                 }
 
-                // The /proc/meminfo file contains several memory counters. To calculate the available memory
-                // we need to get the total memory and the available memory counters
-                // The available memory contains the sum of free, cached, and buffer memory
-                // it shows more accurate information about the memory usage than the free memory counter
-                int totalMemory = int.Parse(memoryInfo[0].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]);
-                int availableMemory = int.Parse(memoryInfo[2].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]);
-
-                lock (_memoryInfoLock)
-                {
-                    _memoryInfo.Updated = DateTime.Now;
-                    _memoryInfo.TotalMemoryMB = totalMemory / 1024;
-                    _memoryInfo.UsedMemoryMB = (totalMemory - availableMemory) / 1024;
-                }
-            }
-
-            if (PlatformUtil.RunningOnMacOS)
-            {
-                lock (_memoryInfoLock)
-                {
-                    if (_memoryInfo.IsProcRunning)
-                    {
-                        return;
-                    }
-                    _memoryInfo.IsProcRunning = true;
-                }
-
-                try
+                if (PlatformUtil.RunningOnMacOS)
                 {
                     // vm_stat allows to get the most detailed information about memory usage on MacOS
                     // but unfortunately it returns values in pages and has no built-in arguments for custom output
@@ -367,14 +389,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _memoryInfo.UsedMemoryMB = usedMemory / 1048576;
                     }
                 }
-                finally
+            }
+            finally
+            {
+                lock (_memoryInfoLock)
                 {
-                    lock (_memoryInfoLock)
-                    {
-                        _memoryInfo.IsProcRunning = false;
-                    }
+                    _memoryInfo.IsProcRunning = false;
                 }
             }
+
         }
         #endregion
 

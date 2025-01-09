@@ -404,33 +404,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (_proc != null)
                 {
-                    //Dispose the standard input/output/error stream. Refer: https://github.com/dotnet/runtime/issues/58872
-                    try
-                    {
-                        _proc.StandardInput.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.Info($"Skipping _proc.StandardInput.Dispose() due to exception {ex}");
-                    }
-
-                    try
-                    {
-                        _proc.StandardOutput.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.Info($"Skipping _proc.StandardOutput.Dispose() due to exception {ex}");
-                    }
-
-                    try
-                    {
-                        _proc.StandardError.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.Info($"Skipping _proc.StandardError.Dispose() due to exception {ex}");
-                    }
+                    //Dispose the standard output/error stream. Refer: https://github.com/dotnet/runtime/issues/58872
+                    _proc.StandardOutput?.Dispose();
+                    _proc.StandardError?.Dispose();
 
                     _proc.Dispose();
                     _proc = null;
