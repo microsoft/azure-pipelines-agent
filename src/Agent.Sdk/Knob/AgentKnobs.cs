@@ -779,5 +779,11 @@ namespace Agent.Sdk.Knob
             "If true, agent will use sparse checkout in checkout task.",
             new RuntimeKnobSource("AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AvoidNetCredentialObjectsOnMac = new Knob(
+            nameof(AvoidNetCredentialObjectsOnMac),
+            "Eliminates construction of NetwokCredential objects on macOS, which internally suffer from malloc-related crashes",
+            new EnvironmentKnobSource("AVOID_NET_CREDENTIAL_OBJECTS_ON_MAC"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
