@@ -858,68 +858,101 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[10]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --userName <userName>             --auth negotiate または --auth alt と共に使用されます。Windows ユーザーの指定]]></Val>
+            <Val><![CDATA[ --token <token>                   --auth pat と共に使用します。個人用アクセス トークン。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[11]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   以下の形式で命名します: domain\userName または userName@domain.com]]></Val>
+            <Val><![CDATA[ --userName <userName>             --auth negotiate または --auth alt と共に使用されます。Windows ユーザーの指定]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[12]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --password <password>             --auth negotiate または --auth alt と共に使用されます。]]></Val>
+            <Val><![CDATA[                                   以下の形式で命名します: domain\userName または userName@domain.com]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[13]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --unattended                      無人構成。確認メッセージは表示されません。すべての回答が必要です]]></Val>
+            <Val><![CDATA[ --password <password>             --auth negotiate または --auth alt と共に使用されます。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[14]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   コマンド ラインに指定する必要があります。]]></Val>
+            <Val><![CDATA[ --unattended                      無人構成。確認メッセージは表示されません。すべての回答が必要です]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[15]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --version                         エージェントのバージョンを出力します]]></Val>
+            <Val><![CDATA[                                   コマンド ラインに指定する必要があります。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[16]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --commit                          エージェントのコミットを出力します]]></Val>
+            <Val><![CDATA[ --version                         エージェントのバージョンを出力します]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[17]" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --commit                          エージェントのコミットを出力します]]></Val>
+          </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --help                            Prints the help]]></Val>
+          </Prev>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";CommandLineHelp_Common[18]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --help                            Prints the help]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
@@ -1002,10 +1035,13 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[9]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          <Val><![CDATA[                                    sp         (Service Principal)]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --token <token>                   --auth pat と共に使用します。個人用アクセス トークン。]]></Val>
+            <Val><![CDATA[sp (サービス プリンシパル)]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>

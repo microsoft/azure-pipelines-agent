@@ -858,68 +858,101 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[10]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --userName <userName>             --auth 협상 또는 --auth alt와 함께 사용됩니다. Windows 사용자를 지정합니다]]></Val>
+            <Val><![CDATA[ --token <token>                   --auth pat과 함께 사용됩니다. 개인용 액세스 토큰입니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[11]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   다음 형식의 이름: domain\userName 또는 userName@domain.com]]></Val>
+            <Val><![CDATA[ --userName <userName>             --auth 협상 또는 --auth alt와 함께 사용됩니다. Windows 사용자를 지정합니다]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[12]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --password <password>             --auth 협상 또는 --auth Alt와 함께 사용됩니다.]]></Val>
+            <Val><![CDATA[                                   이름을 domain\userName 또는 userName@domain.com 형식으로 지정합니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[13]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --unattended                      무인 구성. 메시지가 표시되지 않습니다. 모든 답변은 다음을 충족해야 합니다]]></Val>
+            <Val><![CDATA[ --password <password>             --auth 협상 또는 --auth Alt와 함께 사용됩니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[14]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   명령줄에 제공됩니다.]]></Val>
+            <Val><![CDATA[ --unattended                      무인 구성. 메시지가 표시되지 않습니다. 모든 답변은 다음을 충족해야 합니다]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[15]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --version 에이전트 버전을 인쇄합니다.]]></Val>
+            <Val><![CDATA[                                   명령줄에 제공됩니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[16]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --commit                          에이전트 커밋을 인쇄합니다.]]></Val>
+            <Val><![CDATA[ --version 에이전트 버전을 인쇄합니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[17]" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --commit                          에이전트 커밋을 인쇄합니다.]]></Val>
+          </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --help                            Prints the help]]></Val>
+          </Prev>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";CommandLineHelp_Common[18]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --help                            Prints the help]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
@@ -1002,10 +1035,13 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[9]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          <Val><![CDATA[                                    sp         (Service Principal)]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --token <token>                   --auth pat과 함께 사용됩니다. 개인용 액세스 토큰입니다.]]></Val>
+            <Val><![CDATA[                                    sp(서비스 주체)]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
