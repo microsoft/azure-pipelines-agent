@@ -283,10 +283,6 @@ extends:
                     $uploadFiles.Add("/$container/$versionDir/$execName")
                   }
                 }
-                Write-Host "Purge Azure CDN Cache"
-                Clear-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -ContentPath $uploadFiles
-                Write-Host "Force Refresh Azure CDN Cache"
-                Import-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -ContentPath $uploadFiles
 
           # Clean up blob container with test agent version
           - task: AzurePowerShell@5
