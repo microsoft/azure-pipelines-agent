@@ -319,7 +319,7 @@ extends:
             displayName: macOS (x64)
             pool:
               name: Azure Pipelines
-              image: macOS-12
+              image: macos-14
               os: macOS
             os: osx
             arch: x64
@@ -340,7 +340,7 @@ extends:
             displayName: macOS (ARM64)
             pool:
               name: Azure Pipelines
-              image: macOS-12
+              image: macos-14
               os: macOS
             os: osx
             arch: arm64
