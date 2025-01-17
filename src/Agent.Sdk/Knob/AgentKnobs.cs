@@ -779,5 +779,12 @@ namespace Agent.Sdk.Knob
             "If true, agent will use sparse checkout in checkout task.",
             new RuntimeKnobSource("AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseSha256InComputeHash = new Knob(
+            nameof(UseSha256InComputeHash),
+            "If true, agent will use SHA256 algorithm in ComputeHash.",
+            new RuntimeKnobSource("AGENT_USE_SHA256_IN_COMPUTE_HASH"),
+            new EnvironmentKnobSource("AGENT_USE_SHA256_IN_COMPUTE_HASH"),
+            new BuiltInDefaultKnobSource("true"));
     }
 }

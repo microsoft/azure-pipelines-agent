@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Moq;
 using Xunit;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 {
@@ -44,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
             {
                 // Arrange.
+                mockExecutionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
                 var legacyConfig = new LegacyTrackingConfig
                 {
                     BuildDirectory = Path.Combine("path", "_work", "123"),
@@ -84,12 +86,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         {
             using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
             {
+                mockExecutionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
                 // Arrange.
                 var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl) };
 
                 // Act.
                 var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository }, DefinitionId);
-
                 // Assert.
                 Assert.Equal(Path.Combine("322", "a"), config.ArtifactsDirectory);
                 Assert.Equal("322", config.BuildDirectory);
@@ -99,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Assert.Equal(DefinitionName, config.DefinitionName);
                 Assert.Equal(3, config.FileFormatVersion);
                 Assert.Equal(null, config.FileLocation);
-                Assert.Equal("ea7c71421cca06c927f73627b66d6b4f4c3a5f4a", config.HashKey);
+                Assert.Equal("9706446cf81dbb09854838b405618476576051bf54b5cbf6ce493c180c0a0a87", config.HashKey);
                 Assert.Equal(RepositoryTypes.Git, config.RepositoryType);
                 Assert.Equal(RepositoryUrl, config.RepositoryUrl);
                 Assert.Equal(Path.Combine("322", "s"), config.SourcesDirectory);
@@ -120,12 +122,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
             {
                 // Arrange.
+                mockExecutionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
                 var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl) };
 
                 // Act.
                 var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository }, DefinitionId);
                 var clone = config.Clone();
-
                 // Assert.
                 // Verify the original first
                 Assert.Equal(Path.Combine("322", "a"), config.ArtifactsDirectory);
@@ -136,7 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Assert.Equal(DefinitionName, config.DefinitionName);
                 Assert.Equal(3, config.FileFormatVersion);
                 Assert.Equal(null, config.FileLocation);
-                Assert.Equal("ea7c71421cca06c927f73627b66d6b4f4c3a5f4a", config.HashKey);
+                Assert.Equal("9706446cf81dbb09854838b405618476576051bf54b5cbf6ce493c180c0a0a87", config.HashKey);
                 Assert.Equal(RepositoryTypes.Git, config.RepositoryType);
                 Assert.Equal(RepositoryUrl, config.RepositoryUrl);
                 Assert.Equal(Path.Combine("322", "s"), config.SourcesDirectory);
@@ -155,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Assert.Equal(DefinitionName, clone.DefinitionName);
                 Assert.Equal(3, clone.FileFormatVersion);
                 Assert.Equal(null, clone.FileLocation);
-                Assert.Equal("ea7c71421cca06c927f73627b66d6b4f4c3a5f4a", clone.HashKey);
+                Assert.Equal("9706446cf81dbb09854838b405618476576051bf54b5cbf6ce493c180c0a0a87", clone.HashKey);
                 Assert.Equal(RepositoryTypes.Git, clone.RepositoryType);
                 Assert.Equal(RepositoryUrl, clone.RepositoryUrl);
                 Assert.Equal(Path.Combine("322", "s"), clone.SourcesDirectory);

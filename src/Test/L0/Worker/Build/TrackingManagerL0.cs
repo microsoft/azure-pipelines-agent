@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Xunit;
 using Agent.Sdk.Knob;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
 {
@@ -49,6 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             _variables.Set(Constants.Variables.System.DefinitionId, DefinitionId);
             _variables.Set(Constants.Variables.Build.DefinitionName, DefinitionName);
             _ec.Setup(x => x.Variables).Returns(_variables);
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
 
             // Setup the endpoint.
             _repository = new Pipelines.RepositoryResource() { Url = new Uri(RepositoryUrl) };
