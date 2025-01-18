@@ -44,7 +44,7 @@ parameters:
   default: true
 - name: win_arm64
   type: boolean
-  default: false
+  default: true
 - name: linux_x64
   type: boolean
   default: true
