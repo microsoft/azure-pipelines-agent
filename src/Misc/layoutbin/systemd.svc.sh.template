@@ -6,114 +6,147 @@ SVC_DESCRIPTION="{{SvcDescription}}"
 SVC_CMD=$1
 arg_2=${2}
 
-AGENT_ROOT=`pwd`
+AGENT_ROOT=$(pwd)
 
-UNIT_PATH=/etc/systemd/system/${SVC_NAME}
 TEMPLATE_PATH=./bin/vsts.agent.service.template
 TEMP_PATH=./bin/vsts.agent.service.temp
 CONFIG_PATH=.service
+CONFIG_USERSESSION=.usersession
 
-user_id=`id -u`
+function usage() {
+    echo
+    echo Usage:
+    echo "./svc.sh [install, start, stop, status, uninstall]"
+    echo "Commands:"
+    echo "   install [user]: Install agent service as Root or specified user."
+    echo "   install usersession: Install agent service into current running user session."
+    echo "   start: Manually start the agent service."
+    echo "   stop: Manually stop the agent service."
+    echo "   status: Display status of agent service."
+    echo "   uninstall: Uninstall agent service."
+    echo
+}
 
-# systemctl must run as sudo
-# this script is a convenience wrapper around systemctl
-if [ $user_id -ne 0 ]; then
-    echo "Must run as sudo"
+function failed() {
+    local error=${1:-Undefined error}
+    echo "Failed: $error" >&2
     exit 1
-fi
+}
 
-function failed()
-{
-   local error=${1:-Undefined error}
-   echo "Failed: $error" >&2
-   exit 1
+function warn() {
+    local warning=${1:-Undefined warning}
+    echo "Warning: $warning" >&2
+}
+
+function sudo_check() {
+    #check if we run as root
+    if [[ $(id -u) != "0" && ! ${SVC_CMD} == "status" && ! ${SVC_CMD} == "usage" && ! ${SVC_CMD}x == "x" ]]; then
+        echo "Failed: This script requires to run with sudo." >&2
+        exit 1
+    fi
 }
 
 if [ ! -f "${TEMPLATE_PATH}" ]; then
-    failed "Must run from agent root or install is corrupt"
+    failed "Must run from agent root or install is corrupt" >&2
 fi
 
-#check if we run as root
-if [[ $(id -u) != "0" ]]; then
-    echo "Failed: This script requires to run with sudo." >&2
-    exit 1
+if [[ "${arg_2}" == "usersession" || -f "${CONFIG_USERSESSION}" ]]; then
+    export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$UID/}
+    [[ -e $XDG_RUNTIME_DIR ]] || failed "Usersession not running"
+    [[ -e /var/lib/systemd/$USER ]] || warn "Usersession is not configured to linger and will terminate on logout"
+    SYSTEMCTL="systemctl --user"
+    UNIT_PATH="${HOME}/.local/share/systemd/user/${SVC_NAME}"
+    run_as_user=$USER
+    run_as_usersession=1
+else
+    sudo_check
+    SYSTEMCTL="systemctl"
+    UNIT_PATH="/etc/systemd/system/${SVC_NAME}"
+    run_as_user=${arg_2:-$SUDO_USER}
+    run_as_usersession=0
 fi
 
-function install()
-{
+function install() {
     echo "Creating launch agent in ${UNIT_PATH}"
-    if [ -f "${UNIT_PATH}" ]; then
+    if [[ -f "${UNIT_PATH}" ]]; then
         failed "error: exists ${UNIT_PATH}"
     fi
 
-    if [ -f "${TEMP_PATH}" ]; then
-      rm "${TEMP_PATH}" || failed "failed to delete ${TEMP_PATH}"
+    if [[ -f "${TEMP_PATH}" ]]; then
+        rm "${TEMP_PATH}" || failed "failed to delete ${TEMP_PATH}"
     fi
 
     # can optionally use username supplied
-    run_as_user=${arg_2:-$SUDO_USER}
     echo "Run as user: ${run_as_user}"
 
-    run_as_uid=$(id -u ${run_as_user}) || failed "User does not exist"
+    run_as_uid=$(id -u "${run_as_user}") || failed "User does not exist"
     echo "Run as uid: ${run_as_uid}"
 
-    run_as_gid=$(id -g ${run_as_user}) || failed "Group not available"
+    run_as_gid=$(id -g "${run_as_user}") || failed "Group not available"
     echo "gid: ${run_as_gid}"
 
-    sed "s/{{User}}/${run_as_user}/g; s/{{Description}}/$(echo ${SVC_DESCRIPTION} | sed -e 's/[\/&]/\\&/g')/g; s/{{AgentRoot}}/$(echo ${AGENT_ROOT} | sed -e 's/[\/&]/\\&/g')/g;" "${TEMPLATE_PATH}" > "${TEMP_PATH}" || failed "failed to create replacement temp file"
+    if [[ $run_as_usersession == 1 ]]; then
+        unit_dir=$(dirname "${UNIT_PATH}")
+        if [[ ! -e "${unit_dir}" ]]; then
+            mkdir -p "${unit_dir}" || failed "failed to create user unit directory"
+        fi
+        sed "s/WantedBy=multi-user.target/WantedBy=default.target/g ;/{{User}}/d; s/{{Description}}/$(echo ${SVC_DESCRIPTION} | sed -e 's/[\/&]/\\&/g')/g; s/{{AgentRoot}}/$(echo ${AGENT_ROOT} | sed -e 's/[\/&]/\\&/g')/g;" "${TEMPLATE_PATH}" >"${TEMP_PATH}" || failed "failed to create replacement temp file"
+        touch ${CONFIG_USERSESSION} || failed "failed to create ${CONFIG_USERSESSION} file"
+    else
+        sed "s/{{User}}/${run_as_user}/g; s/{{Description}}/$(echo ${SVC_DESCRIPTION} | sed -e 's/[\/&]/\\&/g')/g; s/{{AgentRoot}}/$(echo ${AGENT_ROOT} | sed -e 's/[\/&]/\\&/g')/g;" "${TEMPLATE_PATH}" >"${TEMP_PATH}" || failed "failed to create replacement temp file"
+    fi
     mv "${TEMP_PATH}" "${UNIT_PATH}" || failed "failed to copy unit file"
-    
+
     # unit file should not be executable and world writable
     chmod 664 "${UNIT_PATH}" || failed "failed to set permissions on ${UNIT_PATH}"
-    
+
     command -v sestatus && sestatus | grep "SELinux status: *enabled"
     is_selinux_enabled=$?
-    if [ $is_selinux_enabled -eq 0 ]; then
+    if [[ $is_selinux_enabled -eq 0 ]]; then
         # SELinux is enabled, we must ensure the system context for the unit file matches the expected systemd_unit_file context.
         chcon system_u:object_r:systemd_unit_file_t:s0 "${UNIT_PATH}"
     fi
-    systemctl daemon-reload || failed "failed to reload daemons"
-    
-    # Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.    
+    ${SYSTEMCTL} daemon-reload || failed "failed to reload daemons"
+
+    # Since we started with sudo, runsvc.sh will be owned by root. Change this to current login user.
     cp ./bin/runsvc.sh ./runsvc.sh || failed "failed to copy runsvc.sh"
-    chown ${run_as_uid}:${run_as_gid} ./runsvc.sh || failed "failed to set owner for runsvc.sh"
+    chown "${run_as_uid}:${run_as_gid}" ./runsvc.sh || failed "failed to set owner for runsvc.sh"
     chmod 755 ./runsvc.sh || failed "failed to set permission for runsvc.sh"
     if [ $is_selinux_enabled -eq 0 ]; then
         # SELinux is enabled, we must ensure the shell scripts matches the expected context.
         chcon system_u:object_r:usr_t:s0 runsvc.sh
     fi
 
-    systemctl enable ${SVC_NAME} || failed "failed to enable ${SVC_NAME}"
+    ${SYSTEMCTL} enable "${SVC_NAME}" || failed "failed to enable ${SVC_NAME}"
 
-    echo "${SVC_NAME}" > ${CONFIG_PATH} || failed "failed to create .service file"
-    chown ${run_as_uid}:${run_as_gid} ${CONFIG_PATH} || failed "failed to set permission for ${CONFIG_PATH}"
+    echo "${SVC_NAME}" >${CONFIG_PATH} || failed "failed to create ${CONFIG_PATH} file"
+    chown "${run_as_uid}:${run_as_gid}" ${CONFIG_PATH} || failed "failed to set permission for ${CONFIG_PATH}"
 }
 
-function start()
-{
-    systemctl start ${SVC_NAME} || failed "failed to start ${SVC_NAME}"
-    status    
-}
-
-function stop()
-{
-    systemctl stop ${SVC_NAME} || failed "failed to stop ${SVC_NAME}"    
+function start() {
+    ${SYSTEMCTL} start "${SVC_NAME}" || failed "failed to start ${SVC_NAME}"
     status
 }
 
-function uninstall()
-{
-    stop
-    systemctl disable ${SVC_NAME} || failed "failed to disable  ${SVC_NAME}"
-    rm "${UNIT_PATH}" || failed "failed to delete ${UNIT_PATH}"
-    if [ -f "${CONFIG_PATH}" ]; then
-      rm "${CONFIG_PATH}" || failed "failed to delete ${CONFIG_PATH}"
-    fi
-    systemctl daemon-reload || failed "failed to reload daemons"
+function stop() {
+    ${SYSTEMCTL} stop "${SVC_NAME}" || failed "failed to stop ${SVC_NAME}"
+    status
 }
 
-function status()
-{
+function uninstall() {
+    stop
+    ${SYSTEMCTL} disable "${SVC_NAME}" || failed "failed to disable  ${SVC_NAME}"
+    rm "${UNIT_PATH}" || failed "failed to delete ${UNIT_PATH}"
+    if [[ -f "${CONFIG_PATH}" ]]; then
+        rm "${CONFIG_PATH}" || failed "failed to delete ${CONFIG_PATH}"
+    fi
+    if [[ -f "${CONFIG_USERSESSION}" ]]; then
+        rm "${CONFIG_USERSESSION}" || failed "failed to delete ${CONFIG_USERSESSION}"
+    fi
+    ${SYSTEMCTL} daemon-reload || failed "failed to reload daemons"
+}
+
+function status() {
     if [ -f "${UNIT_PATH}" ]; then
         echo
         echo "${UNIT_PATH}"
@@ -124,31 +157,16 @@ function status()
         return
     fi
 
-    systemctl --no-pager status ${SVC_NAME}
-}
-
-function usage()
-{
-    echo
-    echo Usage:
-    echo "./svc.sh [install, start, stop, status, uninstall]"
-    echo "Commands:"
-    echo "   install [user]: Install agent service as Root or specified user."
-    echo "   start: Manually start the agent service."
-    echo "   stop: Manually stop the agent service."
-    echo "   status: Display status of agent service."
-    echo "   uninstall: Uninstall agent service."
-    echo
+    ${SYSTEMCTL} --no-pager status "${SVC_NAME}"
 }
 
 case $SVC_CMD in
-   "install") install;;
-   "status") status;;
-   "uninstall") uninstall;;
-   "start") start;;
-   "stop") stop;;
-   "status") status;;
-   *) usage;;
+"install") install ;;
+"status") status ;;
+"uninstall") uninstall ;;
+"start") start ;;
+"stop") stop ;;
+*) usage ;;
 esac
 
 exit 0
