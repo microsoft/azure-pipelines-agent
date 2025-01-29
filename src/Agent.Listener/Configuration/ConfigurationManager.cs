@@ -21,6 +21,7 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Newtonsoft.Json;
+using Microsoft.Win32;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
@@ -41,6 +42,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private ITerminal _term;
         private ILocationServer _locationServer;
         private ServerUtil _serverUtil;
+
+        private const string VsTelemetryRegPath = @"SOFTWARE\Microsoft\VisualStudio\Telemetry\PersistentPropertyBag\c57a9efce9b74de382d905a89852db71";
+        private const string VsTelemetryRegKey = "IsPipelineAgent";
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -421,6 +425,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 serviceControlManager.GenerateScripts(agentSettings);
             }
 
+            if(PlatformUtil.RunningOnWindows)
+            {
+                // add vstelemetry registrykey
+                this.AddVSTelemetryRegKey();
+            }
+
             try
             {
                 var telemetryData = new Dictionary<string, string>
@@ -576,6 +586,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     // delete agent runtime option
                     _store.DeleteAgentRuntimeOptions();
+
+                    if(PlatformUtil.RunningOnWindows)
+                    {
+                        // delete vstelemetry registrykey
+                        this.DeleteVSTelemetryRegKey();
+                    }
 
                     _store.DeleteSettings();
                     _term.WriteLine(StringUtil.Loc("Success") + currentAction);
@@ -853,6 +869,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
             _term.WriteLine($">> {message}:");
             _term.WriteLine();
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void AddVSTelemetryRegKey()
+        {
+            try
+            {
+                // Create registry tree under currentuser 
+                var keyPath = VsTelemetryRegPath.Split("\\").ToList();
+                RegistryKey currentKey = Registry.CurrentUser;
+                foreach (string subKey in keyPath)
+                {
+                    currentKey = currentKey.CreateSubKey(subKey);
+                }
+
+                //create the VsTelemetryRegKey under currentuser/VsTelemetryRegPath and set value to true
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(VsTelemetryRegPath))
+                {
+                    if (key.GetValue(VsTelemetryRegKey) == null)
+                    {
+                        key.SetValue(VsTelemetryRegKey, "s:true", RegistryValueKind.String);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignore failure as this is not critical to agent functionality
+                Trace.Info("Error while adding VSTelemetry regkey");
+            }
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void DeleteVSTelemetryRegKey()
+        {
+            try
+            {
+                // delete the VsTelemetryRegKey under currentuser/VsTelemetryRegPath
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VsTelemetryRegPath, writable: true))
+                {
+                    if (key != null && key.GetValue(VsTelemetryRegKey) != null)
+                    {
+                        key.DeleteValue(VsTelemetryRegKey);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignore failure as this is not critical to agent functionality
+                Trace.Info("Error while deleting VSTelemetry regkey");
+            }
         }
 
         [SupportedOSPlatform("windows")]
