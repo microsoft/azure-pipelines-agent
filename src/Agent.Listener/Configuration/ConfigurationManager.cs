@@ -876,18 +876,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             try
             {
-                // Create registry tree under currentuser 
-                var keyPath = VsTelemetryRegPath.Split("\\").ToList();
-                RegistryKey currentKey = Registry.CurrentUser;
-                foreach (string subKey in keyPath)
-                {
-                    currentKey = currentKey.CreateSubKey(subKey);
-                }
-
                 //create the VsTelemetryRegKey under currentuser/VsTelemetryRegPath and set value to true
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(VsTelemetryRegPath))
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VsTelemetryRegPath, writable: true))
                 {
-                    if (key.GetValue(VsTelemetryRegKey) == null)
+                    if (key != null && key.GetValue(VsTelemetryRegKey) == null)
                     {
                         key.SetValue(VsTelemetryRegKey, "s:true", RegistryValueKind.String);
                     }
