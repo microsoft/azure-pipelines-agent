@@ -699,6 +699,31 @@ namespace Agent.Plugins.Repository
                 }
             }
 
+            if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
+            {
+                // Sparse checkout needs to be before any `fetch` task to avoid fetching the excluded trees and blobs, or to not _not_ fetch them if we're disabling a previous sparse checkout.
+                if (enableSparseCheckout)
+                {
+                    // Set up sparse checkout
+                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
+
+                    if (exitCode_sparseCheckout != 0)
+                    {
+                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
+                    }
+                }
+                else
+                {
+                    // Disable sparse checkout in case it was enabled in a previous checkout
+                    int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
+
+                    if (exitCode_sparseCheckoutDisable != 0)
+                    {
+                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                    }
+                }
+            }
+
             await RunGitStatusIfSystemDebug(executionContext, gitCommandManager, targetPath);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -990,30 +1015,6 @@ namespace Agent.Plugins.Repository
                     int exitCode_lfsLogs = await gitCommandManager.GitLFSLogs(executionContext, targetPath);
                     executionContext.Output($"Git lfs fetch failed with exit code: {exitCode_lfsFetch}. Git lfs logs returned with exit code: {exitCode_lfsLogs}.");
                     executionContext.Output($"Checkout will continue.  \"git checkout\" will fetch lfs files, however this could cause poor performance on old versions of git.");
-                }
-            }
-
-            if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
-            {
-                if (enableSparseCheckout)
-                {
-                    // Set up sparse checkout
-                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
-
-                    if (exitCode_sparseCheckout != 0)
-                    {
-                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
-                    }
-                }
-                else
-                {
-                    // Disable sparse checkout in case it was enabled in a previous checkout
-                    int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
-
-                    if (exitCode_sparseCheckoutDisable != 0)
-                    {
-                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
-                    }
                 }
             }
 
