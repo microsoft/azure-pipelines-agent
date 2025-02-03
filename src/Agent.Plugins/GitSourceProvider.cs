@@ -16,6 +16,9 @@ using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.Identity.Client;
+using Microsoft.VisualStudio.Services.Common;
+using System.Net;
 
 namespace Agent.Plugins.Repository
 {
@@ -188,6 +191,18 @@ namespace Agent.Plugins.Repository
         private const string _remoteRefsPrefix = "refs/remotes/origin/";
         private const string _pullRefsPrefix = "refs/pull/";
         private const string _remotePullRefsPrefix = "refs/remotes/pull/";
+
+        private const string _tenantId = "tenantid";
+        private const string _clientId = "servicePrincipalId";
+
+        // client assertion type for jwt based token request required for authenticating work load identity auth scheme
+        private const string _clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+
+        // entra URI to authenticate app registration/managed identity users
+        private const string _entraURI = "https://login.microsoftonline.com/{0}/oauth2/v2.0/token";
+
+        // All scopes for the Azure DevOps API resource
+        private const string _scopeId = "499b84ac-1321-427f-aa17-267ca6975798/.default";
 
         // min git version that support add extra auth header.
         protected Version _minGitVersionSupportAuthHeader = new Version(2, 9);
@@ -459,6 +474,10 @@ namespace Agent.Plugins.Repository
                             // we have username, but no password
                             password = string.Empty;
                         }
+                        break;
+                    case EndpointAuthorizationSchemes.WorkloadIdentityFederation:
+                        username = EndpointAuthorizationSchemes.WorkloadIdentityFederation;
+                        password = GetWISCToken(endpoint, executionContext, cancellationToken);
                         break;
                     default:
                         executionContext.Warning($"Unsupport endpoint authorization schemes: {endpoint.Authorization.Scheme}");
@@ -1627,6 +1646,39 @@ namespace Agent.Plugins.Repository
             }
         }
 
+        protected virtual string GetWISCToken(ServiceEndpoint endpoint, AgentTaskPluginExecutionContext executionContext, CancellationToken cancellationToken)
+        {
+            var tenantId = "";
+            var clientId = "";
+            endpoint.Authorization?.Parameters?.TryGetValue(_tenantId, out tenantId);
+            endpoint.Authorization?.Parameters?.TryGetValue(_clientId, out clientId);
+
+            var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                .WithAuthority(string.Format(_entraURI, tenantId))
+                .WithRedirectUri(_clientAssertionType)
+                .WithClientAssertion(async (AssertionRequestOptions options) =>
+                {
+                    var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
+                    ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+                    VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
+                    var collectionUri = new Uri(executionContext.Variables.GetValueOrDefault("system.collectionuri")?.Value);
+                    using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: null);
+                    TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+                    var idToken = await taskClient.CreateOidcTokenAsync(
+                        scopeIdentifier: new Guid(executionContext.Variables.GetValueOrDefault("system.teamprojectid")?.Value),
+                        hubName: executionContext.Variables.GetValueOrDefault("system.hosttype")?.Value,
+                        planId: new Guid(executionContext.Variables.GetValueOrDefault("system.planid")?.Value),
+                        jobId: new Guid(executionContext.Variables.GetValueOrDefault("system.jobId")?.Value),
+                        serviceConnectionId: endpoint.Id,
+                        claims: null,
+                        cancellationToken: cancellationToken
+                    );
+                    return idToken.OidcToken;
+                })
+                .Build();
+            var authenticationResult = app.AcquireTokenForClient(new string[] { _scopeId }).ExecuteAsync(cancellationToken).GetAwaiter().GetResult();
+            return authenticationResult.AccessToken;
+        }
         private async Task SetAuthTokenInGitConfig(AgentTaskPluginExecutionContext executionContext,
             GitCliManager gitCommandManager,
             string targetPath,
