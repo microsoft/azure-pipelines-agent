@@ -298,7 +298,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Mark retrieved password as secret
-            HostContext.SecretMasker.AddValue(AcrPassword);
+            HostContext.SecretMasker.AddValue(AcrPassword, origin: null);
 
             return AcrPassword;
         }
