@@ -391,7 +391,7 @@ namespace Agent.Sdk.Knob
             "Enables large chunk size for pipeline artifacts.",
             new EnvironmentKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
             new RuntimeKnobSource("AGENT_ENABLE_PIPELINEARTIFACT_LARGE_CHUNK_SIZE"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true")); // This flag is on everywhere and should be on by default now
 
         public static readonly Knob PermissionsCheckFailsafe = new Knob(
             nameof(PermissionsCheckFailsafe),
