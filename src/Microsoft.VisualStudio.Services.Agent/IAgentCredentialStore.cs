@@ -14,10 +14,14 @@ namespace Microsoft.VisualStudio.Services.Agent
       )]
     public interface IAgentCredentialStore : IAgentService
     {
-        NetworkCredential Write(string target, string username, string password);
+        void Write(string target, string username, string password);
 
         // throw exception when target not found from cred store
         NetworkCredential Read(string target);
+
+
+        // variant that does not return NetworkCredential class, which suffers from OS-level crashes on macOS
+        (string UserName, string Password) Read2(string target);
 
         // throw exception when target not found from cred store
         void Delete(string target);

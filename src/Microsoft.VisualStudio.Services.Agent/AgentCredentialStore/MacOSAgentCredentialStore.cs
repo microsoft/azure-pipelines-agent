@@ -92,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public NetworkCredential Write(string target, string username, string password)
+        public void Write(string target, string username, string password)
         {
             Trace.Entering();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -161,8 +161,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                         throw new InvalidOperationException($"'security add-generic-password' failed with exit code {exitCode}.");
                     }
                 }
-
-                return new NetworkCredential(username, password);
             }
             finally
             {
@@ -171,6 +169,17 @@ namespace Microsoft.VisualStudio.Services.Agent
         }
 
         public NetworkCredential Read(string target)
+        {
+            var cred = ReadCredentialFromKeychain(target);
+            return new NetworkCredential(cred.UserName, cred.Password);
+        }
+
+        public (string UserName, string Password) Read2(string target)
+        {
+            return ReadCredentialFromKeychain(target);
+        }
+
+        public (string UserName, string Password) ReadCredentialFromKeychain(string target)
         {
             Trace.Entering();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -223,7 +232,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             Trace.Info($"Successfully find-generic-password for {target} (VSTSAGENT)");
                             username = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[0]));
                             password = Encoding.UTF8.GetString(Convert.FromBase64String(secrets[1]));
-                            return new NetworkCredential(username, password);
+                            return (username, password);
                         }
                         else
                         {

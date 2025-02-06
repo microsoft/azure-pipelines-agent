@@ -68,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _symmetricKey = keyBuilder.ToArray();
         }
 
-        public NetworkCredential Write(string target, string username, string password)
+        public void Write(string target, string username, string password)
         {
             Trace.Entering();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -79,7 +79,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             Credential cred = new Credential(username, Encrypt(password));
             _credStore[target] = cred;
             SyncCredentialStoreFile();
-            return new NetworkCredential(username, password);
         }
 
         public NetworkCredential Read(string target)
@@ -98,6 +97,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             throw new KeyNotFoundException(target);
+        }
+
+        public (string UserName, string Password) Read2(string target)
+        {
+            // NetworkCredential objects cause crashes only on macOS => we can invoke the original implemantation here
+            var ret = Read(target);
+            return (ret.UserName, ret.Password);
         }
 
         public void Delete(string target)

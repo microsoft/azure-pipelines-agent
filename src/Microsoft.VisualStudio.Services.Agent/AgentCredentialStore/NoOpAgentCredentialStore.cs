@@ -14,7 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             base.Initialize(hostContext);
         }
 
-        public NetworkCredential Write(string target, string username, string password)
+        public void Write(string target, string username, string password)
         {
             Trace.Entering();
             ArgUtil.NotNullOrEmpty(target, nameof(target));
@@ -22,7 +22,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNullOrEmpty(password, nameof(password));
 
             Trace.Info($"Attempt to store credential for '{target}' to cred store.");
-            return new NetworkCredential(username, password);
         }
 
         public NetworkCredential Read(string target)
@@ -32,6 +31,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             Trace.Info($"Attempt to read credential for '{target}' from cred store.");
             throw new KeyNotFoundException(target);
+        }
+
+        public (string UserName, string Password) Read2(string target)
+        {
+            var ret = Read(target);
+            return (ret.UserName, ret.Password);
         }
 
         public void Delete(string target)

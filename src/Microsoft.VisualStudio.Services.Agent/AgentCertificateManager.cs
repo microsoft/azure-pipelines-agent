@@ -10,6 +10,7 @@ using System.Net.Http;
 using Microsoft.VisualStudio.Services.WebApi;
 using Agent.Sdk;
 using Agent.Sdk.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -120,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     Trace.Info($"Store client cert private key password with lookup key {lookupKey}");
 
                     var credStore = HostContext.GetService<IAgentCredentialStore>();
+                    var avoidNetCredentialFF = AgentKnobs.AvoidNetCredentialObjectsOnMac.GetValue(HostContext).AsBoolean();
                     credStore.Write($"VSTS_AGENT_CLIENT_CERT_PASSWORD_{lookupKey}", "VSTS", ClientCertificatePassword);
 
                     setting.ClientCertPasswordLookupKey = lookupKey;
@@ -198,7 +200,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                     if (!string.IsNullOrEmpty(certSetting.ClientCertPasswordLookupKey))
                     {
                         var cerdStore = HostContext.GetService<IAgentCredentialStore>();
-                        ClientCertificatePassword = cerdStore.Read($"VSTS_AGENT_CLIENT_CERT_PASSWORD_{certSetting.ClientCertPasswordLookupKey}").Password;
+                        var avoidNetCredentialFF = AgentKnobs.AvoidNetCredentialObjectsOnMac.GetValue(HostContext).AsBoolean();
+                        var target = $"VSTS_AGENT_CLIENT_CERT_PASSWORD_{certSetting.ClientCertPasswordLookupKey}";
+                        ClientCertificatePassword = avoidNetCredentialFF ? cerdStore.Read2(target).Password : cerdStore.Read(target).Password;
                         HostContext.SecretMasker.AddValue(ClientCertificatePassword, WellKnownSecretAliases.ClientCertificatePassword);
                     }
 
