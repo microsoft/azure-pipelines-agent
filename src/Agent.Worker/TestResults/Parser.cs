@@ -73,9 +73,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             var traceListener = new CommandTraceListener(executionContext);
             var featureFlagService = executionContext.GetHostContext().GetService<IFeatureFlagService>();
-            var enableJunitAttachments = featureFlagService.GetFeatureFlagState(TestResultsConstants.JUnitTestCaseAttachmentsEnabled, TestResultsConstants.TCMServiceInstanceGuid);
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
-            return new JUnitResultParser(traceListener, false, enableJunitAttachments,enableCustomTestFields);
+            return new JUnitResultParser(traceListener, false, enableCustomTestFields);
         }
     }
 
