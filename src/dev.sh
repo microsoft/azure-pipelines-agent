@@ -60,6 +60,7 @@ if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
 fi
 
 DOTNET_DIR="${REPO_ROOT}/_dotnetsdk"
+NUGET_DIR="${REPO_ROOT}/_l1/externals/nuget"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
@@ -441,6 +442,7 @@ restore_sdk_and_runtime
 heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
 export PATH=${DOTNET_DIR}:$PATH
+export PATH=${NUGET_DIR}:$PATH
 echo "Path = $PATH"
 echo ".NET Version = $(dotnet --version)"
 
