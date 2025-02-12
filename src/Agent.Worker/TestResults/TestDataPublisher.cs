@@ -161,19 +161,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                                 if (testResultByFQN.TryGetValue(testResultFQN, out List<TestCaseResult> inputs))
                                 {
-                                    foreach (var input in inputs)
+                                    if (testRunData[testRunDataIterator].TestResults[testResultDataIterator].Outcome != "NotExecuted")
                                     {
-                                        var testCaseResultDataUpdated = TestResultUtils.CloneTestCaseResultData(testRunData[testRunDataIterator].TestResults[testResultDataIterator]);
+                                        foreach (var input in inputs)
+                                        {
+                                            var testCaseResultDataUpdated = TestResultUtils.CloneTestCaseResultData(testRunData[testRunDataIterator].TestResults[testResultDataIterator]);
 
-                                        testCaseResultDataUpdated.TestPoint = input.TestPoint;
-                                        testCaseResultDataUpdated.TestCaseTitle = input.TestCaseTitle;
-                                        testCaseResultDataUpdated.Configuration = input.Configuration;
-                                        testCaseResultDataUpdated.TestCase = input.TestCase;
-                                        testCaseResultDataUpdated.Owner = input.Owner;
-                                        testCaseResultDataUpdated.State = "5";
-                                        testCaseResultDataUpdated.TestCaseRevision = input.TestCaseRevision;
+                                            testCaseResultDataUpdated.TestPoint = input.TestPoint;
+                                            testCaseResultDataUpdated.TestCaseTitle = input.TestCaseTitle;
+                                            testCaseResultDataUpdated.Configuration = input.Configuration;
+                                            testCaseResultDataUpdated.TestCase = input.TestCase;
+                                            testCaseResultDataUpdated.Owner = input.Owner;
+                                            testCaseResultDataUpdated.State = "5";
+                                            testCaseResultDataUpdated.TestCaseRevision = input.TestCaseRevision;
 
-                                        testResultsUpdated.Add(testCaseResultDataUpdated);
+                                            testResultsUpdated.Add(testCaseResultDataUpdated);
+                                        }
                                     }
                                 }
                             }
