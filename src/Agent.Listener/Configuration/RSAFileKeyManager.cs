@@ -70,7 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
         }
 
-        public RSA GetKey()
+        public RSA GetKey(bool useLegacyRsaImpl)
         {
             if (!File.Exists(_keyFile))
             {
@@ -80,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Loading RSA key parameters from file {0}", _keyFile);
 
             var parameters = IOUtil.LoadObject<RSAParametersSerializable>(_keyFile).RSAParameters;
-            var rsa = new RSACryptoServiceProvider();
+            var rsa = useLegacyRsaImpl ? new RSACryptoServiceProvider() : RSA.Create();
             rsa.ImportParameters(parameters);
             return rsa;
         }
