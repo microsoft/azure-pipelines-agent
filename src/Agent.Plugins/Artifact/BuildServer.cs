@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Knob;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -18,8 +19,7 @@ namespace Agent.Plugins
 
         public BuildServer(VssConnection connection)
         {
-            connection.Settings.SendTimeout = TimeSpan.FromSeconds(300);
-            ArgUtil.NotNull(connection, nameof(connection));
+            connection.Settings.SendTimeout = TimeSpan.FromSeconds(AgentKnobs.ArtifactAssociateTimeout.GetValue(UtilKnobValueContext.Instance()).AsInt());
             _buildHttpClient = connection.GetClient<BuildHttpClient>();
         }
 
