@@ -220,6 +220,9 @@ namespace Agent.Plugins.Repository
         // Info: https://github.com/git/git/commit/ce81b1da230cf04e231ce337c2946c0671ffb303
         protected Version _minGitVersionConfigEnv = new Version(2, 31);
 
+        // min git version that supports sparse checkout
+        protected Version _minGitVersionSupportSparseCheckout = new Version(2, 25);
+
         public abstract bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract bool GitLfsSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract void RequirementCheck(AgentTaskPluginExecutionContext executionContext, Pipelines.RepositoryResource repository, GitCliManager gitCommandManager);
@@ -704,9 +707,10 @@ namespace Agent.Plugins.Repository
                 // Sparse checkout needs to be before any `fetch` task to avoid fetching the excluded trees and blobs, or to not _not_ fetch them if we're disabling a previous sparse checkout.
                 if (enableSparseCheckout)
                 {
+                    gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: true);
+
                     // Set up sparse checkout
                     int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
-
                     if (exitCode_sparseCheckout != 0)
                     {
                         throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
@@ -714,12 +718,16 @@ namespace Agent.Plugins.Repository
                 }
                 else
                 {
-                    // Disable sparse checkout in case it was enabled in a previous checkout
-                    int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
-
-                    if (exitCode_sparseCheckoutDisable != 0)
+                    // Only disable if git supports sparse checkout
+                    if (gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: false))
                     {
-                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                        // Disable sparse checkout in case it was enabled in a previous checkout
+                        int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
+
+                        if (exitCode_sparseCheckoutDisable != 0)
+                        {
+                            throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                        }
                     }
                 }
             }

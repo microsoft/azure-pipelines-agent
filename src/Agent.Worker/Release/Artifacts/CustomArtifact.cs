@@ -40,7 +40,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     customArtifactDetails.ResultSelector,
                     customArtifactDetails.ResultTemplate,
                     customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
-                    customArtifactDetails.ArtifactVariables);
+                    customArtifactDetails.ArtifactVariables,
+                    new BouncyCastleRsaProvider());  
 
                 var artifactDownloadDetailList = new List<CustomArtifactDownloadDetails>();
                 artifactDetails.ToList().ForEach(x => artifactDownloadDetailList.Add(JToken.Parse(x).ToObject<CustomArtifactDownloadDetails>()));
@@ -123,7 +124,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 {
                     IEndpointAuthorizer authorizer = SchemeBasedAuthorizerFactory.GetEndpointAuthorizer(
                         ToServiceEndpoint(customArtifactDetails.Endpoint),
-                        customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList());
+                        customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
+                        new BouncyCastleRsaProvider()); 
 
                     using (HttpWebResponse webResponse = GetWebResponse(executionContext, artifact.DownloadUrl, authorizer))
                     {
@@ -198,7 +200,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     customArtifactDetails.VersionsResultSelector,
                     customArtifactDetails.VersionsResultTemplate,
                     customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
-                    customArtifactDetails.ArtifactVariables);
+                    customArtifactDetails.ArtifactVariables,
+                    new BouncyCastleRsaProvider());  
 
                 foreach (var version in versions)
                 {
