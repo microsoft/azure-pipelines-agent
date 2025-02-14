@@ -347,6 +347,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             _variables.Set(Constants.Variables.System.DefinitionId, DefinitionId);
             _variables.Set(Constants.Variables.Build.Clean, $"{cleanOption}");
             _ec.Setup(x => x.Variables).Returns(_variables);
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
 
             // Store the expected tracking file path.
             _trackingFile = Path.Combine(

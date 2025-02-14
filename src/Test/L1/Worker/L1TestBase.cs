@@ -219,7 +219,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             if (message.Variables.TryGetValue("agent.useWorkspaceId", out _))
             {
                 var repoTrackingInfos = message.Resources.Repositories.Select(repo => new RepositoryTrackingInfo(repo, "/")).ToList();
-                var workspaceIdentifier = TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos);
+                var useSha256EnvVar = Environment.GetEnvironmentVariable("AGENT_USE_SHA256_IN_COMPUTE_HASH");
+                var useSha256 = bool.TryParse(useSha256EnvVar, out bool result) && result;
+                var workspaceIdentifier = TrackingConfigHashAlgorithm.ComputeHash(collectionIdVar?.Value, definitionIdVar?.Value, repoTrackingInfos, useSha256);
                 filename = Path.Combine(GetWorkingDirectory(testName),
                     Constants.Build.Path.SourceRootMappingDirectory,
                     collectionIdVar.Value,
