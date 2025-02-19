@@ -175,6 +175,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
             var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                 _connection, 
+                context: null,
                 client: null, 
                 DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => Trace.Info(str)), cancellationToken);
             var (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance

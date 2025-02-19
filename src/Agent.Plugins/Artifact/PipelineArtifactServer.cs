@@ -47,6 +47,7 @@ namespace Agent.Plugins
             VssConnection connection = context.VssConnection;
             var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                 connection,
+                context,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
                 tracer,
                 cancellationToken);
@@ -63,7 +64,6 @@ namespace Agent.Plugins
                     DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     domainId,
                     clientSettings,
-                    context,
                     cancellationToken);
 
             using (clientTelemetry)

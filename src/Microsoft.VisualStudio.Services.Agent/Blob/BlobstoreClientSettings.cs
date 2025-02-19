@@ -34,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         /// <notes> This should  only be called once per client type.  This is intended to fail fast so it has no retries.</notes>
         public static async Task<BlobstoreClientSettings> GetClientSettingsAsync(
             VssConnection connection,
+            IKnobValueContext context,
             BlobStore.WebApi.Contracts.Client? client,
             IAppTraceSource tracer,
             CancellationToken cancellationToken)
@@ -50,7 +51,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
                     var blobUri = connection.GetClient<ClientSettingsHttpClient>().BaseAddress;
                     var clientSettingsHttpClient = factory.CreateVssHttpClient<IClientSettingsHttpClient, ClientSettingsHttpClient>(blobUri);
-                    return new BlobstoreClientSettings(await clientSettingsHttpClient.GetSettingsAsync(client.Value, userState: null, cancellationToken), tracer);
+                    var clientSettings = await clientSettingsHttpClient.GetSettingsAsync(client.Value, userState: null, cancellationToken);
+                    
+                    // Have to keep this check in for pipelines that have manually opted out for pipeline artifacts:
+                    if (client == BlobStore.WebApi.Contracts.Client.PipelineArtifact && !AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
+                    {
+                        if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                        {
+                            clientSettings.Properties.Remove(ClientSettingsConstants.ChunkSize);
+                        }
+                    }
+
+                    return new BlobstoreClientSettings(clientSettings, tracer);
                 }
                 catch (Exception exception)
                 {
@@ -58,6 +70,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     tracer.Info($"Error while retrieving client Settings for {client}. Exception: {exception}.  Falling back to defaults.");
                 }
             }
+
             return new BlobstoreClientSettings(null, tracer);
         }
 
@@ -83,23 +96,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             return domainId;
         }
 
-        public HashType GetClientHashType(AgentTaskPluginExecutionContext context)
+        public HashType GetClientHashType()
         {
             HashType hashType = ChunkerHelper.DefaultChunkHashType;
 
-            // Note: 9/6/2023 Remove the below check in couple of months.
-            if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
+            if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
             {
-                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                try
                 {
-                    try
-                    {
-                        HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
-                    }
-                    catch (Exception exception)
-                    {
-                        tracer.Info($"Error converting the chunk size '{clientSettings.Properties[ClientSettingsConstants.ChunkSize]}': {exception.Message}.  Falling back to default.");
-                    }
+                    HashTypeExtensions.Deserialize(clientSettings.Properties[ClientSettingsConstants.ChunkSize], out hashType);
+                }
+                catch (Exception exception)
+                {
+                    tracer.Info($"Error converting the chunk size '{clientSettings.Properties[ClientSettingsConstants.ChunkSize]}': {exception.Message}.  Falling back to default.");
                 }
             }
 
