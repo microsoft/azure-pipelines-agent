@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -98,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
 
             // Now that we have all the repositories set up, we can compute the config hash
-            HashKey = TrackingConfigHashAlgorithm.ComputeHash(CollectionId, DefinitionId, RepositoryTrackingInfo);
+            HashKey = TrackingConfigHashAlgorithm.ComputeHash(CollectionId, DefinitionId, RepositoryTrackingInfo, AgentKnobs.UseSha256InComputeHash.GetValue(executionContext).AsBoolean());
         }
 
         [JsonIgnore]

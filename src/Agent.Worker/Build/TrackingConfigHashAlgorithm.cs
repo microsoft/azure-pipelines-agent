@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         /// <summary>
         /// This method returns the hash key that combines repository hash keys.
         /// </summary>
-        public static string ComputeHash(string collectionId, string definitionId, IList<RepositoryTrackingInfo> repositories)
+        public static string ComputeHash(string collectionId, string definitionId, IList<RepositoryTrackingInfo> repositories, bool UseSha256InComputeHash)
         {
             // Validate parameters.
             ArgUtil.NotNull(collectionId, nameof(collectionId));
@@ -50,22 +50,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     definitionId,
                     string.Join(';', repositories.OrderBy(x => x.Identifier).Select(x => $"{x.Identifier}:{x.RepositoryUrl}")));
             }
-            return CreateHash(hashInput);
+            return CreateHash(hashInput, UseSha256InComputeHash);
         }
 
-        private static string CreateHash(string hashInput)
+        private static string CreateHash(string hashInput, bool UseSha256InComputeHash)
         {
-            using (SHA1 sha1Hash = SHA1.Create())
+            if(UseSha256InComputeHash)
             {
-                byte[] data = sha1Hash.ComputeHash(Encoding.UTF8.GetBytes(hashInput));
-                StringBuilder hexString = new StringBuilder();
-                for (int i = 0; i < data.Length; i++)
+                using (SHA256 sha256Hash = SHA256.Create())
                 {
-                    hexString.Append(data[i].ToString("x2"));
-                }
+                    byte[] data = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(hashInput));
+                    StringBuilder hexString = new StringBuilder();
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        hexString.Append(data[i].ToString("x2"));
+                    }
 
-                return hexString.ToString();
+                    return hexString.ToString();
+                }
             }
+            else
+            {
+                using (SHA1 SHA1 = SHA1.Create())
+                {
+                    byte[] data = SHA1.ComputeHash(Encoding.UTF8.GetBytes(hashInput));
+                    StringBuilder hexString = new StringBuilder();
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        hexString.Append(data[i].ToString("x2"));
+                    }
+
+                    return hexString.ToString();
+                }
+            }  
         }
     }
 }

@@ -718,8 +718,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Variables.TryGetValue(Constants.Variables.System.CollectionId, out string collectionId);
             Variables.TryGetValue(Constants.Variables.System.DefinitionId, out string definitionId);
             var repoTrackingInfos = message.Resources.Repositories.Select(repo => new Build.RepositoryTrackingInfo(repo, "/")).ToList();
-            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, repoTrackingInfos);
-
+            // Determine the hash algorithm based on the knob value
+            var workspaceIdentifier = Build.TrackingConfigHashAlgorithm.ComputeHash(collectionId, definitionId, repoTrackingInfos, AgentKnobs.UseSha256InComputeHash.GetValue(this).AsBoolean());
+            
             Trace.Info($"WorkspaceIdentifier '{workspaceIdentifier}' created for repos {String.Join(',', repoTrackingInfos)}");
             return workspaceIdentifier;
         }
