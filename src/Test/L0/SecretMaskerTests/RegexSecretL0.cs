@@ -1,6 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.using Agent.Sdk.SecretMasking;
 using Agent.Sdk.SecretMasking;
+
+using Microsoft.Security.Utilities;
+
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests;
@@ -13,8 +16,8 @@ public class RegexSecretL0
     public void Equals_ReturnsTrue_WhenPatternsAreEqual()
     {
         // Arrange
-        var secret1 = new RegexSecret("abc");
-        var secret2 = new RegexSecret("abc");
+        var secret1 = new RegexPattern("101", "TestRule", 0, "abc");
+        var secret2 = new RegexPattern("101", "TestRule", 0, "abc");
 
         // Act
         var result = secret1.Equals(secret2);
@@ -28,11 +31,11 @@ public class RegexSecretL0
     public void GetPositions_ReturnsEmpty_WhenNoMatchesExist()
     {
         // Arrange
-        var secret = new RegexSecret("abc");
+        var secret = new RegexPattern("101", "TestRule", 0, ("abc"));
         var input = "defdefdef";
 
         // Act
-        var positions = secret.GetPositions(input);
+        var positions = secret.GetDetections(input, generateCrossCompanyCorrelatingIds: false);
 
         // Assert
         Assert.Empty(positions);

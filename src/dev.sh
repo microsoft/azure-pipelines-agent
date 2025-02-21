@@ -120,15 +120,12 @@ function detect_platform_and_runtime_id() {
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
     
+    echo "Detected Process Arch: $PROCESSOR_ARCHITECTURE"
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
-        local processor_type=$(detect_system_architecture)
-        echo "Detected Process Arch: $processor_type"
-
-        # Default to win-x64
         DETECTED_RUNTIME_ID='win-x64'
-        if [[ "$processor_type" == 'x86' ]]; then
+        if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
-        elif [[ "$processor_type" == 'ARM64' ]]; then
+        elif [[ "$PROCESSOR_ARCHITECTURE" == 'ARM64' ]]; then
             DETECTED_RUNTIME_ID='win-arm64'
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
@@ -370,48 +367,6 @@ function cmd_lint_verify() {
     heading "Validating linted code"
 
     "${DOTNET_DIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint_verify"
-}
-
-function detect_system_architecture() {
-    local processor  # Variable to hold the processor type (e.g., x, ARM)
-    local os_arch    # Variable to hold the OS bitness (e.g., 64, 86)
-
-    # Detect processor type using PROCESSOR_IDENTIFIER
-    # Check for AMD64 or Intel in the variable to classify as "x" (covers x86 and x64 processors)
-    if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel64" ]]; then
-        processor="x"
-    # Check for ARM64 in the variable to classify as "ARM"
-    elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM" || "$PROCESSOR_IDENTIFIER" =~ "Arm" ]]; then
-        processor="ARM"
-    # Default to "x" for unknown or unhandled cases
-    else
-        processor="x"
-    fi
-
-    # Detect OS bitness using uname
-    # "x86_64" indicates a 64-bit operating system
-    if [[ "$(uname -m)" == "x86_64" ]]; then
-        os_arch="64"
-    # "i686" or "i386" indicates a 32-bit operating system
-    elif [[ "$(uname -m)" == "i686" || "$(uname -m)" == "i386" ]]; then
-        os_arch="86"
-    # "aarch64" indicates a 64-bit ARM operating system
-    elif [[ "$(uname -m)" == "aarch64" ]]; then
-        os_arch="64"
-    # Default to "64" for unknown or unhandled cases
-    else
-        os_arch="64"
-    fi
-
-    # Note: AMD32 does not exist as a specific label; 32-bit AMD processors are referred to as x86.
-    # ARM32 also does not exist in this context; ARM processors are always 64-bit.
-    
-    # Combine processor type and OS bitness for the final result
-    # Examples:
-    # - "x64" for Intel/AMD 64-bit
-    # - "x86" for Intel/AMD 32-bit
-    # - "ARM64" for ARM 64-bit
-    echo "${processor}${os_arch}"
 }
 
 detect_platform_and_runtime_id
