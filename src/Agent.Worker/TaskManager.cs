@@ -373,8 +373,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void CheckIfTaskNodeRunnerIsDeprecated(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
-            string[] deprecatedNodeRunners = { "Node", "Node10" };
-            string[] approvedNodeRunners = { "Node16", "Node20_1" }; // Node runners which are not considered as deprecated
+            string[] deprecatedNodeRunners = { "Node", "Node10", "Node16" };
+            string[] approvedNodeRunners = { "Node20_1" }; // Node runners which are not considered as deprecated
             string[] executionSteps = { "prejobexecution", "execution", "postjobexecution" };
 
             JObject taskJson = GetTaskJson(task);
