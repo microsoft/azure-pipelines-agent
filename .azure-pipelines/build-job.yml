@@ -88,6 +88,8 @@ jobs:
           targetFramework: 'net6.0'
         NET8.0:
           targetFramework: 'net8.0'
+        NET9.0:
+          targetFramework: 'net9.0'
 
 
   ${{ if ne(parameters.container, '') }}:
