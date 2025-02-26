@@ -19,13 +19,6 @@ pr:
     - .azure-pipelines
     - .vsts.release.yml
 
-schedules:
-- cron: '0 6 * * 2'
-  displayName: Scheduled weekly run
-  branches:
-    include:
-    - master
-
 parameters:
 - name: version
   type: string
