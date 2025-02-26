@@ -19,13 +19,6 @@ pr:
     - .azure-pipelines
     - .vsts.release.yml
 
-schedules:
-- cron: '0 6 * * 2'
-  displayName: Scheduled weekly run
-  branches:
-    include:
-    - master
-
 parameters:
 - name: version
   type: string
@@ -34,7 +27,7 @@ parameters:
 - name: targetFramework
   displayName: Target framework
   type: string
-  default: net6.0
+  default: net8.0
   values:
   - net6.0
   - net8.0
