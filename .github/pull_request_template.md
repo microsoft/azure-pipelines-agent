@@ -5,7 +5,7 @@
 
 **Description:** <Describe your changes here>
 
-**Risk:** (Low/Medium/High) <Please add the reasoning for the risk for causing regresion>
+**Risk Assesment(Low/Medium/High)**: <Please add the reasoning for the risk assesment>
 
 **Added unit tests:** (Y/N) <Please mark if unit tests were added or updated according changes>
 
