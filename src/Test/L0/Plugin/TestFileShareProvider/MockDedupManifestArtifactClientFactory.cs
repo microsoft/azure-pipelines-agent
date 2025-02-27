@@ -24,7 +24,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,
-            int maxParallelism,
             IDomainId domainId,
             BlobStore.WebApi.Contracts.Client client,
             AgentTaskPluginExecutionContext context,
