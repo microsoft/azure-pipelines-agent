@@ -2,18 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
+using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.Content.Common;
-using Agent.Sdk;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using BuildXL.Cache.ContentStore.Hashing;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
-using Agent.Sdk.Knob;
-using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -21,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     {
         private readonly ClientSettingsInfo clientSettings;
         private readonly IAppTraceSource tracer;
-        
+
         private BlobstoreClientSettings(ClientSettingsInfo settings, IAppTraceSource tracer)
         {
             clientSettings = settings;
@@ -37,8 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             BlobStore.WebApi.Contracts.Client? client,
             IAppTraceSource tracer,
             CancellationToken cancellationToken)
-        {            
-            if(client.HasValue)
+        {
+            if (client.HasValue)
             {
                 try
                 {
@@ -75,8 +75,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 {
                     tracer.Info($"Error converting the domain id '{clientSettings.Properties[ClientSettingsConstants.DefaultDomainId]}': {exception.Message}.  Falling back to default.");
                 }
-            } 
-            else 
+            }
+            else
             {
                 tracer.Verbose($"No client settings found, using the default domain id '{domainId}'.");
             }
@@ -111,6 +111,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             if (int.TryParse(clientSettings?.Properties.GetValueOrDefault(ClientSettingsConstants.RedirectTimeout), out int redirectTimeoutSeconds))
             {
                 return redirectTimeoutSeconds;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public int? GetMaxParallelism()
+        {
+            const string MaxParallelism = "MaxParallelism";
+            if (int.TryParse(clientSettings?.Properties.GetValueOrDefault(MaxParallelism), out int maxParallelism))
+            {
+                return maxParallelism;
             }
             else
             {

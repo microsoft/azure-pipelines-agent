@@ -60,7 +60,6 @@ namespace Agent.Plugins
                     context.IsSystemDebugTrue(),
                     (str) => context.Output(str),
                     connection,
-                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     domainId,
                     clientSettings,
                     context,

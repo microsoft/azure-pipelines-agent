@@ -4,18 +4,15 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.Content.Common.Tracing;
-using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.Content.Common;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Agent.Sdk;
+using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
-using BuildXL.Cache.ContentStore.Hashing;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
-using Agent.Sdk.Knob;
-using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.Content.Common;
+using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -36,7 +33,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,
-            int maxParallelism,
             IDomainId domainId,
             BlobstoreClientSettings clientSettings,
             AgentTaskPluginExecutionContext context,
@@ -74,13 +70,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             bool verbose,
             Action<string> traceOutput,
             CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Gets the maximum parallelism to use for dedup related downloads and uploads.
-        /// </summary>
-        /// <param name="context">Context which may specify overrides for max parallelism</param>
-        /// <returns>max parallelism</returns>
-        int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context);
     }
 
     public class DedupManifestArtifactClientFactory : IDedupManifestArtifactClientFactory
@@ -118,7 +107,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     context.IsSystemDebugTrue(),
                     (str) => context.Output(str),
                     connection,
-                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     domainId,
                     clientSettings,
                     context,
@@ -129,7 +117,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,
-            int maxParallelism,
             IDomainId domainId,
             BlobstoreClientSettings clientSettings,
             AgentTaskPluginExecutionContext context,
@@ -137,10 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         {
             const int maxRetries = 5;
             var tracer = CreateArtifactsTracer(verbose, traceOutput);
-            if (maxParallelism == 0)
-            {
-                maxParallelism = DefaultDedupStoreClientMaxParallelism;
-            }
+            int maxParallelism = DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context, clientSettings);
 
             traceOutput($"Max dedup parallelism: {maxParallelism}");
             traceOutput($"DomainId: {domainId}");
@@ -148,7 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             IDedupStoreHttpClient dedupStoreHttpClient = GetDedupStoreHttpClient(connection, domainId, maxRetries, tracer, cancellationToken);
 
             var telemetry = new BlobStoreClientTelemetry(tracer, dedupStoreHttpClient.BaseAddress);
-            HashType hashType= clientSettings.GetClientHashType(context);
+            HashType hashType = clientSettings.GetClientHashType(context);
 
             if (hashType == BuildXL.Cache.ContentStore.Hashing.HashType.Dedup1024K)
             {
@@ -222,32 +206,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             return (client, telemetry);
         }
 
-        public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context)
+        public int GetDedupStoreClientMaxParallelism(AgentTaskPluginExecutionContext context, BlobstoreClientSettings clientSettings)
         {
             ConfigureEnvironmentVariables(context);
 
-            int parallelism = DefaultDedupStoreClientMaxParallelism;
-
-            if (context.Variables.TryGetValue("AZURE_PIPELINES_DEDUP_PARALLELISM", out VariableValue v))
+            // prefer the pipeline variable over the client settings
+            if (context.Variables.TryGetValue(DedupParallelism, out VariableValue v))
             {
-                if (!int.TryParse(v.Value, out parallelism))
-                {
-                    context.Output($"Could not parse the value of AZURE_PIPELINES_DEDUP_PARALLELISM, '{v.Value}', as an integer. Defaulting to {DefaultDedupStoreClientMaxParallelism}");
-                    parallelism = DefaultDedupStoreClientMaxParallelism;
-                }
-                else
+                if (int.TryParse(v.Value, out int parallelism))
                 {
                     context.Output($"Overriding default max parallelism with {parallelism}");
+                    return parallelism;
                 }
             }
-            else
-            {
-                context.Output($"Using default max parallelism.");
-            }
-
-            return parallelism;
+            return GetDedupStoreClientMaxParallelism(clientSettings, msg => context.Output(msg));
         }
 
+        public int GetDedupStoreClientMaxParallelism(BlobstoreClientSettings clientSettings, Action<string> logOutput)
+        {
+            // if we have a client setting for max parallelism, use that:
+            int? maxParallelism = clientSettings?.GetMaxParallelism();
+            if (maxParallelism.HasValue)
+            {
+                logOutput($"Using max parallelism from client settings: {maxParallelism}");
+                return maxParallelism.Value;
+            }
+            // if we get here, nothing left to do but use the default:
+            logOutput($"Using default max parallelism.");
+            return DefaultDedupStoreClientMaxParallelism;
+        }
+
+        public static string DedupParallelism = "AZURE_PIPELINES_DEDUP_PARALLELISM";
         private static readonly string[] EnvironmentVariables = new[] { "VSO_DEDUP_REDIRECT_TIMEOUT_IN_SEC" };
 
         private static void ConfigureEnvironmentVariables(AgentTaskPluginExecutionContext context)
@@ -268,7 +257,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 }
             }
         }
-
 
         public static IAppTraceSource CreateArtifactsTracer(bool verbose, Action<string> traceOutput)
         {
