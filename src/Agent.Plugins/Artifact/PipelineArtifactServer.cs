@@ -320,7 +320,7 @@ namespace Agent.Plugins
             }
 
             // Create a variable to store the resource types of the downloaded artifacts
-            context.SetVariable("ResourceTypes", string.Join(",", resourceTypes));
+            context.SetVariable("DownloadPipelineArtifactResourceTypes", string.Join(",", resourceTypes));
         }
     }
 
