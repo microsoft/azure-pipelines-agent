@@ -233,7 +233,7 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
             BuildServer buildServer = new BuildServer(connection);
-            HashSet<string> ResourceTypes = new HashSet<string>();
+            HashSet<string> resourceTypes = new HashSet<string>();
 
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)
@@ -265,21 +265,21 @@ namespace Agent.Plugins
 
                 if (buildArtifacts.Any())
                 {
-                    ResourceTypes.Add(PipelineArtifactConstants.Container);
+                    resourceTypes.Add(PipelineArtifactConstants.Container);
                     FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken, context);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
-                    ResourceTypes.Add(PipelineArtifactConstants.PipelineArtifact);
+                    resourceTypes.Add(PipelineArtifactConstants.PipelineArtifact);
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
                 if (fileShareArtifacts.Any())
                 {
-                    ResourceTypes.Add(PipelineArtifactConstants.FileShareArtifact);
+                    resourceTypes.Add(PipelineArtifactConstants.FileShareArtifact);
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer, DedupManifestArtifactClientFactory.Instance);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
@@ -310,7 +310,7 @@ namespace Agent.Plugins
 
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
-                ResourceTypes.Add(buildArtifact.Resource.Type);
+                resourceTypes.Add(buildArtifact.Resource.Type);
 
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken, context);
             }
@@ -320,7 +320,7 @@ namespace Agent.Plugins
             }
 
             // Create a variable to store the resource types of the downloaded artifacts
-            context.SetVariable("ResourceTypes", string.Join(",", ResourceTypes));
+            context.SetVariable("ResourceTypes", string.Join(",", resourceTypes));
         }
     }
 
