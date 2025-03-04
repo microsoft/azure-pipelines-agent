@@ -30,6 +30,8 @@ cd ./src
 ./dev.(sh/cmd) test # run unit tests before git commit/push
 ```
 
+To test the agent in a pipeline, follow the [self-hosted agent installation steps](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/windows-agent?view=azure-devops). You will use the agent built from source in the `_layout` folder at the repository root to run the `config` and `run` commands.
+
 ## Debugging
 
 The agent can be run in debug mode by providing the parameter `--debug` to the `run` command.
