@@ -235,6 +235,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string RunAsService = "runasservice";
                     public const string PreventServiceStart = "preventservicestart";
                     public const string SslSkipCertValidation = "sslskipcertvalidation";
+                    public const string SkipCapabilitiesScan = "skipcapabilitiesscan";
                     public const string Unattended = "unattended";
                     public const string Version = "version";
                     public const string EnableServiceSidTypeUnrestricted = "enableservicesidtypeunrestricted";
