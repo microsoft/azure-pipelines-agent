@@ -172,11 +172,18 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public async Task<(DedupIdentifier dedupId, ulong length)> UploadAttachmentToBlobStore(bool verbose, string itemPath, Guid planId, Guid jobId, CancellationToken cancellationToken)
         {
-            int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
             var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
-                _connection, 
-                client: null, 
+                _connection,
+                client: null,
                 DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, (str) => Trace.Info(str)), cancellationToken);
+
+            int maxParallelism = HostContext.GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
+            if (maxParallelism == 0)
+            {
+                // if we have a client setting for max parallelism, use that - this won't log anything:
+                maxParallelism = DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(clientSettings, msg => { });
+            }
+
             var (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupClient(
                     _connection,

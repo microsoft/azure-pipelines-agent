@@ -6,13 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Blob;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
+using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.BlobStore.Common.Telemetry;
-using Agent.Plugins.PipelineArtifact;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -40,7 +38,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             bool verbose,
             Action<string> traceOutput,
             VssConnection connection,
-            int maxParallelism,
             IDomainId domainId,
             BlobstoreClientSettings clientSettings,
             AgentTaskPluginExecutionContext context,
