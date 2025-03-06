@@ -193,8 +193,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 return GetKeyFromNamedContainer();
             }
 
-            var rsa = new RSACryptoServiceProvider();
-            rsa.ImportParameters(result.rsaParameters);
+            var rsa = RSA.Create(result.rsaParameters);
             return rsa;
         }
 

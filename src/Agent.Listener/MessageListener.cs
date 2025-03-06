@@ -80,6 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             };
             string sessionName = $"{Environment.MachineName ?? "AGENT"}";
             var taskAgentSession = new TaskAgentSession(sessionName, agent, systemCapabilities);
+            taskAgentSession.AgentCanHandleOaepSHA256 = true;
 
             string errorMessage = string.Empty;
             bool encounteringError = false;
@@ -338,7 +339,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
                 using (var rsa = keyManager.GetKey())
                 {
-                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA1), message.IV);
+                    RSAEncryptionPadding padding;
+                    switch (_session.EncryptionKey.EncryptionPadding)
+                    {
+                        case nameof(RSAEncryptionPadding.OaepSHA256):
+                            padding = RSAEncryptionPadding.OaepSHA256;
+                            break;
+
+                        default:
+                            // fallback for old on-premises servers
+                            padding = RSAEncryptionPadding.OaepSHA1;
+                            break;
+                    }
+
+                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, padding), message.IV);
                 }
             }
             else
