@@ -153,7 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                                 }
                                 catch (FileNotFoundException)
                                 {
-                                    // Allow to continue;
+                                    item.Delete();
                                 }
 
                                 // Check if the item is a file.
@@ -193,10 +193,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                                 }
 
                                 success = true;
-                            }
-                            catch (FileNotFoundException)
-                            {
-                                // Allow to continue;
                             }
                             catch (Exception) when (continueOnContentDeleteError)
                             {
