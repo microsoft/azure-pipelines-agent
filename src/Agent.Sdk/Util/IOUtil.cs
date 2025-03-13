@@ -147,7 +147,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                             try
                             {
                                 // Remove the readonly attribute.
-                                RemoveReadOnly(item);
+                                try
+                                {
+                                    RemoveReadOnly(item);
+                                }
+                                catch (FileNotFoundException)
+                                {
+                                    // Allow to continue;
+                                }
 
                                 // Check if the item is a file.
                                 if (item is FileInfo)
@@ -186,6 +193,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                                 }
 
                                 success = true;
+                            }
+                            catch (FileNotFoundException)
+                            {
+                                // Allow to continue;
                             }
                             catch (Exception) when (continueOnContentDeleteError)
                             {
