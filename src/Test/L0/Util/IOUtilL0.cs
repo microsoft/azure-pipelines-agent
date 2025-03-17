@@ -104,6 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     await CreateFileReparsePoint(context: hc, link: symlink, target: targetFile);
 
                     // Act.
+                    IOUtil.DeleteFile(targetFile);
                     IOUtil.DeleteDirectory(directory, CancellationToken.None);
 
                     // Assert.
