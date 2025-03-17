@@ -85,6 +85,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
+        public async void DeleteDirectory_DeleteTargetFileBeforeSymlink()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                // Arrange: Create a directory with a file.
+                string directory = Path.Combine(hc.GetDirectory(WellKnownDirectory.Bin), Path.GetRandomFileName());
+                string targetFile = Path.Combine(directory, "somefile");
+                string symlink = Path.Combine(directory, "symlink");
+                try
+                {
+                    Directory.CreateDirectory(directory);
+                    File.WriteAllText(path: targetFile, contents: "some contents");
+                    File.SetAttributes(targetFile, File.GetAttributes(targetFile) | FileAttributes.ReadOnly);
+
+                    await CreateFileReparsePoint(context: hc, link: symlink, target: targetFile);
+
+                    // Act.
+                    IOUtil.Delete(targetFile, CancellationToken.None);
+                    IOUtil.Delete(symlink, CancellationToken.None);
+
+                    // Assert.
+                    Assert.False(File.Exists(targetFile));
+                    Assert.False(File.Exists(symlink));
+
+                }
+                finally
+                {
+                    // Cleanup.
+                    if (Directory.Exists(directory))
+                    {
+                        Directory.Delete(directory, recursive: true);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
         public void DeleteDirectory_DeletesDirectoriesRecursively()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -1267,6 +1308,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     var expected = testcases[i, 1];
                     Assert.Equal(expected, path);
                 }
+            }
+        }
+
+        private static async Task CreateFileReparsePoint(IHostContext context, string link, string target)
+        {
+            string fileName = (TestUtil.IsWindows())
+                ? Environment.GetEnvironmentVariable("ComSpec")
+                : "/bin/ln";
+            string arguments = (TestUtil.IsWindows())
+                ? $@"/c ""mklink ""{link}"" ""{target}"""""
+                : $@"-s ""{target}"" ""{link}""";
+
+            ArgUtil.File(fileName, nameof(fileName));
+            using (var processInvoker = new ProcessInvokerWrapper())
+            {
+                processInvoker.Initialize(context);
+                await processInvoker.ExecuteAsync(
+                    workingDirectory: context.GetDirectory(WellKnownDirectory.Bin),
+                    fileName: fileName,
+                    arguments: arguments,
+                    environment: null,
+                    requireExitCodeZero: true,
+                    cancellationToken: CancellationToken.None);
             }
         }
     }
