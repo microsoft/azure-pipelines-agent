@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeleteTargetFileBeforeSymlink()
+        public async void DeleteDirectory_DeleteTargetFileWithASymlink()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -104,8 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     await CreateFileReparsePoint(context: hc, link: symlink, target: targetFile);
 
                     // Act.
-                    IOUtil.Delete(targetFile, CancellationToken.None);
-                    IOUtil.Delete(symlink, CancellationToken.None);
+                    IOUtil.DeleteDirectory(directory, CancellationToken.None);
 
                     // Assert.
                     Assert.False(File.Exists(targetFile));
