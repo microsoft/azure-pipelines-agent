@@ -1,3 +1,13 @@
+## Features
+ - Optionally use max parallelism value from the client settings API (#5132)
+ - Add output variable for type of artifact downloaded. (#5133)
+
+## Bugs
+
+
+## Misc
+
+
 
 ## Agent Downloads
 
