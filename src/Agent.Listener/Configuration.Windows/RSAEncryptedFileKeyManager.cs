@@ -57,8 +57,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     CspParameters Params = new CspParameters();
                     Params.KeyContainerName = "AgentKeyContainer" + Guid.NewGuid().ToString();
-                    Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-                    rsa = new RSACryptoServiceProvider(2048, Params);
+                    Params.Flags |= CspProviderFlags.UseMachineKeyStore;
+                    using (var csp = new RSACryptoServiceProvider(2048, Params))
+                    {
+                        rsa = RSA.Create(csp.ExportParameters(includePrivateParameters: true));
+                    }
 
                     // Now write the parameters to disk
                     SaveParameters(default(RSAParameters), Params.KeyContainerName, useCng);
@@ -79,8 +82,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 CspParameters Params = new CspParameters();
                 Params.KeyContainerName = result.containerName;
-                Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-                rsa = new RSACryptoServiceProvider(Params);
+                Params.Flags |= CspProviderFlags.UseMachineKeyStore;
+                using (var csp = new RSACryptoServiceProvider(Params))
+                {
+                    rsa = RSA.Create(csp.ExportParameters(includePrivateParameters: true));
+                }
             }
 
             return rsa;
@@ -93,12 +99,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private RSA CreateKeyStoreKeyInFile(bool useCng)
         {
-            RSACryptoServiceProvider rsa = null;
+            RSA rsa = null;
             if (!File.Exists(_keyFile))
             {
                 Trace.Info("Creating new RSA key using 2048-bit key length");
 
-                rsa = new RSACryptoServiceProvider(2048);
+                rsa = RSA.Create(2048);
 
                 // Now write the parameters to disk
                 SaveParameters(rsa.ExportParameters(true), string.Empty, false);
@@ -116,7 +122,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     return CreateKeyStoreKeyInNamedContainer(useCng);
                 }
 
-                rsa = new RSACryptoServiceProvider();
                 rsa.ImportParameters(result.rsaParameters);
             }
 
@@ -170,9 +175,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 Trace.Info("Using RSACryptoServiceProvider");
                 CspParameters Params = new CspParameters();
                 Params.KeyContainerName = result.containerName;
-                Params.Flags |= CspProviderFlags.UseNonExportableKey | CspProviderFlags.UseMachineKeyStore;
-                var rsa = new RSACryptoServiceProvider(Params);
-                return rsa;
+                Params.Flags |= CspProviderFlags.UseMachineKeyStore;
+                using (var csp = new RSACryptoServiceProvider(Params))
+                {
+                    return RSA.Create(csp.ExportParameters(includePrivateParameters: true));
+                }
             }
         }
 
@@ -193,9 +200,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 return GetKeyFromNamedContainer();
             }
 
-            var rsa = new RSACryptoServiceProvider();
-            rsa.ImportParameters(result.rsaParameters);
-            return rsa;
+            return RSA.Create(result.rsaParameters);
         }
 
         private (string containerName, bool useCng, RSAParameters rsaParameters) LoadParameters()
