@@ -8,7 +8,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Agent.Sdk;
-using Agent.Sdk.SecretMasking;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {

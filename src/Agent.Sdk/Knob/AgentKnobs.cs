@@ -681,6 +681,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_ENABLE_NEW_SECRET_MASKER"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableAdditionalMaskingRegexes = new Knob(
+            nameof(EnableAdditionalMaskingRegexes),
+            "If true, SecretMasker will use additional regexes to mask well-known secret patterns",
+            new EnvironmentKnobSource("AZP_ENABLE_ADDITIONAL_MASKING_REGEXES"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AddDockerInitOption = new Knob(
             nameof(AddDockerInitOption),
             "If true, the agent will create docker container with the --init option.",

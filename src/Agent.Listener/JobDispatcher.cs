@@ -396,14 +396,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 using (var processChannel = HostContext.CreateService<IProcessChannel>())
                 using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
-
                     var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
-                    var newSecretMaskerFeaturFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseMaskingPerformanceEnhancements", Trace);
+                    var newSecretMaskerFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseMaskingPerformanceEnhancements", Trace);
+                    var additionalMaskingRegexesFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableAdditionalMaskingRegexes", Trace);
                     var environment = new Dictionary<string, string>();
-                    if (newSecretMaskerFeaturFlagStatus?.EffectiveState == "On")
+
+                    if (newSecretMaskerFeatureFlagStatus?.EffectiveState == "On")
                     {
                         environment.Add("AZP_ENABLE_NEW_SECRET_MASKER", "true");
                     }
+
+                    if (additionalMaskingRegexesFlagStatus?.EffectiveState == "On")
+                    {
+                        environment.Add("AZP_ENABLE_ADDITIONAL_MASKING_REGEXES", "true");
+                    }
+
                     // Start the process channel.
                     // It's OK if StartServer bubbles an execption after the worker process has already started.
                     // The worker will shutdown after 30 seconds if it hasn't received the job message.

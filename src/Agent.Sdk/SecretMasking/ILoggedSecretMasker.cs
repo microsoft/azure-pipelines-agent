@@ -1,15 +1,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
-//using Microsoft.TeamFoundation.DistributedTask.Logging;
-using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
+
 using System;
+
+using Microsoft.TeamFoundation.DistributedTask.Logging;
 
 namespace Agent.Sdk.SecretMasking
 {
     /// <summary>
-    /// Extended ISecretMasker interface that is adding support of logging secret masker methods
+    /// Extended ISecretMasker interface that adds support for logging the origin of
+    /// regexes, encoders and literal secret values.
     /// </summary>
-    public interface ILoggedSecretMasker : ISecretMasker
+    public interface ILoggedSecretMasker : ISecretMasker, IDisposable
     {
         static int MinSecretLengthLimit { get; }
 

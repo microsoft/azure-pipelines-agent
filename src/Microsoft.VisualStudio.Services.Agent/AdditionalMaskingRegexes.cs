@@ -30,11 +30,13 @@ namespace Microsoft.VisualStudio.Services.Agent
         // the user, and the ":" and skip them. Similarly, it uses
         // a zero-width positive lookahead to find the "@".
         // It only matches on the password part.
-        private static string urlSecretPattern
-            = "(?<=//[^:/?#\\n]+:)" // lookbehind
-            + urlMatch       // actual match
-            + "(?=@)";              // lookahead
+        private const string lookBehind = "//[^:/?#\\n]+:";
+        private const string lookAhead = "@";
+        public static string UrlSecretPattern { get; } = $"(?<={lookBehind}){urlMatch}(?={lookAhead})";
 
-        public static string UrlSecretPattern => urlSecretPattern;
+        // Microsoft.Security.Utilities.Core SecretMasker uses NonBacktracking
+        // engine that does not support lookbehind/lookahead. Instead, a capture
+        // group named refine is used to select a sub-portion of a match.
+        public static string UrlSecretPatternNonBacktracking { get; } = $"{lookBehind}(?<refine>{urlMatch}){lookAhead}";
     }
 }
