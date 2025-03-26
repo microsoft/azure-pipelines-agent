@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System;
+using System.Text;
 using System.Globalization;
 using Xunit;
 
@@ -28,6 +30,83 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             var result = StringUtil.DeactivateVsoCommands(input);
 
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void DeactivateBase64EncodedVsoCommands_InputValidEncoded()
+        {
+            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            String encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
+
+            var result = StringUtil.DeactivateBase64EncodedVsoCommands(encodedVsoCommand);
+
+            String cleanedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            var expectedCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(cleanedVsoCommand));
+
+            Assert.Equal(expectedCommand, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void DeactivateBase64EncodedVsoCommands_InputNotEncoded()
+        {
+            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+
+            var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
+
+            Assert.Equal(vsoCommand, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void DeactivateBase64EncodedVsoCommands_InputEmpty()
+        {
+            String vsoCommand = "";
+
+            var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
+
+            Assert.Equal(vsoCommand, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsBase64Encoded_InputValidEncoded()
+        {
+            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            String encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
+
+            var result = StringUtil.IsBase64Encoded(encodedVsoCommand);
+
+            Assert.Equal(true, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsBase64Encoded_InputNotEncoded()
+        {
+            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+
+            var result = StringUtil.IsBase64Encoded(vsoCommand);
+
+            Assert.Equal(false, result);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsBase64Encoded_InputEmpty()
+        {
+            String vsoCommand = "";
+
+            var result = StringUtil.IsBase64Encoded(vsoCommand);
+
+            Assert.Equal(false, result);
         }
 
         [Fact]
