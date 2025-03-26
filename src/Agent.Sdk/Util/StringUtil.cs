@@ -304,9 +304,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             try
             {
                 byte[] decodedBytes = Convert.FromBase64String(input);
-                string encodedString = Convert.ToBase64String(decodedBytes);
+                string decodedString = Encoding.UTF8.GetString(decodedBytes);
 
-                encodedString = DeactivateVsoCommands(encodedString);
+                decodedString = DeactivateVsoCommands(decodedString);
 
                 byte[] bytes = Encoding.UTF8.GetBytes(input);
                 return Convert.ToBase64String(bytes);
