@@ -296,11 +296,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static string DeactivateBase64EncodedVsoCommands(string input)
         {
-            if (!IsBase64Encoded(input))
-            {
-                return input;
-            }
-
             try
             {
                 byte[] decodedBytes = Convert.FromBase64String(input);
@@ -314,20 +309,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             catch
             {
                 return input;
-            }
-        }
-
-        public static bool IsBase64Encoded(string input)
-        {
-            try
-            {
-                byte[] decodedBytes = Convert.FromBase64String(input);
-                Encoding.UTF8.GetString(decodedBytes);
-                return true;
-            }
-            catch
-            {
-                return false;
             }
         }
     }

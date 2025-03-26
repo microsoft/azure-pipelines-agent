@@ -72,43 +72,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             Assert.Equal(vsoCommand, result);
         }
 
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
-        public void IsBase64Encoded_InputValidEncoded()
-        {
-            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            String encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
-
-            var result = StringUtil.IsBase64Encoded(encodedVsoCommand);
-
-            Assert.Equal(true, result);
-        }
-
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
-        public void IsBase64Encoded_InputNotEncoded()
-        {
-            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-
-            var result = StringUtil.IsBase64Encoded(vsoCommand);
-
-            Assert.Equal(false, result);
-        }
-
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
-        public void IsBase64Encoded_InputEmpty()
-        {
-            String vsoCommand = "";
-
-            var result = StringUtil.IsBase64Encoded(vsoCommand);
-
-            Assert.Equal(false, result);
-        }
-
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
