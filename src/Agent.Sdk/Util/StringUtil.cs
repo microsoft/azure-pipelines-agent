@@ -308,7 +308,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 decodedString = DeactivateVsoCommands(decodedString);
 
-                byte[] bytes = Encoding.UTF8.GetBytes(input);
+                byte[] bytes = Encoding.UTF8.GetBytes(decodedString);
                 return Convert.ToBase64String(bytes);
             }
             catch
@@ -319,17 +319,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static bool IsBase64Encoded(string input)
         {
-            if (string.IsNullOrEmpty(input) || input.Length % 4 != 0)
-                return false;
-
-            if (!Regex.IsMatch(input, "^[A-Za-z0-9+/]*={0,2}$"))
-                return false;
-
             try
             {
                 byte[] decodedBytes = Convert.FromBase64String(input);
-                string encodedString = Convert.ToBase64String(decodedBytes);
-                return input.TrimEnd('=') == encodedString.TrimEnd('=');
+                Encoding.UTF8.GetString(decodedBytes);
+                return true;
             }
             catch
             {
