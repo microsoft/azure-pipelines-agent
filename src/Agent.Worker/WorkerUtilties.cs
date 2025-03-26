@@ -112,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (deactivatedVariables.TryGetValue(variableName, out var variable))
                 {
                     var deactivatedVariable = variable ?? new VariableValue();
-
+                    deactivatedVariable.Value = StringUtil.DeactivateBase64EncodedVsoCommands(deactivatedVariable.Value);
                     deactivatedVariables[variableName] = StringUtil.DeactivateVsoCommands(deactivatedVariable.Value);
                 }
             }
