@@ -22,9 +22,9 @@ using Agent.Sdk.SecretMasking;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
-using SecretMasker = Agent.Sdk.SecretMasking.SecretMasker;
-using LegacySecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
-using Agent.Sdk.Util.SecretMasking;
+using Microsoft.Security.Utilities;
+using SecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
+using ISecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -83,8 +83,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private AssemblyLoadContext _loadContext;
         private IDisposable _httpTraceSubscription;
         private IDisposable _diagListenerSubscription;
-        private LegacySecretMasker _legacySecretMasker = new LegacySecretMasker();
-        private SecretMasker _newSecretMasker = new SecretMasker();
         private StartupType _startupType;
         private string _perfFile;
         private HostType _hostType;
@@ -96,22 +94,18 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public HostContext(HostType hostType, string logFile = null)
         {
-            var useNewSecretMasker =  AgentKnobs.EnableNewSecretMasker.GetValue(this).AsBoolean();
-            _secretMasker = useNewSecretMasker ? new LoggedSecretMasker(_newSecretMasker) : new LegacyLoggedSecretMasker(_legacySecretMasker);
             // Validate args.
             if (hostType == HostType.Undefined)
             {
                 throw new ArgumentException(message: $"HostType cannot be {HostType.Undefined}");
             }
+
             _hostType = hostType;
 
             _loadContext = AssemblyLoadContext.GetLoadContext(typeof(HostContext).GetTypeInfo().Assembly);
             _loadContext.Unloading += LoadContext_Unloading;
 
-            this.SecretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, $"HostContext_{WellKnownSecretAliases.JsonStringEscape}");
-            this.SecretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
-            this.SecretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
-            this.SecretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, $"HostContext_{WellKnownSecretAliases.UrlSecretPattern}");
+            _secretMasker = CreateSecretMasker();
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -173,6 +167,82 @@ namespace Microsoft.VisualStudio.Services.Agent
                     _trace.Error(ex);
                 }
             }
+        }
+
+        private ILoggedSecretMasker CreateSecretMasker()
+        {
+            // When enabled, use the OSS package-provided secret masker from
+            // Microsoft.Security.Utilities.Core. Otherwise, use the legacy
+            // secret masker from VSO.
+            bool useNewSecretMasker = AgentKnobs.EnableNewSecretMasker.GetValue(this).AsBoolean();
+
+            // When enabled, use add additional regex patterns to the secret
+            // masker. For the OSS package-provided secret masker, this will use
+            // its 'PreciselyClassifiedSecurityKeys'. This class of pattern
+            // effectively admits no false positives and is strongly oriented on
+            // detecting the latest Azure provider API key formats. For the
+            // legacy secret masker, this will use 'SecurityUtilitiesPatterns'
+            // implemented in this repository. Also, note that URL secret
+            // masking is performed via regex in all cases, irrespective of any
+            // feature flags.
+            bool useAdditionalMaskingRegexes = AgentKnobs.EnableAdditionalMaskingRegexes.GetValue(this).AsBoolean();
+
+#pragma warning disable CA2000 // Dispose objects before losing scope. False positive: LoggedSecretMasker takes ownership.
+            ISecretMasker rawSecretMasker;
+            if (useNewSecretMasker)
+            {
+                var patterns = new List<RegexPattern>();
+
+                // https://github.com/microsoft/security-utilities/issues/175
+                //
+                // The new secret masker from Microsoft.Security.Utilities.Core
+                // provides a URL secret pattern, but has some differences in
+                // behavior. Until we reconcile these differences, we use the
+                // regex in this repo and a signature compatible with it along
+                // with the pattern metadata taken from the package.
+                RegexPattern urlCredentialsPattern = new UrlCredentials();
+                urlCredentialsPattern = new RegexPattern(
+                    id: urlCredentialsPattern.Id,
+                    name: urlCredentialsPattern.Name,
+                    patternMetadata: urlCredentialsPattern.DetectionMetadata,
+                    signatures: new HashSet<string>(new[] { "//" }),
+                    pattern: AdditionalMaskingRegexes.UrlSecretPatternNonBacktracking);
+
+                patterns.Add(urlCredentialsPattern);
+
+                if (useAdditionalMaskingRegexes)
+                {
+                    patterns.AddRange(WellKnownRegexPatterns.PreciselyClassifiedSecurityKeys);
+                }
+
+                rawSecretMasker = new OssSecretMasker(patterns);
+            }
+            else
+            {
+                rawSecretMasker = new SecretMasker();
+            }
+#pragma warning restore CA2000 // Dispose objects before losing scope
+
+            ILoggedSecretMasker secretMasker = new LoggedSecretMasker(rawSecretMasker);
+
+            secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, $"HostContext_{WellKnownSecretAliases.JsonStringEscape}");
+            secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
+            secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, $"HostContext_{WellKnownSecretAliases.UriDataEscape}");
+
+            if (!useNewSecretMasker)
+            {
+                secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, $"HostContext_{WellKnownSecretAliases.UrlSecretPattern}");
+
+                if (useAdditionalMaskingRegexes)
+                {
+                    foreach (var pattern in AdditionalMaskingRegexes.SecurityUtilitiesPatterns)
+                    {
+                        secretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.SecurityUtilitiesPatterns}");
+                    }
+                }
+            }
+
+            return secretMasker;
         }
 
         public virtual string GetDirectory(WellKnownDirectory directory)
@@ -612,10 +682,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _trace = null;
                 _httpTrace?.Dispose();
                 _httpTrace = null;
-                _legacySecretMasker?.Dispose();
-                _legacySecretMasker = null;
-                _newSecretMasker?.Dispose();
-                _newSecretMasker = null;
+                _secretMasker?.Dispose();
+                _secretMasker = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;
@@ -759,15 +827,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             return clientHandler;
-        }
-
-        public static void AddAdditionalMaskingRegexes(this IHostContext context)
-        {
-            ArgUtil.NotNull(context, nameof(context));
-            foreach (var pattern in AdditionalMaskingRegexes.CredScanPatterns)
-            {
-                context.SecretMasker.AddRegex(pattern, $"HostContext_{WellKnownSecretAliases.CredScanPatterns}");
-            }
         }
     }
 

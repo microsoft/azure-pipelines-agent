@@ -68,12 +68,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
-                if(AgentKnobs.EnableNewSecretMasker.GetValue(HostContext).AsBoolean())
-                {
-                    Trace.Verbose($"{Constants.Variables.Agent.EnableAdditionalMaskingRegexes} is On, adding additional masking regexes");
-                    HostContext.AddAdditionalMaskingRegexes();
-                }
-
                 // Start the job.
                 Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
