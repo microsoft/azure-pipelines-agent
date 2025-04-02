@@ -1,3 +1,21 @@
+## Features
+ - Changes to skip Not Executed state test in result.publish() command (#5116)
+ - Updated Node 20 version to safe version (#5118)
+ - Custom tasks that use Node 16 runner version should emit a warning (#5125)
+ - Optionally use max parallelism value from the client settings API (#5132)
+ - Add output variable for type of artifact downloaded. (#5133)
+
+## Bugs
+ - Suppressing CodeQL [SM02196] warning (#5122)
+ - Skip removing read only attribute for Symlinks AB#2248480 (#5144)
+
+## Misc
+ - Update ADO Client package to 251 (#5112)
+ - Check git version before running sparse checkout (#5117)
+ - Remove unused maxParallelism parameter from CreateDedupManifestClientAsync (#5131)
+ - add Ubuntu 20 to the list of deprecated iamges (#5148)
+ - Fix indentation in secret masking files (#5163)
+
 
 ## Agent Downloads
 
