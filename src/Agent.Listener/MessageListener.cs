@@ -95,6 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     await _agentServer.ConnectAsync(new Uri(serverUrl), creds);
                     Trace.Info("VssConnection created");
 
+                    taskAgentSession.AgentCanHandleOaepSHA256 = true;
                     _session = await _agentServer.CreateAgentSessionAsync(
                                                         _settings.PoolId,
                                                         taskAgentSession,
@@ -336,9 +337,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 // The agent session encryption key uses the AES symmetric algorithm
                 var keyManager = HostContext.GetService<IRSAKeyManager>();
+                RSAEncryptionPadding rsaPadding;
+                switch (_session.EncryptionKey.EncryptionPadding)
+                {
+                    case "OaepSHA256":
+                        rsaPadding = RSAEncryptionPadding.OaepSHA256;
+                        break;
+
+                    default:
+                        rsaPadding = RSAEncryptionPadding.OaepSHA1;
+                        break;
+                }
+
                 using (var rsa = keyManager.GetKey())
                 {
-                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, RSAEncryptionPadding.OaepSHA1), message.IV);
+                    return aes.CreateDecryptor(rsa.Decrypt(_session.EncryptionKey.Value, rsaPadding), message.IV);
                 }
             }
             else
