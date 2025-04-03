@@ -294,13 +294,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             message.Variables[Constants.Variables.Build.SourceVersionMessage] = "";
             message.Variables[Constants.Variables.System.SourceVersionMessage] = null;
-            message.Variables[Constants.Variables.Build.DefinitionName] = " ";
+            message.Variables[Constants.Variables.Build.DefinitionName] = "";
 
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
             Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
             Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.System.SourceVersionMessage]);
-            Assert.Equal(" ", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
+            Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
         }
 
         [Fact]

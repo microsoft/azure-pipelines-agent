@@ -296,6 +296,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         public static string DeactivateBase64EncodedVsoCommands(string input)
         {
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
+
             try
             {
                 byte[] decodedBytes = Convert.FromBase64String(input);
