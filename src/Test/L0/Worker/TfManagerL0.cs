@@ -78,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             retryOptions.Setup(opt => opt.ToString()).Throws<Exception>();
             retryOptions.Setup(opt => opt.Limit).Returns(3);
 
-            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m122_887c6659/vstsom.zip";
+            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/dev17.11vs_c0748e6e/vstsom.zip";
             string tempDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "temp-test");
             string extractDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "test");
 
@@ -110,7 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             retryOptions.Setup(opt => opt.ToString()).Callback(() => tokenSource.Cancel());
             retryOptions.Setup(opt => opt.Limit).Returns(3);
 
-            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m122_887c6659/vstsom.zip";
+            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/dev17.11vs_c0748e6e/vstsom.zip";
             string tempDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "temp-test");
             string extractDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "test");
 
