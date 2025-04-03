@@ -32,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             Assert.Equal(expected, result);
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void DeactivateBase64EncodedVsoCommands_InputValidEncoded()
@@ -48,19 +48,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             Assert.Equal(expectedCommand, result);
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void DeactivateBase64EncodedVsoCommands_InputNotEncoded()
         {
-            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
 
-            var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
+                var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
 
-            Assert.Equal(vsoCommand, result);
+                Assert.Equal(vsoCommand, result);
+            }
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void DeactivateBase64EncodedVsoCommands_InputEmpty()
