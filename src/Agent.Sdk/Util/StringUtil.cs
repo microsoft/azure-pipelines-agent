@@ -293,5 +293,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             return Regex.Replace(input, "##vso", "**vso", RegexOptions.IgnoreCase);
         }
+
+        public static string DeactivateBase64EncodedVsoCommands(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                byte[] decodedBytes = Convert.FromBase64String(input);
+                string decodedString = Encoding.UTF8.GetString(decodedBytes);
+
+                decodedString = DeactivateVsoCommands(decodedString);
+
+                byte[] bytes = Encoding.UTF8.GetBytes(decodedString);
+                return Convert.ToBase64String(bytes);
+            }
+            catch
+            {
+                return input;
+            }
+        }
     }
 }
