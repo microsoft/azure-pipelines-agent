@@ -310,15 +310,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            try
+            byte[] buffer = new byte[input.Length];
+            if (Convert.TryFromBase64String(input, buffer, out int bytesWritten))
             {
-                string decodedString = Encoding.UTF8.GetString(Convert.FromBase64String(input));
+                string decodedString = Encoding.UTF8.GetString(buffer, 0, bytesWritten);
                 decodedString = ScrapVsoCommands(decodedString);
                 return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
             }
-            catch(Exception ex)
+            else
             {
-                Console.WriteLine(nameof(DeactivateBase64EncodedVsoCommands) + " exception occurred :" + ex.Message);
                 return input;
             }
         }

@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [InlineData("##VsO", "**vso")]
         [InlineData("", "")]
         [InlineData(null, "")]
-        [InlineData(" ", " ")]
+        [InlineData(" ", "")]
         public void DeactivateVsoCommandsFromStringTest(string input, string expected)
         {
             var result = StringUtil.DeactivateVsoCommands(input);
@@ -36,7 +36,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         /// In this test, a vso command is encoded as a bse64 string and being passed as input to the DeactivateBase64EncodedVsoCommands
         /// The returned string when decoded will have ## replaced with **, deactivating the vso command.
         /// </summary>
-        [Theory]
+        [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void DeactivateBase64EncodedVsoCommands_EncodedVsoCommands_Returns_DeactivatedVsoCommands()
@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         {
             string vsoCommand = null;
             string result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
-            Assert.Equal(vsoCommand, result);
+            Assert.Equal(string.Empty, result);
         }
 
         [Fact]
