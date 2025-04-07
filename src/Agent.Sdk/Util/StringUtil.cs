@@ -316,8 +316,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 decodedString = ScrapVsoCommands(decodedString);
                 return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
             }
-            catch
+            catch(Exception ex)
             {
+                Console.WriteLine(nameof(DeactivateBase64EncodedVsoCommands) + " exception occurred :" + ex.Message);
                 return input;
             }
         }
