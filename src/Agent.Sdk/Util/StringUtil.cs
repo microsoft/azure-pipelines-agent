@@ -282,6 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         /// <summary>
         /// Finds all vso commands in the line and deactivates them
+        /// Also, assuming line to be base64 encoded, finds all vso commands in the decoded string and deactivates them and re-encode
         /// </summary>
         /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateVsoCommands(string input)
@@ -291,11 +292,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            return Regex.Replace(input, "##vso", "**vso", RegexOptions.IgnoreCase);
+            input = DeactivateBase64EncodedVsoCommands(input);
+            return ScrapVsoCommands(input);
         }
 
+        /// <summary>
+        /// Tries to decode the input string assuming it to be base64 encoded and
+        /// scraps vso command if any and re-encodes the updated string.
+        /// An exception is thrown for the case when the input is not base64 encoded and input is returned unmodified.
+        /// </summary>
+        /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateBase64EncodedVsoCommands(string input)
         {
+
             if (string.IsNullOrEmpty(input))
             {
                 return string.Empty;
@@ -303,18 +312,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             try
             {
-                byte[] decodedBytes = Convert.FromBase64String(input);
-                string decodedString = Encoding.UTF8.GetString(decodedBytes);
-
-                decodedString = DeactivateVsoCommands(decodedString);
-
-                byte[] bytes = Encoding.UTF8.GetBytes(decodedString);
-                return Convert.ToBase64String(bytes);
+                string decodedString = Encoding.UTF8.GetString(Convert.FromBase64String(input));
+                decodedString = ScrapVsoCommands(decodedString);
+                return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
             }
             catch
             {
                 return input;
             }
+        }
+
+        private static string ScrapVsoCommands(string input)
+        {
+            return Regex.Replace(input, "##vso", "**vso", RegexOptions.IgnoreCase);
         }
     }
 }

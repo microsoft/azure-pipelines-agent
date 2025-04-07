@@ -303,24 +303,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
         }
 
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void VerifyJobRequestMessageVsoBase64EncodedCommandsDeactivated()
+        public void VerifyJobRequestMessageVsoCommandsDeactivatedIfVariableCasesHandlesBase64EncodedVsoCommands()
         {
             Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
-
-            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            String encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
-
+            // Set up
+            // A build variable is assigned a VSO command encoded as base 64 string
+            string vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            string encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
             message.Variables[Constants.Variables.Build.SourceVersionMessage] = encodedVsoCommand;
 
+            // Act
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
-            String cleanedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            var expectedCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(cleanedVsoCommand));
+            // Expected 
+            // Returned string in it's decode form would have ## replaced with ** to deactivate vso command
+            string deactivatedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            string expected = Convert.ToBase64String(Encoding.UTF8.GetBytes(deactivatedVsoCommand));
 
-            Assert.Equal(expectedCommand, scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
+            Assert.Equal(expected, scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
         }
 
         private bool IsMessageIdentical(Pipelines.AgentJobRequestMessage source, Pipelines.AgentJobRequestMessage target)

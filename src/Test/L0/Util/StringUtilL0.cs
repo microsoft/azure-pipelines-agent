@@ -32,46 +32,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             Assert.Equal(expected, result);
         }
 
+        /// <summary>
+        /// In this test, a vso command is encoded as a bse64 string and being passed as input to the DeactivateBase64EncodedVsoCommands
+        /// The returned string when decoded will have ## replaced with **, deactivating the vso command.
+        /// </summary>
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void DeactivateBase64EncodedVsoCommands_EncodedVsoCommands_Returns_DeactivatedVsoCommands()
+        {
+            string vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            string encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
+
+            string result = StringUtil.DeactivateBase64EncodedVsoCommands(encodedVsoCommand);
+
+            string deactivatedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes(deactivatedVsoCommand));
+
+            Assert.Equal(expected, result);
+        }
+
+        /// <summary>
+        /// In this test, a vso command is being passed as input to the DeactivateBase64EncodedVsoCommands
+        /// The unmodified string would be returned.
+        /// </summary>
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void DeactivateBase64EncodedVsoCommands_InputValidEncoded()
+        public void DeactivateBase64EncodedVsoCommands_NotEncodedVsoCommands_Returns_UnmodifiedVsoCommands()
         {
-            String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            String encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
-
-            var result = StringUtil.DeactivateBase64EncodedVsoCommands(encodedVsoCommand);
-
-            String cleanedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            var expectedCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(cleanedVsoCommand));
-
-            Assert.Equal(expectedCommand, result);
+            string vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
+            string result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
+            Assert.Equal(vsoCommand, result);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void DeactivateBase64EncodedVsoCommands_InputNotEncoded()
+        public void DeactivateBase64EncodedVsoCommands_InputEmpty_Returns_UnmodifiedString()
         {
-            using (TestHostContext hc = new TestHostContext(this))
-            {
-                String vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-
-                var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
-
-                Assert.Equal(vsoCommand, result);
-            }
+            string vsoCommand = "";
+            string result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
+            Assert.Equal(vsoCommand, result);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void DeactivateBase64EncodedVsoCommands_InputEmpty()
+        public void DeactivateBase64EncodedVsoCommands_InputNull_Returns_UnmodifiedString()
         {
-            String vsoCommand = "";
-
-            var result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
-
+            string vsoCommand = null;
+            string result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
             Assert.Equal(vsoCommand, result);
         }
 
