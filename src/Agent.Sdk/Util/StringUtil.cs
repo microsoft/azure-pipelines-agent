@@ -304,8 +304,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateBase64EncodedVsoCommands(string input)
         {
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input), "Input string cannot be null.");
+            }
 
-            if (string.IsNullOrEmpty(input))
+            if (input.Length == 0)
             {
                 return string.Empty;
             }

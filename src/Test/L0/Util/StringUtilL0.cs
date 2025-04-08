@@ -79,11 +79,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void DeactivateBase64EncodedVsoCommands_InputNull_Returns_UnmodifiedString()
+        public void DeactivateBase64EncodedVsoCommands_InputNull_Throws_Exception()
         {
             string vsoCommand = null;
-            string result = StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand);
-            Assert.Equal(string.Empty, result);
+            Assert.Throws<ArgumentNullException>(() => StringUtil.DeactivateBase64EncodedVsoCommands(vsoCommand));
         }
 
         [Fact]
