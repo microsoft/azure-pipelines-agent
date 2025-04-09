@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    public sealed class LegacySecretMaskerL0 : SecretMaskerL0<SecretMasker>
+    public sealed class VsoSecretMaskerL0 : SecretMaskerL0<SecretMasker>
     {
         protected override SecretMasker CreateSecretMasker()
         {
