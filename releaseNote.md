@@ -1,3 +1,14 @@
+## Features
+ - Optionally use max parallelism value from the client settings API (#5132)
+ - Add output variable for type of artifact downloaded. (#5133)
+
+## Bugs
+ - Skip removing read only attribute for Symlinks AB#2248480 (#5144)
+
+## Misc
+ - add Ubuntu 20 to the list of deprecated iamges (#5148)
+ - Fix indentation in secret masking files (#5163)
+
 
 ## Agent Downloads
 
