@@ -182,7 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
+            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{NormalizeTaskVersion(task)}.zip");
             if (alwaysExtractTask && File.Exists(taskZipPath))
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
@@ -472,7 +472,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.Tasks),
                 $"{task.Name}_{task.Id}",
-                task.Version);
+                NormalizeTaskVersion(task));
+        }
+
+        private string NormalizeTaskVersion(Pipelines.TaskStepDefinitionReference task) 
+        {
+            ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
+            return task.Version.Replace("+", "_");
         }
 
         private string GetTaskZipPath(Pipelines.TaskStepDefinitionReference task)
@@ -482,7 +488,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.TaskZips),
-                $"{task.Name}_{task.Id}_{task.Version}.zip"); // TODO: Move to shared string.
+                $"{task.Name}_{task.Id}_{NormalizeTaskVersion(task)}.zip"); // TODO: Move to shared string.
         }
 
         private Definition GetTaskDefiniton(Pipelines.TaskStep task)
