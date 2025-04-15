@@ -292,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            input = DeactivateBase64EncodedVsoCommands(input);
+            input = DeactivateVsoCommandsIfBase64Encoded(input);
             return ScrapVsoCommands(input);
         }
 
@@ -302,7 +302,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         /// An exception is thrown for the case when the input is not base64 encoded and input is returned unmodified.
         /// </summary>
         /// <returns>String without vso commands that can be executed</returns>
-        public static string DeactivateBase64EncodedVsoCommands(string input)
+        public static string DeactivateVsoCommandsIfBase64Encoded(string input)
         {
             if (input == null)
             {
