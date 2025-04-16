@@ -69,7 +69,14 @@ namespace Microsoft.VisualStudio.Services.Agent
         public Task<Stream> GetTaskContentZipAsync(Guid taskId, TaskVersion taskVersion, CancellationToken token)
         {
             CheckConnection();
-            return _taskAgentClient.GetTaskContentZipAsync(taskId, taskVersion, cancellationToken: token);
+            return _taskAgentClient.GetTaskContentZipAsync(
+                taskId,
+                versionString: taskVersion,
+                visibility: null,
+                scopeLocal: null,
+                userState: null,
+                cancellationToken: token
+            );
         }
 
         public async Task<bool> TaskDefinitionEndpointExist()
