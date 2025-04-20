@@ -59,11 +59,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void DeactivateVsoCommandsIfBase64Encoded_NotEncodedVsoCommands_Returns_UnmodifiedVsoCommands()
+        public void DeactivateVsoCommandsIfBase64Encoded_NotEncodedVsoCommands_Throws_FormatException()
         {
             string vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            string result = StringUtil.DeactivateVsoCommandsIfBase64Encoded(vsoCommand);
-            Assert.Equal(vsoCommand, result);
+            Assert.Throws<FormatException>(() => StringUtil.DeactivateVsoCommandsIfBase64Encoded(vsoCommand));
         }
 
         [Fact]

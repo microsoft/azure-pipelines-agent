@@ -292,14 +292,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            input = DeactivateVsoCommandsIfBase64Encoded(input);
+            try
+            {
+                input = DeactivateVsoCommandsIfBase64Encoded(input);
+            }
+            catch (FormatException)
+            {
+                // Ignore exception and continue to deactivate vso commands in the input string.
+            }
             return ScrapVsoCommands(input);
         }
 
         /// <summary>
         /// Tries to decode the input string assuming it to be base64 encoded and
         /// scraps vso command if any and re-encodes the updated string.
-        /// An exception is thrown for the case when the input is not base64 encoded and input is returned unmodified.
+        /// An exception is thrown for the case when the input is not base64 encoded.
         /// </summary>
         /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateVsoCommandsIfBase64Encoded(string input)
@@ -323,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
             else
             {
-                return input;
+                throw new FormatException("Input string is not a valid base64 encoded string.");
             }
         }
 
