@@ -681,6 +681,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_ENABLE_NEW_MASKER_AND_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob SendSecretMaskerTelemetry = new Knob(
+            nameof(SendSecretMaskerTelemetry),
+            "If true, the agent will send telemetry about secret masking",
+            new RuntimeKnobSource("AZP_SEND_SECRET_MASKER_TELEMETRY"),
+            new EnvironmentKnobSource("AZP_SEND_SECRET_MASKER_TELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AddDockerInitOption = new Knob(
             nameof(AddDockerInitOption),
             "If true, the agent will create docker container with the --init option.",
