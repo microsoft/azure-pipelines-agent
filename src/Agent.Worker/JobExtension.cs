@@ -99,6 +99,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    if (!AgentKnobs.AgentCDNConnectivityFailWarning.GetValue(context).AsBoolean())
+                    {
+                        try
+                        {
+                            Trace.Verbose("Checking if the Agent CDN Endpoint (download.agent.dev.azure.com) is reachable");
+                            bool isAgentCDNAccessible = await PlatformUtil.IsAgentCdnAccessibleAsync();
+
+                            if (isAgentCDNAccessible)
+                            {
+                                context.Output("Agent CDN is accessible.");
+                            }
+                            else
+                            {
+                                context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Handles network-level or unexpected exceptions (DNS failure, timeout, etc.)
+                            context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
+                            Trace.Error($"Exception when attempting a HEAD request to Agent CDN: {ex}");
+                        }
+                    }
+
                     // Set agent version variable.
                     context.SetVariable(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));

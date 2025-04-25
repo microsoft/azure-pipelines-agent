@@ -18,6 +18,7 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using System.ServiceProcess;
 using Agent.Sdk.Util;
+using System.Net.Http;
 
 namespace Agent.Sdk
 {
@@ -437,6 +438,34 @@ namespace Agent.Sdk
                 throw;
             }
             return isAzureVM;
+        }
+
+        // The URL of the agent package hosted on Azure CDN
+        private const string _agentPackageUri = "https://download.agent.dev.azure.com/agent/4.252.0/vsts-agent-win-x64-4.252.0.zip";
+
+        /// <summary>
+        /// Checks if the agent CDN endpoint is accessible by sending an HTTP HEAD request.
+        /// </summary>
+        /// <remarks>
+        /// - Returns <c>true</c> if the endpoint responds with a successful (2xx) status code.
+        /// - Returns <c>false</c> if the endpoint responds with a non-success status code (4xx, 5xx).
+        /// - Throws exceptions (e.g., timeout, DNS failure) if the request cannot be completed.
+        /// </remarks>
+        /// <returns><c>true</c> if the endpoint is reachable and returns success; otherwise, <c>false</c>.</returns>
+        public static async Task<bool> IsAgentCdnAccessibleAsync()
+        {
+            // Create a new HttpClient instance
+            using HttpClient httpClient = new();
+
+            // Construct a HEAD request to avoid downloading the full file
+            using HttpRequestMessage request = new(HttpMethod.Head, _agentPackageUri);
+
+            // Apply a 5-second timeout to prevent hanging
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
+
+            // Send the request and return whether the response status indicates success
+            HttpResponseMessage response = await httpClient.SendAsync(request, cts.Token);
+            return response.IsSuccessStatusCode;
         }
     }
 
