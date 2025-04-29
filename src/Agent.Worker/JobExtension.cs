@@ -99,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    if (!AgentKnobs.AgentCDNConnectivityFailWarning.GetValue(context).AsBoolean())
+                    if (AgentKnobs.AgentCDNConnectivityFailWarning.GetValue(context).AsBoolean())
                     {
                         try
                         {
