@@ -427,6 +427,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourceBranch = "build.sourcebranch";
                 public static readonly string SourceTfvcShelveset = "build.sourcetfvcshelveset";
                 public static readonly string SourceVersion = "build.sourceversion";
+                public static readonly string SourceVersionAuthor = "build.sourceversionauthor";
                 public static readonly string SourceVersionMessage = "build.sourceVersionMessage";
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
@@ -621,6 +622,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
+                Build.SourceVersionAuthor,
                 Build.SourceVersionMessage,
                 Build.SourcesDirectory,
                 Build.StagingDirectory,

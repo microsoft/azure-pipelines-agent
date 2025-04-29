@@ -270,6 +270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Constants.Variables.Build.SourceVersionMessage,
             Constants.Variables.Build.DefinitionName,
+            Constants.Variables.Build.SourceVersionAuthor,
             Constants.Variables.System.SourceVersionMessage,
             Constants.Variables.System.DefinitionName,
             Constants.Variables.System.JobDisplayName,
