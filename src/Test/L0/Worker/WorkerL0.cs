@@ -242,6 +242,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             message.Variables[Constants.Variables.System.DefinitionName] = "##vso[setVariable]etc4";
             message.Variables[Constants.Variables.Release.ReleaseDefinitionName] = "##vso[setVariable]etc5";
             message.Variables[Constants.Variables.Release.ReleaseEnvironmentName] = "##vso[setVariable]etc6";
+            message.Variables[Constants.Variables.Build.SourceVersionAuthor] = "##vso[setVariable]etc7";
 
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
@@ -251,6 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal("**vso[setVariable]etc4", scrubbedMessage.Variables[Constants.Variables.System.DefinitionName]);
             Assert.Equal("**vso[setVariable]etc5", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseDefinitionName]);
             Assert.Equal("**vso[setVariable]etc6", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseEnvironmentName]);
+            Assert.Equal("**vso[setVariable]etc7", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionAuthor]);
         }
 
         [Fact]

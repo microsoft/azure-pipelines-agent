@@ -34,7 +34,7 @@ parameters:
 - name: derivedFrom
   type: string
   displayName: Derived From Version
-  default: latest
+  default: 'lastMinorRelease'
 - name: skipTests
   type: boolean
   default: false
@@ -186,9 +186,9 @@ extends:
         - checkout: self
 
         - task: NodeTool@0
-          displayName: Use node 14.15.1
+          displayName: Use node 20.19.1
           inputs:
-            versionSpec: "14.15.1"
+            versionSpec: "20.19.1"
 
         - script: |
             cd release
