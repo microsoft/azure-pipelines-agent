@@ -19,6 +19,7 @@ using Newtonsoft.Json;
 using System.ServiceProcess;
 using Agent.Sdk.Util;
 using System.Net.Http;
+using System.Net;
 
 namespace Agent.Sdk
 {
@@ -443,19 +444,31 @@ namespace Agent.Sdk
         // The URL of the agent package hosted on Azure CDN
         private const string _agentPackageUri = "https://download.agent.dev.azure.com/agent/4.252.0/vsts-agent-win-x64-4.252.0.zip";
 
+#nullable enable
         /// <summary>
         /// Checks if the agent CDN endpoint is accessible by sending an HTTP HEAD request.
         /// </summary>
+        /// <param name="webProxy">
+        /// Optional <see cref="IWebProxy"/> to route the request through a proxy. If null, the system default proxy settings are used.
+        /// </param>
         /// <remarks>
         /// - Returns <c>true</c> if the endpoint responds with a successful (2xx) status code.
         /// - Returns <c>false</c> if the endpoint responds with a non-success status code (4xx, 5xx).
         /// - Throws exceptions (e.g., timeout, DNS failure) if the request cannot be completed.
+        /// - Uses a 5-second timeout to avoid hanging.
+        /// - All HTTP resources are properly disposed after the request completes.
         /// </remarks>
         /// <returns><c>true</c> if the endpoint is reachable and returns success; otherwise, <c>false</c>.</returns>
-        public static async Task<bool> IsAgentCdnAccessibleAsync()
+        public static async Task<bool> IsAgentCdnAccessibleAsync(IWebProxy? webProxy = null)
         {
-            // Create a new HttpClient instance
-            using HttpClient httpClient = new();
+            // Configure the HttpClientHandler with the proxy if provided
+            using HttpClientHandler handler = new()
+            {
+                Proxy = webProxy,
+                UseProxy = webProxy is not null
+            };
+            handler.CheckCertificateRevocationList = true; // Check for certificate revocation
+            using HttpClient httpClient = new(handler);
 
             // Construct a HEAD request to avoid downloading the full file
             using HttpRequestMessage request = new(HttpMethod.Head, _agentPackageUri);
@@ -468,6 +481,7 @@ namespace Agent.Sdk
             return response.IsSuccessStatusCode;
         }
     }
+#nullable disable
 
 #pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     public class SystemVersion

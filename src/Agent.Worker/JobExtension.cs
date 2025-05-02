@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         try
                         {
                             Trace.Verbose("Checking if the Agent CDN Endpoint (download.agent.dev.azure.com) is reachable");
-                            bool isAgentCDNAccessible = await PlatformUtil.IsAgentCdnAccessibleAsync();
+                            bool isAgentCDNAccessible = await PlatformUtil.IsAgentCdnAccessibleAsync(agentWebProxy.WebProxy);
                             if (isAgentCDNAccessible)
                             {
                                 context.Output("Agent CDN is accessible.");
