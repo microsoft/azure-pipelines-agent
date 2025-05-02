@@ -315,23 +315,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 throw new ArgumentNullException(nameof(input), "Input string cannot be null.");
             }
-
             if (input.Length == 0)
             {
                 return string.Empty;
             }
-
-            byte[] buffer = new byte[input.Length];
-            if (Convert.TryFromBase64String(input, buffer, out int bytesWritten))
-            {
-                string decodedString = Encoding.UTF8.GetString(buffer, 0, bytesWritten);
-                decodedString = ScrapVsoCommands(decodedString);
-                return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
-            }
-            else
-            {
-                throw new FormatException("Input string is not a valid base64 encoded string.");
-            }
+            byte[] decodedBytes = Convert.FromBase64String(input);
+            string decodedString = Encoding.UTF8.GetString(decodedBytes);
+            decodedString = ScrapVsoCommands(decodedString);
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
         }
 
         private static string ScrapVsoCommands(string input)
