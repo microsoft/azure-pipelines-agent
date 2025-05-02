@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Management;
+
 namespace Agent.Sdk.Knob
 {
     public class AgentKnobs
@@ -790,7 +792,8 @@ namespace Agent.Sdk.Knob
         public static readonly Knob AgentCDNConnectivityFailWarning = new Knob(
             nameof(AgentCDNConnectivityFailWarning),
             "Show warning message when the Agent CDN Endpoint (download.agent.dev.azure.com) is not reachable. ",
-            new PipelineFeatureSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new RuntimeKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
