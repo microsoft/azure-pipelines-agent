@@ -34,7 +34,7 @@ parameters:
 - name: derivedFrom
   type: string
   displayName: Derived From Version
-  default: latest
+  default: 'lastMinorRelease'
 - name: skipTests
   type: boolean
   default: false
