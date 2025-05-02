@@ -1,13 +1,12 @@
-# Threat model
+# Threat Model
 
-Threat models give us a picture of how pieces of the stack interact with one
-another. If the diagram is accurate, then security and compliance teams can
-effectively evaluate it and identify likely spots for vulnerabilities and
-optimizations. By keeping this up to date, we do the right thing for the
-customer (by protecting their data) **and** for Microsoft (by protecting our
-assets).
+A threat model provides a visual representation of how components in the stack interact. When the model is accurate, security and compliance teams can evaluate it effectively, identifying potential vulnerabilities and areas for optimization.
 
-[Download the software](https://aka.ms/threatmodelingtool) to view the Threat
-Model.
+Keeping the threat model up to date helps protect **both** customer data and Microsoft assets.
 
-[For more information, go here](https://osgwiki.com/wiki/Task_-_Services_Security:_Complete_And_Upload_A_Threat_Model)
+- 📥 [Download the Threat Modeling Tool](https://aka.ms/threatmodelingtool)  
+- 📚 [Learn more about threat modeling](https://osgwiki.com/wiki/Task_-_Services_Security:_Complete_And_Upload_A_Threat_Model)
+
+> **Note:** Diagrams of various flows are exported and checked in as PNGs for easy reference.  
+> When updating the threat model, make sure to check in the latest PNG to:  
+> `azure-pipelines-agent/docs/threat-model/Export`
