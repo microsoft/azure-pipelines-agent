@@ -126,7 +126,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
 
             var autoLogonSettings = _store.GetAutoLogonSettings();
-            _autoLogonRegManager.ResetRegistrySettings(autoLogonSettings.UserDomainName, autoLogonSettings.UserName);
+            var agentSettings = _store.GetSettings();
+
+            _autoLogonRegManager.ResetRegistrySettings(autoLogonSettings.UserDomainName, autoLogonSettings.UserName, agentSettings.AgentName);
             _windowsServiceHelper.ResetAutoLogonPassword();
 
             // Delete local group we created during configure.
