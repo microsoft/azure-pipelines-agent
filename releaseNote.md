@@ -5,7 +5,6 @@
 | -------------- | ------- | ------- |
 | Windows x64    | [vsts-agent-win-x64-<AGENT_VERSION>.zip](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-x64-<AGENT_VERSION>.zip) | <HASH> |
 | Windows x86    | [vsts-agent-win-x86-<AGENT_VERSION>.zip](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-x86-<AGENT_VERSION>.zip) | <HASH> |
-| Windows ARM64 (beta)  | [vsts-agent-win-arm64-<AGENT_VERSION>.zip](https:///download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-arm64-<AGENT_VERSION>.zip) | <HASH> |
 | macOS x64      | [vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz) | <HASH> |
 | macOS ARM64    | [vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz) | <HASH> |
 | Linux x64      | [vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz) | <HASH> |
@@ -28,13 +27,6 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 ``` bash
 C:\> mkdir myagent && cd myagent
 C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory("$HOME\Downloads\vsts-agent-win-x86-<AGENT_VERSION>.zip", "$PWD")
-```
-
-## Windows ARM64
-
-``` bash
-C:\> mkdir myagent && cd myagent
-C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory("$HOME\Downloads\vsts-agent-win-arm64-<AGENT_VERSION>.zip", "$PWD")
 ```
 
 ## macOS x64
@@ -99,7 +91,6 @@ See [notes](docs/node6.md) on Node version support for more details.
 | ----------- | ------- | ------- |
 | Windows x64 | [pipelines-agent-win-x64-<AGENT_VERSION>.zip](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x64-<AGENT_VERSION>.zip) | <HASH> |
 | Windows x86 | [pipelines-agent-win-x86-<AGENT_VERSION>.zip](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip) | <HASH> |
-| Windows ARM64 (beta) | [pipelines-agent-win-arm64-<AGENT_VERSION>.zip](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-arm64-<AGENT_VERSION>.zip) | <HASH> |
 | macOS x64   | [pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz) | <HASH> |
 | macOS ARM64 | [pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz) | <HASH> |
 | Linux x64   | [pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz](https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz) | <HASH> |
