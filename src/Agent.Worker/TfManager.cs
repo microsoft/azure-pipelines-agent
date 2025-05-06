@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -34,7 +35,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (!Directory.Exists(tfLegacyExternalsPath))
             {
-                const string tfDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m153_47c0856d/vstsom.zip";
+                string tfDownloadUrl;
+                if (!AgentKnobs.RollbackToDefaultTfExe.GetValue(executionContext).AsBoolean())
+                {
+                    tfDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m153_47c0856d/vstsom.zip";
+                    executionContext.Debug("Using the legacy version of tf.exe");
+                }
+                else
+                {
+                    tfDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m153_47c0856d_adhoc/vstsom.zip";
+                    executionContext.Debug("Using the default version of tf.exe");
+                }
                 string tempTfDirectory = Path.Combine(externalsPath, "tf_download_temp");
 
                 await DownloadAsync(executionContext, tfDownloadUrl, tempTfDirectory, tfLegacyExternalsPath, retryOptions);
@@ -48,7 +59,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (!Directory.Exists(vstsomLegacyExternalsPath))
             {
-                const string vstsomDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m122_887c6659/vstsom.zip";
+                string vstsomDownloadUrl;
+                if (!AgentKnobs.RollbackToDefaultTfExe.GetValue(executionContext).AsBoolean())
+                {
+                    vstsomDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m122_887c6659/vstsom.zip";
+                    executionContext.Debug("Using the legacy version of vstsom");
+                }
+                else
+                {
+                    vstsomDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m153_47c0856d_adhoc/vstsom.zip";
+                    executionContext.Debug("Using the default version of vstsom");
+                }
                 string tempVstsomDirectory = Path.Combine(externalsPath, "vstsom_download_temp");
 
                 await DownloadAsync(executionContext, vstsomDownloadUrl, tempVstsomDirectory, vstsomLegacyExternalsPath, retryOptions);

@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -31,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.CancellationToken).Returns(tokenSource.Token);
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.Is<string>(s => s == "Agent.HomeDirectory")))
                 .Returns(hostContext.GetDirectory(WellKnownDirectory.Root));
+            executionContext.Setup(x => x.GetVariableValueOrDefault("ROLLBACK_TO_DEFAULT_TF_EXE")).Returns("false");
 
             string externalsPath = hostContext.GetDirectory(WellKnownDirectory.Externals);
             string tfPath = Path.Combine(externalsPath, TfLegacy);
@@ -78,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             retryOptions.Setup(opt => opt.ToString()).Throws<Exception>();
             retryOptions.Setup(opt => opt.Limit).Returns(3);
 
-            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m122_887c6659/vstsom.zip";
+            const string downloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/m153_47c0856d/vstsom.zip";
             string tempDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "temp-test");
             string extractDirectory = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), "test");
 
