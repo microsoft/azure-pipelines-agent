@@ -16,6 +16,7 @@ using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
+using Microsoft.Identity.Client.TelemetryCore.TelemetryClient;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
@@ -245,15 +246,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             {
                                 context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
                             }
+                            PublishAgentCDNAccessStatusTelemetry(context, isAgentCDNAccessible);
                         }
                         catch (Exception ex)
                         {
                             // Handles network-level or unexpected exceptions (DNS failure, timeout, etc.)
                             context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
+                            PublishAgentCDNAccessStatusTelemetry(context, false);
                             Trace.Error($"Exception when attempting a HEAD request to Agent CDN: {ex}");
                         }
                     }
-                    
+
                     if (PlatformUtil.RunningOnWindows)
                     {
                         // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.
@@ -777,6 +780,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             PublishTelemetry(jobContext, telemetryData, "KnobsStatus");
+        }
+
+        private void PublishAgentCDNAccessStatusTelemetry(IExecutionContext context, bool isAgentCDNAccessible)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    ["JobId"] = context?.Variables?.System_JobId?.ToString() ?? string.Empty,
+                    ["isAgentCDNAccessible"] = isAgentCDNAccessible.ToString()
+                };
+
+                var cmd = new Command("telemetry", "publish")
+                {
+                    Data = JsonConvert.SerializeObject(telemetryData)
+                };
+                cmd.Properties["area"] = "PipelinesTasks";
+                cmd.Properties["feature"] = "CDNConnectivityCheck";
+
+                PublishTelemetry(context, telemetryData, "AgentCDNAccessStatus");
+            }
+            catch (Exception ex)
+            {
+                Trace.Verbose($"Ignoring exception during 'AgentCDNAccessStatus' telemetry publish: '{ex.Message}'");
+            }
         }
 
         private void PublishTelemetry(IExecutionContext context, Dictionary<string, string> telemetryData, string feature)
