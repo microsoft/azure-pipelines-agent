@@ -230,6 +230,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    // Check if the Agent CDN is accessible
+                    if (AgentKnobs.AgentCDNConnectivityFailWarning.GetValue(context).AsBoolean())
+                    {
+                        try
+                        {
+                            Trace.Verbose("Checking if the Agent CDN Endpoint (download.agent.dev.azure.com) is reachable");
+                            bool isAgentCDNAccessible = await PlatformUtil.IsAgentCdnAccessibleAsync(agentWebProxy.WebProxy);
+                            if (isAgentCDNAccessible)
+                            {
+                                context.Output("Agent CDN is accessible.");
+                            }
+                            else
+                            {
+                                context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Handles network-level or unexpected exceptions (DNS failure, timeout, etc.)
+                            context.Warning(StringUtil.Loc("AgentCdnAccessFailWarning"));
+                            Trace.Error($"Exception when attempting a HEAD request to Agent CDN: {ex}");
+                        }
+                    }
+                    
                     if (PlatformUtil.RunningOnWindows)
                     {
                         // This is for internal testing and is not publicly supported. This will be removed from the agent at a later time.

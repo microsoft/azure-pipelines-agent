@@ -794,5 +794,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("ROLLBACK_TO_DEFAULT_TF_EXE"),
             new PipelineFeatureSource("RollbackToDefaultTfExe"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob AgentCDNConnectivityFailWarning = new Knob(
+            nameof(AgentCDNConnectivityFailWarning),
+            "Show warning message when the Agent CDN Endpoint (download.agent.dev.azure.com) is not reachable. ",
+            new RuntimeKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"));
     }
 }
