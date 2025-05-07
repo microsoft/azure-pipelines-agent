@@ -163,5 +163,21 @@ namespace Agent.Sdk.SecretMasking
                 _secretMasker = null;
             }
         }
+
+        public void EnableTelemetry()
+        {
+            if (_secretMasker is OssSecretMasker ossMasker)
+            {
+                ossMasker.EnableTelemetry();
+            }
+        }
+
+        public void PublishTelemetry(PublishSecretMaskerTelemetryAction publishAction)
+        {
+            if (_secretMasker is OssSecretMasker ossMasker)
+            {
+                ossMasker.PublishTelemetry(publishAction);
+            }
+        }
     }
 }
