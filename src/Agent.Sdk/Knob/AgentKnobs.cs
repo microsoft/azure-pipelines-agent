@@ -786,7 +786,7 @@ namespace Agent.Sdk.Knob
             "Timeout for channel communication between agent listener and worker processes.",
             new EnvironmentKnobSource("PIPELINE_ARTIFACT_ASSOCIATE_TIMEOUT"),
             new BuiltInDefaultKnobSource("900")); // 15 * 60 - Setting the timeout to 15 minutes to account for slowness from azure storage and retries.
-        
+
         public static readonly Knob RollbackToDefaultTfExe = new Knob(
             nameof(RollbackToDefaultTfExe),
             "If true, the agent will install the default versions of TF, vstsom",
@@ -799,6 +799,8 @@ namespace Agent.Sdk.Knob
             nameof(AgentCDNConnectivityFailWarning),
             "Show warning message when the Agent CDN Endpoint (download.agent.dev.azure.com) is not reachable. ",
             new RuntimeKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
-            new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"));
+            new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new PipelineFeatureSource("AgentCDNConnectivityFailWarning"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
