@@ -68,7 +68,7 @@ namespace Agent.Plugins.Repository
 
             return gitVersion >= requiredVersion;
         }
-
+        
         public bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch)
         {
             ArgUtil.NotNull(gitLfsPath, nameof(gitLfsPath));
@@ -192,6 +192,22 @@ namespace Agent.Plugins.Repository
             context.Debug($"Init git repository at: {repositoryPath}.");
             string repoRootEscapeSpace = StringUtil.Format(@"""{0}""", repositoryPath.Replace(@"""", @"\"""));
             return await ExecuteGitCommandAsync(context, repositoryPath, "init", StringUtil.Format($"{repoRootEscapeSpace}"));
+        }
+
+
+        // Checks if the git author name, email, or commit message contains Vso commands before reposirtory checkout.
+        public async Task<bool> GitCheckVsoCommands(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {   context.Debug($"Checking if Git author name, email, or commit message contains any VSO commands.");
+            List<string> outputStrings = new List<string>();
+            int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "log", "-1 --pretty=format:'%an%n%ae%n%s'", outputStrings);
+            if (exitCode == 0)
+            {
+                bool containVsoCommands = outputStrings.Any(msg => msg.Contains("vso[task.setvariable"));
+                return containVsoCommands;
+
+            }
+            return false;
+
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
