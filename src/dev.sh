@@ -79,7 +79,7 @@ restore_dotnet_install_script() {
     DOTNET_INSTALL_SCRIPT_PATH="./Misc/${DOTNET_INSTALL_SCRIPT_NAME}"
 
     if [[ ! -e "${DOTNET_INSTALL_SCRIPT_PATH}" ]]; then
-        curl -sSL "https://dot.net/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
+        curl -sSL "https://builds.dotnet.microsoft.com/dotnet/scripts/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
     fi
 }
 
