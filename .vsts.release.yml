@@ -194,7 +194,7 @@ extends:
             cd release
             npm install
 
-            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }}
+            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }} --targetCommitId=$(Build.SourceVersion)
           env:
             EDITOR: cat
             PAT: $(GithubToken)
