@@ -8,16 +8,16 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Agent.Sdk;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Agent.Sdk.SecretMasking;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class Tracing : ITraceWriter, IDisposable
     {
-        private ISecretMasker _secretMasker;
+        private ILoggedSecretMasker _secretMasker;
         private TraceSource _traceSource;
 
-        public Tracing(string name, ISecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
+        public Tracing(string name, ILoggedSecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
         {
             ArgUtil.NotNull(secretMasker, nameof(secretMasker));
             _secretMasker = secretMasker;

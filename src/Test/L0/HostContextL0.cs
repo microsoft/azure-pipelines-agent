@@ -262,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         foreach (string value in values)
                         {
-                            _hc.SecretMasker.AddValue(value);
+                            _hc.SecretMasker.AddValue(value, origin: "Test");
                         }
                     }
 

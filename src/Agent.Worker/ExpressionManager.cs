@@ -52,7 +52,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ConditionResult result = new ConditionResult();
             var expressionTrace = new TraceWriter(Trace, hostTracingOnly ? null : executionContext);
 
-            result.Value = tree.Evaluate<bool>(trace: expressionTrace, secretMasker: HostContext.SecretMasker, state: executionContext);
+            // NOTE: We pass null for the secretMasker here because the trace
+            // that we pass will handle secret masking as will upstream
+            // exception handlers. It would therefore be be redundant for
+            // IExpressionNode.Evaluate to perform secret masking. Furthermore,
+            // IExpressionNode.Evaluate requires an implementation of the server
+            // ISecretMasker interface that the agent secret masker does not
+            // implement as the agent secret masker cannot support cloning.
+            result.Value = tree.Evaluate<bool>(trace: expressionTrace, secretMasker: null, state: executionContext);
             result.Trace = expressionTrace.Trace;
 
             return result;

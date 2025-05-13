@@ -1,9 +1,6 @@
-
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 using System;
-
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 
 namespace Agent.Sdk.SecretMasking
 {
@@ -18,16 +15,15 @@ namespace Agent.Sdk.SecretMasking
     /// </summary>
     public class LoggedSecretMasker : ILoggedSecretMasker
     {
-        private ISecretMasker _secretMasker;
+        private IRawSecretMasker _secretMasker;
         private ITraceWriter _trace;
-
 
         private void Trace(string msg)
         {
             this._trace?.Info(msg);
         }
 
-        public LoggedSecretMasker(ISecretMasker secretMasker)
+        public LoggedSecretMasker(IRawSecretMasker secretMasker)
         {
             this._secretMasker = secretMasker;
         }
@@ -111,18 +107,17 @@ namespace Agent.Sdk.SecretMasking
             _secretMasker.RemoveShortSecretsFromDictionary();
         }
 
-        public void AddValueEncoder(ValueEncoder encoder)
+        public void AddValueEncoder(Func<string, string> encoder)
         {
             this._secretMasker.AddValueEncoder(encoder);
         }
-
 
         /// <summary>
         /// Overloading of AddValueEncoder method with additional logic for logging origin of provided secret
         /// </summary>
         /// <param name="encoder"></param>
         /// <param name="origin"></param>
-        public void AddValueEncoder(ValueEncoder encoder, string origin)
+        public void AddValueEncoder(Func<string, string> encoder, string origin)
         {
             this.Trace($"Setting up value for origin: {origin}");
             if (encoder == null)
@@ -134,17 +129,10 @@ namespace Agent.Sdk.SecretMasking
             AddValueEncoder(encoder);
         }
 
-        public LoggedSecretMasker Clone()
-        {
-            return new LoggedSecretMasker(this._secretMasker.Clone());
-        }
-
         public string MaskSecrets(string input)
         {
             return this._secretMasker.MaskSecrets(input);
         }
-
-        ISecretMasker ISecretMasker.Clone() => this.Clone();
 
         public void Dispose()
         {
@@ -156,12 +144,19 @@ namespace Agent.Sdk.SecretMasking
         {
             if (disposing)
             {
-                if (_secretMasker is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
+                (_secretMasker as IDisposable)?.Dispose();
                 _secretMasker = null;
             }
+        }
+
+        public void StartTelemetry(int maxDetections)
+        {
+            (_secretMasker as OssSecretMasker)?.StartTelemetry(maxDetections);
+        }
+
+        public void StopAndPublishTelemetry(int maxDetectionsPerEvent, PublishSecretMaskerTelemetryAction publishAction)
+        {
+            (_secretMasker as OssSecretMasker)?.StopAndPublishTelemetry(publishAction, maxDetectionsPerEvent);
         }
     }
 }
