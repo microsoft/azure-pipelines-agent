@@ -272,7 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         catch (TimeoutException tex)
                         {
                             _term.WriteError(tex);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgentTimeout"));
                         }
                         catch (Exception e) when (!command.Unattended())
                         {

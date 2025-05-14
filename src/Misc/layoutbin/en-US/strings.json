@@ -325,6 +325,7 @@
   "FailedToPublishTestResults": "Failed to publish test results: {0}",
   "FailedToReadFile": "Failed to read {0}. Error : {1}.",
   "FailedToReplaceAgent": "Failed to replace the agent.  Try again or ctrl-c to quit",
+  "FailedToReplaceAgentTimeout": "Failed to replace the agent because the operation timed out",
   "FailToRemoveGitConfig": "Unable to remove \"{0}\" from the git config. To remove the credential, execute \"git config --unset-all {0}\" from the repository root \"{1}\".",
   "FailToReplaceTokenPlaceholderInGitConfig": "Unable to replace placeholder for \"{0}\" in the git config file.",
   "FileAssociateProgress": "Total files: {0} ---- Associated files: {1} ({2}%)",
