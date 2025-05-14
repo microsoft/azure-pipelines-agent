@@ -257,7 +257,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         {
                             TimeSpan timeout = TimeSpan.FromSeconds(100);
                             var updateAgentTask = agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-
                             if (await Task.WhenAny(updateAgentTask, Task.Delay(timeout)) == updateAgentTask)
                             {
                                 agent = await updateAgentTask;
@@ -716,8 +715,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                             {
                                 PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                             };
-                            agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-                            _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                            TimeSpan timeout = TimeSpan.FromSeconds(100);
+                            var updateAgentTask = agentProvider.UpdateAgentAsync(agentSettings, agent, command);
+                            if (await Task.WhenAny(updateAgentTask, Task.Delay(timeout)) == updateAgentTask)
+                            {
+                                agent = await updateAgentTask;
+                                _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                                break;
+                            }
+                            else
+                            {
+                                throw new TimeoutException($"The UpdateAgentAsync operation timed out after {timeout.TotalSeconds} seconds.");
+                            }
+                        }
+                        catch (TimeoutException tex)
+                        {
+                            _term.WriteError(tex);
+                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgentTimeout"));
                         }
                         catch (Exception e) when (!command.Unattended())
                         {
