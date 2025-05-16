@@ -23,6 +23,7 @@ using System.Security.Principal;
 using Newtonsoft.Json;
 using Microsoft.Win32;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using Microsoft.TeamFoundation.Test.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -45,6 +46,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private const string VsTelemetryRegPath = @"SOFTWARE\Microsoft\VisualStudio\Telemetry\PersistentPropertyBag\c57a9efce9b74de382d905a89852db71";
         private const string VsTelemetryRegKey = "IsPipelineAgent";
+        private const int _maxRetries = 3;
+        private const int _delaySeconds = 2;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -252,31 +255,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
                         agent = UpdateExistingAgent(agent, publicKey, systemCapabilities);
-
-                        try
+                        int attempt = 0;
+                        while (true)
                         {
-                            TimeSpan timeout = TimeSpan.FromSeconds(100);
-                            var updateAgentTask = agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-                            if (await Task.WhenAny(updateAgentTask, Task.Delay(timeout)) == updateAgentTask)
+                            try
                             {
-                                agent = await updateAgentTask;
+                                agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
                                 _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                                 break;
                             }
-                            else
+                            catch (Exception e)
                             {
-                                throw new TimeoutException($"The UpdateAgentAsync operation timed out after {timeout.TotalSeconds} seconds.");
+                                attempt++;
+                                if (command.Unattended())
+                                {
+                                    if (attempt >= _maxRetries)
+                                    {
+                                        _term.WriteError(e);
+                                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                                        Trace.Error($"UpdateAgentAsync failed after maximum retries. Exception: {e}");
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Trace.Info($"Retrying Updating Agent, Attempt: '{attempt}'.");
+                                        int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
+                                        _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
+                                        await Task.Delay(TimeSpan.FromSeconds(backoff));
+                                    }
+                                }
+                                else
+                                {
+                                    _term.WriteError(e);
+                                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                                }
                             }
-                        }
-                        catch (TimeoutException tex)
-                        {
-                            _term.WriteError(tex);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgentTimeout"));
-                        }
-                        catch (Exception e) when (!command.Unattended())
-                        {
-                            _term.WriteError(e);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
                     else if (command.Unattended())
@@ -709,34 +722,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     else
                     {
-                        try
+                        agent.Authorization = new TaskAgentAuthorization
                         {
-                            agent.Authorization = new TaskAgentAuthorization
+                            PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
+                        };
+                        int attempt = 0;
+                        while (true)
+                        {
+                            try
                             {
-                                PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
-                            };
-                            TimeSpan timeout = TimeSpan.FromSeconds(100);
-                            var updateAgentTask = agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-                            if (await Task.WhenAny(updateAgentTask, Task.Delay(timeout)) == updateAgentTask)
-                            {
-                                agent = await updateAgentTask;
+                                agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
                                 _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                                 break;
                             }
-                            else
+                            catch (Exception e)
                             {
-                                throw new TimeoutException($"The UpdateAgentAsync operation timed out after {timeout.TotalSeconds} seconds.");
+                                attempt++;
+                                if (command.Unattended())
+                                {
+                                    if (attempt >= _maxRetries)
+                                    {
+                                        _term.WriteError(e);
+                                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                                        Trace.Error($"UpdateAgentAsync failed after maximum retries. Exception: {e}");
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Trace.Info($"Retrying Updating Agent, Attempt: '{attempt}'.");
+                                        int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
+                                        _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
+                                        await Task.Delay(TimeSpan.FromSeconds(backoff));
+                                    }
+                                }
+                                else
+                                {
+                                    _term.WriteError(e);
+                                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                                }
                             }
-                        }
-                        catch (TimeoutException tex)
-                        {
-                            _term.WriteError(tex);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgentTimeout"));
-                        }
-                        catch (Exception e) when (!command.Unattended())
-                        {
-                            _term.WriteError(e);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
 
@@ -867,7 +891,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 agent.SystemCapabilities[capability.Key] = capability.Value ?? string.Empty;
             }
-
             return agent;
         }
 
