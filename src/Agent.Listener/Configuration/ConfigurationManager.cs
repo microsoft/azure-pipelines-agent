@@ -466,7 +466,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     return await operation();
                 }
-                catch (Exception e)
+                catch (Exception e) when (
+                    e is TimeoutException ||
+                    e is TaskCanceledException ||
+                    (e is OperationCanceledException && !(e is TaskCanceledException))
+                )
                 {
                     attempt++;
                     if (command.Unattended())
@@ -492,6 +496,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         break;
                     }
+                }
+                catch (Exception e)
+                {
+                    _term.WriteError(e);
+                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                    break;
                 }
             }
             return default(T); 
