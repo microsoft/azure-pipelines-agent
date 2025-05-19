@@ -255,41 +255,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
                         agent = UpdateExistingAgent(agent, publicKey, systemCapabilities);
-                        int attempt = 0;
-                        while (true)
+                        agent = await UpdateAgentWithRetryAsync<TaskAgent>(
+                            () => agentProvider.UpdateAgentAsync(agentSettings, agent, command),
+                            command
+                          );
+                        if (agent != null)
                         {
-                            try
-                            {
-                                agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-                                _term.WriteLine(StringUtil.Loc("AgentReplaced"));
-                                break;
-                            }
-                            catch (Exception e)
-                            {
-                                attempt++;
-                                if (command.Unattended())
-                                {
-                                    if (attempt >= _maxRetries)
-                                    {
-                                        _term.WriteError(e);
-                                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
-                                        Trace.Error($"UpdateAgentAsync failed after maximum retries. Exception: {e}");
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        Trace.Info($"Retrying Updating Agent, Attempt: '{attempt}'.");
-                                        int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
-                                        _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
-                                        await Task.Delay(TimeSpan.FromSeconds(backoff));
-                                    }
-                                }
-                                else
-                                {
-                                    _term.WriteError(e);
-                                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
-                                }
-                            }
+                            _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                            break;
                         }
                     }
                     else if (command.Unattended())
@@ -480,6 +453,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Warning($"Unable to publish credential type telemetry data. Exception: {ex}");
             }
+        }
+
+        private async Task<T> UpdateAgentWithRetryAsync<T>(
+            Func<Task<T>> operation,
+            CommandSettings command)
+        {
+            int attempt = 0;
+            while (true)
+            {
+                try
+                {
+                    return await operation();
+                }
+                catch (Exception e)
+                {
+                    attempt++;
+                    if (command.Unattended())
+                    {
+                        if (attempt >= _maxRetries)
+                        {
+                            _term.WriteError(e);
+                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                            Trace.Error($"{operation.Method.Name} failed after maximum retries. Exception: {e}");
+                            throw new InvalidOperationException(StringUtil.Loc("FailedToReplaceAgent"), e);
+                        }
+                        else
+                        {
+                            Trace.Info($"Retrying operation, Attempt: '{attempt}'.");
+                            int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
+                            _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
+                            await Task.Delay(TimeSpan.FromSeconds(backoff));
+                        }
+                    }
+                    else
+                    {
+                        _term.WriteError(e);
+                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                        break;
+                    }
+                }
+            }
+            return default(T); 
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
@@ -726,41 +741,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         {
                             PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
                         };
-                        int attempt = 0;
-                        while (true)
+                        agent = await UpdateAgentWithRetryAsync<TaskAgent>(
+                            () => agentProvider.UpdateAgentAsync(agentSettings, agent, command),
+                            command
+                          );
+                        if (agent != null)
                         {
-                            try
-                            {
-                                agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
-                                _term.WriteLine(StringUtil.Loc("AgentReplaced"));
-                                break;
-                            }
-                            catch (Exception e)
-                            {
-                                attempt++;
-                                if (command.Unattended())
-                                {
-                                    if (attempt >= _maxRetries)
-                                    {
-                                        _term.WriteError(e);
-                                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
-                                        Trace.Error($"UpdateAgentAsync failed after maximum retries. Exception: {e}");
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        Trace.Info($"Retrying Updating Agent, Attempt: '{attempt}'.");
-                                        int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
-                                        _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
-                                        await Task.Delay(TimeSpan.FromSeconds(backoff));
-                                    }
-                                }
-                                else
-                                {
-                                    _term.WriteError(e);
-                                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
-                                }
-                            }
+                            _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                            break;
                         }
                     }
 
