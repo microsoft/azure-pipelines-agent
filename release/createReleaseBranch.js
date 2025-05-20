@@ -29,6 +29,7 @@ var opt = require('node-getopt').create([
     ['', 'dryrun', 'Dry run only, do not actually commit new release'],
     ['', 'derivedFrom=version', 'Used to get PRs merged since this release was created', 'lastMinorRelease'],
     ['', 'branch=branch', 'Branch to select PRs merged into', 'master'],
+    ['', 'targetCommitId=commit', 'Fetch PRs merged since this commit', ''],
     ['h', 'help', 'Display this help'],
 ])
     .setHelp(
@@ -66,6 +67,24 @@ function writeAgentVersionFile(newRelease) {
         fs.writeFileSync(path.join(__dirname, '..', 'src', 'agentversion'), `${newRelease}\n`);
     }
     return newRelease;
+}
+
+function filterCommitsUpToTarget(commitList) {
+    try{
+        var targetCommitId = opt.options.targetCommitId;
+        var targetIndex = commitList.indexOf(targetCommitId);
+
+        if (targetIndex === -1) {
+            console.log(`Debug: Commit ID ${targetCommitId} not found in the list.`);
+            return commitList;
+        }
+        // Return commits up to and including the target commit
+        return commitList.slice(0, targetIndex + 1);
+    }catch (e){
+        console.log(e);
+        console.error(`Unexpected error while filtering commits`);
+        process.exit(-1);
+    }
 }
 
 async function fetchPRsForSHAsGraphQL(commitSHAs) {
@@ -126,20 +145,20 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
         var latestReleaseInfo = filteredReleases.find(release => release.tag_name.toLowerCase().startsWith(releaseTagPrefix.toLowerCase()));
         console.log(`Previous release tag with ${latestReleaseInfo.tag_name} and published date is: ${latestReleaseInfo.published_at}`)
 
-        var headBranchTag = 'v' + newRelease
         try {
             var comparison = await octokit.repos.compareCommits({
                 owner: OWNER,
                 repo: REPO,
                 base: latestReleaseInfo.tag_name,
-                head: headBranchTag,
+                head: 'master',
             });
 
             var commitSHAs = comparison.data.commits.map(commit => commit.sha);
+            var filteredCommits = filterCommitsUpToTarget(commitSHAs);
 
             try {
 
-                var allPRs = await fetchPRsForSHAsGraphQL(commitSHAs);
+                var allPRs = await fetchPRsForSHAsGraphQL(filteredCommits);
                 editReleaseNotesFile({ items: allPRs });
             } catch (e) {
                 console.log(e);
