@@ -16,7 +16,7 @@ fi
 function print_repositories_and_deps_warning()
 {
     echo "Please make sure that required repositories are connected for relevant package installer."
-    echo "For issues with dependencies installation (like 'dependency was not found in repository' or 'problem retrieving the repository index file') - you can reach out to distribution owner for futher support."
+    echo "For issues with dependencies installation (like 'dependency was not found in repository' or 'problem retrieving the repository index file') - you can reach out to distribution owner for further support."
 }
 
 function print_errormessage()
@@ -55,7 +55,7 @@ function print_rhel6depricationmessage()
 if [ -e /etc/os-release ]
 then
     filepath='/etc/os-release'
-else 
+else
     filepath='/usr/lib/os-release'
 fi
 
@@ -87,7 +87,7 @@ then
             package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
             # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
-            # other debian linux use libssl1.0.0            
+            # other debian linux use libssl1.0.0
             apt install -y libssl3 || apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0 || \
                     (wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" \
                     && dpkg -i $package)
@@ -257,7 +257,7 @@ then
             fi
         fi
     else
-        # we might on OpenSUSE, check is it sles even if it's suse 
+        # we might on OpenSUSE, check is it sles even if it's suse
         OSTYPE=$(grep ^ID_LIKE $filepath | cut -f2 -d=)
         if ([[ -z $OSTYPE ]] || [[ $OSTYPE == *"suse"* ]])
         then
@@ -351,7 +351,7 @@ elif [ -e /etc/redhat-release ]
 then
     redhatRelease=$(</etc/redhat-release)
     if [[ $redhatRelease == "CentOS release 6."* || $redhatRelease == "Red Hat Enterprise Linux Server release 6."* ]]
-    then        
+    then
         echo "NOT SUPPORTED BY DOTNET6. The current OS is Red Hat Enterprise Linux 6 or Centos 6"
         exit 1
     else
