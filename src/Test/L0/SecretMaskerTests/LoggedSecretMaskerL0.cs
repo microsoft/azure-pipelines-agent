@@ -2,30 +2,30 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk.SecretMasking;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public class OssLoggedSecretMaskerL0 : LoggedSecretMaskerL0
     {
-        protected override ISecretMasker CreateSecretMasker()
+
+        protected override IRawSecretMasker CreateSecretMasker()
         {
             return new OssSecretMasker();
         }
     }
 
-    public class VsoLoggedSecretMaskerL0 : LoggedSecretMaskerL0
+    public class LegacyLoggedSecretMaskerL0 : LoggedSecretMaskerL0
     {
-        protected override ISecretMasker CreateSecretMasker()
+        protected override IRawSecretMasker CreateSecretMasker()
         {
-            return new SecretMasker();
+            return new LegacySecretMasker();
         }
     }
 
     public abstract class LoggedSecretMaskerL0
     {
-        protected abstract ISecretMasker CreateSecretMasker();
+        protected abstract IRawSecretMasker CreateSecretMasker();
 
         [Fact]
         [Trait("Level", "L0")]
