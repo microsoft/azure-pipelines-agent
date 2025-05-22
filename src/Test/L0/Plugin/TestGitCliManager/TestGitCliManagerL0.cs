@@ -37,6 +37,7 @@ namespace Test.L0.Plugin.TestGitCliManager
         [Trait("Category", "Plugin")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void TestGetInternalGitPaths()
         {
             using var hostContext = new TestHostContext(this);

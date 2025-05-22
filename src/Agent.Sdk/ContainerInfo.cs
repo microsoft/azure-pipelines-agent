@@ -279,7 +279,7 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(path))
             {
-                if (runningOs == PlatformUtil.OS.Windows && ImageOS == PlatformUtil.OS.Linux)
+                if (runningOs == PlatformUtil.OS.Windows && ((ImageOS == PlatformUtil.OS.Linux) || (ImageOS == PlatformUtil.OS.FreeBSD)))
                 {
                     return translateWindowsDriveRegex.Replace(path, "/").Replace("\\", "/");
                 }
