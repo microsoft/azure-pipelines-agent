@@ -2,22 +2,34 @@
 // Licensed under the MIT License.
 
 using System;
-
-using Microsoft.TeamFoundation.DistributedTask.Logging;
+using System.Collections.Generic;
 
 namespace Agent.Sdk.SecretMasking
 {
     /// <summary>
-    /// Extended ISecretMasker interface that adds support for logging the origin of
-    /// regexes, encoders and literal secret values.
+    /// An action that publishes the given data corresonding to the given
+    /// feature to a telemetry channel.
     /// </summary>
-    public interface ILoggedSecretMasker : ISecretMasker, IDisposable
-    {
-        static int MinSecretLengthLimit { get; }
+    public delegate void PublishSecretMaskerTelemetryAction(string feature, Dictionary<string, string> data);
 
-        void AddRegex(String pattern, string origin);
-        void AddValue(String value, string origin);
-        void AddValueEncoder(ValueEncoder encoder, string origin);
+    /// <summary>
+    /// Extended ISecretMasker interface that adds support for telemetry and
+    /// logging the origin of regexes, encoders and literal secret values.
+    /// </summary>
+    public interface ILoggedSecretMasker : IDisposable
+    {
+        int MinSecretLength { get; set; }
+
+        string MaskSecrets(string input);
+
+        void RemoveShortSecretsFromDictionary();
+
+        void AddRegex(string pattern, string origin);
+        void AddValue(string value, string origin);
+        void AddValueEncoder(Func<string, string> encoder, string origin);
         void SetTrace(ITraceWriter trace);
+
+        void StartTelemetry(int maxDetections);
+        void StopAndPublishTelemetry(int maxDetectionsPerEvent, PublishSecretMaskerTelemetryAction publishAction);
     }
 }

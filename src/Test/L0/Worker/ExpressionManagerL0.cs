@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
 using Xunit;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -201,6 +202,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     // Assert.
                     Assert.Equal(variableSet.Expected, actual);
                 }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExpressionTracingMasksSecrets()
+        {
+            // Arrange.
+            using (TestHostContext hc = CreateTestContext())
+            {
+                InitializeExecutionContext(hc);
+                hc.SecretMasker.AddValue(value: "mask_this", origin: "Test");
+
+                // Act.
+                IExpressionNode expression = _expressionManager.Parse(_ec.Object, "eq('mask_this', 'mask_this')");
+                ConditionResult result = _expressionManager.Evaluate(_ec.Object, expression);
+                string traceContent = hc.GetTraceContent();
+
+                // Assert.
+                Assert.True(result.Value);
+                Assert.DoesNotContain("mask_this", traceContent);
             }
         }
 
