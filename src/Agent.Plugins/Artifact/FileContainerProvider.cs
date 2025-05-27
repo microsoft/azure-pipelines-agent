@@ -436,7 +436,7 @@ namespace Agent.Plugins
                 throw new ArgumentException($"Item path {item.Path} cannot be smaller than artifact {artifactName}");
             }
 
-            var itemPathWithoutDirectoryPrefix = item.Path.Replace(tempArtifactName, String.Empty);
+            string itemPathWithoutDirectoryPrefix = item.Path.StartsWith(tempArtifactName, StringComparison.Ordinal) ? item.Path.Substring(tempArtifactName.Length) : item.Path;
             var absolutePath = Path.Combine(rootPath, itemPathWithoutDirectoryPrefix);
             return absolutePath;
         }
