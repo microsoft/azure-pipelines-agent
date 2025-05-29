@@ -511,6 +511,7 @@
   "RestartMessage": "Restart the machine to launch agent and for autologon settings to take effect.",
   "ReStreamLogsToFilesError": "You cannot use --disableloguploads and --reStreamLogsToFiles at the same time!",
   "RetryCountLimitExceeded": "The maximum allowed number of attempts is {0} but got {1}. Retry attempts count will be decreased to {0}.",
+  "RetryingReplaceAgent": "Retrying to replace agent (attempt {0} of {1}). Waiting {2} seconds before next attempt...",
   "RMApiFailure": "Api {0} failed with an error code {1}",
   "RMArtifactContainerDetailsInvalidError": "The artifact does not have valid container details: {0}",
   "RMArtifactContainerDetailsNotFoundError": "The artifact does not contain container details: {0}",
