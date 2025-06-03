@@ -404,10 +404,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (_proc != null)
                 {
-                    //Dispose the standard output/error stream. Refer: https://github.com/dotnet/runtime/issues/58872
-                    _proc.StandardOutput?.Dispose();
-                    _proc.StandardError?.Dispose();
-
                     _proc.Dispose();
                     _proc = null;
                 }
