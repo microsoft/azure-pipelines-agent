@@ -15,6 +15,7 @@ public class TestGitCommandManagerL0
     [Trait("Category", "Worker")]
     [Trait("SkipOn", "darwin")]
     [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "freebsd")]
     public void TestGetInternalGitPaths()
     {
         using var tc = new TestHostContext(this);
