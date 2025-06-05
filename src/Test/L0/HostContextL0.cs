@@ -229,6 +229,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             TestSecretMasking(input, expected, useNewMaskerAndRegexes: false);
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [MemberData(nameof(SecretsRequiringNewMasker_NewMasker))]
+        public void UserSecretsThatMatchOSSRules_NewMasker_MaskWithStarsNotId(string secret, string expectedIfNotAlsoALiteral)
+        {
+            _ = expectedIfNotAlsoALiteral; // Unused since this is not the expectatation in this case.
+
+            string input = $"The secret is '{secret}', mask it with stars even if it matches a rule.";
+            string expected = "The secret is '***', mask it with stars even if it matches a rule.";
+
+            TestSecretMasking(input,
+                              expected,
+                              useNewMaskerAndRegexes: true,
+                              values: new[] { secret });
+        }
+
         public sealed class SecretCases : TheoryData<string, string>
         {
             public SecretCases((string, string)[] cases, bool useNewMaskerAndRegexes, bool requireNewMaskerAndRegexes = false)
@@ -262,7 +279,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         foreach (string value in values)
                         {
-                            _hc.SecretMasker.AddValue(value);
+                            _hc.SecretMasker.AddValue(value, origin: "Test");
                         }
                     }
 

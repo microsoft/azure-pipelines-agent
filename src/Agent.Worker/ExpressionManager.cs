@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -52,7 +53,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ConditionResult result = new ConditionResult();
             var expressionTrace = new TraceWriter(Trace, hostTracingOnly ? null : executionContext);
 
-            result.Value = tree.Evaluate<bool>(trace: expressionTrace, secretMasker: HostContext.SecretMasker, state: executionContext);
+            // NOTE: When the non-legacy secret masker is enabled via feature
+            // flag, this conversion will fail and we will pass null here. This
+            // is deliberate and OK because the trace that we pass will handle
+            // secret masking as will upstream exception handlers.
+            var secretMasker = HostContext.SecretMasker as ISecretMasker;
+
+            result.Value = tree.Evaluate<bool>(trace: expressionTrace, secretMasker, state: executionContext);
             result.Trace = expressionTrace.Trace;
 
             return result;

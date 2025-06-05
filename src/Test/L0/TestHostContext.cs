@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public ILoggedSecretMasker SecretMasker => _secretMasker;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public TestHostContext(object testClass, [CallerMemberName] string testName = "")
+        public TestHostContext(object testClass, [CallerMemberName] string testName = "", bool useNewSecretMasker = true)
         {
             ArgUtil.NotNull(testClass, nameof(testClass));
             ArgUtil.NotNullOrEmpty(testName, nameof(testName));
@@ -71,13 +71,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             var traceListener = new HostTraceListener(TraceFileName);
             traceListener.DisableConsoleReporting = true;
-            _secretMasker = new LoggedSecretMasker(new SecretMasker());
-            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
-            _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
+            _secretMasker = LoggedSecretMasker.Create(useNewSecretMasker ? new OssSecretMasker() : new LegacySecretMasker());
+            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, origin: "Test");
+            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, origin: "Test");
+            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
+            _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
             _traceManager = new TraceManager(traceListener, _secretMasker);
             _trace = GetTrace(nameof(TestHostContext));
+            _secretMasker.SetTrace(_trace);
 
             // inject a terminal in silent mode so all console output
             // goes to the test trace file
@@ -397,6 +398,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Tracing trace = GetTrace($"{_suiteName}_{_testName}");
             trace.Info($"Starting {_testName}");
             return trace;
+        }
+
+        // allow tests to retrieve their tracing output and assert things about it
+        public string GetTraceContent()
+        {
+            var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            try
+            {
+                File.Copy(TraceFileName, temp);
+                return File.ReadAllText(temp);
+            }
+            finally
+            {
+                File.Delete(temp);
+            }
         }
 
         public Tracing GetTrace(string name)
