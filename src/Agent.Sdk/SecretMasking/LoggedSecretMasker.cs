@@ -1,4 +1,3 @@
-
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
@@ -141,6 +140,16 @@ namespace Agent.Sdk.SecretMasking
         {
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+
+        public void StartTelemetry(int maxDetections)
+        {
+            (_secretMasker as OssSecretMasker)?.StartTelemetry(maxDetections);
+        }
+
+        public void StopAndPublishTelemetry(int maxDetectionsPerEvent, PublishSecretMaskerTelemetryAction publishAction)
+        {
+            (_secretMasker as OssSecretMasker)?.StopAndPublishTelemetry(publishAction, maxDetectionsPerEvent);
         }
 
         protected virtual void Dispose(bool disposing)
