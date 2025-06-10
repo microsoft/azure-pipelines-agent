@@ -27,7 +27,33 @@ namespace Agent.Sdk.SecretMasking
         void RemoveShortSecretsFromDictionary();
         void SetTrace(ITraceWriter trace);
 
-        void StartTelemetry(int maxDetections);
-        void StopAndPublishTelemetry(int maxDetectionsPerEvent, PublishSecretMaskerTelemetryAction publishAction);
+        /// <summary>
+        /// Begin collecting data for secret masking telemetry.
+        /// </summary>
+        /// <remarks>
+        /// This is a no-op if <see cref="LegacySecretMasker"/> is being used,
+        /// only <see cref="OssSecretMasker"/> supports telemetry. Also, the
+        /// agent will only call this if a feature flag that opts in to secret
+        /// masking telemetry is enabled..
+        /// </remarks>
+        /// <param name="maxUniqueCorrelatingIds">
+        /// The maximum number of unique correlating IDs to collect.
+        /// </param>
+        void StartTelemetry(int maxUniqueCorrelatingIds);
+
+        /// <summary>
+        /// Stop collecting data for secret masking telemetry and publish the
+        /// telemetry events.
+        /// </summary>
+        /// <remarks>
+        /// This is a no-op if <see cref="LegacySecretMasker"/> is being used,
+        /// only <see cref="OssSecretMasker"/> supports telemetry.
+        /// <param name="maxCorrelatingIdsPerEvent">
+        /// The maximum number of correlating IDs to report in a single
+        /// telemetry event.
+        /// <param name="publishAction">
+        /// Callback to publish the telemetry data.
+        /// </param>
+        void StopAndPublishTelemetry(int maxCorrelatingIdsPerEvent, PublishSecretMaskerTelemetryAction publishAction);
     }
 }

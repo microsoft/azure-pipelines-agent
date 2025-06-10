@@ -59,6 +59,7 @@ public sealed class OssSecretMasker : IRawSecretMasker
     {
         _secretMasker.AddLiteralEncoder(x => encoder(x));
     }
+
     public void Dispose()
     {
         _secretMasker?.Dispose();
@@ -80,12 +81,12 @@ public sealed class OssSecretMasker : IRawSecretMasker
         }
     }
 
-    public void StartTelemetry(int maxDetections)
+    public void StartTelemetry(int maxUniqueCorrelatingIds)
     {
         _secretMasker.SyncObject.EnterWriteLock();
         try
         {
-            _telemetry ??= new Telemetry(maxDetections);
+            _telemetry ??= new Telemetry(maxUniqueCorrelatingIds);
         }
         finally
         {
@@ -93,7 +94,7 @@ public sealed class OssSecretMasker : IRawSecretMasker
         }
     }
 
-    public void StopAndPublishTelemetry(PublishSecretMaskerTelemetryAction publishAction, int maxDetectionsPerEvent)
+    public void StopAndPublishTelemetry(PublishSecretMaskerTelemetryAction publishAction, int maxCorrelatingIdsPerEvent)
     {
         Telemetry telemetry;
 
@@ -108,7 +109,7 @@ public sealed class OssSecretMasker : IRawSecretMasker
             _secretMasker.SyncObject.ExitWriteLock();
         }
 
-        telemetry?.Publish(publishAction, _secretMasker.ElapsedMaskingTime, maxDetectionsPerEvent);
+        telemetry?.Publish(publishAction, _secretMasker.ElapsedMaskingTime, maxCorrelatingIdsPerEvent);
     }
 
     private sealed class Telemetry
@@ -117,16 +118,20 @@ public sealed class OssSecretMasker : IRawSecretMasker
         // SecretMasker API because we *write* telemetry during *read*
         // operations. We therefore use separate interlocked operations and a
         // concurrent dictionary when writing to telemetry.
-        private readonly ConcurrentDictionary<string, string> _detectionData;
-        private readonly int _maxDetections;
+
+        // Key=CrossCompanyCorrelatingId (C3ID), Value=Rule Moniker C3ID is a
+        // non-reversible seeded hash and only available when detection is made
+        // by a high-confidence rule that matches secrets with high entropy.
+        private readonly ConcurrentDictionary<string, string> _correlationData;
+        private readonly int _maxUniqueCorrelatingIds;
         private long _charsScanned;
         private long _stringsScanned;
         private long _totalDetections;
 
         public Telemetry(int maxDetections)
         {
-            _detectionData = new();
-            _maxDetections = maxDetections;
+            _correlationData = new ConcurrentDictionary<string, string>();
+            _maxUniqueCorrelatingIds = maxDetections;
             ProcessDetection = ProcessDetectionImplementation;
         }
 
@@ -150,50 +155,77 @@ public sealed class OssSecretMasker : IRawSecretMasker
             // instead of < here as it allows us to detect the case where the
             // maximum number of events have been exceeded without adding any
             // additional state.
-            if (_detectionData.Count <= _maxDetections && detection.CrossCompanyCorrelatingId != null)
+            if (_correlationData.Count <= _maxUniqueCorrelatingIds &&
+                detection.CrossCompanyCorrelatingId != null)
             {
-                _detectionData.TryAdd(detection.CrossCompanyCorrelatingId, detection.Moniker);
+                _correlationData.TryAdd(detection.CrossCompanyCorrelatingId, detection.Moniker);
             }
         }
 
-        public void Publish(PublishSecretMaskerTelemetryAction publishAction, TimeSpan elapsedMaskingTime, int maxDetectionsPerEvent)
+        public void Publish(PublishSecretMaskerTelemetryAction publishAction, TimeSpan elapsedMaskingTime, int maxCorrelatingIdsPerEvent)
         {
-            Dictionary<string, string> detectionData = null;
-            int detectionsProcessed = 0;
-            bool detectionDataIsIncomplete = false;
+            Dictionary<string, string> correlationData = null;
+            int uniqueCorrelatingIds = 0;
+            bool correlationDataIsIncomplete = false;
 
-            foreach (var pair in _detectionData)
+            // Publish 'SecretMaskerCorrelation' events mapping unique C3IDs to
+            // rule moniker. No more than 'maxCorrelatingIdsPerEvent' are
+            // published in a single event.
+            foreach (var pair in _correlationData)
             {
-                if (detectionsProcessed >= _maxDetections)
+                if (uniqueCorrelatingIds >= _maxUniqueCorrelatingIds)
                 {
-                    detectionDataIsIncomplete = true;
+                    correlationDataIsIncomplete = true;
                     break;
                 }
 
-                detectionData ??= new Dictionary<string, string>(maxDetectionsPerEvent);
-                detectionData.Add(pair.Key, pair.Value);
-                detectionsProcessed++;
+                correlationData ??= new Dictionary<string, string>(maxCorrelatingIdsPerEvent);
+                correlationData.Add(pair.Key, pair.Value);
+                uniqueCorrelatingIds++;
 
-                if (detectionData.Count >= maxDetectionsPerEvent)
+                if (correlationData.Count >= maxCorrelatingIdsPerEvent)
                 {
-                    publishAction("SecretMaskerDetections", detectionData);
-                    detectionData = null;
+                    publishAction("SecretMaskerCorrelation", correlationData);
+                    correlationData = null;
                 }
             }
 
-            if (detectionData != null)
+            if (correlationData != null)
             {
-                publishAction("SecretMaskerDetections", detectionData);
-                detectionData = null;
+                publishAction("SecretMaskerCorrelation", correlationData);
+                correlationData = null;
             }
 
+            // Send overall information in a 'SecretMasker' event.
             var overallData = new Dictionary<string, string> {
+                // The version of Microsoft.Security.Utilities.Core used.
                 { "Version", SecretMasker.Version.ToString() },
+
+                // The total number number of characters scanned by the secret masker.
                 { "CharsScanned", _charsScanned.ToString(CultureInfo.InvariantCulture) },
+                
+                // The total number of strings scanned by the secret masker.
                 { "StringsScanned", _stringsScanned.ToString(CultureInfo.InvariantCulture) },
+
+                // The total number of detections made by the secret masker.
+                // This includes duplicate detections and detections without
+                // correlating IDs such as those made by literal values.
                 { "TotalDetections", _totalDetections.ToString(CultureInfo.InvariantCulture) },
+
+                // The total amount of time spent masking secrets.
                 { "ElapsedMaskingTimeInMilliseconds", elapsedMaskingTime.TotalMilliseconds.ToString(CultureInfo.InvariantCulture) },
-                { "DetectionDataIsIncomplete", detectionDataIsIncomplete.ToString(CultureInfo.InvariantCulture) },
+
+                // Whether the 'maxUniqueCorrelatingIds' limit was exceeded and
+                // therefore the 'SecretMaskerDetectionCorrelation' events does
+                // not contain all unique correlating IDs detected.
+                { "CorrelationDataIsIncomplete", correlationDataIsIncomplete.ToString(CultureInfo.InvariantCulture) },
+
+                // The total number of unique correlating IDs reported in
+                // 'SecretMaskerCorrelation' events.
+                //
+                // NOTE: This may be less than the total number of unique
+                // correlating IDs if the maximum was exceeded. See above.
+                { "UniqueCorrelatingIds", uniqueCorrelatingIds.ToString(CultureInfo.InvariantCulture) },
             };
 
             publishAction("SecretMasker", overallData);

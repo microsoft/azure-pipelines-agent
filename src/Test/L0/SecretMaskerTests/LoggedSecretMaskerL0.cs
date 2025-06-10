@@ -30,24 +30,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 #pragma warning restore CA2000
         }
 
-
-        private const int _maxTelemetryDetections = 100;
-        private const int _maxDetectionsPerTelemetryEvent = 20;
-        private const int _maxDetectionEvents = 5;
-
         [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
-        [InlineData(0)]
-        [InlineData(1)]
-        [InlineData(2)]
-        [InlineData(_maxTelemetryDetections - 1)]
-        [InlineData(_maxTelemetryDetections)]
-        [InlineData(_maxTelemetryDetections + 1)]
-        [InlineData(2 * _maxTelemetryDetections - 1)]
-        [InlineData(2 * _maxTelemetryDetections)]
-        [InlineData(2 * _maxTelemetryDetections + 1)]
-        public void OssLoggedSecretMasker_TelemetryEnabled_SendsTelemetry(int uniqueCorrelatingIds)
+        [InlineData(0, 1, 1)]
+        [InlineData(1, 0, 1)]
+        [InlineData(1, 1, 1)]
+        [InlineData(10, 5, 3)]
+        [InlineData(10, 20, 5)]
+        public void OssLoggedSecretMasker_TelemetryEnabled_SendsTelemetry(int uniqueCorrelatingIds, int maxUniqueCorrelatingIds, int maxCorrelatingIdsPerEvent)
         {
             var pattern = new RegexPattern(id: "TEST001/001",
                                            name: "TestPattern",
@@ -57,12 +48,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             using var ossMasker = new OssSecretMasker(new[] { pattern });
             using var lsm = LoggedSecretMasker.Create(ossMasker);
-            lsm.StartTelemetry(_maxTelemetryDetections);
+            lsm.StartTelemetry(maxUniqueCorrelatingIds);
 
             int charsScanned = 0;
             int stringsScanned = 0;
             int totalDetections = 0;
             var correlatingIds = new string[uniqueCorrelatingIds];
+
+            // Although this secret matches a rule, it is added and masked as a
+            // value so we should not report its C3ID nor return more than one
+            // detection.
+            string knownSecret = "TEST99999";
+            string inputWithKnownSecret = $"Known secret added as a value that also matches a rule: {knownSecret}";
+            ossMasker.AddValue(knownSecret);
+            lsm.MaskSecrets(inputWithKnownSecret);
+            stringsScanned++;
+            charsScanned += inputWithKnownSecret.Length;
+            totalDetections++;
 
             for (int i = 0; i < uniqueCorrelatingIds; i++)
             {
@@ -83,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             var telemetry = new List<(string Feature, Dictionary<string, string> Data)>();
             lsm.StopAndPublishTelemetry(
-                _maxDetectionsPerTelemetryEvent,
+                maxCorrelatingIdsPerEvent,
                 (feature, data) =>
             {
                 _output.WriteLine($"Telemetry Event Received: {feature}");
@@ -99,47 +101,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 telemetry.Add((feature, data));
             });
 
-            int remainder = uniqueCorrelatingIds % _maxDetectionsPerTelemetryEvent;
-            int expectedDetectionEvents = (uniqueCorrelatingIds / _maxDetectionsPerTelemetryEvent) + (remainder == 0 ? 0 : 1);
+            int expectedCorrelationEvents = (int)Math.Ceiling((double)uniqueCorrelatingIds / maxCorrelatingIdsPerEvent);
+            int maxCorrelationEvents = (int)Math.Ceiling((double)maxUniqueCorrelatingIds / maxCorrelatingIdsPerEvent);
 
-            bool maxEventsExceeded = expectedDetectionEvents > _maxDetectionEvents;
+            bool maxEventsExceeded = expectedCorrelationEvents > maxCorrelationEvents;
             if (maxEventsExceeded)
             {
-                expectedDetectionEvents = _maxDetectionEvents;
+                expectedCorrelationEvents = maxCorrelationEvents;
             }
 
-            int expectedEvents = expectedDetectionEvents + 1;
-
+            int expectedEvents = expectedCorrelationEvents + 1; // +1 for the overall telemetry event.
             Assert.Equal(expectedEvents, telemetry.Count);
 
-            Dictionary<string, string> mergedDetectionData = new Dictionary<string, string>();
-
-            for (int i = 0; i < expectedDetectionEvents; i++)
+            int correlationIdsReceived = 0;
+            for (int i = 0; i < expectedCorrelationEvents; i++)
             {
-                var detectionTelemetry = telemetry[i];
-                var detectionData = detectionTelemetry.Data;
+                var correlationTelemetry = telemetry[i];
+                var correlationData = correlationTelemetry.Data;
 
-                Assert.Equal(detectionTelemetry.Feature, "SecretMaskerDetections");
+                Assert.Equal(correlationTelemetry.Feature, "SecretMaskerCorrelation");
 
-                if (maxEventsExceeded || remainder == 0 || i < expectedDetectionEvents - 1)
+                if (i < expectedCorrelationEvents - 1)
                 {
-                    Assert.Equal(_maxDetectionsPerTelemetryEvent, detectionData.Count);
+                    Assert.Equal(maxCorrelatingIdsPerEvent, correlationData.Count);
                 }
                 else
                 {
-                    Assert.Equal(remainder, detectionData.Count);
+                    Assert.True(correlationData.Count <= maxCorrelatingIdsPerEvent);
                 }
 
-                foreach (var (key, value) in detectionData)
+                correlationIdsReceived += correlationData.Count;
+                foreach (var (key, value) in correlationData)
                 {
                     Assert.True(correlatingIdsToObserve.Remove(key));
                     Assert.Equal("TEST001/001.TestPattern", value);
                 }
             }
 
+            Assert.Equal(Math.Min(maxUniqueCorrelatingIds, uniqueCorrelatingIds), correlationIdsReceived);
             if (maxEventsExceeded)
             {
-                Assert.Equal(uniqueCorrelatingIds - _maxTelemetryDetections, correlatingIdsToObserve.Count);
+                Assert.Equal(uniqueCorrelatingIds - maxUniqueCorrelatingIds, correlatingIdsToObserve.Count);
             }
             else
             {
@@ -152,8 +154,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal(Microsoft.Security.Utilities.SecretMasker.Version.ToString(), overallData["Version"]);
             Assert.Equal(charsScanned.ToString(CultureInfo.InvariantCulture), overallData["CharsScanned"]);
             Assert.Equal(stringsScanned.ToString(CultureInfo.InvariantCulture), overallData["StringsScanned"]);
+            Assert.Equal(totalDetections.ToString(CultureInfo.InvariantCulture), overallData["TotalDetections"]);
+            Assert.Equal(correlationIdsReceived.ToString(CultureInfo.InvariantCulture), overallData["UniqueCorrelatingIds"]);
             Assert.True(0.0 <= double.Parse(overallData["ElapsedMaskingTimeInMilliseconds"], CultureInfo.InvariantCulture));
-            Assert.Equal(maxEventsExceeded.ToString(CultureInfo.InvariantCulture), overallData["DetectionDataIsIncomplete"]);
+            Assert.Equal(maxEventsExceeded.ToString(CultureInfo.InvariantCulture), overallData["CorrelationDataIsIncomplete"]);
         }
     }
 
@@ -203,15 +207,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal("***", secretMasker2.MaskSecrets("value2"));
             Assert.Equal("value3", secretMasker2.MaskSecrets("value3"));
         }
-        
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "SecretMasker")]
         public void LegacyLoggedSecretMasker_TelemetryEnabled_Ignored()
         {
             using var lsm = CreateSecretMasker();
-            lsm.StartTelemetry(maxDetections: 1); // no-op: legacy VSO masker does not support telemetry. 
-            lsm.StopAndPublishTelemetry(maxDetectionsPerEvent: 1, (_, _) => Assert.True(false, "This should not be called."));
+            lsm.StartTelemetry(maxUniqueCorrelatingIds: 1); // no-op: legacy VSO masker does not support telemetry. 
+            lsm.StopAndPublishTelemetry(maxCorrelatingIdsPerEvent: 1, (_, _) => Assert.True(false, "This should not be called."));
         }
     }
 
@@ -225,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void LoggedSecretMasker_TelemetryDisabled_DoesNotPublish()
         {
             using var lsm = CreateSecretMasker();
-            lsm.StopAndPublishTelemetry(maxDetectionsPerEvent: 1, (_, _) => Assert.True(false, "This should not be called."));
+            lsm.StopAndPublishTelemetry(maxCorrelatingIdsPerEvent: 1, (_, _) => Assert.True(false, "This should not be called."));
         }
 
         [Fact]

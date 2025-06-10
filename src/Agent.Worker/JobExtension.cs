@@ -79,7 +79,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(context).AsBoolean())
                     {
-                        jobContext.GetHostContext().SecretMasker.StartTelemetry(maxDetections: 100);
+                        jobContext.GetHostContext().SecretMasker.StartTelemetry(_maxSecretMaskerTelemetryUniqueCorrelationIds);
                     }
 
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
@@ -815,13 +815,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        // How secret masker telemetry limits were chosen:
+        //
+        //  - We don't want to introduce telemetry events much larger than
+        //    others we send today.
+        //
+        //  - The KnobsStatus telemetry event is among the largest and we
+        //    routinely see it with ~1800 chars.
+        //
+        //  - The longest rule moniker today is 73 chars. There's an issue
+        //    filed to shorten it so we should not expect longer than this
+        //    in the future.
+        //
+        //  - C3ID is 20 chars.
+        //
+        //  - So say max ~100 chars for "<C3ID>": "<moniker>"
+        //
+        //  - 10 of these is ~1000 chars, safely below the 1800 chars of
+        //    KnobsStatus.
+        //
+        //  - We also don't want to send too many events so we send at most 5.
+        //
+        //  - This means we can send up to 50 unique C3IDs reported per job.
+        //    That's a lot for a real world scenario. More than that has a
+        //    significant chance of being malicious.
+        private const int _maxCorrelatingIdsPerSecretMaskerTelemetryEvent = 10;
+        private const int _maxSecretMaskerTelemetryCorrelationEvents = 5;
+        private const int _maxSecretMaskerTelemetryUniqueCorrelationIds = _maxCorrelatingIdsPerSecretMaskerTelemetryEvent * _maxSecretMaskerTelemetryCorrelationEvents;
+
         private void PublishSecretMaskerTelemetryIfOptedIn(IExecutionContext jobContext)
         {
             if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(jobContext).AsBoolean())
             {
                 ILoggedSecretMasker masker = jobContext.GetHostContext().SecretMasker;
                 masker.StopAndPublishTelemetry(
-                    maxDetectionsPerEvent: 20,
+                    _maxCorrelatingIdsPerSecretMaskerTelemetryEvent,
                     (feature, data) => PublishTelemetry(jobContext, data, feature));
             }
         }
