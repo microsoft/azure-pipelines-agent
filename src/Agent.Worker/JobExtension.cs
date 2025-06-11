@@ -847,10 +847,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(jobContext).AsBoolean())
             {
+                string jobId = jobContext?.Variables?.System_JobId?.ToString() ?? string.Empty;
+                string planId = jobContext?.Variables?.System_PlanId?.ToString() ?? string.Empty;
                 ILoggedSecretMasker masker = jobContext.GetHostContext().SecretMasker;
+
                 masker.StopAndPublishTelemetry(
                     _maxCorrelatingIdsPerSecretMaskerTelemetryEvent,
-                    (feature, data) => PublishTelemetry(jobContext, data, feature));
+                    (feature, data) =>
+                    {
+                        data["JobId"] = jobId;
+                        data["PlanId"] = planId;
+                        PublishTelemetry(jobContext, data, feature);
+                    });
             }
         }
 
