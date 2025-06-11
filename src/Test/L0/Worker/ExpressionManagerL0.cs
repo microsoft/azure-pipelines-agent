@@ -204,9 +204,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExpressionTracingMasksSecrets(bool useNewSecretMasker)
         {
-            var hc = new TestHostContext(this, testName);
+            // Arrange.
+            using (TestHostContext hc = CreateTestContext(useNewSecretMasker: useNewSecretMasker))
+            {
+                InitializeExecutionContext(hc);
+                hc.SecretMasker.AddValue(value: "mask_this", origin: "Test");
+
+                // Act.
+                IExpressionNode expression = _expressionManager.Parse(_ec.Object, "eq('mask_this', 'mask_this')");
+                ConditionResult result = _expressionManager.Evaluate(_ec.Object, expression);
+                string traceContent = hc.GetTraceContent();
+
+                // Assert.
+                Assert.True(result.Value);
+                Assert.DoesNotContain("mask_this", traceContent);
+            }
+        }
+
+        private TestHostContext CreateTestContext([CallerMemberName] String testName = "", bool useNewSecretMasker = true)
+        {
+            var hc = new TestHostContext(this, testName, useNewSecretMasker);
             _expressionManager = new ExpressionManager();
             _expressionManager.Initialize(hc);
             return hc;

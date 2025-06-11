@@ -5,12 +5,9 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Microsoft.Security.Utilities;
 
-using ISecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
-using ValueEncoder = Microsoft.TeamFoundation.DistributedTask.Logging.ValueEncoder;
-
 namespace Agent.Sdk.SecretMasking;
 
-public sealed class OssSecretMasker : ISecretMasker, IDisposable
+public sealed class OssSecretMasker : IRawSecretMasker
 {
     private SecretMasker _secretMasker;
 
@@ -24,10 +21,6 @@ public sealed class OssSecretMasker : ISecretMasker, IDisposable
         _secretMasker.DefaultRegexRedactionToken = "***";
     }
 
-    private OssSecretMasker(OssSecretMasker copy)
-    {
-        _secretMasker = copy._secretMasker.Clone();
-    }
 
     /// <summary>
     /// This property allows to set the minimum length of a secret for masking
@@ -70,12 +63,10 @@ public sealed class OssSecretMasker : ISecretMasker, IDisposable
     /// <summary>
     /// This implementation assumes no more than one thread is adding regexes, values, or encoders at any given time.
     /// </summary>
-    public void AddValueEncoder(ValueEncoder encoder)
+    public void AddValueEncoder(Func<string, string> encoder)
     {
        _secretMasker.AddLiteralEncoder(x => encoder(x));
     }
-
-    public OssSecretMasker Clone() => new OssSecretMasker(this);
 
     public void Dispose()
     {
@@ -152,6 +143,4 @@ public sealed class OssSecretMasker : ISecretMasker, IDisposable
             }
         }
     }
-
-    ISecretMasker ISecretMasker.Clone() => this.Clone();
 }
