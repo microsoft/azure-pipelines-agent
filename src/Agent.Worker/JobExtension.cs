@@ -845,20 +845,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private void PublishSecretMaskerTelemetryIfOptedIn(IExecutionContext jobContext)
         {
-            if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(jobContext).AsBoolean())
+            try
             {
-                string jobId = jobContext?.Variables?.System_JobId?.ToString() ?? string.Empty;
-                string planId = jobContext?.Variables?.System_PlanId?.ToString() ?? string.Empty;
-                ILoggedSecretMasker masker = jobContext.GetHostContext().SecretMasker;
+                if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(jobContext).AsBoolean())
+                {
+                    string jobId = jobContext?.Variables?.System_JobId?.ToString() ?? string.Empty;
+                    string planId = jobContext?.Variables?.System_PlanId?.ToString() ?? string.Empty;
+                    ILoggedSecretMasker masker = jobContext.GetHostContext().SecretMasker;
 
-                masker.StopAndPublishTelemetry(
-                    _maxCorrelatingIdsPerSecretMaskerTelemetryEvent,
-                    (feature, data) =>
-                    {
-                        data["JobId"] = jobId;
-                        data["PlanId"] = planId;
-                        PublishTelemetry(jobContext, data, feature);
-                    });
+                    masker.StopAndPublishTelemetry(
+                        _maxCorrelatingIdsPerSecretMaskerTelemetryEvent,
+                        (feature, data) =>
+                        {
+                            data["JobId"] = jobId;
+                            data["PlanId"] = planId;
+                            PublishTelemetry(jobContext, data, feature);
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish secret masker telemetry data. Exception: {ex}");
             }
         }
 
