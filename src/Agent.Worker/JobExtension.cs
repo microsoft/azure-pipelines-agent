@@ -821,18 +821,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         //    others we send today.
         //
         //  - The KnobsStatus telemetry event is among the largest and we
-        //    routinely see it with ~1800 chars.
+        //    routinely see it with ~2000 chars in Properties.
         //
-        //  - The longest rule moniker today is 73 chars. There's an issue
-        //    filed to shorten it so we should not expect longer than this
-        //    in the future.
+        //  - The longest rule moniker today is 73 chars. There's an issue filed
+        //    to shorten it so we should not expect longer than this in the
+        //    future.
         //
         //  - C3ID is 20 chars.
         //
         //  - So say max ~100 chars for "<C3ID>": "<moniker>"
         //
-        //  - 10 of these is ~1000 chars, safely below the 1800 chars of
-        //    KnobsStatus.
+        //  - 10 of these is ~1000 chars / half of KnobsStatus, which leaves
+        //    plenty of buffer.
         //
         //  - We also don't want to send too many events so we send at most 5.
         //
