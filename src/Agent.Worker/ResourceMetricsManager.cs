@@ -37,6 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private const int AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD = 5;
         private const int AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD = 5;
         private const int CPU_UTILIZATION_PERCENTAGE_THRESHOLD = 95;
+        private const long BYTES_PER_KIB = 1024L;
+        private const long BYTES_PER_MIB = BYTES_PER_KIB * BYTES_PER_KIB;
 
         private static CpuInfo _cpuInfo;
         private static DiskInfo _diskInfo;
@@ -114,6 +116,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         #endregion
 
         #region MetricMethods
+        private static long GetMultiplier(char unit)
+        {
+            var multiplier = BYTES_PER_KIB;
+
+            foreach (var c in "KMGTPEZY")
+            {
+                if (unit == c)
+                {
+                    return multiplier;
+                }
+
+                multiplier *= BYTES_PER_KIB;
+            }
+
+            throw new ArgumentException($"Invalid data unit: {unit}", nameof(unit));
+        }
+
+        private static long ConvertToBytes(string memory)
+        {
+            return string.IsNullOrEmpty(memory) ? 0L : long.Parse(memory[..^1]) * GetMultiplier(memory[^1]);
+        }
+
         private async Task GetCpuInfoAsync(CancellationToken cancellationToken)
         {
             if (_cpuInfo.Updated >= DateTime.Now - TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL))
@@ -192,6 +216,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _cpuInfo.Updated = DateTime.Now;
                         _cpuInfo.Usage = (cpuUsage / samplesCount) * 100;
                     }
+                }
+
+                if (PlatformUtil.RunningOnFreeBSD)
+                {
+                    using var processInvoker = HostContext.CreateService<IProcessInvoker>();
+
+                    using var timeoutTokenSource = new CancellationTokenSource();
+                    timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
+
+                    using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                        _context.CancellationToken,
+                        timeoutTokenSource.Token);
+
+                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        if (!message.Data.StartsWith("CPU:"))
+                        {
+                            return;
+                        }
+
+                        var processInvokerOutput = message.Data;
+                        var memoryInfoString = processInvokerOutput.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+
+                        if (memoryInfoString.Length < 3)
+                        {
+                            throw new Exception($"\"top\" utility has non-default output");
+                        }
+
+                        var cpuInfoIdle = memoryInfoString[^2];
+
+                        lock (_cpuInfoLock)
+                        {
+                            _cpuInfo.Updated = DateTime.Now;
+                            _cpuInfo.Usage = 100 - double.Parse(cpuInfoIdle[..^1]);
+                        }
+                    };
+
+                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        Trace.Error($"Error on receiving CPU info: {message.Data}");
+                    };
+
+                    var filePath = "top";
+                    var arguments = "-bt 0";
+                    await processInvoker.ExecuteAsync(
+                            workingDirectory: string.Empty,
+                            fileName: filePath,
+                            arguments: arguments,
+                            environment: null,
+                            requireExitCodeZero: true,
+                            outputEncoding: null,
+                            killProcessOnCancel: true,
+                            cancellationToken: linkedTokenSource.Token);
                 }
 
                 if (PlatformUtil.RunningOnMacOS)
@@ -335,6 +412,81 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _memoryInfo.Updated = DateTime.Now;
                         _memoryInfo.TotalMemoryMB = totalMemory / 1024;
                         _memoryInfo.UsedMemoryMB = (totalMemory - availableMemory) / 1024;
+                    }
+                }
+
+                if (PlatformUtil.RunningOnFreeBSD)
+                {
+                    using var processInvoker = HostContext.CreateService<IProcessInvoker>();
+
+                    using var timeoutTokenSource = new CancellationTokenSource();
+                    timeoutTokenSource.CancelAfter(TimeSpan.FromMilliseconds(METRICS_UPDATE_INTERVAL));
+
+                    using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                        _context.CancellationToken,
+                        timeoutTokenSource.Token);
+
+                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        if (!message.Data.StartsWith("Mem:"))
+                        {
+                            return;
+                        }
+
+                        var processInvokerOutputString = message.Data;
+                        var memoryInfoString = processInvokerOutputString.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+
+                        if (memoryInfoString.Length < 3)
+                        {
+                            throw new Exception($"\"top\" utility has non-default output");
+                        }
+
+                        var totalMemoryBytes = 0L;
+                        var usedMemoryBytes = 0L;
+
+                        for (var i = 0; i < memoryInfoString.Length; i++)
+                        {
+                            if (i % 2 != 0)
+                            {
+                                totalMemoryBytes += ConvertToBytes(memoryInfoString[i]);
+
+                                if (i < memoryInfoString.Length - 2)
+                                {
+                                    usedMemoryBytes = totalMemoryBytes;
+                                }
+                            }
+                        }
+
+                        lock (_memoryInfoLock)
+                        {
+                            _memoryInfo.Updated = DateTime.Now;
+                            _memoryInfo.TotalMemoryMB = totalMemoryBytes / BYTES_PER_MIB;
+                            _memoryInfo.UsedMemoryMB = usedMemoryBytes / BYTES_PER_MIB;
+                        }
+                    };
+
+                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+                    {
+                        Trace.Error($"Error on receiving memory info: {message.Data}");
+                    };
+
+                    try
+                    {
+                        var filePath = "top";
+                        var arguments = "-bt 0";
+                        await processInvoker.ExecuteAsync(
+                                workingDirectory: string.Empty,
+                                fileName: filePath,
+                                arguments: arguments,
+                                environment: null,
+                                requireExitCodeZero: true,
+                                outputEncoding: null,
+                                killProcessOnCancel: true,
+                                cancellationToken: linkedTokenSource.Token);
+                    }
+                    catch (Win32Exception ex)
+                    {
+                        throw new Exception($"\"free\" utility is unavailable. Exception: {ex.Message}");
                     }
                 }
 
