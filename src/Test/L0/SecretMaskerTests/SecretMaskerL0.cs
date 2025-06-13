@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
+
 using Agent.Sdk.SecretMasking;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
-using Microsoft.VisualStudio.Services.Content.Common;
-using System;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
