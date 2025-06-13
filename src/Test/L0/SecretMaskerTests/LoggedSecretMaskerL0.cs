@@ -58,7 +58,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // Although this secret matches a rule, it is added and masked as a
             // value so we should not report its C3ID nor return more than one
             // detection.
-            string knownSecret = "TEST99999";
+            int largeNumber = 99999;
+            string knownSecret = $"TEST{largeNumber}";
             string inputWithKnownSecret = $"Known secret added as a value that also matches a rule: {knownSecret}";
             ossMasker.AddValue(knownSecret);
             lsm.MaskSecrets(inputWithKnownSecret);
