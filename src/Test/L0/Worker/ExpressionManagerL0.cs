@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
 using Xunit;
 using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
