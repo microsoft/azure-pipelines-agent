@@ -41,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private IFeatureFlagService _featureFlagService;
         private string _testRunner;
         private bool _calculateTestRunSummary;
+        private bool _isFlakyCheckEnabled;
         private TestRunDataPublisherHelper _testRunPublisherHelper;
         private ITestResultsServer _testResultsServer;
 
@@ -58,6 +59,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var extensionManager = HostContext.GetService<IExtensionManager>();
             _featureFlagService = HostContext.GetService<IFeatureFlagService>();
             _featureFlagService.InitializeFeatureService(_executionContext, connection);
+            _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+            _isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid); ;
             _parser = (extensionManager.GetExtensions<IParser>()).FirstOrDefault(x => _testRunner.Equals(x.Name, StringComparison.OrdinalIgnoreCase));
             _testRunPublisherHelper = new TestRunDataPublisherHelper(_executionContext, _testRunPublisher, null, _testResultsServer);
             Trace.Leaving();
@@ -86,8 +89,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-
                     var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
@@ -98,9 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     // Check failed results for flaky aware
                     // Fallback to flaky aware if there are any failures.
-                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
-
-                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    if (isTestRunOutcomeFailed && _isFlakyCheckEnabled)
                     {
                         var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
                         if (runOutcome != null && runOutcome.HasValue)
@@ -154,6 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                         for (testRunDataIterator = 0; testRunDataIterator < testRunData.Count; testRunDataIterator++)
                         {
+                            var testResultsUpdated = new List<TestCaseResultData>();
                             for (testResultDataIterator = 0; testResultDataIterator < testRunData[testRunDataIterator].TestResults.Count; testResultDataIterator++)
                             {
                                 var testResultFQN = testRunData[testRunDataIterator].TestResults[testResultDataIterator].AutomatedTestStorage +
@@ -161,17 +161,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                                 if (testResultByFQN.TryGetValue(testResultFQN, out List<TestCaseResult> inputs))
                                 {
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestPoint = inputs[0].TestPoint;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseTitle = inputs[0].TestCaseTitle;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Configuration = inputs[0].Configuration;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCase = inputs[0].TestCase;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].Owner = inputs[0].Owner;
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].State = "5";
-                                    testRunData[testRunDataIterator].TestResults[testResultDataIterator].TestCaseRevision = inputs[0].TestCaseRevision;
+                                    if (testRunData[testRunDataIterator].TestResults[testResultDataIterator].Outcome != "NotExecuted")
+                                    {
+                                        foreach (var input in inputs)
+                                        {
+                                            var testCaseResultDataUpdated = TestResultUtils.CloneTestCaseResultData(testRunData[testRunDataIterator].TestResults[testResultDataIterator]);
 
-                                    testResultByFQN[testResultFQN].RemoveAt(0);
+                                            testCaseResultDataUpdated.TestPoint = input.TestPoint;
+                                            testCaseResultDataUpdated.TestCaseTitle = input.TestCaseTitle;
+                                            testCaseResultDataUpdated.Configuration = input.Configuration;
+                                            testCaseResultDataUpdated.TestCase = input.TestCase;
+                                            testCaseResultDataUpdated.Owner = input.Owner;
+                                            testCaseResultDataUpdated.State = "5";
+                                            testCaseResultDataUpdated.TestCaseRevision = input.TestCaseRevision;
+
+                                            testResultsUpdated.Add(testCaseResultDataUpdated);
+                                        }
+                                    }
                                 }
                             }
+                            testRunData[testRunDataIterator].TestResults = testResultsUpdated;
                         }
                     }
 
@@ -188,8 +197,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-
                     var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
@@ -200,9 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     // Check failed results for flaky aware
                     // Fallback to flaky aware if there are any failures.
-                    bool isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid);
-
-                    if (isTestRunOutcomeFailed && isFlakyCheckEnabled)
+                    if (isTestRunOutcomeFailed && _isFlakyCheckEnabled)
                     {
                         var runOutcome = _testRunPublisherHelper.CheckRunsForFlaky(publishedRuns, _projectName);
                         if (runOutcome != null && runOutcome.HasValue)

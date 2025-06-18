@@ -3,96 +3,108 @@
         "name": "vsts-agent-win-x64-<AGENT_VERSION>.zip",
         "platform": "win-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-x64-<AGENT_VERSION>.zip"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-x64-<AGENT_VERSION>.zip"
     },
     {
         "name": "pipelines-agent-win-x64-<AGENT_VERSION>.zip",
         "platform": "win-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x64-<AGENT_VERSION>.zip"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x64-<AGENT_VERSION>.zip"
     },
     {
         "name": "vsts-agent-win-x86-<AGENT_VERSION>.zip",
         "platform": "win-x86",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-win-x86-<AGENT_VERSION>.zip"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-x86-<AGENT_VERSION>.zip"
     },
     {
         "name": "pipelines-agent-win-x86-<AGENT_VERSION>.zip",
         "platform": "win-x86",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip"
+    },
+    {
+        "name": "vsts-agent-win-arm64-<AGENT_VERSION>.zip",
+        "platform": "win-arm64",
+        "version": "<AGENT_VERSION>",
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-arm64-<AGENT_VERSION>.zip"
+    },
+    {
+        "name": "pipelines-agent-win-arm64-<AGENT_VERSION>.zip",
+        "platform": "win-arm64",
+        "version": "<AGENT_VERSION>",
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-arm64-<AGENT_VERSION>.zip"
     },
     {
         "name": "vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz",
         "platform": "osx-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-osx-x64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz",
         "platform": "osx-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-osx-x64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz",
         "platform": "osx-arm64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-osx-arm64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz",
         "platform": "osx-arm64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-osx-arm64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-x64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz",
         "platform": "linux-arm",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz",
         "platform": "linux-arm",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-arm64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-arm64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-musl-x64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz",
         "platform": "linux-musl-arm64",
         "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://vstsagentpackage.azureedge.net/agent/<AGENT_VERSION>/vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz"
+        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-musl-arm64-<AGENT_VERSION>.tar.gz"
     }
 ]

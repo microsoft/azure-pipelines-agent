@@ -19,13 +19,6 @@ pr:
     - .azure-pipelines
     - .vsts.release.yml
 
-schedules:
-- cron: '0 6 * * 2'
-  displayName: Scheduled weekly run
-  branches:
-    include:
-    - master
-
 parameters:
 - name: version
   type: string
@@ -34,14 +27,14 @@ parameters:
 - name: targetFramework
   displayName: Target framework
   type: string
-  default: net6.0
+  default: net8.0
   values:
   - net6.0
   - net8.0
 - name: derivedFrom
   type: string
   displayName: Derived From Version
-  default: latest
+  default: 'lastMinorRelease'
 - name: skipTests
   type: boolean
   default: false
@@ -193,15 +186,15 @@ extends:
         - checkout: self
 
         - task: NodeTool@0
-          displayName: Use node 14.15.1
+          displayName: Use node 20.19.1
           inputs:
-            versionSpec: "14.15.1"
+            versionSpec: "20.19.1"
 
         - script: |
             cd release
             npm install
 
-            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }}
+            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }} --targetCommitId=$(Build.SourceVersion)
           env:
             EDITOR: cat
             PAT: $(GithubToken)
@@ -283,10 +276,6 @@ extends:
                     $uploadFiles.Add("/$container/$versionDir/$execName")
                   }
                 }
-                Write-Host "Purge Azure CDN Cache"
-                Clear-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -ContentPath $uploadFiles
-                Write-Host "Force Refresh Azure CDN Cache"
-                Import-AzCdnEndpointContent -EndpointName vstsagentpackage -ProfileName vstsagentpackage -ResourceGroupName vstsagentpackage -ContentPath $uploadFiles
 
           # Clean up blob container with test agent version
           - task: AzurePowerShell@5

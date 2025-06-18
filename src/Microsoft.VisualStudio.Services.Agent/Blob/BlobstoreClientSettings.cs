@@ -2,18 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
+using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
+using Microsoft.VisualStudio.Services.Content.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
-using Microsoft.VisualStudio.Services.Content.Common;
-using Agent.Sdk;
-using Microsoft.VisualStudio.Services.BlobStore.Common;
-using BuildXL.Cache.ContentStore.Hashing;
-using Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts;
-using Agent.Sdk.Knob;
-using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Blob
 {
@@ -21,8 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
     {
         private readonly ClientSettingsInfo clientSettings;
         private readonly IAppTraceSource tracer;
-        
-        private BlobstoreClientSettings(ClientSettingsInfo settings, IAppTraceSource tracer)
+
+        internal BlobstoreClientSettings(ClientSettingsInfo settings, IAppTraceSource tracer)
         {
             clientSettings = settings;
             this.tracer = tracer;
@@ -37,8 +37,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             BlobStore.WebApi.Contracts.Client? client,
             IAppTraceSource tracer,
             CancellationToken cancellationToken)
-        {            
-            if(client.HasValue)
+        {
+            if (client.HasValue)
             {
                 try
                 {
@@ -75,8 +75,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 {
                     tracer.Info($"Error converting the domain id '{clientSettings.Properties[ClientSettingsConstants.DefaultDomainId]}': {exception.Message}.  Falling back to default.");
                 }
-            } 
-            else 
+            }
+            else
             {
                 tracer.Verbose($"No client settings found, using the default domain id '{domainId}'.");
             }
@@ -90,7 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             // Note: 9/6/2023 Remove the below check in couple of months.
             if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
             {
-                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                // grab the client settings from the server first if available:
+                if (clientSettings?.Properties.ContainsKey(ClientSettingsConstants.ChunkSize) == true)
                 {
                     try
                     {
@@ -99,6 +100,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     catch (Exception exception)
                     {
                         tracer.Info($"Error converting the chunk size '{clientSettings.Properties[ClientSettingsConstants.ChunkSize]}': {exception.Message}.  Falling back to default.");
+                    }
+                }
+
+                // now check if this pipeline has an override chunk size set, and use that if available:
+                string overrideChunkSize = AgentKnobs.OverridePipelineArtifactChunkSize.GetValue(context).AsString();
+                if (!String.IsNullOrEmpty(overrideChunkSize))
+                {
+                    try
+                    {
+                        HashTypeExtensions.Deserialize(overrideChunkSize, out HashType overrideHashType);
+                        if (ChunkerHelper.IsHashTypeChunk(overrideHashType))
+                        {
+                            hashType = overrideHashType;
+                            tracer.Info($"Overriding chunk size to '{overrideChunkSize}'.");
+                        }
+                        else
+                        {
+                            tracer.Info($"Override chunk size '{overrideChunkSize}' is not a valid chunk type. Falling back to client settings.");
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        tracer.Info($"Error overriding the chunk size to '{overrideChunkSize}': {exception.Message}.  Falling back to client settings.");
                     }
                 }
             }
@@ -111,6 +135,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             if (int.TryParse(clientSettings?.Properties.GetValueOrDefault(ClientSettingsConstants.RedirectTimeout), out int redirectTimeoutSeconds))
             {
                 return redirectTimeoutSeconds;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public int? GetMaxParallelism()
+        {
+            const string MaxParallelism = "MaxParallelism";
+            if (int.TryParse(clientSettings?.Properties.GetValueOrDefault(MaxParallelism), out int maxParallelism))
+            {
+                return maxParallelism;
             }
             else
             {

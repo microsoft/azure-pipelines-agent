@@ -170,7 +170,7 @@ namespace Agent.Plugins
                         (dedupClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance.CreateDedupClient(
                             this.connection,
                             domainId,
-                            DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
+                            DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context, clientSettings),
                             clientSettings.GetRedirectTimeout(),
                             false,
                             (str) => this.tracer.Info(str),

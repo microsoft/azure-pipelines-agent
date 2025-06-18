@@ -68,12 +68,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 InitializeSecretMasker(jobMessage);
                 SetCulture(jobMessage);
 
-                if(AgentKnobs.EnableNewSecretMasker.GetValue(HostContext).AsBoolean())
-                {
-                    Trace.Verbose($"{Constants.Variables.Agent.EnableAdditionalMaskingRegexes} is On, adding additional masking regexes");
-                    HostContext.AddAdditionalMaskingRegexes();
-                }
-
                 // Start the job.
                 Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
                 Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
@@ -174,6 +168,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var escapedSecret2 = variable.Value.Value.Replace("\r", "%0D")
                                                              .Replace("\n", "%0A");
                     AddUserSuppliedSecret(escapedSecret2);
+                    // We need to mask the base 64 value of the secret as well
+                    var base64Secret = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(variable.Value.Value));
+                    // Add the base64 secret to the secret masker
+                    AddUserSuppliedSecret(base64Secret);
+                    // also, we escape some characters for variables when we print them out in debug mode. We need to
+                    // add the escaped version of these secrets as well
+                    var escapedSecret3 = base64Secret.Replace("%", "%AZP25")
+                                                     .Replace("\r", "%0D")
+                                                     .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret3);
+                    // Since % escaping may be turned off, also mask a version escaped with just newlines
+                    var escapedSecret4 = base64Secret.Replace("\r", "%0D")
+                                                     .Replace("\n", "%0A");
+                    AddUserSuppliedSecret(escapedSecret4);
                 }
             }
 

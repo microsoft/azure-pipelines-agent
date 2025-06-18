@@ -16,6 +16,9 @@ using System.Linq;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.Identity.Client;
+using Microsoft.VisualStudio.Services.Common;
+using System.Net;
 
 namespace Agent.Plugins.Repository
 {
@@ -189,6 +192,18 @@ namespace Agent.Plugins.Repository
         private const string _pullRefsPrefix = "refs/pull/";
         private const string _remotePullRefsPrefix = "refs/remotes/pull/";
 
+        private const string _tenantId = "tenantid";
+        private const string _clientId = "servicePrincipalId";
+
+        // client assertion type for jwt based token request required for authenticating work load identity auth scheme
+        private const string _clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
+
+        // entra URI to authenticate app registration/managed identity users
+        private const string _entraURI = "https://login.microsoftonline.com/{0}/oauth2/v2.0/token";
+
+        // All scopes for the Azure DevOps API resource
+        private const string _scopeId = "499b84ac-1321-427f-aa17-267ca6975798/.default";
+
         // min git version that support add extra auth header.
         protected Version _minGitVersionSupportAuthHeader = new Version(2, 9);
 
@@ -204,6 +219,9 @@ namespace Agent.Plugins.Repository
         // min git version that supports new way to pass config via --config-env
         // Info: https://github.com/git/git/commit/ce81b1da230cf04e231ce337c2946c0671ffb303
         protected Version _minGitVersionConfigEnv = new Version(2, 31);
+
+        // min git version that supports sparse checkout
+        protected Version _minGitVersionSupportSparseCheckout = new Version(2, 25);
 
         public abstract bool GitSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
         public abstract bool GitLfsSupportUseAuthHeader(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager);
@@ -460,6 +478,10 @@ namespace Agent.Plugins.Repository
                             password = string.Empty;
                         }
                         break;
+                    case EndpointAuthorizationSchemes.WorkloadIdentityFederation:
+                        username = EndpointAuthorizationSchemes.WorkloadIdentityFederation;
+                        password = GetWISCToken(endpoint, executionContext, cancellationToken);
+                        break;
                     default:
                         executionContext.Warning($"Unsupport endpoint authorization schemes: {endpoint.Authorization.Scheme}");
                         break;
@@ -677,6 +699,36 @@ namespace Agent.Plugins.Repository
                 if (exitCode_addremote != 0)
                 {
                     throw new InvalidOperationException($"Unable to use git.exe add remote 'origin', 'git remote add' failed with exit code: {exitCode_addremote}");
+                }
+            }
+
+            if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
+            {
+                // Sparse checkout needs to be before any `fetch` task to avoid fetching the excluded trees and blobs, or to not _not_ fetch them if we're disabling a previous sparse checkout.
+                if (enableSparseCheckout)
+                {
+                    gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: true);
+
+                    // Set up sparse checkout
+                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
+                    if (exitCode_sparseCheckout != 0)
+                    {
+                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
+                    }
+                }
+                else
+                {
+                    // Only disable if git supports sparse checkout
+                    if (gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: false))
+                    {
+                        // Disable sparse checkout in case it was enabled in a previous checkout
+                        int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
+
+                        if (exitCode_sparseCheckoutDisable != 0)
+                        {
+                            throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
+                        }
+                    }
                 }
             }
 
@@ -971,30 +1023,6 @@ namespace Agent.Plugins.Repository
                     int exitCode_lfsLogs = await gitCommandManager.GitLFSLogs(executionContext, targetPath);
                     executionContext.Output($"Git lfs fetch failed with exit code: {exitCode_lfsFetch}. Git lfs logs returned with exit code: {exitCode_lfsLogs}.");
                     executionContext.Output($"Checkout will continue.  \"git checkout\" will fetch lfs files, however this could cause poor performance on old versions of git.");
-                }
-            }
-
-            if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
-            {
-                if (enableSparseCheckout)
-                {
-                    // Set up sparse checkout
-                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
-
-                    if (exitCode_sparseCheckout != 0)
-                    {
-                        throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
-                    }
-                }
-                else
-                {
-                    // Disable sparse checkout in case it was enabled in a previous checkout
-                    int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
-
-                    if (exitCode_sparseCheckoutDisable != 0)
-                    {
-                        throw new InvalidOperationException($"Git sparse checkout disable failed with exit code: {exitCode_sparseCheckoutDisable}");
-                    }
                 }
             }
 
@@ -1627,6 +1655,39 @@ namespace Agent.Plugins.Repository
             }
         }
 
+        protected virtual string GetWISCToken(ServiceEndpoint endpoint, AgentTaskPluginExecutionContext executionContext, CancellationToken cancellationToken)
+        {
+            var tenantId = "";
+            var clientId = "";
+            endpoint.Authorization?.Parameters?.TryGetValue(_tenantId, out tenantId);
+            endpoint.Authorization?.Parameters?.TryGetValue(_clientId, out clientId);
+
+            var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                .WithAuthority(string.Format(_entraURI, tenantId))
+                .WithRedirectUri(_clientAssertionType)
+                .WithClientAssertion(async (AssertionRequestOptions options) =>
+                {
+                    var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
+                    ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+                    VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
+                    var collectionUri = new Uri(executionContext.Variables.GetValueOrDefault("system.collectionuri")?.Value);
+                    using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: null);
+                    TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+                    var idToken = await taskClient.CreateOidcTokenAsync(
+                        scopeIdentifier: new Guid(executionContext.Variables.GetValueOrDefault("system.teamprojectid")?.Value),
+                        hubName: executionContext.Variables.GetValueOrDefault("system.hosttype")?.Value,
+                        planId: new Guid(executionContext.Variables.GetValueOrDefault("system.planid")?.Value),
+                        jobId: new Guid(executionContext.Variables.GetValueOrDefault("system.jobId")?.Value),
+                        serviceConnectionId: endpoint.Id,
+                        claims: null,
+                        cancellationToken: cancellationToken
+                    );
+                    return idToken.OidcToken;
+                })
+                .Build();
+            var authenticationResult = app.AcquireTokenForClient(new string[] { _scopeId }).ExecuteAsync(cancellationToken).GetAwaiter().GetResult();
+            return authenticationResult.AccessToken;
+        }
         private async Task SetAuthTokenInGitConfig(AgentTaskPluginExecutionContext executionContext,
             GitCliManager gitCommandManager,
             string targetPath,

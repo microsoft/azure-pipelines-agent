@@ -1,7 +1,8 @@
 {
   "private": true,
   "devDependencies": {
-    "@octokit/rest": "^21.0.2",
+    "@octokit/rest": "^16.43.2",
+    "@octokit/graphql": "^7.1.1",
     "azure-devops-node-api": "^12.0.0",
     "azure-pipelines-task-lib": "^4.3.1",
     "got": "^11.8.6",

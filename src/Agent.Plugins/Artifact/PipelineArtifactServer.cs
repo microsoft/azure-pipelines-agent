@@ -60,7 +60,6 @@ namespace Agent.Plugins
                     context.IsSystemDebugTrue(),
                     (str) => context.Output(str),
                     connection,
-                    DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(context),
                     domainId,
                     clientSettings,
                     context,
@@ -233,6 +232,7 @@ namespace Agent.Plugins
         {
             VssConnection connection = context.VssConnection;
             BuildServer buildServer = new BuildServer(connection);
+            HashSet<string> resourceTypes = new HashSet<string>();
 
             // download all pipeline artifacts if artifact name is missing
             if (downloadOptions == DownloadOptions.MultiDownload)
@@ -264,18 +264,21 @@ namespace Agent.Plugins
 
                 if (buildArtifacts.Any())
                 {
+                    resourceTypes.Add(PipelineArtifactConstants.Container);
                     FileContainerProvider provider = new FileContainerProvider(connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, buildArtifacts, cancellationToken, context);
                 }
 
                 if (pipelineArtifacts.Any())
                 {
+                    resourceTypes.Add(PipelineArtifactConstants.PipelineArtifact);
                     PipelineArtifactProvider provider = new PipelineArtifactProvider(context, connection, this.tracer);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, pipelineArtifacts, cancellationToken, context);
                 }
 
                 if (fileShareArtifacts.Any())
                 {
+                    resourceTypes.Add(PipelineArtifactConstants.FileShareArtifact);
                     FileShareProvider provider = new FileShareProvider(context, connection, this.tracer, DedupManifestArtifactClientFactory.Instance);
                     await provider.DownloadMultipleArtifactsAsync(downloadParameters, fileShareArtifacts, cancellationToken, context);
                 }
@@ -306,6 +309,7 @@ namespace Agent.Plugins
 
                 ArtifactProviderFactory factory = new ArtifactProviderFactory(context, connection, this.tracer);
                 IArtifactProvider provider = factory.GetProvider(buildArtifact);
+                resourceTypes.Add(buildArtifact.Resource.Type);
 
                 await provider.DownloadSingleArtifactAsync(downloadParameters, buildArtifact, cancellationToken, context);
             }
@@ -313,6 +317,9 @@ namespace Agent.Plugins
             {
                 throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
             }
+
+            // Create a variable to store the resource types of the downloaded artifacts
+            context.SetVariable("DownloadPipelineArtifactResourceTypes", string.Join(",", resourceTypes));
         }
     }
 

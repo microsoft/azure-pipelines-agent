@@ -60,6 +60,7 @@ if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
 fi
 
 DOTNET_DIR="${REPO_ROOT}/_dotnetsdk"
+NUGET_DIR="${REPO_ROOT}/_l1/externals/nuget"
 
 BUILD_CONFIG="Debug"
 if [[ "$DEV_CONFIG" == "Release" ]]; then
@@ -78,7 +79,7 @@ restore_dotnet_install_script() {
     DOTNET_INSTALL_SCRIPT_PATH="./Misc/${DOTNET_INSTALL_SCRIPT_NAME}"
 
     if [[ ! -e "${DOTNET_INSTALL_SCRIPT_PATH}" ]]; then
-        curl -sSL "https://dot.net/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
+        curl -sSL "https://builds.dotnet.microsoft.com/dotnet/scripts/v1/${DOTNET_INSTALL_SCRIPT_NAME}" -o "${DOTNET_INSTALL_SCRIPT_PATH}"
     fi
 }
 
@@ -91,6 +92,11 @@ function restore_sdk_and_runtime() {
         dotnet_windows_dir=${dotnet_windows_dir:0:1}:${dotnet_windows_dir:1}
         local architecture
         architecture=$(echo "$RUNTIME_ID" | cut -d "-" -f2)
+        
+        # We compile on an x64 machine, even when targeting ARM64. Thereby we are installing the x64 version of .NET instead of the arm64 version.
+        if [[ "$architecture" == "arm64" ]]; then
+            architecture="x64"
+        fi
 
         printf "\nInstalling SDK...\n"
         powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
@@ -113,11 +119,17 @@ function detect_platform_and_runtime_id() {
     if [[ ($(uname) == "Linux") || ($(uname) == "Darwin") ]]; then
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
-
+    
     if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
+        local processor_type=$(detect_system_architecture)
+        echo "Detected Process Arch: $processor_type"
+
+        # Default to win-x64
         DETECTED_RUNTIME_ID='win-x64'
-        if [[ "$PROCESSOR_ARCHITECTURE" == 'x86' ]]; then
+        if [[ "$processor_type" == 'x86' ]]; then
             DETECTED_RUNTIME_ID='win-x86'
+        elif [[ "$processor_type" == 'ARM64' ]]; then
+            DETECTED_RUNTIME_ID='win-arm64'
         fi
     elif [[ "$CURRENT_PLATFORM" == 'linux' ]]; then
         DETECTED_RUNTIME_ID="linux-x64"
@@ -360,6 +372,48 @@ function cmd_lint_verify() {
     "${DOTNET_DIR}/dotnet" format --verify-no-changes -v diag "$REPO_ROOT/azure-pipelines-agent.sln" || checkRC "cmd_lint_verify"
 }
 
+function detect_system_architecture() {
+    local processor  # Variable to hold the processor type (e.g., x, ARM)
+    local os_arch    # Variable to hold the OS bitness (e.g., 64, 86)
+
+    # Detect processor type using PROCESSOR_IDENTIFIER
+    # Check for AMD64 or Intel in the variable to classify as "x" (covers x86 and x64 processors)
+    if [[ "$PROCESSOR_IDENTIFIER" =~ "AMD64" || "$PROCESSOR_IDENTIFIER" =~ "Intel64" ]]; then
+        processor="x"
+    # Check for ARM64 in the variable to classify as "ARM"
+    elif [[ "$PROCESSOR_IDENTIFIER" =~ "ARM" || "$PROCESSOR_IDENTIFIER" =~ "Arm" ]]; then
+        processor="ARM"
+    # Default to "x" for unknown or unhandled cases
+    else
+        processor="x"
+    fi
+
+    # Detect OS bitness using uname
+    # "x86_64" indicates a 64-bit operating system
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+        os_arch="64"
+    # "i686" or "i386" indicates a 32-bit operating system
+    elif [[ "$(uname -m)" == "i686" || "$(uname -m)" == "i386" ]]; then
+        os_arch="86"
+    # "aarch64" indicates a 64-bit ARM operating system
+    elif [[ "$(uname -m)" == "aarch64" ]]; then
+        os_arch="64"
+    # Default to "64" for unknown or unhandled cases
+    else
+        os_arch="64"
+    fi
+
+    # Note: AMD32 does not exist as a specific label; 32-bit AMD processors are referred to as x86.
+    # ARM32 also does not exist in this context; ARM processors are always 64-bit.
+    
+    # Combine processor type and OS bitness for the final result
+    # Examples:
+    # - "x64" for Intel/AMD 64-bit
+    # - "x86" for Intel/AMD 32-bit
+    # - "ARM64" for ARM 64-bit
+    echo "${processor}${os_arch}"
+}
+
 detect_platform_and_runtime_id
 echo "Current platform: $CURRENT_PLATFORM"
 echo "Current runtime ID: $DETECTED_RUNTIME_ID"
@@ -370,7 +424,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86:win-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
@@ -388,6 +442,7 @@ restore_sdk_and_runtime
 heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
 export PATH=${DOTNET_DIR}:$PATH
+export PATH=${NUGET_DIR}:$PATH
 echo "Path = $PATH"
 echo ".NET Version = $(dotnet --version)"
 

@@ -146,8 +146,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                             bool success = false;
                             try
                             {
-                                // Remove the readonly attribute.
-                                RemoveReadOnly(item);
+                                // Skip for Symlinks
+                                if (!item.Attributes.HasFlag(FileAttributes.ReparsePoint)) {
+                                    // Remove the readonly attribute.
+                                    RemoveReadOnly(item);
+                                }
 
                                 // Check if the item is a file.
                                 if (item is FileInfo)

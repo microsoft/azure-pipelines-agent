@@ -59,5 +59,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 }
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void VerifyVSSConnectionUsingLegacyHandler()
+        {
+            Regex _serverSideAgentPlatformMatchingRegex = new Regex("vstsagentcore-(.+)(?=/)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                // Act.
+                try
+                {
+                    Environment.SetEnvironmentVariable("AZP_AGENT_USE_LEGACY_HTTP", "true");
+
+                    var exception = Record.Exception(() =>
+                    {
+                        var connection = VssUtil.CreateConnection(
+                            new Uri("https://github.com/Microsoft/vsts-agent"),
+                            new VssCredentials(),
+                            trace);
+                    });
+
+                    Assert.Null(exception);
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("AZP_AGENT_USE_LEGACY_HTTP", "");
+                }
+            }
+
+        }
     }
 }

@@ -21,7 +21,9 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Newtonsoft.Json;
+using Microsoft.Win32;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using Microsoft.TeamFoundation.Test.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 {
@@ -41,6 +43,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private ITerminal _term;
         private ILocationServer _locationServer;
         private ServerUtil _serverUtil;
+
+        private const string VsTelemetryRegPath = @"SOFTWARE\Microsoft\VisualStudio\Telemetry\PersistentPropertyBag\c57a9efce9b74de382d905a89852db71";
+        private const string VsTelemetryRegKey = "IsPipelineAgent";
+        private const int _maxRetries = 3;
+        private const int _delaySeconds = 2;
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -248,17 +255,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     {
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
                         agent = UpdateExistingAgent(agent, publicKey, systemCapabilities);
-
-                        try
+                        agent = await UpdateAgentWithRetryAsync<TaskAgent>(
+                            () => agentProvider.UpdateAgentAsync(agentSettings, agent, command),
+                            command
+                          );
+                        if (agent != null)
                         {
-                            agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
                             break;
-                        }
-                        catch (Exception e) when (!command.Unattended())
-                        {
-                            _term.WriteError(e);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
                         }
                     }
                     else if (command.Unattended())
@@ -421,6 +425,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 serviceControlManager.GenerateScripts(agentSettings);
             }
 
+            if(PlatformUtil.RunningOnWindows)
+            {
+                // add vstelemetry registrykey
+                this.AddVSTelemetryRegKey();
+            }
+
             try
             {
                 var telemetryData = new Dictionary<string, string>
@@ -443,6 +453,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Warning($"Unable to publish credential type telemetry data. Exception: {ex}");
             }
+        }
+
+        private async Task<T> UpdateAgentWithRetryAsync<T>(
+            Func<Task<T>> operation,
+            CommandSettings command)
+        {
+            int attempt = 0;
+            while (true)
+            {
+                try
+                {
+                    return await operation();
+                }
+                catch (Exception e) when (
+                    e is TimeoutException ||
+                    e is TaskCanceledException ||
+                    (e is OperationCanceledException && !(e is TaskCanceledException))
+                )
+                {
+                    attempt++;
+                    if (command.Unattended())
+                    {
+                        if (attempt >= _maxRetries)
+                        {
+                            _term.WriteError(e);
+                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                            Trace.Error($"{operation.Method.Name} failed after maximum retries. Exception: {e}");
+                            throw new InvalidOperationException(StringUtil.Loc("FailedToReplaceAgent"), e);
+                        }
+                        else
+                        {
+                            Trace.Info($"Retrying operation, Attempt: '{attempt}'.");
+                            int backoff = _delaySeconds * (int)Math.Pow(2, attempt - 1);
+                            _term.WriteLine(StringUtil.Loc("RetryingReplaceAgent", attempt, _maxRetries, backoff));
+                            await Task.Delay(TimeSpan.FromSeconds(backoff));
+                        }
+                    }
+                    else
+                    {
+                        _term.WriteError(e);
+                        _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    _term.WriteError(e);
+                    _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                    break;
+                }
+            }
+            return default(T); 
         }
 
         public async Task UnconfigureAsync(CommandSettings command)
@@ -577,6 +639,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // delete agent runtime option
                     _store.DeleteAgentRuntimeOptions();
 
+                    if(PlatformUtil.RunningOnWindows)
+                    {
+                        // delete vstelemetry registrykey
+                        this.DeleteVSTelemetryRegKey();
+                    }
+
                     _store.DeleteSettings();
                     _term.WriteLine(StringUtil.Loc("Success") + currentAction);
                 }
@@ -679,19 +747,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     else
                     {
-                        try
+                        agent.Authorization = new TaskAgentAuthorization
                         {
-                            agent.Authorization = new TaskAgentAuthorization
-                            {
-                                PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
-                            };
-                            agent = await agentProvider.UpdateAgentAsync(agentSettings, agent, command);
+                            PublicKey = new TaskAgentPublicKey(publicKey.Exponent, publicKey.Modulus),
+                        };
+                        agent = await UpdateAgentWithRetryAsync<TaskAgent>(
+                            () => agentProvider.UpdateAgentAsync(agentSettings, agent, command),
+                            command
+                          );
+                        if (agent != null)
+                        {
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
-                        }
-                        catch (Exception e) when (!command.Unattended())
-                        {
-                            _term.WriteError(e);
-                            _term.WriteError(StringUtil.Loc("FailedToReplaceAgent"));
+                            break;
                         }
                     }
 
@@ -822,7 +889,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 agent.SystemCapabilities[capability.Key] = capability.Value ?? string.Empty;
             }
-
             return agent;
         }
 
@@ -853,6 +919,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             _term.WriteLine();
             _term.WriteLine($">> {message}:");
             _term.WriteLine();
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void AddVSTelemetryRegKey()
+        {
+            try
+            {
+                //create the VsTelemetryRegKey under currentuser/VsTelemetryRegPath and set value to true
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VsTelemetryRegPath, writable: true))
+                {
+                    if (key != null && key.GetValue(VsTelemetryRegKey) == null)
+                    {
+                        key.SetValue(VsTelemetryRegKey, "s:true", RegistryValueKind.String);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignore failure as this is not critical to agent functionality
+                Trace.Info("Error while adding VSTelemetry regkey");
+            }
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void DeleteVSTelemetryRegKey()
+        {
+            try
+            {
+                // delete the VsTelemetryRegKey under currentuser/VsTelemetryRegPath
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VsTelemetryRegPath, writable: true))
+                {
+                    if (key != null && key.GetValue(VsTelemetryRegKey) != null)
+                    {
+                        key.DeleteValue(VsTelemetryRegKey);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignore failure as this is not critical to agent functionality
+                Trace.Info("Error while deleting VSTelemetry regkey");
+            }
         }
 
         [SupportedOSPlatform("windows")]

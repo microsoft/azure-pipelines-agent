@@ -55,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         private static string CreateHash(string hashInput)
         {
+            //CodeQL [SM02196] Supress - Suppressing this warning as the hash is used only in the directory name and not for security purposes.
             using (SHA1 sha1Hash = SHA1.Create())
             {
                 byte[] data = sha1Hash.ComputeHash(Encoding.UTF8.GetBytes(hashInput));

@@ -18,11 +18,12 @@ steps:
 
   - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
     inputs:
-      ConnectedServiceName: PipelinesAgentAndTasksESRP
+      ConnectedServiceName: $(ConnectedServiceName)
+      UseMSIAuthentication: true
       AppRegistrationClientId: $(AppRegistrationClientId)
       AppRegistrationTenantId: $(AppRegistrationTenantId)
+      EsrpClientId: $(EsrpClientId)
       AuthAKVName: $(AuthAKVName)
-      AuthCertName: $(AuthCertName)
       AuthSignCertName: $(AuthSignCertName)
       FolderPath: '${{ parameters.layoutRoot }}/bin'
       Pattern: AgentService.exe
@@ -47,11 +48,12 @@ steps:
 
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    ConnectedServiceName: $(ConnectedServiceName)
+    UseMSIAuthentication: true
     AppRegistrationClientId: $(AppRegistrationClientId)
     AppRegistrationTenantId: $(AppRegistrationTenantId)
+    EsrpClientId: $(EsrpClientId)
     AuthAKVName: $(AuthAKVName)
-    AuthCertName: $(AuthCertName)
     AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}/bin'
     Pattern: |
@@ -102,11 +104,12 @@ steps:
 
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    ConnectedServiceName: $(ConnectedServiceName)
+    UseMSIAuthentication: true
     AppRegistrationClientId: $(AppRegistrationClientId)
     AppRegistrationTenantId: $(AppRegistrationTenantId)
+    EsrpClientId: $(EsrpClientId)
     AuthAKVName: $(AuthAKVName)
-    AuthCertName: $(AuthCertName)
     AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |
@@ -157,11 +160,12 @@ steps:
 
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
-    ConnectedServiceName: PipelinesAgentAndTasksESRP
+    ConnectedServiceName: $(ConnectedServiceName)
+    UseMSIAuthentication: true
     AppRegistrationClientId: $(AppRegistrationClientId)
     AppRegistrationTenantId: $(AppRegistrationTenantId)
+    EsrpClientId: $(EsrpClientId)
     AuthAKVName: $(AuthAKVName)
-    AuthCertName: $(AuthCertName)
     AuthSignCertName: $(AuthSignCertName)
     FolderPath: '${{ parameters.layoutRoot }}'
     Pattern: |

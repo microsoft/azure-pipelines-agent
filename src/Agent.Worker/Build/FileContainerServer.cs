@@ -364,7 +364,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                         Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.BuildArtifact,
                         DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, tracer),
                         token);
-
+                int maxParallelism = context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism;
+                if (maxParallelism == 0)
+                {
+                    // if we have a client setting for max parallelism, use that:
+                    maxParallelism = DedupManifestArtifactClientFactory.Instance.GetDedupStoreClientMaxParallelism(clientSettings, msg => context.Output(msg));
+                }
                 // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
                 string overrideDomain = AgentKnobs.SendBuildArtifactsToBlobstoreDomain.GetValue(context).AsString();
                 IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
@@ -373,7 +378,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     .CreateDedupClient(
                         _connection,
                         domainId,
-                        context.GetHostContext().GetService<IConfigurationStore>().GetSettings().MaxDedupParallelism,
+                        maxParallelism,
                         clientSettings.GetRedirectTimeout(),
                         verbose,
                         tracer,

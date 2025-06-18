@@ -11,7 +11,7 @@
     <OSPlatform>OS_UNKNOWN</OSPlatform>
     <OSArchitecture>ARCH_UNKNOWN</OSArchitecture>
     <DebugConstant></DebugConstant>
-    <VssApiVersion>0.5.247-private</VssApiVersion>
+    <VssApiVersion>0.5.251-private</VssApiVersion>
     <CodeAnalysis>$(CodeAnalysis)</CodeAnalysis>
     <InvariantGlobalization>false</InvariantGlobalization>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
@@ -38,6 +38,13 @@
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'X86'">
     <OSArchitecture>X86</OSArchitecture>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">
+    <OSArchitecture>ARM64</OSArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OSPlatform)' == 'OS_WINDOWS' AND '$(PackageRuntime)' == 'win-arm64'">
+    <OSArchitecture>ARM64</OSArchitecture>
+  </PropertyGroup>
+  <!-- PROCESSOR_ARCHITECTURE does not always return ARM64 on all ARM-64 machines. So added a fallback condition to check the PackageRuntime variable -->
 
   <PropertyGroup Condition="'$(OSPlatform)' == 'OS_OSX' AND '$(PackageRuntime)' == 'osx-x64'">
     <OSArchitecture>X64</OSArchitecture>
@@ -65,7 +72,8 @@
   <PropertyGroup Condition="'$(BuildingInsideVisualStudio)' == 'true'">
     <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X64'">win-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'X86'">win-x86</RuntimeIdentifier>
-  </PropertyGroup>
+    <RuntimeIdentifier Condition="'$(OSPlatform)' == 'OS_WINDOWS' And '$(OSArchitecture)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+ </PropertyGroup>
 
   <PropertyGroup>
     <DefineConstants>$(OSPlatform);$(OSArchitecture);$(DebugConstant);TRACE</DefineConstants>

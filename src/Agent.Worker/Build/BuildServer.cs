@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 }
                 catch (Exception ex) when (attemptCount > 0)
                 {
-                    Trace.Info($"Catch exception during connect. {attemptCount} attemp left.");
+                    Trace.Info($"Catch exception during connect. {attemptCount} attempt(s) left.");
                     Trace.Error(ex);
                 }
 

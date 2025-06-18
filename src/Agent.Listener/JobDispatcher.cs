@@ -398,11 +398,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
 
                     var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
-                    var newSecretMaskerFeaturFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseMaskingPerformanceEnhancements", Trace);
+                    var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
                     var environment = new Dictionary<string, string>();
-                    if (newSecretMaskerFeaturFlagStatus?.EffectiveState == "On")
+                    if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
                     {
-                        environment.Add("AZP_ENABLE_NEW_SECRET_MASKER", "true");
+                        environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
                     }
                     // Start the process channel.
                     // It's OK if StartServer bubbles an execption after the worker process has already started.
