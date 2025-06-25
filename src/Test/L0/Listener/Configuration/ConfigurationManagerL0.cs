@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
         private int _expectedPoolId = 1;
         private int _expectedDeploymentMachineId = 81;
         private int _expectedEnvironmentVMResourceId = 71;
-        private RSACryptoServiceProvider rsa = null;
+        private RSA rsa = null;
         private AgentSettings _configMgrAgentSettings = new AgentSettings();
 
         public ConfigurationManagerL0()
@@ -129,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _agentServer.Setup(x => x.AddAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
             _agentServer.Setup(x => x.UpdateAgentAsync(It.IsAny<int>(), It.IsAny<TaskAgent>())).Returns(Task.FromResult(expectedAgent));
 
-            rsa = new RSACryptoServiceProvider(2048);
+            rsa = RSA.Create(2048);
 
             _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>(), It.IsAny<bool>())).Returns(rsa);
 
