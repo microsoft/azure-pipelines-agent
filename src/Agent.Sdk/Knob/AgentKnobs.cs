@@ -200,6 +200,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob FetchByCommitForFullClone = new Knob(
+            nameof(FetchByCommitForFullClone),
+            "If true, allow fetch by commit when doing a full clone (depth=0).",
+            new RuntimeKnobSource("VSTS.FetchByCommitForFullClone"),
+            new EnvironmentKnobSource("VSTS_FETCHBYCOMMITFORFULLCLONE"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),

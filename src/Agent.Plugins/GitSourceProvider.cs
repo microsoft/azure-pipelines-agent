@@ -937,11 +937,16 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"sourceVersion : {sourceVersion}");
             executionContext.Debug($"fetchTags : {fetchTags}");
 
+            // Determine if we should use fetch by commit based on shallow vs full clone scenarios
+            bool shouldFetchByCommit = fetchByCommit && !string.IsNullOrEmpty(sourceVersion) &&
+                (fetchDepth > 0 || AgentKnobs.FetchByCommitForFullClone.GetValue(executionContext).AsBoolean());
+
             if (IsPullRequest(sourceBranch))
             {
                 // Build a 'fetch-by-commit' refspec iff the server allows us to do so in the shallow fetch scenario
+                // or if it's a full clone and the FetchByCommitForFullClone knob is enabled
                 // Otherwise, fall back to fetch all branches and pull request ref
-                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (shouldFetchByCommit)
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
@@ -955,8 +960,9 @@ namespace Agent.Plugins.Repository
             else
             {
                 // Build a refspec iff the server allows us to fetch a specific commit in the shallow fetch scenario
+                // or if it's a full clone and the FetchByCommitForFullClone knob is enabled
                 // Otherwise, use the default fetch behavior (i.e. with no refspecs)
-                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (shouldFetchByCommit)
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
