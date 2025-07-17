@@ -941,6 +941,8 @@ namespace Agent.Plugins.Repository
             bool shouldFetchByCommit = fetchByCommit && !string.IsNullOrEmpty(sourceVersion) &&
                 (fetchDepth > 0 || AgentKnobs.FetchByCommitForFullClone.GetValue(executionContext).AsBoolean());
 
+            executionContext.Debug($"shouldFetchByCommit : {shouldFetchByCommit}");
+
             if (IsPullRequest(sourceBranch))
             {
                 // Build a 'fetch-by-commit' refspec iff the server allows us to do so in the shallow fetch scenario
