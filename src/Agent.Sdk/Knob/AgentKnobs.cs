@@ -386,6 +386,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_FAIL_ON_INCOMPATIBLE_OS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob OverridePipelineArtifactChunkSize = new Knob(
+            nameof(OverridePipelineArtifactChunkSize),
+            "Overrides the chunk size used in this pipeline for pipeline artifact publish.",
+            new RuntimeKnobSource("OVERRIDE_PIPELINE_ARTIFACT_CHUNKSIZE"),
+            new EnvironmentKnobSource("OVERRIDE_PIPELINE_ARTIFACT_CHUNKSIZE"),
+            new BuiltInDefaultKnobSource(string.Empty));
+
         public static readonly Knob AgentEnablePipelineArtifactLargeChunkSize = new Knob(
             nameof(AgentEnablePipelineArtifactLargeChunkSize),
             "Enables large chunk size for pipeline artifacts.",
@@ -460,6 +467,12 @@ namespace Agent.Sdk.Knob
             "When set, defines the domain to use to send Pipeline artifacts to.",
             new RuntimeKnobSource("SEND_PIPELINE_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
             new EnvironmentKnobSource("SEND_PIPELINE_ARTIFACT_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
+            new BuiltInDefaultKnobSource(string.Empty));
+        public static readonly Knob SendPipelineCacheToBlobstoreDomain = new Knob(
+            nameof(SendPipelineArtifactsToBlobstoreDomain),
+            "When set, defines the domain to store Pipeline caches.",
+            new RuntimeKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
+            new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
@@ -681,6 +694,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_ENABLE_NEW_MASKER_AND_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob SendSecretMaskerTelemetry = new Knob(
+            nameof(SendSecretMaskerTelemetry),
+            "If true, the agent will send telemetry about secret masking",
+            new RuntimeKnobSource("AZP_SEND_SECRET_MASKER_TELEMETRY"),
+            new EnvironmentKnobSource("AZP_SEND_SECRET_MASKER_TELEMETRY"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AddDockerInitOption = new Knob(
             nameof(AddDockerInitOption),
             "If true, the agent will create docker container with the --init option.",
@@ -786,5 +806,13 @@ namespace Agent.Sdk.Knob
             "Timeout for channel communication between agent listener and worker processes.",
             new EnvironmentKnobSource("PIPELINE_ARTIFACT_ASSOCIATE_TIMEOUT"),
             new BuiltInDefaultKnobSource("900")); // 15 * 60 - Setting the timeout to 15 minutes to account for slowness from azure storage and retries.
+
+        public static readonly Knob AgentCDNConnectivityFailWarning = new Knob(
+            nameof(AgentCDNConnectivityFailWarning),
+            "Show warning message when the Agent CDN Endpoint (download.agent.dev.azure.com) is not reachable. ",
+            new RuntimeKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
+            new PipelineFeatureSource("AgentCDNConnectivityFailWarning"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

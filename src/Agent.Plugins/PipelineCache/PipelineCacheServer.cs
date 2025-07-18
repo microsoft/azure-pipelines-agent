@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using JsonSerializer = Microsoft.VisualStudio.Services.Content.Common.JsonSerializer;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk.Knob;
 
 namespace Agent.Plugins.PipelineCache
 {
@@ -41,16 +42,28 @@ namespace Agent.Plugins.PipelineCache
             ContentFormat contentFormat)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(
+            var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
+                connection,
+                Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+                tracer,
+                cancellationToken);
+
+            // Check if the pipeline has an override domain set, if not, use the default domain from the client settings.
+            string overrideDomain = AgentKnobs.SendPipelineCacheToBlobstoreDomain.GetValue(context).AsString();
+            IDomainId domainId = String.IsNullOrWhiteSpace(overrideDomain) ? clientSettings.GetDefaultDomainId() : DomainIdFactory.Create(overrideDomain);
+
+            var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
+                .CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
                     (str) => context.Output(str),
                     connection,
-                    WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+                    domainId, 
+                    clientSettings,
                     context,
                     cancellationToken);
 
+            // Cache metadata is stored in artifacts, which doesn't have a domain concept,
+            // so we can find the correct metadata even if the domain is overridden.
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
@@ -67,6 +80,8 @@ namespace Agent.Plugins.PipelineCache
                     context.Output($"Cache with fingerprint `{getResult.Fingerprint}` already exists.");
                     return;
                 }
+
+
 
                 string uploadPath = await this.GetUploadPathAsync(contentFormat, context, path, cancellationToken);
                 //Upload the pipeline artifact.
@@ -95,6 +110,7 @@ namespace Agent.Plugins.PipelineCache
                     ManifestId = result.ManifestId,
                     ProofNodes = result.ProofNodes.ToArray(),
                     ContentFormat = contentFormat.ToString(),
+                    DomainId = domainId.Serialize(),
                 };
 
                 // delete archive file if it's tar.
@@ -162,16 +178,9 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             VssConnection connection = context.VssConnection;
-            var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance
-                .CreateDedupManifestClientAsync(
-                    context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
-                    connection,
-                    WellKnownDomainIds.DefaultDomainId,
-                    Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
-                    context,
-                    cancellationToken);
 
+            // create the client telemetry object separately since we don't know the domain yet.
+            var clientTelemetry = new BlobStoreClientTelemetry(tracer, connection.GetClient<DedupStoreHttpClient>().BaseAddress);
             PipelineCacheClient pipelineCacheClient = await this.CreateClientWithRetryAsync(clientTelemetry, context, connection, cancellationToken);
 
             using (clientTelemetry)
@@ -202,6 +211,30 @@ namespace Agent.Plugins.PipelineCache
                 {
                     context.Output($"Entry found at fingerprint: `{result.Fingerprint.ToString()}`");
                     context.Verbose($"Manifest ID is: {result.ManifestId.ValueString}");
+
+                    // if  the cache artifact doesn't have a domain id, use the default domain for backward compatibility
+                    IDomainId domainId = WellKnownDomainIds.DefaultDomainId;
+                    if (String.IsNullOrEmpty(result.DomainId))
+                    {
+                        context.Output($"No Domain specified, using default domain: `{domainId.Serialize()}`");
+                    }
+                    else
+                    {
+                        context.Output($"Retrieving entry from domain: `{result.DomainId}`");
+                        domainId = DomainIdFactory.Create(result.DomainId);
+                    }
+
+                    // now that we know the domainId, we can create the dedup manifest client
+                    var (dedupManifestClient, _) = await DedupManifestArtifactClientFactory.Instance
+                        .CreateDedupManifestClientAsync(
+                            context.IsSystemDebugTrue(),
+                            (str) => context.Output(str),
+                            connection,
+                            domainId,
+                            Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,
+                            context,
+                            cancellationToken);
+
                     PipelineCacheActionRecord downloadRecord = clientTelemetry.CreateRecord<PipelineCacheActionRecord>((level, uri, type) =>
                         new PipelineCacheActionRecord(level, uri, type, nameof(DownloadAsync), context));
                     await clientTelemetry.MeasureActionAsync(

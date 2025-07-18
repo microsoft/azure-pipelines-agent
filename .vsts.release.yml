@@ -29,12 +29,15 @@ parameters:
   type: string
   default: net8.0
   values:
-  - net6.0
   - net8.0
+  
 - name: derivedFrom
   type: string
   displayName: Derived From Version
   default: 'lastMinorRelease'
+  values:
+  - 'lastMinorRelease'
+  
 - name: skipTests
   type: boolean
   default: false
@@ -194,7 +197,7 @@ extends:
             cd release
             npm install
 
-            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }}
+            node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }} --targetCommitId=$(Build.SourceVersion)
           env:
             EDITOR: cat
             PAT: $(GithubToken)
