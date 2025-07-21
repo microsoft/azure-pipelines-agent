@@ -475,6 +475,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("SEND_PIPELINE_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
             new EnvironmentKnobSource("SEND_PIPELINE_ARTIFACT_ARTIFACTS_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
+        public static readonly Knob SendPipelineCacheToBlobstoreDomain = new Knob(
+            nameof(SendPipelineArtifactsToBlobstoreDomain),
+            "When set, defines the domain to store Pipeline caches.",
+            new RuntimeKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
+            new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
+            new BuiltInDefaultKnobSource(string.Empty));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
