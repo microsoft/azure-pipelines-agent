@@ -54,19 +54,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(downloadCts.Token, executionContext.CancellationToken);
             var cancellationToken = linkedTokenSource.Token;
 
+            using var handler = executionContext.GetHostContext().CreateHttpClientHandler();
+            using var httpClient = new HttpClient(handler);
+
             for (; retryOptions.CurrentCount < retryOptions.Limit; retryOptions.CurrentCount++)
             {
                 try
                 {
                     executionContext.Debug($"Downloading {toolName} (attempt {retryOptions.CurrentCount + 1}/{retryOptions.Limit}).");
-                    using var httpClient = new HttpClient();
                     using var stream = await httpClient.GetStreamAsync(blobUrl, cancellationToken);
                     using var fs = new FileStream(downloadPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true);
                     await stream.CopyToAsync(fs, cancellationToken);
                     executionContext.Debug($"Finished downloading {toolName}.");
                     await fs.FlushAsync(cancellationToken);
                     ExtractTarGz(downloadPath, extractPath, executionContext, toolName);
-                    File.WriteAllText(Path.ChangeExtension(downloadPath, ".completed"), DateTime.UtcNow.ToString());
                     executionContext.Debug($"{toolName} has been extracted and cleaned up");
                     break;
                 }
