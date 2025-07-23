@@ -235,8 +235,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
 else
     # Download external tools for Linux and OSX.
 
-    acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
-
     if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
         ARCH="darwin-x64"
         if [[ "$INCLUDE_NODE6" == "true" ]]; then
