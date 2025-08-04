@@ -545,7 +545,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             else if (string.Equals(message.MessageType, JobCancelMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
                                 var cancelJobMessage = JsonUtility.FromString<JobCancelMessage>(message.Body);
-                                bool jobCancelled = jobDispatcher.Cancel(cancelJobMessage);
+                                bool jobCancelled = await jobDispatcher.Cancel(cancelJobMessage);
                                 skipMessageDeletion = (autoUpdateInProgress || runOnceJobReceived) && !jobCancelled;
 
                                 if (skipMessageDeletion)
