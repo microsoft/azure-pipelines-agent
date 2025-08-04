@@ -138,6 +138,9 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Args.Url)]
         public string Url { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Flags.SkipCapabilitiesScan)]
+        public bool SkipCapabilitiesScan { get; set; }
+
         [Option(Constants.Agent.CommandLine.Args.WindowsLogonAccount)]
         public string WindowsLogonAccount { get; set; }
 

@@ -239,6 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             while (true)
             {
                 agentSettings.AgentName = command.GetAgentName();
+                agentSettings.SkipCapabilitiesScan = command.GetSkipCapabilitiesScan();
 
                 // Get the system capabilities.
                 // TODO: Hook up to ctrl+c cancellation token.
