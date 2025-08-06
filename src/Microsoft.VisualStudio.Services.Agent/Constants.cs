@@ -434,6 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
                 public static readonly string SyncSources = "build.syncSources";
+                public static readonly string RequestedForEmail = "build.requestedForEmail";
                 public static readonly string UseServerWorkspaces = "build.useserverworkspaces";
             }
 
@@ -484,6 +485,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string DisableRobocopy = "release.disableRobocopy";
                 public static readonly string ReleaseDefinitionId = "release.definitionId";
                 public static readonly string ReleaseDefinitionName = "release.definitionName";
+                public static readonly string ReleaseDeploymentRequestedForEmail = "release.deployment.requestedForEmail";
                 public static readonly string ReleaseDescription = "release.releaseDescription";
                 public static readonly string ReleaseDownloadBufferSize = "release.artifact.download.buffersize";
                 public static readonly string ReleaseEnvironmentName = "release.environmentName";
@@ -491,6 +493,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ReleaseId = "release.releaseId";
                 public static readonly string ReleaseName = "release.releaseName";
                 public static readonly string ReleaseParallelDownloadLimit = "release.artifact.download.parallellimit";
+                public static readonly string ReleaseRequestedForEmail = "release.requestedForEmail";
                 public static readonly string ReleaseRequestedForId = "release.requestedForId";
                 public static readonly string ReleaseUri = "release.releaseUri";
                 public static readonly string ReleaseWebUrl = "release.releaseWebUrl";
@@ -622,6 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.RepoProvider,
                 Build.RepoTfvcWorkspace,
                 Build.RepoUri,
+                Build.RequestedForEmail,
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
@@ -647,10 +651,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Release.DisableRobocopy,
                 Release.ReleaseDefinitionId,
                 Release.ReleaseDefinitionName,
+                Release.ReleaseDeploymentRequestedForEmail,
                 Release.ReleaseDescription,
                 Release.ReleaseDownloadBufferSize,
                 Release.ReleaseEnvironmentName,
                 Release.ReleaseEnvironmentUri,
+                Release.ReleaseRequestedForEmail,
                 Release.ReleaseId,
                 Release.ReleaseName,
                 Release.ReleaseParallelDownloadLimit,
