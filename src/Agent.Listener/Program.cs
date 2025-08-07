@@ -39,6 +39,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private static async Task<int> MainAsync(IHostContext context, string[] args)
         {
             Tracing trace = context.GetTrace("AgentProcess");
+            
+            trace.Info("Azure DevOps Agent starting - initializing host context");
             trace.Info($"Agent package {BuildConstants.AgentPackage.PackageName}.");
             trace.Info($"Running on {PlatformUtil.HostOS} ({PlatformUtil.HostArchitecture}).");
             trace.Info($"RuntimeInformation: {RuntimeInformation.OSDescription}.");
@@ -50,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             try
             {
+                trace.Info("Agent initialization starting - loading version and culture info");
                 trace.Info($"Version: {BuildConstants.AgentPackage.Version}");
                 trace.Info($"Commit: {BuildConstants.Source.CommitHash}");
                 trace.Info($"Culture: {CultureInfo.CurrentCulture.Name}");
@@ -65,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 catch (Exception e)
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error(e);
+                    trace.Error("Directory permission validation failed - insufficient permissions", e);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
@@ -78,16 +81,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 if (PlatformUtil.RunningOnWindows)
                 {
+                    trace.Info("Configuring Windows-specific settings and validating prerequisites");
+                    
                     // Validate PowerShell 3.0 or higher is installed.
                     var powerShellExeUtil = context.GetService<IPowerShellExeUtil>();
                     try
                     {
                         powerShellExeUtil.GetPath();
+                        trace.Info("PowerShell validation successful - compatible version found");
                     }
                     catch (Exception e)
                     {
                         terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                        trace.Error(e);
+                        trace.Error("PowerShell validation failed - required version not found or accessible", e);
                         return Constants.Agent.ReturnCode.TerminatedError;
                     }
 
@@ -95,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     if (!NetFrameworkUtil.Test(new Version(4, 5), trace))
                     {
                         terminal.WriteError(StringUtil.Loc("MinimumNetFramework"));
+                        trace.Warning(".NET Framework version below recommended minimum - functionality may be limited");
                         // warn only, like configurationmanager.cs does. this enables windows edition with just .netcore to work
                     }
 
@@ -104,6 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         try
                         {
                             p.PriorityClass = ProcessPriorityClass.AboveNormal;
+                            trace.Info("Process priority elevated to AboveNormal to improve responsiveness");
                         }
                         catch (Exception e)
                         {
@@ -117,6 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 string envFile = Path.Combine(context.GetDirectory(WellKnownDirectory.Root), ".env");
                 if (File.Exists(envFile))
                 {
+                    trace.Info("Loading custom environment variables from .env file");
                     var envContents = File.ReadAllLines(envFile);
                     foreach (var env in envContents)
                     {
@@ -127,10 +136,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             Environment.SetEnvironmentVariable(envKey, envValue);
                         }
                     }
+                    trace.Info($"Successfully loaded {envContents.Length} environment variables from .env file");
                 }
 
                 // Parse the command line args.
                 var command = new CommandSettings(context, args, new SystemEnvironment());
+                trace.Info("Command line arguments parsed successfully - ready for command execution");
                 trace.Info("Arguments parsed");
 
                 // Print any Parse Errros
@@ -160,16 +171,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 IAgent agent = context.GetService<IAgent>();
                 try
                 {
+                    trace.Info("Delegating command execution to Agent service");
                     return await agent.ExecuteCommand(command);
                 }
                 catch (OperationCanceledException) when (context.AgentShutdownToken.IsCancellationRequested)
                 {
+                    trace.Info("Agent execution cancelled - graceful shutdown requested");
                     trace.Info("Agent execution been cancelled.");
                     return Constants.Agent.ReturnCode.Success;
                 }
                 catch (NonRetryableException e)
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
+                    trace.Error("Non-retryable exception occurred during agent execution");
                     trace.Error(e);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
@@ -178,6 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             catch (Exception e)
             {
                 terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
+                trace.Error("Unhandled exception during agent startup - initialization failed");
                 trace.Error(e);
                 return Constants.Agent.ReturnCode.RetryableError;
             }
