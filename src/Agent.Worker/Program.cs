@@ -21,7 +21,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             using (HostContext context = new HostContext(HostType.Worker))
             {
-                return MainAsync(context, args).GetAwaiter().GetResult();
+                Tracing trace = context.GetTrace(nameof(Program));
+                trace.Info("Worker process entry point initiated [HostType:Worker, Arguments:{0}]", string.Join(" ", args ?? new string[0]));
+                var result = MainAsync(context, args).GetAwaiter().GetResult();
+                trace.Info("Worker process entry point completed [ExitCode:{0}]", result);
+                return result;
             }
         }
 
@@ -33,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Tracing trace = context.GetTrace(nameof(Program));
             try
             {
+                trace.Info("Worker process initialization starting - setting up runtime environment");
                 trace.Info($"Version: {BuildConstants.AgentPackage.Version}");
                 trace.Info($"Commit: {BuildConstants.Source.CommitHash}");
                 trace.Info($"Culture: {CultureInfo.CurrentCulture.Name}");
@@ -40,18 +45,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 context.WritePerfCounter("WorkerProcessStarted");
 
                 // Validate args.
+                trace.Info("Validating command line arguments for spawnclient mode");
                 ArgUtil.NotNull(args, nameof(args));
                 ArgUtil.Equal(3, args.Length, nameof(args.Length));
                 ArgUtil.NotNullOrEmpty(args[0], $"{nameof(args)}[0]");
                 ArgUtil.Equal("spawnclient", args[0].ToLowerInvariant(), $"{nameof(args)}[0]");
                 ArgUtil.NotNullOrEmpty(args[1], $"{nameof(args)}[1]");
                 ArgUtil.NotNullOrEmpty(args[2], $"{nameof(args)}[2]");
+                trace.Info("Command validation successful [Mode:{0}, PipeIn:{1}, PipeOut:{2}]", args[0], args[1], args[2]);
                 var worker = context.GetService<IWorker>();
 
                 // Run the worker.
-                return await worker.RunAsync(
+                trace.Info("Starting worker execution - establishing communication with listener process");
+                var result = await worker.RunAsync(
                     pipeIn: args[1],
                     pipeOut: args[2]);
+                trace.Info("Worker execution completed successfully [ExitCode:{0}]", result);
+                return result;
             }
             catch (AggregateException ex)
             {
@@ -63,16 +73,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Console.WriteLine(ex.ToString());
                 try
                 {
-                    trace.Error(ex);
+                    trace.Error("Worker process execution failed with unhandled exception", ex);
                 }
                 catch (Exception e)
                 {
                     // make sure we don't crash the app on trace error.
                     // since IOException will throw when we run out of disk space.
-                    Console.WriteLine(e.ToString());
+                    Console.WriteLine("Failed to log exception to trace: " + e.ToString());
                 }
             }
-
+            trace.Info("Worker process exiting with error code - job execution failed");
             return 1;
         }
     }
