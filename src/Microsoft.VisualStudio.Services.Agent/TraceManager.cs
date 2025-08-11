@@ -58,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public SourceSwitch Switch { get; private set; }
 
+
         public Tracing this[string name] => _sources.GetOrAdd(name, CreateTracingProxy);
 
         /// <summary>
