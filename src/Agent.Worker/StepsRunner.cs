@@ -45,6 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             ArgUtil.NotNull(jobContext, nameof(jobContext));
             ArgUtil.NotNull(steps, nameof(steps));
+            Trace.Entering();
 
             // TaskResult:
             //  Abandoned (Server set this.)
@@ -56,6 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             CancellationTokenRegistration? jobCancelRegister = null;
             int stepIndex = 0;
             jobContext.Variables.Agent_JobStatus = jobContext.Result ?? TaskResult.Succeeded;
+            Trace.Info($"Async command completion wait initiated - processing {jobContext.AsyncCommands?.Count ?? 0} pending commands");
             // Wait till all async commands finish.
             foreach (var command in jobContext.AsyncCommands ?? new List<IAsyncCommandContext>())
             {
@@ -63,39 +65,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // wait async command to finish.
                     await command.WaitAsync();
+                    Trace.Info($"Async command completed successfully: {command.Name}");
                 }
 
                 catch (Exception ex)
                 {
                     // Log the error
-                    Trace.Info($"Caught exception from async command {command.Name}: {ex}");
+                    Trace.Error($"Async command failed during job initialization [Command:{command.Name}, JobId:{jobContext.Variables.System_JobId}, Error:{ex.Message}]");
                 }
             }
+            Trace.Info("Async command completion wait finished - all commands processed");
+            Trace.Info("Step iteration loop initiated - beginning sequential step processing");
             foreach (IStep step in steps)
             {
-                Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
+                Trace.Info($"Processing step {stepIndex + 1}/{steps.Count}: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
                 ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                 ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
                 ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
                 stepIndex++;
 
+                Trace.Info($"ExecutionContext startup initiated for step: '{step.DisplayName}'");
                 // Start.
                 step.ExecutionContext.Start();
                 var taskStep = step as ITaskRunner;
                 if (taskStep != null)
                 {
                     HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
+                    Trace.Info($"Task step initiated [TaskName:{taskStep.Task.Reference.Name}, TaskId:{taskStep.Task.Reference.Id}, Version:{taskStep.Task.Reference.Version}, Stage:{taskStep.Stage}]");
+                }
+                else
+                {
+                    Trace.Info($"Non-task step {step.DisplayName} started [StepType:{step.GetType().Name}, Timeout:{step.Timeout?.TotalMinutes ?? 0}min]");
                 }
 
                 // Change the current job context to the step context.
                 var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.SetContext(step.ExecutionContext);
+                Trace.Info($"Resource diagnostic context switched [Step:'{step.DisplayName}', DiagnosticManagerActive:True]");
 
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
                 List<string> expansionWarnings;
                 step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
                 expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
+                Trace.Info($"Variable expansion completed [Step:'{step.DisplayName}', Warnings:{expansionWarnings?.Count ?? 0}, Target:{step.Target?.GetType()?.Name ?? "None"}]");
 
                 var expressionManager = HostContext.GetService<IExpressionManager>();
                 try
@@ -104,9 +117,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Register job cancellation call back only if job cancellation token not been fire before each step run
                     if (!jobContext.CancellationToken.IsCancellationRequested)
                     {
+                        Trace.Info($"Job cancellation registration setup [Step:'{step.DisplayName}', JobCancellationRequested:False, RegistrationActive:True]");
                         // Test the condition again. The job was canceled after the condition was originally evaluated.
                         jobCancelRegister = jobContext.CancellationToken.Register(() =>
                         {
+                            Trace.Info($"Job cancellation callback triggered [Step:'{step.DisplayName}', AgentShutdown:{HostContext.AgentShutdownToken.IsCancellationRequested}]");
                             // mark job as cancelled
                             jobContext.Result = TaskResult.Canceled;
                             jobContext.Variables.Agent_JobStatus = jobContext.Result;
@@ -120,15 +135,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "120");
                                     jobContext.Result = TaskResult.Failed;
                                     jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                    Trace.Info($"Agent shutdown failure applied [Step:'{step.DisplayName}', FailJobEnabled:True, JobResult:Failed]");
                                 }
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
                                 conditionReTestResult = false;
+                                Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:AgentShutdown]");
                             }
                             else
                             {
                                 try
                                 {
+                                    Trace.Info($"Condition re-evaluation initiated [Step:'{step.DisplayName}', Expression:'{step.Condition}', HostTracingOnly:True]");
                                     conditionReTestResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition, hostTracingOnly: true);
+                                    Trace.Info($"Condition re-evaluation completed [Step:'{step.DisplayName}', Result:{conditionReTestResult.Value}]");
                                 }
                                 catch (Exception ex)
                                 {
@@ -142,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             if (!conditionReTestResult.Value)
                             {
                                 // Cancel the step.
-                                Trace.Info("Cancel current running step.");
+                                Trace.Info($"Cancel current running step: {step.DisplayName}");
                                 step.ExecutionContext.Error(StringUtil.Loc("StepCancelled"));
                                 step.ExecutionContext.CancelToken();
                             }
@@ -177,12 +196,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
                         conditionResult = false;
+                        Trace.Info($"Condition evaluation skipped due to agent shutdown: '{step.DisplayName}'");
                     }
                     else
                     {
                         try
                         {
                             conditionResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition);
+                            Trace.Info($"Condition evaluation completed - Result: {conditionResult.Value}, Step: '{step.DisplayName}'");
                         }
                         catch (Exception ex)
                         {
@@ -199,6 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Condition == false
                         string skipStepMessage = "Skipping step due to condition evaluation.";
                         Trace.Info(skipStepMessage);
+                        Trace.Info($"Step skipped due to condition evaluation [Step: '{step.DisplayName}', Reason:ConditionFalse, Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
                         step.ExecutionContext.Output($"{skipStepMessage}\n{conditionResult.Trace}");
                         step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: skipStepMessage);
                         continue;
@@ -207,17 +229,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (conditionEvaluateError != null)
                     {
                         // fail the step since there is an evaluate error.
+                        Trace.Error($"Condition evaluation failure context [Step:'{step.DisplayName}', Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
                         step.ExecutionContext.Error(conditionEvaluateError);
                         step.ExecutionContext.Complete(TaskResult.Failed);
                     }
                     else
                     {
+                        Trace.Info($"RunStepAsync execution initiated for step: '{step.DisplayName}'");
                         // Run the step.
                         await RunStepAsync(step, jobContext.CancellationToken);
+                        Trace.Info($"RunStepAsync execution completed for step: '{step.DisplayName}' - Result: {step.ExecutionContext.Result}");
                     }
                 }
                 finally
                 {
+                    Trace.Info($"Step cancellation registration cleanup [Step:'{step.DisplayName}', RegistrationActive:{jobCancelRegister != null}]");
                     if (jobCancelRegister != null)
                     {
                         jobCancelRegister?.Dispose();
@@ -229,46 +255,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (step.ExecutionContext.Result == TaskResult.SucceededWithIssues ||
                     step.ExecutionContext.Result == TaskResult.Failed)
                 {
-                    Trace.Info($"Update job result with current step result '{step.ExecutionContext.Result}'.");
+                    Trace.Info($"Update job result with current step result - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, PreviousJobResult: {jobContext.Result}");
                     jobContext.Result = TaskResultUtil.MergeTaskResults(jobContext.Result, step.ExecutionContext.Result.Value);
                     jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                    Trace.Info($"Job result after merge: {jobContext.Result}");
                 }
                 else
                 {
-                    Trace.Info($"No need for updating job result with current step result '{step.ExecutionContext.Result}'.");
+                    Trace.Info($"Job result unchanged - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, JobResultKept:{jobContext.Result}");
                 }
 
                 if (taskStep != null)
                 {
                     HostContext.WritePerfCounter($"TaskCompleted_{taskStep.Task.Reference.Name}_{stepIndex}");
+                    Trace.Info($"Task step completion - TaskName:{taskStep.Task.Reference.Name}, StepIndex:{stepIndex}/{steps.Count}, Result: {step.ExecutionContext.Result}, TaskStage:{taskStep.Stage}");
                 }
 
-                Trace.Info($"Current state: job state = '{jobContext.Result}'");
             }
+            Trace.Info($"Step iteration loop completed - All {steps.Count} steps processed, Final job result: {jobContext.Result}");
         }
 
         private async Task RunStepAsync(IStep step, CancellationToken jobCancellationToken)
         {
+            Trace.Info($"Individual step execution initiated: '{step.DisplayName}'");
             // Start the step.
-            Trace.Info("Starting the step.");
+
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
 
             step.ExecutionContext.Variables.Set(Constants.Variables.Task.SkipTranslatorForCheckout, Boolean.FalseString);
 
+            Trace.Info($"UTF-8 codepage switching initiated for step: '{step.DisplayName}'");
             // Windows may not be on the UTF8 codepage; try to fix that
             await SwitchToUtf8Codepage(step);
+            Trace.Info($"UTF-8 codepage switching completed for step: '{step.DisplayName}'");
+            // updated code log - Add codepage switching context and platform info
+            Trace.Info($"Codepage configuration [Platform:{(PlatformUtil.RunningOnWindows ? "Windows" : "Unix")}, RetainEncoding:{step.ExecutionContext.Variables.Retain_Default_Encoding}, CurrentCodepage:{Console.InputEncoding?.CodePage}]");
 
             try
             {
+                Trace.Info($"Step main execution initiated: '{step.DisplayName}'");
                 await step.RunAsync();
+                Trace.Info($"Step main execution completed successfully: '{step.DisplayName}'");
             }
             catch (OperationCanceledException ex)
             {
                 if (step.ExecutionContext.CancellationToken.IsCancellationRequested &&
                     !jobCancellationToken.IsCancellationRequested)
                 {
-                    Trace.Error($"Caught timeout exception from step: {ex.Message}");
+                    Trace.Error($"Caught timeout exception from step: Step: {step.DisplayName}, Exception: {ex.Message}, ConfiguredTimeout:{step.Timeout?.TotalMinutes ?? 0}min");
                     step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
@@ -276,33 +311,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                 {
                     PublishTelemetry(step.ExecutionContext, TaskResult.Failed.ToString(), "122");
-                    Trace.Error($"Caught Agent Shutdown exception from step: {ex.Message}");
+                    Trace.Error($"Caught Agent Shutdown exception from step: Step:'{step.DisplayName}', ShutdownReason:{HostContext.AgentShutdownReason}, Exception: {ex.Message}");
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
                 else
                 {
                     // Log the exception and cancel the step.
-                    Trace.Error($"Caught cancellation exception from step: {ex}");
+                    Trace.Error($"Caught cancellation exception from step: Step:{step.DisplayName}, CancellationSource:JobLevel, JobCancelled:{jobCancellationToken.IsCancellationRequested}");
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Canceled;
                 }
             }
             catch (Exception ex)
             {
+                Trace.Error($"Caught exception from step: - Step: '{step.DisplayName}', Exception: {ex}");
                 // Log the error and fail the step.
-                Trace.Error($"Caught exception from step: {ex}");
                 step.ExecutionContext.Error(ex);
                 step.ExecutionContext.Result = TaskResult.Failed;
             }
 
+            Trace.Info($"Async command completion wait initiated for step: '{step.DisplayName}' - Commands: {step.ExecutionContext.AsyncCommands?.Count ?? 0}");
             // Wait till all async commands finish.
             foreach (var command in step.ExecutionContext.AsyncCommands ?? new List<IAsyncCommandContext>())
             {
                 try
                 {
                     // wait async command to finish.
+                    // check this - add log to mark start of this call as well, also add required meatadata to log for it
+                    Trace.Info($"Step async command initiated [Command:{command.Name}, Step:'{step.DisplayName}', CommandType:{command.GetType().Name}]");
                     await command.WaitAsync();
+                    Trace.Info($"Step async command completion [Command:{command.Name}]");
                 }
                 catch (OperationCanceledException ex)
                 {
@@ -346,27 +385,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                 }
             }
+            Trace.Info($"Step async command summary [Step:'{step.DisplayName}', TotalCommands:{step.ExecutionContext.AsyncCommands?.Count ?? 0}, CommandResult:{step.ExecutionContext.CommandResult}]");
 
             // Merge executioncontext result with command result
             if (step.ExecutionContext.CommandResult != null)
             {
                 step.ExecutionContext.Result = TaskResultUtil.MergeTaskResults(step.ExecutionContext.Result, step.ExecutionContext.CommandResult.Value);
+                Trace.Info($"Step result merged with command result - Step: {step.DisplayName}, CommandResult:{step.ExecutionContext.CommandResult} FinalResult: {step.ExecutionContext.Result}");
             }
 
-            // Fixup the step result if ContinueOnError.
+           // Fixup the step result if ContinueOnError.
             if (step.ExecutionContext.Result == TaskResult.Failed && step.ContinueOnError)
             {
                 step.ExecutionContext.Result = TaskResult.SucceededWithIssues;
-                Trace.Info($"Updated step result: {step.ExecutionContext.Result}");
+                Trace.Info($"Step result updated due to ContinueOnError: '{step.DisplayName}', Result: Failed -> SucceededWithIssues");
             }
             else
             {
-                Trace.Info($"Step result: {step.ExecutionContext.Result}");
+                Trace.Info($"Step result: '{step.DisplayName}', Result: {step.ExecutionContext.Result}");
             }
 
             // Complete the step context.
             step.ExecutionContext.Section(StringUtil.Loc("StepFinishing", step.DisplayName));
             step.ExecutionContext.Complete();
+            Trace.Info($"Step execution summary - Step: '{step.DisplayName}', FinalResult: {step.ExecutionContext.Result}");
         }
 
         private async Task SwitchToUtf8Codepage(IStep step)
