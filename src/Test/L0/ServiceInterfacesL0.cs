@@ -61,7 +61,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(ITraceManager),
                 typeof(IThrottlingReporter),
                 typeof(ICapabilitiesProvider),
-                typeof(IDedupRecord)
+                typeof(IDedupRecord),
+                typeof(ICorrelationContext) // Marker interface for correlation ID providers, not a service
             };
             Validate(
                 assembly: typeof(IHostContext).GetTypeInfo().Assembly,
