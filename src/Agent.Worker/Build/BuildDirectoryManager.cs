@@ -256,6 +256,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.Debug($"Creating {description}: '{path}'");
                 Trace.Info($"Creating {description}.");
                 Directory.CreateDirectory(path);
+
+                // Ensure correct ownership on Linux platforms
+                if (PlatformUtil.RunningOnLinux && Directory.Exists(path))
+                {
+                    IOUtil.EnsureDirectoryOwnership(path);
+                }
             }
         }
 
