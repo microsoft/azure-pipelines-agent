@@ -73,6 +73,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             foreach (IStep step in steps)
             {
+                EnhancedCorrelationContext.SetStep(step.ExecutionContext.Id.ToString("D"));
+                if (step is ITaskRunner corrTaskStep)
+                {
+                    EnhancedCorrelationContext.SetTask(corrTaskStep.Task.Reference.Id.ToString("D"));
+                }
+
                 Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
                 ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                 ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
@@ -244,6 +250,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
 
                 Trace.Info($"Current state: job state = '{jobContext.Result}'");
+                EnhancedCorrelationContext.ClearStep();
+                EnhancedCorrelationContext.ClearTask();
             }
         }
 
@@ -378,7 +386,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                if (step.ExecutionContext.Variables.Retain_Default_Encoding != true && Console.InputEncoding.CodePage != 65001)
+                if (!step.ExecutionContext.Variables.Retain_Default_Encoding && Console.InputEncoding.CodePage != 65001)
                 {
                     using var pi = HostContext.CreateService<IProcessInvoker>();
 
