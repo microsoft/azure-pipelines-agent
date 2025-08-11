@@ -90,11 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task RunAsyncInternal()
         {
-            Trace.Info($"Task execution pipeline initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
-
-            Trace.Info($"Allow publishing telemetry for {Task.Reference.Name}@{Task.Reference.Version} task: {IsTelemetryPublishRequired()}");
 
             // Enable skip for string translator in case of checkout task.
             // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
@@ -135,7 +132,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         break;
                 };
 
-                Trace.Info($"Handler selection initiated - Stage: {Stage}, Available handlers: {currentExecution?.All?.Count ?? 0}");
                 HandlerData handlerData = GetHandlerData(ExecutionContext, currentExecution, PlatformUtil.HostOS);
 
                 if (handlerData == null)
@@ -157,7 +153,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Variables runtimeVariables = ExecutionContext.Variables;
                 IStepHost stepHost = HostContext.CreateService<IDefaultStepHost>();
                 var stepTarget = ExecutionContext.StepTarget();
-                Trace.Info($"Container target validation initiated - StepTarget: {stepTarget?.GetType()?.Name ?? "None"}");
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
@@ -201,18 +196,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         List<string> expansionWarnings;
                         runtimeVariables = new Variables(HostContext, variableCopy, out expansionWarnings);
                         expansionWarnings?.ForEach(x => ExecutionContext.Warning(x));
-                        Trace.Info($"Container target - Variable translation completed, Warnings: {expansionWarnings?.Count ?? 0}");
                     }
                     else if (handlerData is BaseNodeHandlerData || handlerData is PowerShell3HandlerData)
                     {
-                        Trace.Info($"Container target - Node/PowerShell handler detected, setting up container step host");
                         // Only the node, node10, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
                         ArgUtil.NotNullOrEmpty(containerTarget.ContainerId, nameof(containerTarget.ContainerId));
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();
                         containerStepHost.Container = containerTarget;
                         stepHost = containerStepHost;
-                        Trace.Info($"Container target - Container step host configured: '{containerTarget.ContainerName}'");
+                        Trace.Info($"Container target - Node/PowerShell handler detected, Container step host configured: '{containerTarget.ContainerName}'");
                     }
                     else
                     {
@@ -220,24 +213,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         throw new NotSupportedException(String.Format("Task '{0}' is using legacy execution handler '{1}' which is not supported in container execution flow.", definition.Data.FriendlyName, handlerData.GetType().ToString()));
                     }
                 }
-                else
-                {
-                    Trace.Info("Container target validation - No container target, using default step host");
-                }
                 
                 // Load the default input values from the definition.
-                Trace.Verbose("Loading default inputs.");
                 var inputs = LoadDefaultInputs(definition);
-                Trace.Info($"Task input logging initiated - Analyzing {inputs?.Count ?? 0} inputs for secure logging");
 
                 // Merge the instance inputs.
-                Trace.Verbose($"Loading instance inputs - Processing {Task.Inputs?.Count ?? 0} instance inputs");
                 foreach (var input in (Task.Inputs as IEnumerable<KeyValuePair<string, string>> ?? new KeyValuePair<string, string>[0]))
                 {
                     string key = input.Key?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        Trace.Verbose($"Processing instance input: '{key}' : {input.Value}");
                         if (AgentKnobs.DisableInputTrimming.GetValue(ExecutionContext).AsBoolean())
                         {
                             inputs[key] = input.Value ?? string.Empty;
@@ -249,14 +234,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
                 Trace.Info($"Instance input merging completed - Total processed inputs: {inputs?.Count ?? 0}");
-
                 // Expand the inputs.
-                Trace.Info("Variable expansion initiated - Expanding variables in task inputs");
                 bool enableVariableInputTrimmingKnob = AgentKnobs.EnableVariableInputTrimming.GetValue(ExecutionContext).AsBoolean();
                 runtimeVariables.ExpandValues(target: inputs, enableVariableInputTrimmingKnob);
-                Trace.Info("Variable expansion completed - All input variables expanded");
 
-                Trace.Info("Security validation initiated - Checking for injected task secrets");
                 // We need to verify inputs of the tasks that were injected by decorators, to check if they contain secrets,
                 // for security reasons execution of tasks in this case should be skipped.
                 // Target task inputs could be injected into the decorator's tasks if the decorator has post-task-tasks or pre-task-tasks targets,
@@ -275,7 +256,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
 
-                Trace.Info("File path translation initiated - Translating server file paths to local paths");
                 // Translate the server file path inputs to local paths.
                 foreach (var input in definition.Data?.Inputs ?? new TaskInputDefinition[0])
                 {
@@ -286,7 +266,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Trace.Verbose($"Translated file path input '{input.Name}': '{inputs[input.Name]}'");
                     }
                 }
-                Trace.Info("File path translation completed");
 
                 // Load the task environment.
                 Trace.Verbose("Loading task environment.");
@@ -296,24 +275,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string key = env.Key?.Trim() ?? string.Empty;
                     if (!string.IsNullOrEmpty(key))
                     {
-                        Trace.Verbose($"Loading environment variable: '{key}' = '{env.Value?.Trim()}'");
                         environment[key] = env.Value?.Trim() ?? string.Empty;
                     }
                 }
-                Trace.Info($"Environment setup completed - Loaded {environment?.Count ?? 0} environment variables");
 
                 // Expand the inputs.
-                Trace.Verbose("Expanding task environment.");
                 runtimeVariables.ExpandValues(target: environment);
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: environment);
 
                 // Expand the handler inputs.
-                Trace.Verbose("Handler input processing initiated - Expanding task inputs to handler format.");
                 VarUtil.ExpandValues(HostContext, source: inputs, target: handlerData.Inputs);
-                Trace.Info("Handler input processing completed");
                 runtimeVariables.ExpandValues(target: handlerData.Inputs);
 
-                Trace.Info("Service endpoint processing initiated - Extracting endpoint references");
                 // Get each endpoint ID referenced by the task.
                 var endpointIds = new List<Guid>();
                 foreach (var input in definition.Data?.Inputs ?? new TaskInputDefinition[0])
@@ -332,7 +305,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 Guid parsedId;
                                 if (Guid.TryParse(rawId.Trim(), out parsedId) && parsedId != Guid.Empty)
                                 {
-                                    Trace.Verbose($"Adding endpoint ID: {parsedId}");
                                     endpointIds.Add(parsedId);
                                 }
                             }
@@ -390,7 +362,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 Guid parsedId;
                                 if (Guid.TryParse(rawId.Trim(), out parsedId) && parsedId != Guid.Empty)
                                 {
-                                    Trace.Verbose($"Adding secure file ID: {parsedId}");
                                     secureFileIds.Add(parsedId);
                                 }
                             }
@@ -419,7 +390,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     .ToList();
                 Trace.Info($"Secure file resolution completed - Resolved {secureFiles.Count} secure files. Secure Files: {string.Join(", ", secureFiles.Select(f => f.Name))}");
 
-                Trace.Info("Output variables setup initiated - Configuring output variable definitions");
                 // Set output variables.
                 foreach (var outputVar in definition.Data?.OutputVariables ?? new OutputVariable[0])
                 {
@@ -434,7 +404,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // translate inputs
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
 
-                Trace.Info($"Handler creation initiated - Creating handler for type: {handlerData.GetType().Name}");
                 // Create the handler.
                 IHandler handler = handlerFactory.Create(
                     ExecutionContext,
@@ -500,7 +469,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 Trace.Info($"Task handler execution completed - Task: '{DisplayName}'");
             }
-            Trace.Info($"TaskRunner execution completed - Task: '{DisplayName}'");
         }
 
         private  Dictionary<string, string> LoadDefaultInputs(Definition definition)
@@ -522,7 +490,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
             }
-
+            Trace.Info($"Task input loading completed - {inputs?.Count ?? 0} inputs for available");
             return inputs;
         }
         
@@ -579,6 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)
         {
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
+            Trace.Info($"Handler selection initiated - Available handlers: {currentExecution?.All?.Count ?? 0}");
             if (currentExecution == null)
             {
                 return null;
