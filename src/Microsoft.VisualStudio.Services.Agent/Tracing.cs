@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Agent.Sdk;
 using Agent.Sdk.SecretMasking;
 
@@ -16,7 +17,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private readonly ILoggedSecretMasker _secretMasker;
         private readonly TraceSource _traceSource;
-        protected string _componentName;
 
         public Tracing(string name, ILoggedSecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
         {
