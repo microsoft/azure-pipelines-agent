@@ -116,7 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 if (e1.Properties.Count != e2.Properties.Count)
                 {
-                    hc.GetTrace("CommandEqual").Info("Logging events contain different numbers of Properties,{0} to {1}", e1.Properties.Count, e2.Properties.Count);
+                    hc.GetTrace("CommandEqual").Info($"Logging events contain different numbers of Properties,{e1.Properties.Count} to {e2.Properties.Count}");
                     return false;
                 }
 

@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (AggregateException ex)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)ex, trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, (message) => trace.Error(message));
             }
             catch (Exception ex)
             {

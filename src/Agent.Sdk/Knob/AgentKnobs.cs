@@ -827,5 +827,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
             new PipelineFeatureSource("AgentCDNConnectivityFailWarning"),
             new BuiltInDefaultKnobSource("false"));
+
+        // Enhanced Logging
+        public static readonly Knob UseEnhancedLogging = new Knob(
+            nameof(UseEnhancedLogging),
+            "If true, use structured enhanced logging format with timestamps, components, and operations",
+            new EnvironmentKnobSource("AZP_USE_ENHANCED_LOGGING"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

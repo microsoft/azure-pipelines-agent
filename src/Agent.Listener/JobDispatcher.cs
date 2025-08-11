@@ -316,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (AggregateException e)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
             }
             finally
             {
@@ -404,6 +404,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
                     }
+
+                    // Ensure worker sees the enhanced logging knob if the listener enabled it
+                    if (string.Equals(Environment.GetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING"), "true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        environment["AZP_USE_ENHANCED_LOGGING"] = "true";
+                    }
+
                     // Start the process channel.
                     // It's OK if StartServer bubbles an execption after the worker process has already started.
                     // The worker will shutdown after 30 seconds if it hasn't received the job message.
@@ -686,7 +693,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     catch (AggregateException e)
                     {
-                        ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                        ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                     }
                     finally
                     {
@@ -916,7 +923,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (SocketException ex)
             {
-                ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), Trace.Error);
+                ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), (message) => Trace.Error(message));
             }
             catch (Exception ex)
             {

@@ -51,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(message.Resources, nameof(message.Resources));
             ArgUtil.NotNull(message.Variables, nameof(message.Variables));
             ArgUtil.NotNull(message.Steps, nameof(message.Steps));
-            Trace.Info("Job ID {0}", message.JobId);
+            Trace.Info($"Job ID {message.JobId}");
 
             DateTime jobStartTimeUtc = DateTime.UtcNow;
 
@@ -419,7 +419,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (AggregateException e)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
 
                 return TaskResult.Failed;
             }
@@ -484,7 +484,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (AggregateException ex)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, (message) => Trace.Error(message));
 
                 result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
             }
@@ -557,7 +557,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (AggregateException ex)
                 {
-                    ExceptionsUtil.HandleAggregateException(ex, Trace.Error);
+                    ExceptionsUtil.HandleAggregateException(ex, (message) => Trace.Error(message));
 
                     if (throwOnFailure)
                     {
