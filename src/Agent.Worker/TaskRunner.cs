@@ -431,6 +431,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Run the task.
                 int retryCount = this.Task.RetryCountOnTaskFailure;
 
+                bool triedOnce = false;
+
                 if (retryCount > 0)
                 {
                     if (retryCount > RetryCountOnTaskFailureLimit)
@@ -439,8 +441,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         retryCount = RetryCountOnTaskFailureLimit;
                     }
 
+                    bool startContainerInRetryHelper =  false;
+                    int startContainerInRetryHelperSleepMs = 5000;
+
+                    try
+                    {
+                        startContainerInRetryHelper = AgentKnobs.StartContainerInRetryHelper.GetValue(ExecutionContext).AsBoolean();
+                        startContainerInRetryHelperSleepMs = AgentKnobs.StartContainerInRetryHelperSleepMs.GetValue(ExecutionContext).AsInt();
+                    }
+                    catch (Exception ex)
+                    {
+                        ExecutionContext.Warning("exception getting retry helper knobs" + ex);
+                    }
+
                     RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
-                    await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                    await rh.RetryStep(async () =>
+                    {
+                        if (startContainerInRetryHelper)
+                        {
+                            if (triedOnce)
+                            {
+                                ExecutionContext.Debug(StringUtil.Loc($"triedOnce = {triedOnce}"));
+                                if (stepTarget is ContainerInfo containerTarget)
+                                {
+                                    ExecutionContext.Debug(StringUtil.Loc($"triedOnce = {triedOnce}"));
+
+                                    // Check that the target container is still running, if not Skip task execution
+                                    IDockerCommandManager dockerManager = HostContext.GetService<IDockerCommandManager>();
+                                    bool isContainerRunning = await dockerManager.IsContainerRunning(ExecutionContext, containerTarget.ContainerId);
+
+                                    if (!isContainerRunning)
+                                    {
+                                        ExecutionContext.Debug(StringUtil.Loc($"triedOnce = {triedOnce}"));
+
+                                        int startExitCode = await dockerManager.DockerStart(ExecutionContext, containerTarget.ContainerId);
+                                        {
+                                            throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
+                                        }
+                                    }
+
+                                    await System.Threading.Tasks.Task.Delay(startContainerInRetryHelperSleepMs);
+                                }
+                            }
+                            else
+                            {
+                                triedOnce = true;
+                            }
+                        }
+
+                        await handler.RunAsync();
+                    }, RetryHelper.ExponentialDelay);
                 }
                 else
                 {
@@ -449,7 +499,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private  Dictionary<string, string> LoadDefaultInputs(Definition definition)
+        private Dictionary<string, string> LoadDefaultInputs(Definition definition)
         {
             Trace.Verbose("Loading default inputs.");
             var inputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -471,7 +521,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             return inputs;
         }
-        
+
         public async Task VerifyTask(ITaskManager taskManager, Definition definition)
         {
             // Verify task signatures if a fingerprint is configured for the Agent.

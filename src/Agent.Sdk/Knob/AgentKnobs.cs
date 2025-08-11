@@ -827,5 +827,19 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
             new PipelineFeatureSource("AgentCDNConnectivityFailWarning"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob StartContainerInRetryHelper = new Knob(
+            nameof(StartContainerInRetryHelper),
+            "If true, the agent will create docker container with the --init option.",
+            new RuntimeKnobSource("AZP_AGENT_START_CONTAINER_IN_RETRYHELPER"),
+            new EnvironmentKnobSource("AZP_AGENT_START_CONTAINER_IN_RETRYHELPER"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob StartContainerInRetryHelperSleepMs = new Knob(
+            nameof(StartContainerInRetryHelperSleepMs),
+            "If true, the agent will create docker container with the --init option.",
+            new RuntimeKnobSource("START_CONTAINER_RETRYHELPER_SLEEP_MS"),
+            new EnvironmentKnobSource("START_CONTAINER_RETRYHELPER_SLEEP_MS"),
+            new BuiltInDefaultKnobSource("5000"));
     }
 }
