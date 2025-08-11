@@ -84,11 +84,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (IStep step in steps)
                 {
                     Trace.Info($"Processing step {stepIndex + 1}/{steps.Count}: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
-                    jobContext.SetCorrelationStep(step.ExecutionContext.Id.ToString("D"));
+                    jobContext.SetCorrelationStep(step.ExecutionContext.Id.ToString());
                     
                     if (step is ITaskRunner corrTaskStep)
                     {
-                        jobContext.SetCorrelationTask(corrTaskStep.Task.Reference.Id.ToString("D"));
+                        jobContext.SetCorrelationTask(corrTaskStep.Task.Reference.Id.ToString());
                     }
 
                     Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
