@@ -277,9 +277,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 startIndex: typeof(Tests.TestHostContext).FullName.LastIndexOf(nameof(TestHostContext)));
             var testName = testMethod.Replace(".", "_");
 
+            // Use a unique suffix to prevent parallel runs from sharing the same log file
+            var unique = Guid.NewGuid().ToString("N");
             return Path.Combine(
-               Path.Combine(TestUtil.GetSrcPath(), "Test", "TestLogs"),
-               $"trace_{suiteName}_{testName}.log");
+              Path.Combine(TestUtil.GetSrcPath(), "Test", "TestLogs"),
+              $"trace_{suiteName}_{testName}_{unique}.log");
         }
 
         private async Task SetupMessage(HostContext context, Pipelines.AgentJobRequestMessage message)

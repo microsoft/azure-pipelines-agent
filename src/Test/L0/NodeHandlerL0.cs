@@ -12,7 +12,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
 using Xunit;
 using Agent.Sdk;
-using Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -71,7 +70,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             ResetNodeKnobs();
 
-            using (TestHostContext thc = CreateTestHostContext())
+            // Use a unique test name per data row to avoid sharing the same trace file across parallel runs
+            using (TestHostContext thc = CreateTestHostContext($"{nameof(UseNewNodeForNewNodeHandler)}_{nodeVersion}"))
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                 thc.SetSingleton(new ExtensionManager() as IExtensionManager);

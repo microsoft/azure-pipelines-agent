@@ -316,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         catch (SocketException ex)
                         {
-                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, Trace.Warning);
+                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, (message) => Trace.Warning(message));
                         }
                         catch (Exception ex)
                         {

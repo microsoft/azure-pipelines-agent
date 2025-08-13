@@ -17,6 +17,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Knob;
+using System.Runtime.CompilerServices;
 
 namespace Agent.Sdk
 {
@@ -150,13 +151,13 @@ namespace Agent.Sdk
             return value;
         }
 
-        public void Info(string message)
+        public void Info(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
             Debug(message);
         }
 
-        public void Verbose(string message)
+        public void Verbose(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
 #if DEBUG

@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (SocketException ex)
                 {
-                    ExceptionsUtil.HandleSocketException(ex, downloadUrl, Tracer.Warning);
+                    ExceptionsUtil.HandleSocketException(ex, downloadUrl, (message) => Tracer.Warning(message));
                 }
                 catch (Exception ex)
                 {

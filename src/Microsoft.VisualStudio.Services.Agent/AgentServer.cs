@@ -112,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (SocketException ex)
                     {
-                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), (msg) => Trace.Error(msg));
                         newConnection?.Dispose();
                     }
                     catch (Exception ex)
@@ -137,7 +137,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (SocketException ex)
                     {
-                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), (msg) => Trace.Error(msg));
                         newConnection?.Dispose();
                     }
                     catch (Exception ex)
@@ -162,7 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (SocketException ex)
                     {
-                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), Trace.Error);
+                        ExceptionsUtil.HandleSocketException(ex, _requestConnection.Uri.ToString(), (msg) => Trace.Error(msg));
                         newConnection?.Dispose();
                     }
                     catch (Exception ex)

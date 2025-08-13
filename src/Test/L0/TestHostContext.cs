@@ -66,7 +66,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             if (File.Exists(TraceFileName))
             {
-                File.Delete(TraceFileName);
+                try
+                {
+                    File.Delete(TraceFileName);
+                }
+                catch (IOException)
+                {
+                    // If another parallel test still holds the file open, fall back to a unique name
+                    string dir = Path.GetDirectoryName(TraceFileName);
+                    string name = Path.GetFileNameWithoutExtension(TraceFileName);
+                    string ext = Path.GetExtension(TraceFileName);
+                    TraceFileName = Path.Combine(dir, $"{name}_{Guid.NewGuid():N}{ext}");
+                }
             }
 
             var traceListener = new HostTraceListener(TraceFileName);
@@ -76,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, origin: "Test");
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
             _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
-            _traceManager = new TraceManager(traceListener, _secretMasker);
+            _traceManager = new TraceManager(traceListener, _secretMasker, this);
             _trace = GetTrace(nameof(TestHostContext));
             _secretMasker.SetTrace(_trace);
 

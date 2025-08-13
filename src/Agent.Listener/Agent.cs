@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Agent.Sdk.Knob;
+using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -350,6 +351,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
+        private async Task InitializeRuntimeFeatures()
+        {
+            try
+            {
+                Trace.Info("Initializing runtime features from feature flags");
+
+                var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                var traceManager = HostContext.GetService<ITraceManager>();
+
+                // Check enhanced logging feature flag
+                var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
+                bool enhancedLoggingEnabled = string.Equals(enhancedLoggingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
+                Trace.Info($"Enhanced logging feature flag is {(enhancedLoggingEnabled ? "enabled" : "disabled")}");
+                // Set the result on TraceManager - this automatically switches all trace sources
+                traceManager.SetEnhancedLoggingEnabled(enhancedLoggingEnabled);
+
+                // Ensure child processes (worker/plugin) pick up enhanced logging via knob
+                Environment.SetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING", enhancedLoggingEnabled ? "true" : null);
+
+                Trace.Info("Runtime features initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                // Don't fail the agent if feature flag check fails
+                Trace.Warning($"Runtime features initialization failed, using defaults: {ex}");
+            }
+        }
+
         //create worker manager, create message listener and start listening to the queue
         private async Task<int> RunAsync(AgentSettings settings, bool runOnce = false)
         {
@@ -375,6 +405,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 HostContext.WritePerfCounter("SessionCreated");
+
+                // Check feature flags for enhanced logging and other runtime features
+                await InitializeRuntimeFeatures();
+
                 _term.WriteLine(StringUtil.Loc("ListenForJobs", DateTime.UtcNow));
 
                 IJobDispatcher jobDispatcher = null;
@@ -565,7 +599,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         catch (AggregateException e)
                         {
-                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                         }
                         finally
                         {
