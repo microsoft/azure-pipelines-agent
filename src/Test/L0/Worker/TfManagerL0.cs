@@ -37,6 +37,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             string vstsomPath = Path.Combine(externalsPath, VstsomLegacy);
             string vstsHostPath = Path.Combine(externalsPath, VstsHostLegacy);
 
+            // Pre-seed expected directories to avoid network dependency in unit tests.
+            // TfManager will detect presence and skip download; assertions remain valid.
+            Directory.CreateDirectory(tfPath);
+            File.WriteAllText(Path.Combine(tfPath, "TF.exe"), string.Empty);
+            Directory.CreateDirectory(vstsomPath);
+            File.WriteAllText(Path.Combine(vstsomPath, "TF.exe"), string.Empty);
+            Directory.CreateDirectory(vstsHostPath);
+            File.WriteAllText(Path.Combine(vstsHostPath, "LegacyVSTSPowerShellHost.exe"), string.Empty);
+
             // Act
             await TfManager.DownloadLegacyTfToolsAsync(executionContext.Object);
 

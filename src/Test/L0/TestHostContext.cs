@@ -66,7 +66,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             if (File.Exists(TraceFileName))
             {
-                File.Delete(TraceFileName);
+                try
+                {
+                    File.Delete(TraceFileName);
+                }
+                catch (IOException)
+                {
+                    // If another parallel test still holds the file open, fall back to a unique name
+                    string dir = Path.GetDirectoryName(TraceFileName);
+                    string name = Path.GetFileNameWithoutExtension(TraceFileName);
+                    string ext = Path.GetExtension(TraceFileName);
+                    TraceFileName = Path.Combine(dir, $"{name}_{Guid.NewGuid():N}{ext}");
+                }
             }
 
             var traceListener = new HostTraceListener(TraceFileName);

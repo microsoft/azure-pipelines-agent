@@ -7,7 +7,6 @@ using System.Globalization;
 
 using Agent.Sdk.SecretMasking;
 using Microsoft.Security.Utilities;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -61,7 +60,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             int largeNumber = 99999;
             string knownSecret = $"TEST{largeNumber}";
             string inputWithKnownSecret = $"Known secret added as a value that also matches a rule: {knownSecret}";
-            ossMasker.AddValue(knownSecret);
+            // Add the known secret through the wrapper to avoid depending on
+            // the underlying masker instance after Create(). This keeps the
+            // test resilient if Create() ever changes ownership semantics.
+            lsm.AddValue(knownSecret, origin: "test");
             lsm.MaskSecrets(inputWithKnownSecret);
             stringsScanned++;
             charsScanned += inputWithKnownSecret.Length;
