@@ -47,6 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             ArgUtil.NotNull(command, nameof(command));
             try
             {
+                Trace.Verbose("Initializing core services...");
                 var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
                 var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
                 VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
@@ -59,7 +60,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 HostContext.Unloading += Agent_Unloading;
 
                 // TODO Unit test to cover this logic
-                Trace.Info(nameof(ExecuteCommand));
                 var configManager = HostContext.GetService<IConfigurationManager>();
 
                 // command is not required, if no command it just starts if configured
@@ -150,6 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // this will optimizes the agent process startup time.
                 if (command.IsWarmupCommand())
                 {
+                    Trace.Info("Starting agent warmup process - pre-loading assemblies for optimal performance");
                     var binDir = HostContext.GetDirectory(WellKnownDirectory.Bin);
                     foreach (var assemblyFile in Directory.EnumerateFiles(binDir, "*.dll"))
                     {
@@ -185,9 +186,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                     }
 
+                    Trace.Info("Agent warmup completed successfully - assemblies pre-loaded");
                     return Constants.Agent.ReturnCode.Success;
                 }
 
+                Trace.Info("Loading agent configuration from settings store");
                 AgentSettings settings = configManager.LoadSettings();
 
                 var store = HostContext.GetService<IConfigurationStore>();
@@ -200,12 +203,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Error if agent not configured.
                 if (!configManager.IsConfigured())
                 {
+                    Trace.Error("Agent configuration not found - agent needs to be configured before running");
                     _term.WriteError(StringUtil.Loc("AgentIsNotConfigured"));
                     PrintUsage(command);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
-                Trace.Verbose($"Configured as service: '{configuredAsService}'");
+                Trace.Verbose($"Agent configuration loaded successfully, Configured as service: '{configuredAsService}'");
 
                 //Get the startup type of the agent i.e., autostartup, service, manual
                 StartupType startType;
@@ -355,7 +359,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             try
             {
-                Trace.Info(nameof(RunAsync));
+                Trace.Info($"Entering main agent execution loop({0})", nameof(RunAsync));
 
                 var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                 var checkPsModulesFeatureFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.CheckPsModulesLocations", Trace);
@@ -371,13 +375,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
 
+                Trace.Info("Initializing message listener - establishing connection to Azure DevOps");
                 _listener = HostContext.GetService<IMessageListener>();
                 if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
                 {
+                    Trace.Error("Failed to create session with Azure DevOps");
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
                 HostContext.WritePerfCounter("SessionCreated");
+                Trace.Info("Session created successfully - agent is now listening for jobs");
                 _term.WriteLine(StringUtil.Loc("ListenForJobs", DateTime.UtcNow));
 
                 IJobDispatcher jobDispatcher = null;
@@ -385,6 +392,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 CancellationTokenSource keepAliveToken = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken);
                 try
                 {
+                    Trace.Info("Initializing job notification service for real-time updates");
                     var notification = HostContext.GetService<IJobNotification>();
                     if (!String.IsNullOrEmpty(settings.NotificationSocketAddress))
                     {
@@ -393,7 +401,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     else
                     {
                         notification.StartClient(settings.NotificationPipeName, settings.MonitorSocketAddress, HostContext.AgentShutdownToken);
-                    }
+                    }                    
                     // this is not a reliable way to disable auto update.
                     // we need server side work to really enable the feature
                     // https://github.com/Microsoft/vsts-agent/issues/446 (Feature: Allow agent / pool to opt out of automatic updates)
@@ -406,12 +414,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     _ = _listener.KeepAlive(keepAliveToken.Token);
 
+                    Trace.Info("Starting message processing loop - agent ready to receive jobs");
                     while (!HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         TaskAgentMessage message = null;
                         bool skipMessageDeletion = false;
                         try
                         {
+                            Trace.Info("Next message wait initiated - Agent ready to receive next message from server");
                             Task<TaskAgentMessage> getNextMessage = _listener.GetNextMessageAsync(messageQueueLoopTokenSource.Token);
                             if (autoUpdateInProgress)
                             {
@@ -487,12 +497,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
 
                             message ??= await getNextMessage; //get next message
+                            Trace.Info($"Next message wait completed - Received message from server: {message.MessageType}");
                             HostContext.WritePerfCounter($"MessageReceived_{message.MessageType}");
                             if (string.Equals(message.MessageType, AgentRefreshMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
                                 if (disableAutoUpdate)
                                 {
-                                    Trace.Info("Refresh message received, skip autoupdate since environment variable agent.disableupdate is set.");
+                                    Trace.Info("Auto-update handling - Refresh message received but skipping autoupdate since agent.disableupdate is set");
                                 }
                                 else
                                 {
@@ -502,11 +513,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         var agentUpdateMessage = JsonUtility.FromString<AgentRefreshMessage>(message.Body);
                                         var selfUpdater = HostContext.GetService<ISelfUpdater>();
                                         selfUpdateTask = selfUpdater.SelfUpdate(agentUpdateMessage, jobDispatcher, !runOnce && HostContext.StartupType != StartupType.Service, HostContext.AgentShutdownToken);
-                                        Trace.Info("Refresh message received, kick-off selfupdate background process.");
+                                        Trace.Info("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion);
                                     }
                                     else
                                     {
-                                        Trace.Info("Refresh message received, skip autoupdate since a previous autoupdate is already running.");
+                                        Trace.Info("Agent update message received, skip autoupdate since a previous autoupdate is already running.");
                                     }
                                 }
                             }
@@ -529,14 +540,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     switch (message.MessageType)
                                     {
                                         case JobRequestMessageTypes.AgentJobRequest:
+                                            Trace.Verbose("Converting legacy job message format to pipeline format");
                                             var legacyJobMessage = JsonUtility.FromString<AgentJobRequestMessage>(message.Body);
                                             pipelineJobMessage = Pipelines.AgentJobRequestMessageUtil.Convert(legacyJobMessage);
                                             break;
                                         case JobRequestMessageTypes.PipelineAgentJobRequest:
+                                            Trace.Verbose("Processing pipeline job message for execution");
                                             pipelineJobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(message.Body);
                                             break;
                                     }
 
+                                    Trace.Info("Dispatching job to worker process for execution");
                                     jobDispatcher.Run(pipelineJobMessage, runOnce);
                                     if (runOnce)
                                     {
@@ -547,6 +561,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
                             else if (string.Equals(message.MessageType, JobCancelMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
+                                Trace.Verbose("Processing job cancellation request from Azure DevOps");
                                 var cancelJobMessage = JsonUtility.FromString<JobCancelMessage>(message.Body);
                                 bool jobCancelled = jobDispatcher.Cancel(cancelJobMessage);
                                 skipMessageDeletion = (autoUpdateInProgress || runOnceJobReceived) && !jobCancelled;
@@ -558,6 +573,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
                             else if (string.Equals(message.MessageType, JobMetadataMessage.MessageType, StringComparison.OrdinalIgnoreCase))
                             {
+                                Trace.Info("Processing job metadata update from Azure DevOps");
                                 var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(message.Body);
                                 jobDispatcher.MetadataUpdate(metadataMessage);
                             }
@@ -568,15 +584,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         catch (AggregateException e)
                         {
+                            Trace.Error($"Exception occurred while processing message from queue: {e.Message}");
                             ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
                         }
                         finally
                         {
                             if (!skipMessageDeletion && message != null)
                             {
+                                Trace.Info($"Message deletion from queue initiated - Deleting processed message: {message.MessageId}");
                                 try
                                 {
                                     await _listener.DeleteMessageAsync(message);
+                                    Trace.Info($"Message deletion completed - Message {message.MessageId} successfully removed from queue");
                                 }
                                 catch (Exception ex)
                                 {
@@ -585,21 +604,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 }
                                 finally
                                 {
+                                    Trace.Info("Message cleanup completed - Message reference cleared, ready for next message");
                                     message = null;
                                 }
+                            }
+                            else
+                            {
+                                Trace.Info("Message deletion skipped - Either skip flag set or no message to delete");
                             }
                         }
                     }
                 }
                 finally
                 {
+                    Trace.Info("Beginning agent shutdown sequence - cleaning up resources");
                     keepAliveToken.Dispose();
 
                     if (jobDispatcher != null)
                     {
+                        Trace.Info("Shutting down job dispatcher - terminating active jobs");
                         await jobDispatcher.ShutdownAsync();
                     }
 
+                    Trace.Info("Cleaning up agent listener session - disconnecting from Azure DevOps");
                     //TODO: make sure we don't mask more important exception
                     await _listener.DeleteSessionAsync();
 
@@ -608,9 +635,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (TaskAgentAccessTokenExpiredException)
             {
-                Trace.Info("Agent OAuth token has been revoked. Shutting down.");
+                Trace.Info("Agent OAuth token has been revoked - shutting down gracefully");
             }
 
+            Trace.Info("Agent run completed successfully - exiting with success code");
             return Constants.Agent.ReturnCode.Success;
         }
 
@@ -621,7 +649,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 ext = "cmd";
             }
-
             string commonHelp = StringUtil.Loc("CommandLineHelp_Common");
             string envHelp = StringUtil.Loc("CommandLineHelp_Env");
             if (command.IsConfigureCommand())

@@ -91,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 CheckAgentRootDirectorySecure();
             }
 
-            Trace.Info(nameof(ConfigureAsync));
+            Trace.Info($"Agent configuration initiated - OS: {PlatformUtil.HostOS}, Architecture: {PlatformUtil.HostArchitecture}, AgentVersion: {BuildConstants.AgentPackage.Version}");
             if (IsConfigured())
             {
                 throw new InvalidOperationException(StringUtil.Loc("AlreadyConfiguredError"));
@@ -143,12 +143,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             // Create the configuration provider as per agent type.
             string agentType = GetAgentTypeFromCommand(command);
+            Trace.Info($"Agent type determined from command - Type: '{agentType}', IsDeploymentGroup: {command.GetDeploymentOrMachineGroup()}, IsEnvironmentVM: {command.GetEnvironmentVMResource()}");
 
             var extensionManager = HostContext.GetService<IExtensionManager>();
             IConfigurationProvider agentProvider =
                 (extensionManager.GetExtensions<IConfigurationProvider>())
                 .FirstOrDefault(x => x.ConfigurationProviderType == agentType);
             ArgUtil.NotNull(agentProvider, agentType);
+            Trace.Info($"Configuration provider resolved - Provider: '{agentProvider.GetType().Name}' for agent type: '{agentType}'");
 
             bool isHostedServer = false;
             // Loop getting url and creds until you can connect
@@ -160,14 +162,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 // Get the URL
                 agentProvider.GetServerUrl(agentSettings, command);
+                Trace.Info($"Server URL configured - URL: '{agentSettings.ServerUrl}', IsUnattended: {command.Unattended()}");
 
                 // Get the credentials
                 credProvider = GetCredentialProvider(command, agentSettings.ServerUrl);
                 Trace.Info("cred retrieved");
                 try
                 {
-                    bool skipCertValidation = command.GetSkipCertificateValidation();
+                    bool skipCertValidation = command.GetSkipCertificateValidation();                    
                     isHostedServer = await CheckIsHostedServer(agentProvider, agentSettings, credProvider, skipCertValidation);
+                    Trace.Info($"Server type detection completed - IsHostedServer: {isHostedServer}");
 
                     // Get the collection name for deployment group
                     agentProvider.GetCollectionName(agentSettings, command, isHostedServer);
@@ -226,6 +230,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 try
                 {
                     await agentProvider.GetPoolIdAndName(agentSettings, command);
+                    Trace.Info($"Pool resolution successful - PoolId: {agentSettings.PoolId}, PoolName: '{agentSettings.PoolName}'");
                     break;
                 }
                 catch (Exception e) when (!command.Unattended())
@@ -239,20 +244,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             while (true)
             {
                 agentSettings.AgentName = command.GetAgentName();
+                Trace.Info($"Agent registration attempt - Name: '{agentSettings.AgentName}', Pool: '{agentSettings.PoolName}' (ID: {agentSettings.PoolId}), ReplaceMode: {command.GetReplace()}");
 
                 // Get the system capabilities.
                 // TODO: Hook up to ctrl+c cancellation token.
                 _term.WriteLine(StringUtil.Loc("ScanToolCapabilities"));
                 Dictionary<string, string> systemCapabilities = await HostContext.GetService<ICapabilitiesManager>().GetCapabilitiesAsync(agentSettings, CancellationToken.None);
+                Trace.Info($"System capabilities scan completed - Found {systemCapabilities.Count} capabilities: [{string.Join(", ", systemCapabilities.Take(5).Select(kvp => $"{kvp.Key}={kvp.Value}"))}...]");
 
                 _term.WriteLine(StringUtil.Loc("ConnectToServer"));
                 agent = await agentProvider.GetAgentAsync(agentSettings);
                 if (agent != null)
                 {
+                    Trace.Info($"Existing agent found - AgentId: {agent.Id}, Version: '{agent.Version}', Status: '{agent.Status}', LastRequestTime: {agent.StatusChangedOn}");
                     _term.WriteLine(StringUtil.Loc("AgentWithSameNameAlreadyExistInPool", agentSettings.PoolName, agentSettings.AgentName));
 
                     if (command.GetReplace())
                     {
+                        Trace.Info("Replace mode enabled - updating existing agent with new configuration");
                         // Update existing agent with new PublicKey, agent version and SystemCapabilities.
                         agent = UpdateExistingAgent(agent, publicKey, systemCapabilities);
                         agent = await UpdateAgentWithRetryAsync<TaskAgent>(
@@ -262,17 +271,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         if (agent != null)
                         {
                             _term.WriteLine(StringUtil.Loc("AgentReplaced"));
+                            Trace.Info($"Agent replacement successful - AgentId: {agent.Id}, NewVersion: '{agent.Version}'");
                             break;
                         }
                     }
                     else if (command.Unattended())
                     {
+                        Trace.Error($"Agent already exists in unattended mode - AgentId: {agent.Id}, AgentName: '{agentSettings.AgentName}'");
                         // if not replace and it is unattended config.
                         agentProvider.ThrowTaskAgentExistException(agentSettings);
                     }
                 }
                 else
                 {
+                    Trace.Info("No existing agent found - creating new agent registration");
                     // Create a new agent.
                     agent = CreateNewAgent(agentSettings.AgentName, publicKey, systemCapabilities);
 
@@ -453,6 +465,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 Trace.Warning($"Unable to publish credential type telemetry data. Exception: {ex}");
             }
+            Trace.Info($"Agent configuration completed successfully - AgentId: {agentSettings.AgentId}, AgentName: '{agentSettings.AgentName}', Pool: '{agentSettings.PoolName}', ServerUrl: '{agentSettings.ServerUrl}'");
         }
 
         private async Task<T> UpdateAgentWithRetryAsync<T>(
