@@ -303,7 +303,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         [SupportedOSPlatform("windows")]
         protected bool PsModulePathContainsPowershellCoreLocations()
         {
-            bool checkLocationsKnob = AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean();
+            bool checkLocationsKnob = AgentKnobs.CheckPsModulesLocations.GetValue(ExecutionContext).AsBoolean();
 
             bool isPwshCore = Inputs.TryGetValue("pwsh", out string pwsh) && StringUtil.ConvertToBoolean(pwsh);
 

@@ -770,6 +770,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob CheckPsModulesLocations = new Knob(
             nameof(CheckPsModulesLocations),
             "Checks if the PSModulePath environment variable contains locations specific to PowerShell Core.",
+            new RuntimeKnobSource("DistributedTask.Agent.CheckPsModulesLocations"),
             new EnvironmentKnobSource("AZP_AGENT_CHECK_PSMODULES_LOCATIONS"),
             new BuiltInDefaultKnobSource("false"));
 
