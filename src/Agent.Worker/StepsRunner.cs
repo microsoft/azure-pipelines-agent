@@ -220,7 +220,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!conditionResult.Value && conditionEvaluateError == null)
                     {
                         // Condition == false
-                        Trace.Info($"Step skipped due to condition evaluation [Step: '{step.DisplayName}', Reason:ConditionFalse, Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
+                        string skipStepMessage = "Skipping step due to condition evaluation.";
+                        Trace.Info(skipStepMessage + $"[Step: '{step.DisplayName}', Reason:ConditionFalse, Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
                         step.ExecutionContext.Output($"{skipStepMessage}\n{conditionResult.Trace}");
                         step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: skipStepMessage);
                         continue;
