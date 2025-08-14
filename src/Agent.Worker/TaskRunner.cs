@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1505
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using System;
@@ -90,6 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         private async Task RunAsyncInternal()
         {
+            Trace.Info($"Task execution pipeline initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
 
@@ -218,6 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var inputs = LoadDefaultInputs(definition);
 
                 // Merge the instance inputs.
+                Trace.Info($"Loading instance inputs - Processing {Task.Inputs?.Count ?? 0} instance inputs");
                 foreach (var input in (Task.Inputs as IEnumerable<KeyValuePair<string, string>> ?? new KeyValuePair<string, string>[0]))
                 {
                     string key = input.Key?.Trim() ?? string.Empty;
@@ -231,6 +234,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             inputs[key] = input.Value?.Trim() ?? string.Empty;
                         }
+                        Trace.Info($"Processing instance input: '{key}' : {inputs[key]}");
                     }
                 }
                 Trace.Info($"Instance input merging completed - Total processed inputs: {inputs?.Count ?? 0}");
@@ -276,8 +280,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!string.IsNullOrEmpty(key))
                     {
                         environment[key] = env.Value?.Trim() ?? string.Empty;
+                        Trace.Info($"Loading environment variable: '{key}' = '{environment[key]}'");
                     }
                 }
+                Trace.Info($"Environment setup completed - Loaded {environment?.Count ?? 0} environment variables");
 
                 // Expand the inputs.
                 runtimeVariables.ExpandValues(target: environment);

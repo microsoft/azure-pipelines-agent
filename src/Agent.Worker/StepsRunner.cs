@@ -59,22 +59,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             jobContext.Variables.Agent_JobStatus = jobContext.Result ?? TaskResult.Succeeded;
             Trace.Info($"Async command completion wait initiated - processing {jobContext.AsyncCommands?.Count ?? 0} pending commands");
             // Wait till all async commands finish.
+            int successfulCommandCount = 0;
             foreach (var command in jobContext.AsyncCommands ?? new List<IAsyncCommandContext>())
             {
                 try
                 {
                     // wait async command to finish.
+                    Trace.Info($"Async command initiated [Command:{command.Name}, CommandType:{command.GetType().Name}]");
                     await command.WaitAsync();
+                    successfulCommandCount++;
                     Trace.Info($"Async command completed successfully: {command.Name}");
                 }
 
                 catch (Exception ex)
                 {
                     // Log the error
-                    Trace.Error($"Async command failed during job initialization [Command:{command.Name}, JobId:{jobContext.Variables.System_JobId}, Error:{ex.Message}]");
+                    Trace.Info($"Async command failed during job initialization [Command:{command.Name}, JobId:{jobContext.Variables.System_JobId}, Error:{ex.Message}]");
                 }
             }
-            Trace.Info("Async command completion wait finished - all commands processed");
+            Trace.Info($"Async command completion wait finished - {successfulCommandCount} commands processed");
             Trace.Info("Step iteration loop initiated - beginning sequential step processing");
             foreach (IStep step in steps)
             {
@@ -101,7 +104,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Change the current job context to the step context.
                 var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
                 resourceDiagnosticManager.SetContext(step.ExecutionContext);
-                Trace.Info($"Resource diagnostic context switched [Step:'{step.DisplayName}', DiagnosticManagerActive:True]");
 
                 // Variable expansion.
                 step.ExecutionContext.SetStepTarget(step.Target);
