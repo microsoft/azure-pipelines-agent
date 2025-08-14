@@ -33,6 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+            ProxyUtil.SetDefaultHttpClientProxy(agentWebProxy.WebProxy);
             VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
