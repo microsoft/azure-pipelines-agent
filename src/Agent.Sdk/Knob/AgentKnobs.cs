@@ -799,7 +799,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("ADD_FORCE_CREDENTIALS_TO_GIT_CHECKOUT"),
             new PipelineFeatureSource(nameof(AddForceCredentialsToGitCheckout)),
             new BuiltInDefaultKnobSource("false"));
-      
+
         public static readonly Knob InstallLegacyTfExe = new Knob(
             nameof(InstallLegacyTfExe),
             "If true, the agent will install the legacy versions of TF, vstsom and vstshost",
@@ -827,6 +827,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
             new EnvironmentKnobSource("AGENT_CDN_CONNECTIVITY_FAIL_WARNING"),
             new PipelineFeatureSource("AgentCDNConnectivityFailWarning"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CheckBeforeRetryDockerStart = new Knob(
+            nameof(CheckBeforeRetryDockerStart),
+            "If true, the agent will check if container is running before retrying a Docker start command.",
+            new PipelineFeatureSource("CheckBeforeRetryDockerStart"),
+            new EnvironmentKnobSource("AGENT_CHECK_BEFORE_RETRY_DOCKER_START"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
