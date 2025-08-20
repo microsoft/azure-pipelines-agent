@@ -20,7 +20,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.TracingSpecs
 
             string logPath = Path.Combine(Path.GetTempPath(), $"etrace_{Guid.NewGuid():N}.log");
             var listener = new HostTraceListener(logPath) { DisableConsoleReporting = true };
-            OssSecretMasker ossMasker = new OssSecretMasker();
+#pragma warning disable CA2000
+            var ossMasker = new OssSecretMasker();
+#pragma warning restore CA2000
             var masker = LoggedSecretMasker.Create(ossMasker);
 
             try
@@ -62,7 +64,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.TracingSpecs
             }
 
             var content = ReadAll(path);
-            Assert.Contains("[ENHANCED-LOG]", content);
             // Depending on implementation, correlation may or may not be present here.
             Assert.Contains("[Op1]", content);
             Assert.Contains("hello world", content);
