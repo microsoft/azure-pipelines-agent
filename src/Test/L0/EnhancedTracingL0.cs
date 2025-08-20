@@ -20,9 +20,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.TracingSpecs
 
             string logPath = Path.Combine(Path.GetTempPath(), $"etrace_{Guid.NewGuid():N}.log");
             var listener = new HostTraceListener(logPath) { DisableConsoleReporting = true };
-#pragma warning disable CA2000 // Dispose objects before losing scope. LoggedSecretMasker takes ownership.
-            var masker = LoggedSecretMasker.Create(new OssSecretMasker());
+#pragma warning disable CA2000
+            var ossMasker = new OssSecretMasker();
 #pragma warning restore CA2000
+            var masker = LoggedSecretMasker.Create(ossMasker);
+
             try
             {
                 using var ctx = new TestHostContext(new object());
