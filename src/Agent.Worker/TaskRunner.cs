@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1505
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using System;
@@ -63,6 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
             ArgUtil.NotNull(Task, nameof(Task));
+            Trace.Info($"Task execution initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
 
             bool logTaskNameInUserAgent = AgentKnobs.LogTaskNameInUserAgent.GetValue(ExecutionContext).AsBoolean();
 
@@ -73,23 +75,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
+                Trace.Info($"Core task execution initiated - transitioning to RunAsyncInternal()");
                 await RunAsyncInternal();
+                Trace.Info($"Core task execution completed successfully - Task: '{DisplayName}'");
             }
             finally
             {
                 if (logTaskNameInUserAgent)
                 {
                     VssUtil.RemoveTaskFromAgentInfo();
+                    Trace.Info($"Task information removed from user agent - Task: '{DisplayName}'");
                 }
             }
         }
 
         private async Task RunAsyncInternal()
         {
+            Trace.Info($"Task execution pipeline initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
             var taskManager = HostContext.GetService<ITaskManager>();
             var handlerFactory = HostContext.GetService<IHandlerFactory>();
-
-            Trace.Info($"Allow publishing telemetry for {Task.Reference.Name}@{Task.Reference.Version} task: {IsTelemetryPublishRequired()}");
 
             // Enable skip for string translator in case of checkout task.
             // It's required for support of multiply checkout tasks with repo alias "self" in container jobs. Reported in issue 3520.
@@ -104,6 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 scope.Set(WellKnownDistributedTaskVariables.TaskDisplayName, DisplayName);
                 scope.Set(WellKnownDistributedTaskVariables.TaskInstanceName, Task.Name);
 
+                Trace.Info($"Task definition loading initiated - Task: '{Task.Reference.Name}@{Task.Reference.Version}', TaskId: '{Task.Reference.Id}', Stage: '{Stage}'");
                 // Load the task definition and choose the handler.
                 // TODO: Add a try catch here to give a better error message.
                 Definition definition = taskManager.Load(Task);
@@ -133,6 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (handlerData == null)
                 {
+                    Trace.Error($"Handler selection failed - No suitable handler found for platform {PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})");
                     if (PlatformUtil.RunningOnWindows)
                     {
                         throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
@@ -140,7 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
                 }
-                Trace.Info($"Handler data is of type {handlerData}");
+                Trace.Info($"Handler selected successfully - Type: {handlerData}");
                 if (!AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
                 {
                     PublishTelemetry(definition, handlerData);
@@ -152,6 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Setup container stephost and the right runtime variables for running job inside container.
                 if (stepTarget is ContainerInfo containerTarget)
                 {
+                    Trace.Info($"Container target detected - ContainerName: '{containerTarget.ContainerName}', ContainerId: '{containerTarget.ContainerId}'");
                     if (Stage == JobRunStage.PostJob
                         && AgentKnobs.SkipPostExeceutionIfTargetContainerStopped.GetValue(ExecutionContext).AsBoolean())
                     {
@@ -176,6 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (handlerData is AgentPluginHandlerData)
                     {
+                        Trace.Info($"Container target - Agent plugin handler detected, translating paths for host execution");
                         // plugin handler always runs on the Host, the runtime variables needs to the variable works on the Host, ex: file path variable System.DefaultWorkingDirectory
                         Dictionary<string, VariableValue> variableCopy = new Dictionary<string, VariableValue>(StringComparer.OrdinalIgnoreCase);
                         foreach (var publicVar in ExecutionContext.Variables.Public)
@@ -199,19 +207,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         var containerStepHost = HostContext.CreateService<IContainerStepHost>();
                         containerStepHost.Container = containerTarget;
                         stepHost = containerStepHost;
+                        Trace.Info($"Container target - Node/PowerShell handler detected, Container step host configured: '{containerTarget.ContainerName}'");
                     }
                     else
                     {
+                        Trace.Error($"Container target - Unsupported handler type: {handlerData.GetType()}");
                         throw new NotSupportedException(String.Format("Task '{0}' is using legacy execution handler '{1}' which is not supported in container execution flow.", definition.Data.FriendlyName, handlerData.GetType().ToString()));
                     }
                 }
-
+                
                 // Load the default input values from the definition.
-                Trace.Verbose("Loading default inputs.");
                 var inputs = LoadDefaultInputs(definition);
 
                 // Merge the instance inputs.
-                Trace.Verbose("Loading instance inputs.");
+                Trace.Info($"Loading instance inputs - Processing {Task.Inputs?.Count ?? 0} instance inputs");
                 foreach (var input in (Task.Inputs as IEnumerable<KeyValuePair<string, string>> ?? new KeyValuePair<string, string>[0]))
                 {
                     string key = input.Key?.Trim() ?? string.Empty;
@@ -225,11 +234,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             inputs[key] = input.Value?.Trim() ?? string.Empty;
                         }
+                        Trace.Info($"Processing instance input: '{key}' : {inputs[key]}");
                     }
                 }
-
+                Trace.Info($"Instance input merging completed - Total processed inputs: {inputs?.Count ?? 0}");
                 // Expand the inputs.
-                Trace.Verbose("Expanding inputs.");
                 bool enableVariableInputTrimmingKnob = AgentKnobs.EnableVariableInputTrimming.GetValue(ExecutionContext).AsBoolean();
                 runtimeVariables.ExpandValues(target: inputs, enableVariableInputTrimmingKnob);
 
@@ -242,11 +251,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     taskDecoratorManager.IsInjectedInputsContainsSecrets(inputs, out var inputsWithSecrets))
                 {
                     var inputsForReport = taskDecoratorManager.GenerateTaskResultMessage(inputsWithSecrets);
-
+                    Trace.Warning($"Security validation failed - Secrets detected in injected task inputs: {inputsForReport}");
                     ExecutionContext.Result = TaskResult.Skipped;
                     ExecutionContext.ResultCode = StringUtil.Loc("SecretsAreNotAllowedInInjectedTaskInputs", inputsForReport);
                     return;
                 }
+                Trace.Info("Security validation completed - No secret injection detected");
 
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
 
@@ -270,16 +280,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!string.IsNullOrEmpty(key))
                     {
                         environment[key] = env.Value?.Trim() ?? string.Empty;
+                        Trace.Info($"Loading environment variable: '{key}' = '{environment[key]}'");
                     }
                 }
+                Trace.Info($"Environment setup completed - Loaded {environment?.Count ?? 0} environment variables");
 
                 // Expand the inputs.
-                Trace.Verbose("Expanding task environment.");
                 runtimeVariables.ExpandValues(target: environment);
                 VarUtil.ExpandEnvironmentVariables(HostContext, target: environment);
 
                 // Expand the handler inputs.
-                Trace.Verbose("Expanding handler inputs.");
                 VarUtil.ExpandValues(HostContext, source: inputs, target: handlerData.Inputs);
                 runtimeVariables.ExpandValues(target: handlerData.Inputs);
 
@@ -295,6 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             inputs.TryGetValue(inputKey, out inputValue) &&
                             !string.IsNullOrEmpty(inputValue))
                         {
+                            Trace.Verbose($"Processing connected service input '{inputKey}': '{inputValue}'");
                             foreach (string rawId in inputValue.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                             {
                                 Guid parsedId;
@@ -306,16 +317,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
+                Trace.Info($"Service endpoint processing completed - Found {endpointIds.Count} endpoint references");
 
                 if (endpointIds.Count > 0 &&
                     (runtimeVariables.GetBoolean(WellKnownDistributedTaskVariables.RestrictSecrets) ?? false) &&
                     (runtimeVariables.GetBoolean(Microsoft.TeamFoundation.Build.WebApi.BuildVariables.IsFork) ?? false))
                 {
+                    Trace.Warning("Security check failed - Service endpoint access denied for fork repository");
                     ExecutionContext.Result = TaskResult.Skipped;
                     ExecutionContext.ResultCode = $"References service endpoint. PRs from repository forks are not allowed to access secrets in the pipeline. For more information see https://go.microsoft.com/fwlink/?linkid=862029 ";
                     return;
                 }
 
+                Trace.Info("Endpoint resolution initiated - Resolving endpoint references");
                 // Get the endpoints referenced by the task.
                 var endpoints = (ExecutionContext.Endpoints ?? new List<ServiceEndpoint>(0))
                     .Join(inner: endpointIds,
@@ -333,7 +347,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         break;
                     }
                 }
+                Trace.Info($"Endpoint resolution completed - Resolved {endpoints.Count} endpoints, Endpoints: {string.Join(", ", endpoints.Select(e => e.Name))}");
 
+                Trace.Info("Secure file processing initiated - Extracting secure file references");
                 // Get each secure file ID referenced by the task.
                 var secureFileIds = new List<Guid>();
                 foreach (var input in definition.Data?.Inputs ?? new TaskInputDefinition[0])
@@ -346,6 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             inputs.TryGetValue(inputKey, out inputValue) &&
                             !string.IsNullOrEmpty(inputValue))
                         {
+                            Trace.Verbose($"Processing secure file input '{inputKey}'");
                             foreach (string rawId in inputValue.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                             {
                                 Guid parsedId;
@@ -357,16 +374,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
+                Trace.Info($"Secure file processing completed - Found {secureFileIds.Count} secure file references");
 
                 if (secureFileIds.Count > 0 &&
                     (runtimeVariables.GetBoolean(WellKnownDistributedTaskVariables.RestrictSecrets) ?? false) &&
                     (runtimeVariables.GetBoolean(Microsoft.TeamFoundation.Build.WebApi.BuildVariables.IsFork) ?? false))
                 {
+                    Trace.Warning("Security check failed - Secure file access denied for fork repository");
                     ExecutionContext.Result = TaskResult.Skipped;
                     ExecutionContext.ResultCode = $"References secure file. PRs from repository forks are not allowed to access secrets in the pipeline. For more information see https://go.microsoft.com/fwlink/?linkid=862029";
                     return;
                 }
 
+                Trace.Info("Secure file resolution initiated - Resolving secure file references");
                 // Get the endpoints referenced by the task.
                 var secureFiles = (ExecutionContext.SecureFiles ?? new List<SecureFile>(0))
                     .Join(inner: secureFileIds,
@@ -374,15 +394,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         innerKeySelector: (Guid secureFileId) => secureFileId,
                         resultSelector: (SecureFile secureFile, Guid secureFileId) => secureFile)
                     .ToList();
+                Trace.Info($"Secure file resolution completed - Resolved {secureFiles.Count} secure files. Secure Files: {string.Join(", ", secureFiles.Select(f => f.Name))}");
 
                 // Set output variables.
                 foreach (var outputVar in definition.Data?.OutputVariables ?? new OutputVariable[0])
                 {
                     if (outputVar != null && !string.IsNullOrEmpty(outputVar.Name))
                     {
+                        Trace.Verbose($"Adding output variable: '{outputVar.Name}'");
                         ExecutionContext.OutputVariables.Add(outputVar.Name);
                     }
                 }
+                Trace.Info($"Output variables setup completed - Configured {ExecutionContext.OutputVariables.Count} output variables");
 
                 // translate inputs
                 inputs = inputs.ToDictionary(kvp => kvp.Key, kvp => ExecutionContext.TranslatePathForStepTarget(kvp.Value));
@@ -399,6 +422,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     environment,
                     runtimeVariables,
                     taskDirectory: definition.Directory);
+                Trace.Info($"Handler creation completed - Handler created: {handler.GetType().Name}");
 
                 if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
                 {
@@ -428,6 +452,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     ExecutionContext.Debug(StringUtil.Loc("ResourceUtilizationWarningsIsDisabled"));
                 }
 
+                Trace.Info($"Task handler execution initiated - Task: '{DisplayName}', Retry count: {Task.RetryCountOnTaskFailure}");
                 // Run the task.
                 int retryCount = this.Task.RetryCountOnTaskFailure;
 
@@ -436,16 +461,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (retryCount > RetryCountOnTaskFailureLimit)
                     {
                         ExecutionContext.Warning(StringUtil.Loc("RetryCountLimitExceeded", RetryCountOnTaskFailureLimit, retryCount));
+                        Trace.Warning($"Retry count limit exceeded - Limiting from {retryCount} to {RetryCountOnTaskFailureLimit}");
                         retryCount = RetryCountOnTaskFailureLimit;
                     }
-
+                    Trace.Info($"Retry configuration active - Executing with retry helper, max retries: {retryCount}");
                     RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
                     await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
                 }
                 else
                 {
+                    Trace.Info("Standard execution - Running handler without retry");
                     await handler.RunAsync();
                 }
+                Trace.Info($"Task handler execution completed - Task: '{DisplayName}'");
             }
         }
 
@@ -468,7 +496,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
             }
-
+            Trace.Info($"Task input loading completed - {inputs?.Count ?? 0} inputs for available");
             return inputs;
         }
         
@@ -525,6 +553,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)
         {
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
+            Trace.Info($"Handler selection initiated - Available handlers: {currentExecution?.All?.Count ?? 0}");
             if (currentExecution == null)
             {
                 return null;
