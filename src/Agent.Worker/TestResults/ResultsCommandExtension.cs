@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -444,7 +445,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
                 featureFlagService.InitializeFeatureService(_executionContext, connection);
                 _publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-                _enableAzureTestPlanFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableAzureTestPlanTaskFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+                if (AgentKnobs.EnableAzureTestPlanFeatureState.GetValue(_executionContext).AsBoolean())
+                {
+                    _enableAzureTestPlanFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableAzureTestPlanTaskFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
+                }
                 _triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
             }
         }

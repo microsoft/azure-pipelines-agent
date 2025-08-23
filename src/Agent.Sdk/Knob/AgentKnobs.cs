@@ -640,6 +640,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_ENABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableAzureTestPlanFeatureState = new Knob(
+            nameof(EnableAzureTestPlanFeatureState),
+            "If true, enables manual test point information linkage to automated test results.",
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_AZURE_TEST_PLAN_FEATURE_STATE"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_AZURE_TEST_PLAN_FEATURE_STATE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ForceCreateTasksDirectory = new Knob(
             nameof(ForceCreateTasksDirectory),
             "Forces the agent to create _tasks folder for tasks.",
