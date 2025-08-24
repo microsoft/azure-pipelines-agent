@@ -25,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<IConfigurationStore> _store;
         private MockRegistryManager _mockRegManager;
         private AutoLogonSettings _autoLogonSettings;
+        private AgentSettings _agentSettings;
         private CommandSettings _command;
 
         private string _sid = "001";
@@ -32,7 +33,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private string _userName = "ironMan";
         private string _domainName = "avengers";
         private string _runOnce = "";
-
+        private string _agentName = "hulkBuster";
         private bool _powerCfgCalledForACOption = false;
         private bool _powerCfgCalledForDCOption = false;
 
@@ -194,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             //user specific
             ValidateRegistryValue(RegistryHive.Users,
                                     $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}",
-                                    RegistryConstants.UserSettings.ValueNames.StartupProcess,
+                                    _agentName,
                                     null);
         }
 
@@ -208,6 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         {
             _powerCfgCalledForACOption = _powerCfgCalledForDCOption = false;
             _autoLogonSettings = null;
+            _agentSettings = null;
 
             _windowsServiceHelper = new Mock<INativeWindowsServiceHelper>();
             hc.SetSingleton<INativeWindowsServiceHelper>(_windowsServiceHelper.Object);
@@ -256,6 +258,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 new[]
                 {
                     "configure",
+                    "--agent", _agentName,
                     "--windowslogonaccount", "wont be honored",
                     "--windowslogonpassword", "sssh",
                     "--norestart",
@@ -268,11 +271,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 {
                     _autoLogonSettings = settings;
                 });
+            _store.Setup(x => x.SaveSettings(It.IsAny<AgentSettings>()))
+                .Callback((AgentSettings settings) =>
+                {
+                    _agentSettings = settings;
+                });
 
+            _store.Setup(x => x.IsConfigured()).Returns(() => _agentSettings != null);
+            _store.Setup(x => x.GetSettings()).Returns(() => _agentSettings);
             _store.Setup(x => x.IsAutoLogonConfigured()).Returns(() => _autoLogonSettings != null);
             _store.Setup(x => x.GetAutoLogonSettings()).Returns(() => _autoLogonSettings);
-
-
 
             hc.SetSingleton<IConfigurationStore>(_store.Object);
 
@@ -323,7 +331,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             var startup = _mockRegManager.GetValue(
                 RegistryHive.Users,
                 $"{securityId}\\{RegistryConstants.UserSettings.SubKeys.StartupProcess}",
-                RegistryConstants.UserSettings.ValueNames.StartupProcess);
+                _agentName);
             Assert.False(String.IsNullOrEmpty(startup), "Startup key should not be empty");
 
             Assert.True(startup.Contains(_runOnce), "Startup key should match the runOnce setting");

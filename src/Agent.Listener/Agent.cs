@@ -257,7 +257,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         {
                             Trace.Info($"Autologon is configured on the machine, dumping all the autologon related registry settings");
                             var autoLogonRegManager = HostContext.GetService<IAutoLogonRegistryManager>();
-                            autoLogonRegManager.DumpAutoLogonRegistrySettings();
+                            autoLogonRegManager.DumpAutoLogonRegistrySettings(settings.AgentName);
                         }
                         else
                         {
