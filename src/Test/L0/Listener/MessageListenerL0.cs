@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         private Mock<ICapabilitiesManager> _capabilitiesManager;
         private Mock<IFeatureFlagProvider> _featureFlagProvider;
         private Mock<IRSAKeyManager> _rsaKeyManager;
-        private readonly RSACryptoServiceProvider rsa;
+        private readonly RSA rsa;
 
         public MessageListenerL0()
         {
@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             _featureFlagProvider.Setup(x => x.GetFeatureFlagAsync(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
             _featureFlagProvider.Setup(x => x.GetFeatureFlagWithCred(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<AgentSettings>(), It.IsAny<VssCredentials>(), It.IsAny<CancellationToken>())).Returns(Task.FromResult(new FeatureAvailability.FeatureFlag("", "", "", "Off", "Off")));
 
-            rsa = new RSACryptoServiceProvider(2048);
+            rsa = RSA.Create(2048);
             _rsaKeyManager.Setup(x => x.CreateKey(It.IsAny<bool>(), It.IsAny<bool>())).Returns(rsa);
         }
 
