@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
     {
         TaskCompletionSource<bool> RunOnceJobCompleted { get; }
         void Run(Pipelines.AgentJobRequestMessage message, bool runOnce = false);
-        bool Cancel(JobCancelMessage message);
+        Task<bool> Cancel(JobCancelMessage message);
         void MetadataUpdate(JobMetadataMessage message);
         Task WaitAsync(CancellationToken token);
         Task ShutdownAsync();
@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
-        public bool Cancel(JobCancelMessage jobCancelMessage)
+        public async Task<bool> Cancel(JobCancelMessage jobCancelMessage)
         {
             ArgUtil.NotNull(jobCancelMessage, nameof(jobCancelMessage));
             Trace.Info($"Job cancellation request {jobCancelMessage.JobId} received, cancellation timeout {jobCancelMessage.Timeout.TotalMinutes} minutes.");
@@ -143,6 +143,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 if (workerDispatcher.Cancel(jobCancelMessage.Timeout))
                 {
                     Trace.Verbose($"Fired cancellation token for job request {workerDispatcher.JobId}.");
+                    // make sure worker process exit
+                    await workerDispatcher.WorkerDispatch;
                 }
 
                 return true;

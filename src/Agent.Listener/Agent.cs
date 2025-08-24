@@ -563,7 +563,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             {
                                 Trace.Verbose("Processing job cancellation request from Azure DevOps");
                                 var cancelJobMessage = JsonUtility.FromString<JobCancelMessage>(message.Body);
-                                bool jobCancelled = jobDispatcher.Cancel(cancelJobMessage);
+                                bool jobCancelled = await jobDispatcher.Cancel(cancelJobMessage);
                                 skipMessageDeletion = (autoUpdateInProgress || runOnceJobReceived) && !jobCancelled;
 
                                 if (skipMessageDeletion)
