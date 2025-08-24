@@ -377,7 +377,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 Trace.Info("Initializing message listener - establishing connection to Azure DevOps");
                 _listener = HostContext.GetService<IMessageListener>();
-                if (!await _listener.CreateSessionAsync(HostContext.AgentShutdownToken))
+                Constants.Agent.CreateSessionResult createSessionResult = await _listener.CreateSessionAsync(HostContext.AgentShutdownToken);
+                if (createSessionResult == Constants.Agent.CreateSessionResult.SessionConflict)
+                {
+                    return Constants.Agent.ReturnCode.SessionConflict;
+                }
+                else if (createSessionResult == Constants.Agent.CreateSessionResult.Failure)
                 {
                     Trace.Error("Failed to create session with Azure DevOps");
                     return Constants.Agent.ReturnCode.TerminatedError;

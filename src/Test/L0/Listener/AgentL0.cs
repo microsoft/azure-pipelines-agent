@@ -111,7 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationManager.Setup(x => x.IsConfigured())
                     .Returns(true);
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<bool>(true));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.ReturnCode.Success));
                 _messageListener.Setup(x => x.GetNextMessageAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                         {
@@ -213,7 +213,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configStore.Setup(x => x.IsServiceConfigured()).Returns(configureAsService);
 
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult(false));
+                     .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Failure));
 
                 agent.Initialize(hc);
                 await agent.ExecuteCommand(command);
@@ -251,7 +251,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Returns(false);
 
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult(false));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Failure));
 
                 agent.Initialize(hc);
                 await agent.ExecuteCommand(command);
@@ -289,7 +289,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Returns(false);
 
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult(false));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Failure));
 
                 agent.Initialize(hc);
                 await agent.ExecuteCommand(command);
@@ -338,7 +338,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationManager.Setup(x => x.IsConfigured())
                     .Returns(true);
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<bool>(true));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Success));
                 _messageListener.Setup(x => x.GetNextMessageAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                         {
@@ -444,7 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationManager.Setup(x => x.IsConfigured())
                     .Returns(true);
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<bool>(true));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Success));
                 _messageListener.Setup(x => x.GetNextMessageAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                         {
@@ -547,7 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationManager.Setup(x => x.IsConfigured())
                     .Returns(true);
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<bool>(true));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Success));
                 _messageListener.Setup(x => x.GetNextMessageAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                         {
@@ -777,7 +777,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 _configurationManager.Setup(x => x.IsConfigured())
                     .Returns(true);
                 _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
-                    .Returns(Task.FromResult<bool>(true));
+                    .Returns(Task.FromResult<Constants.Agent.CreateSessionResult>(Constants.Agent.CreateSessionResult.Success));
                 _messageListener.Setup(x => x.GetNextMessageAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                         {
