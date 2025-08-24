@@ -34,6 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+            ProxyUtil.SetDefaultHttpClientProxy(agentWebProxy.WebProxy);
             VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
             Trace.Info("VSS client settings initialized [UserAgent:{0}, ProxyConfigured:{1}, CertValidationSkipped:{2}]", 
                 HostContext.UserAgent, agentWebProxy.WebProxy != null, agentCertManager.SkipServerCertificateValidation);
