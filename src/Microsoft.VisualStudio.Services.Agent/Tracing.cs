@@ -107,6 +107,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             Trace(TraceEventType.Verbose, $"Leaving {name}");
         }
 
+        public virtual IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            Entering(name);
+            return null;
+        }
+
         public void Dispose()
         {
             Dispose(true);

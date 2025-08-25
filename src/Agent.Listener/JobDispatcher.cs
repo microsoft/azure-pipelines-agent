@@ -78,35 +78,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "WorkerDispatcher")]
         public void Run(Pipelines.AgentJobRequestMessage jobRequestMessage, bool runOnce = false)
         {
-            ArgUtil.NotNull(jobRequestMessage, nameof(jobRequestMessage));
-            Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
+            using(Trace.EnteringWithDuration()) {
+                ArgUtil.NotNull(jobRequestMessage, nameof(jobRequestMessage));
+                Trace.Info($"Job request {jobRequestMessage.RequestId} for plan {jobRequestMessage.Plan.PlanId} job {jobRequestMessage.JobId} received.");
 
-            WorkerDispatcher currentDispatch = null;
-            if (_jobDispatchedQueue.Count > 0)
-            {
-                Guid dispatchedJobId = _jobDispatchedQueue.Dequeue();
-                if (_jobInfos.TryGetValue(dispatchedJobId, out currentDispatch))
+                WorkerDispatcher currentDispatch = null;
+                if (_jobDispatchedQueue.Count > 0)
                 {
-                    Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
+                    Guid dispatchedJobId = _jobDispatchedQueue.Dequeue();
+                    if (_jobInfos.TryGetValue(dispatchedJobId, out currentDispatch))
+                    {
+                        Trace.Verbose($"Retrieve previous WorkerDispather for job {currentDispatch.JobId}.");
+                    }
                 }
-            }
 
-            WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
-            if (runOnce)
-            {
-                Trace.Info("Starting dispatcher with runOnce option.(Agent will terminate agent after completion)");
-                jobRequestMessage.Variables[Constants.Variables.Agent.RunMode] = new VariableValue(Constants.Agent.CommandLine.Flags.Once);
-                newDispatch.WorkerDispatch = RunOnceAsync(jobRequestMessage, currentDispatch, newDispatch);
-            }
-            else
-            {
-                Trace.Info("Starting Dispatcher(RunAsync)");
-                newDispatch.WorkerDispatch = RunAsync(jobRequestMessage, currentDispatch, newDispatch);
-            }
+                WorkerDispatcher newDispatch = new WorkerDispatcher(jobRequestMessage.JobId, jobRequestMessage.RequestId);
+                if (runOnce)
+                {
+                    Trace.Info("Starting dispatcher with runOnce option.(Agent will terminate agent after completion)");
+                    jobRequestMessage.Variables[Constants.Variables.Agent.RunMode] = new VariableValue(Constants.Agent.CommandLine.Flags.Once);
+                    newDispatch.WorkerDispatch = RunOnceAsync(jobRequestMessage, currentDispatch, newDispatch);
+                }
+                else
+                {
+                    Trace.Info("Starting Dispatcher(RunAsync)");
+                    newDispatch.WorkerDispatch = RunAsync(jobRequestMessage, currentDispatch, newDispatch);
+                }
 
-            _jobInfos.TryAdd(newDispatch.JobId, newDispatch);
-            _jobDispatchedQueue.Enqueue(newDispatch.JobId);
-            Trace.Info($"Job dispatcher setup complete [JobId:{newDispatch.JobId}, QueuePosition:{_jobDispatchedQueue.Count}, ActiveJobs:{_jobInfos.Count}, DispatchMode:{(runOnce ? "RunOnce" : "Normal")}]");
+                _jobInfos.TryAdd(newDispatch.JobId, newDispatch);
+                _jobDispatchedQueue.Enqueue(newDispatch.JobId);
+                Trace.Info($"Job dispatcher setup complete [JobId:{newDispatch.JobId}, QueuePosition:{_jobDispatchedQueue.Count}, ActiveJobs:{_jobInfos.Count}, DispatchMode:{(runOnce ? "RunOnce" : "Normal")}]");
+            }
         }
 
         public void MetadataUpdate(JobMetadataMessage jobMetadataMessage)
@@ -347,404 +349,406 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private async Task RunAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, WorkerDispatcher newJobDispatch)
         {
-            Trace.Info($"Starting job execution [JobId:{message.JobId}, PlanId:{message.Plan.PlanId}, DisplayName:{message.JobDisplayName}]");
+            using(Trace.EnteringWithDuration()){
+                Trace.Info($"Starting job execution [JobId:{message.JobId}, PlanId:{message.Plan.PlanId}, DisplayName:{message.JobDisplayName}]");
 
-            if (previousJobDispatch != null)
-            {
-                Trace.Verbose($"Waiting for previous job completion before starting new job [PreviousJobId:{previousJobDispatch.JobId}, NewJobId:{message.JobId}]");
-                await EnsureDispatchFinished(previousJobDispatch);
-                Trace.Info("Previous job cleanup completed - ready for new job execution");
-            }
-            else
-            {
-                Trace.Info($"No previous job detected - this is the first job request. [JobId:{message.JobId}]");
-            }
-
-            var jobRequestCancellationToken = newJobDispatch.WorkerCancellationTokenSource.Token;
-            var workerCancelTimeoutKillToken = newJobDispatch.WorkerCancelTimeoutKillTokenSource.Token;
-            var term = HostContext.GetService<ITerminal>();
-            term.WriteLine(StringUtil.Loc("RunningJob", DateTime.UtcNow, message.JobDisplayName));
-            
-            // first job request renew succeed.
-            TaskCompletionSource<int> firstJobRequestRenewed = new TaskCompletionSource<int>();
-            var notification = HostContext.GetService<IJobNotification>();
-            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
-
-            // lock renew cancellation token.
-            using (var lockRenewalTokenSource = new CancellationTokenSource())
-            using (var workerProcessCancelTokenSource = new CancellationTokenSource())
-            {
-                long requestId = message.RequestId;
-                Guid lockToken = Guid.Empty; // lockToken has never been used, keep this here of compat
-                // Because an agent can be idle for a long time between jobs, it is possible that in that time
-                // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
-                // start of a new job
-                Trace.Info($"Refreshing server connection before job execution [ConnectionType:JobRequest, Timeout:30s, JobId:{message.JobId}]");
-                var agentServer = HostContext.GetService<IAgentServer>();
-                await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
-
-                // start renew job request
-                Trace.Info($"Start renew job request {requestId} for job {message.JobId}.");
-                Task renewJobRequest = RenewJobRequestAsync(_poolId, requestId, lockToken, firstJobRequestRenewed, lockRenewalTokenSource.Token);
-
-                // wait till first renew succeed or job request is canceled
-                // not even start worker if the first renew fail
-                Trace.Info($"Waiting for first job request renewal to confirm [JobId:{message.JobId}, RequestId:{requestId}]");
-                await Task.WhenAny(firstJobRequestRenewed.Task, renewJobRequest, Task.Delay(-1, jobRequestCancellationToken));
-
-                if (renewJobRequest.IsCompleted)
+                if (previousJobDispatch != null)
                 {
-                    // renew job request task complete means we run out of retry for the first job request renew.
-                    Trace.Info($"Unable to renew job request for job {message.JobId} for the first time, stop dispatching job to worker.");
-                    return;
+                    Trace.Verbose($"Waiting for previous job completion before starting new job [PreviousJobId:{previousJobDispatch.JobId}, NewJobId:{message.JobId}]");
+                    await EnsureDispatchFinished(previousJobDispatch);
+                    Trace.Info("Previous job cleanup completed - ready for new job execution");
+                }
+                else
+                {
+                    Trace.Info($"No previous job detected - this is the first job request. [JobId:{message.JobId}]");
                 }
 
-                if (jobRequestCancellationToken.IsCancellationRequested)
+                var jobRequestCancellationToken = newJobDispatch.WorkerCancellationTokenSource.Token;
+                var workerCancelTimeoutKillToken = newJobDispatch.WorkerCancelTimeoutKillTokenSource.Token;
+                var term = HostContext.GetService<ITerminal>();
+                term.WriteLine(StringUtil.Loc("RunningJob", DateTime.UtcNow, message.JobDisplayName));
+                
+                // first job request renew succeed.
+                TaskCompletionSource<int> firstJobRequestRenewed = new TaskCompletionSource<int>();
+                var notification = HostContext.GetService<IJobNotification>();
+                var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+
+                // lock renew cancellation token.
+                using (var lockRenewalTokenSource = new CancellationTokenSource())
+                using (var workerProcessCancelTokenSource = new CancellationTokenSource())
                 {
-                    Trace.Info($"Job cancellation requested during setup - stopping job request renewal for job: {message.JobId}");
-                    // stop renew lock
-                    lockRenewalTokenSource.Cancel();
-                    // renew job request should never blows up.
-                    await renewJobRequest;
+                    long requestId = message.RequestId;
+                    Guid lockToken = Guid.Empty; // lockToken has never been used, keep this here of compat
+                    // Because an agent can be idle for a long time between jobs, it is possible that in that time
+                    // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
+                    // start of a new job
+                    Trace.Info($"Refreshing server connection before job execution [ConnectionType:JobRequest, Timeout:30s, JobId:{message.JobId}]");
+                    var agentServer = HostContext.GetService<IAgentServer>();
+                    await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
 
-                    // complete job request with result Cancelled
-                    await CompleteJobRequestAsync(_poolId, message, lockToken, TaskResult.Canceled);
-                    return;
-                }
+                    // start renew job request
+                    Trace.Info($"Start renew job request {requestId} for job {message.JobId}.");
+                    Task renewJobRequest = RenewJobRequestAsync(_poolId, requestId, lockToken, firstJobRequestRenewed, lockRenewalTokenSource.Token);
 
-                HostContext.WritePerfCounter($"JobRequestRenewed_{requestId.ToString()}");
+                    // wait till first renew succeed or job request is canceled
+                    // not even start worker if the first renew fail
+                    Trace.Info($"Waiting for first job request renewal to confirm [JobId:{message.JobId}, RequestId:{requestId}]");
+                    await Task.WhenAny(firstJobRequestRenewed.Task, renewJobRequest, Task.Delay(-1, jobRequestCancellationToken));
 
-                Task<int> workerProcessTask = null;
-                object _outputLock = new object();
-                List<string> workerOutput = new List<string>();
-                using (var processChannel = HostContext.CreateService<IProcessChannel>())
-                using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
-                {
-                    Trace.Info($"Initializing worker process communication channel for job: {message.JobId}");
-
-                    var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
-                    var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
-                    var environment = new Dictionary<string, string>();
-                    if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
+                    if (renewJobRequest.IsCompleted)
                     {
-                        environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
+                        // renew job request task complete means we run out of retry for the first job request renew.
+                        Trace.Info($"Unable to renew job request for job {message.JobId} for the first time, stop dispatching job to worker.");
+                        return;
                     }
 
-                    // Ensure worker sees the enhanced logging knob if the listener enabled it
-                    if (string.Equals(Environment.GetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING"), "true", StringComparison.OrdinalIgnoreCase))
+                    if (jobRequestCancellationToken.IsCancellationRequested)
                     {
-                        environment["AZP_USE_ENHANCED_LOGGING"] = "true";
-                    }
-
-                    // Start the process channel.
-                    // It's OK if StartServer bubbles an execption after the worker process has already started.
-                    // The worker will shutdown after 30 seconds if it hasn't received the job message.
-                    Trace.Info($"Starting process channel server for worker communication [JobId:{message.JobId}]");
-                    processChannel.StartServer(
-                        // Delegate to start the child process.
-                        startProcess:  (string pipeHandleOut, string pipeHandleIn) =>
-                        {
-                            // Validate args.
-                            ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
-                            ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
-
-                            Trace.Info($"Setting up worker process output capture [JobId:{message.JobId}]");
-                            // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
-                            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
-                            {
-                                if (!string.IsNullOrEmpty(stdout.Data))
-                                {
-                                    lock (_outputLock)
-                                    {
-                                        workerOutput.Add(stdout.Data);
-                                    }
-                                }
-                            };
-
-                            // Save STDERR from worker, worker will use STDERR on crash.
-                            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                            {
-                                if (!string.IsNullOrEmpty(stderr.Data))
-                                {
-                                    lock (_outputLock)
-                                    {
-                                        workerOutput.Add(stderr.Data);
-                                    }
-                                }
-                            };
-                            
-
-                            // Start the child process.
-                            HostContext.WritePerfCounter("StartingWorkerProcess");
-                            var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
-                            string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
-                            Trace.Info($"Creating worker process for job execution [Executable:{workerFileName}, Arguments:spawnclient, PipeOut:{pipeHandleOut}, PipeIn:{pipeHandleIn}, JobId:{message.JobId}]");
-                            workerProcessTask = processInvoker.ExecuteAsync(
-                                workingDirectory: assemblyDirectory,
-                                fileName: workerFileName,
-                                arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
-                                environment: environment,
-                                requireExitCodeZero: false,
-                                outputEncoding: null,
-                                killProcessOnCancel: true,
-                                redirectStandardIn: null,
-                                inheritConsoleHandler: false,
-                                keepStandardInOpen: false,
-                                highPriorityProcess: true,
-                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                                cancellationToken: workerProcessCancelTokenSource.Token);
-                            Trace.Info("Worker process started successfully");
-                        }
-                    );
-
-                    // Send the job request message.
-                    // Kill the worker process if sending the job message times out. The worker
-                    // process may have successfully received the job message.
-                    try
-                    {
-                        var body = JsonUtility.ToString(message);
-                        var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
-                        string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
-                        Trace.Info($"Sending job request message to worker process - job: {message.JobId}, size: {numBytesString}");
-                        HostContext.WritePerfCounter($"AgentSendingJobToWorker_{message.JobId}");
-                        var stopWatch = Stopwatch.StartNew();
-                        using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
-                        {
-                            await processChannel.SendAsync(
-                                messageType: MessageType.NewJobRequest,
-                                body: body,
-                                cancellationToken: csSendJobRequest.Token);
-                        }
-                        stopWatch.Stop();
-                        Trace.Info($"Took {stopWatch.ElapsedMilliseconds} ms to send job message to worker");
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // message send been cancelled.
-                        // timeout 30 sec. kill worker.
-                        Trace.Info($"Job request message sending for job {message.JobId} been cancelled after waiting for {_channelTimeout.TotalSeconds} seconds, kill running worker.");
-                        workerProcessCancelTokenSource.Cancel();
-                        try
-                        {
-                            Trace.Info($"Waiting for worker process termination after job message send timeout [JobId:{message.JobId}, Timeout:{_channelTimeout.TotalSeconds}s, Reason:SendMessageCancelled]");
-                            await workerProcessTask;
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            Trace.Info("worker process has been killed.");
-                        }
-
-                        Trace.Info($"Stop renew job request for job {message.JobId}.");
+                        Trace.Info($"Job cancellation requested during setup - stopping job request renewal for job: {message.JobId}");
                         // stop renew lock
                         lockRenewalTokenSource.Cancel();
                         // renew job request should never blows up.
                         await renewJobRequest;
 
-                        // not finish the job request since the job haven't run on worker at all, we will not going to set a result to server.
+                        // complete job request with result Cancelled
+                        await CompleteJobRequestAsync(_poolId, message, lockToken, TaskResult.Canceled);
                         return;
                     }
 
-                    // we get first jobrequest renew succeed and start the worker process with the job message.
-                    // send notification to machine provisioner.
-                    var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
-                    var accessToken = systemConnection?.Authorization?.Parameters["AccessToken"];
-                    VariableValue identifier = null;
-                    VariableValue definitionId = null;
+                    HostContext.WritePerfCounter($"JobRequestRenewed_{requestId.ToString()}");
 
-                    if (message.Plan.PlanType == "Build")
+                    Task<int> workerProcessTask = null;
+                    object _outputLock = new object();
+                    List<string> workerOutput = new List<string>();
+                    using (var processChannel = HostContext.CreateService<IProcessChannel>())
+                    using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                     {
-                        message.Variables.TryGetValue("build.buildId", out identifier);
-                        message.Variables.TryGetValue("system.definitionId", out definitionId);
-                    }
-                    else if (message.Plan.PlanType == "Release")
-                    {
-                        message.Variables.TryGetValue("release.deploymentId", out identifier);
-                        message.Variables.TryGetValue("release.definitionId", out definitionId);
-                    }
+                        Trace.Info($"Initializing worker process communication channel for job: {message.JobId}");
 
-                    await notification.JobStarted(message.JobId, accessToken, systemConnection.Url, message.Plan.PlanId, (identifier?.Value ?? "0"), (definitionId?.Value ?? "0"), message.Plan.PlanType);
-
-                    HostContext.WritePerfCounter($"SentJobToWorker_{requestId.ToString()}");
-
-                    try
-                    {
-                        TaskResult resultOnAbandonOrCancel = TaskResult.Succeeded;
-                        // wait for renewlock, worker process or cancellation token been fired.
-                        // keep listening iff we receive a metadata update
-                        bool keepListening = true;
-                        while (keepListening)
+                        var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                        var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
+                        var environment = new Dictionary<string, string>();
+                        if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
                         {
-                            // Job execution monitoring loop - waiting for worker completion, renewal, cancellation, or metadata updates
-                            Trace.Verbose($"Job execution monitoring cycle started [JobId:{message.JobId}, WaitingFor:WorkerCompletion|RenewalUpdate|Cancellation|MetadataUpdate]");
-                            var metadataUpdateTask = newJobDispatch.MetadataSource.Task;
-                            var completedTask = await Task.WhenAny(renewJobRequest, workerProcessTask, Task.Delay(-1, jobRequestCancellationToken), metadataUpdateTask);
-                            if (completedTask == workerProcessTask)
-                            {
-                                keepListening = false;
-                                Trace.Info($"Worker process completion detected [JobId:{message.JobId}, MonitoringMode:WorkerFinished, Action:ProcessResults]");
-                                // worker finished successfully, complete job request with result, attach unhandled exception reported by worker, stop renew lock, job has finished.
-                                int returnCode = await workerProcessTask;
-                                Trace.Info($"Worker finished for job {message.JobId}. Code: " + returnCode);
-
-                                string detailInfo = null;
-                                if (!TaskResultUtil.IsValidReturnCode(returnCode))
-                                {
-                                    detailInfo = string.Join(Environment.NewLine, workerOutput);
-                                    Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
-                                    await LogWorkerProcessUnhandledException(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
-                                }
-
-                                TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
-                                Trace.Info($"Finish job request for job {message.JobId} with result: {result}");
-                                term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, result));
-
-                                Trace.Info($"Stop renew job request for job {message.JobId}.");
-                                // stop renew lock
-                                lockRenewalTokenSource.Cancel();
-                                // renew job request should never blows up.
-                                await renewJobRequest;
-
-                                Trace.Info($"Job request completion initiated - Completing job request for job: {message.JobId}");
-                                // complete job request
-                                await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
-                                Trace.Info("Job request completion completed");
-
-                                // print out unhandled exception happened in worker after we complete job request.
-                                // when we run out of disk space, report back to server has higher priority.
-                                if (!string.IsNullOrEmpty(detailInfo))
-                                {
-                                    Trace.Error("Unhandled exception happened in worker:");
-                                    Trace.Error(detailInfo);
-                                }
-
-                                return;
-                            }
-                            else if (completedTask == renewJobRequest)
-                            {
-                                keepListening = false;
-                                Trace.Warning($"Job renewal process completed [JobId:{message.JobId}, Result:Abandoned, Action:StopListening]");
-                                resultOnAbandonOrCancel = TaskResult.Abandoned;
-                            }
-                            else if (completedTask == metadataUpdateTask)
-                            {
-                                Trace.Info($"Send job metadata update message to worker for job {message.JobId}.");
-                                using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
-                                {
-                                    var body = JsonUtility.ToString(metadataUpdateTask.Result);
-                                    Trace.Verbose($"Sending metadata update to worker [JobId:{message.JobId}, MessageType:JobMetadataUpdate, Body:{body}]");
-                                    await processChannel.SendAsync(
-                                        messageType: MessageType.JobMetadataUpdate,
-                                        body: body,
-                                        cancellationToken: csSendCancel.Token);
-                                }
-                                newJobDispatch.ResetMetadataSource();
-                            }
-                            else
-                            {
-                                keepListening = false;
-                                Trace.Info($"Job cancellation detected [JobId:{message.JobId}, MonitoringMode:Cancellation, CancellationRequested:{jobRequestCancellationToken.IsCancellationRequested}, Result:Canceled, Action:StopListening]");
-                                resultOnAbandonOrCancel = TaskResult.Canceled;
-                            }
+                            environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
                         }
 
-                        // renew job request completed or job request cancellation token been fired for RunAsync(jobrequestmessage)
-                        // cancel worker gracefully first, then kill it after worker cancel timeout
+                        // Ensure worker sees the enhanced logging knob if the listener enabled it
+                        if (string.Equals(Environment.GetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING"), "true", StringComparison.OrdinalIgnoreCase))
+                        {
+                            environment["AZP_USE_ENHANCED_LOGGING"] = "true";
+                        }
+
+                        // Start the process channel.
+                        // It's OK if StartServer bubbles an execption after the worker process has already started.
+                        // The worker will shutdown after 30 seconds if it hasn't received the job message.
+                        Trace.Info($"Starting process channel server for worker communication [JobId:{message.JobId}]");
+                        processChannel.StartServer(
+                            // Delegate to start the child process.
+                            startProcess:  (string pipeHandleOut, string pipeHandleIn) =>
+                            {
+                                // Validate args.
+                                ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
+                                ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
+
+                                Trace.Info($"Setting up worker process output capture [JobId:{message.JobId}]");
+                                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                                {
+                                    if (!string.IsNullOrEmpty(stdout.Data))
+                                    {
+                                        lock (_outputLock)
+                                        {
+                                            workerOutput.Add(stdout.Data);
+                                        }
+                                    }
+                                };
+
+                                // Save STDERR from worker, worker will use STDERR on crash.
+                                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                                {
+                                    if (!string.IsNullOrEmpty(stderr.Data))
+                                    {
+                                        lock (_outputLock)
+                                        {
+                                            workerOutput.Add(stderr.Data);
+                                        }
+                                    }
+                                };
+                                
+
+                                // Start the child process.
+                                HostContext.WritePerfCounter("StartingWorkerProcess");
+                                var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
+                                string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
+                                Trace.Info($"Creating worker process for job execution [Executable:{workerFileName}, Arguments:spawnclient, PipeOut:{pipeHandleOut}, PipeIn:{pipeHandleIn}, JobId:{message.JobId}]");
+                                workerProcessTask = processInvoker.ExecuteAsync(
+                                    workingDirectory: assemblyDirectory,
+                                    fileName: workerFileName,
+                                    arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
+                                    environment: environment,
+                                    requireExitCodeZero: false,
+                                    outputEncoding: null,
+                                    killProcessOnCancel: true,
+                                    redirectStandardIn: null,
+                                    inheritConsoleHandler: false,
+                                    keepStandardInOpen: false,
+                                    highPriorityProcess: true,
+                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
+                                    cancellationToken: workerProcessCancelTokenSource.Token);
+                                Trace.Info("Worker process started successfully");
+                            }
+                        );
+
+                        // Send the job request message.
+                        // Kill the worker process if sending the job message times out. The worker
+                        // process may have successfully received the job message.
                         try
                         {
-                            Trace.Info($"Send job cancellation message to worker for job {message.JobId}.");
-                            using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
+                            var body = JsonUtility.ToString(message);
+                            var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
+                            string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
+                            Trace.Info($"Sending job request message to worker process - job: {message.JobId}, size: {numBytesString}");
+                            HostContext.WritePerfCounter($"AgentSendingJobToWorker_{message.JobId}");
+                            var stopWatch = Stopwatch.StartNew();
+                            using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
                             {
-                                var messageType = MessageType.CancelRequest;
-                                if (HostContext.AgentShutdownToken.IsCancellationRequested)
-                                {
-                                    var service = HostContext.GetService<IFeatureFlagProvider>();
-                                    var ffState = await service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.FailJobWhenAgentDies", Trace);
-                                    if (ffState.EffectiveState == "On")
-                                    {
-                                        await PublishTelemetry(message, TaskResult.Failed.ToString(), "100");
-                                        resultOnAbandonOrCancel = TaskResult.Failed;
-                                    }
-                                    switch (HostContext.AgentShutdownReason)
-                                    {
-                                        case ShutdownReason.UserCancelled:
-                                            messageType = MessageType.AgentShutdown;
-                                            break;
-                                        case ShutdownReason.OperatingSystemShutdown:
-                                            messageType = MessageType.OperatingSystemShutdown;
-                                            break;
-                                    }
-                                }
-
                                 await processChannel.SendAsync(
-                                    messageType: messageType,
-                                    body: string.Empty,
-                                    cancellationToken: csSendCancel.Token);
+                                    messageType: MessageType.NewJobRequest,
+                                    body: body,
+                                    cancellationToken: csSendJobRequest.Token);
                             }
+                            stopWatch.Stop();
+                            Trace.Info($"Took {stopWatch.ElapsedMilliseconds} ms to send job message to worker");
                         }
                         catch (OperationCanceledException)
                         {
                             // message send been cancelled.
-                            Trace.Info($"Job cancel message sending for job {message.JobId} been cancelled, kill running worker.");
+                            // timeout 30 sec. kill worker.
+                            Trace.Info($"Job request message sending for job {message.JobId} been cancelled after waiting for {_channelTimeout.TotalSeconds} seconds, kill running worker.");
                             workerProcessCancelTokenSource.Cancel();
                             try
                             {
+                                Trace.Info($"Waiting for worker process termination after job message send timeout [JobId:{message.JobId}, Timeout:{_channelTimeout.TotalSeconds}s, Reason:SendMessageCancelled]");
                                 await workerProcessTask;
                             }
                             catch (OperationCanceledException)
                             {
                                 Trace.Info("worker process has been killed.");
                             }
+
+                            Trace.Info($"Stop renew job request for job {message.JobId}.");
+                            // stop renew lock
+                            lockRenewalTokenSource.Cancel();
+                            // renew job request should never blows up.
+                            await renewJobRequest;
+
+                            // not finish the job request since the job haven't run on worker at all, we will not going to set a result to server.
+                            return;
                         }
 
-                        Trace.Info($"Waiting for worker to exit gracefully for job: {message.JobId}");
-                        // wait worker to exit
-                        // if worker doesn't exit within timeout, then kill worker.
-                        var exitTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
+                        // we get first jobrequest renew succeed and start the worker process with the job message.
+                        // send notification to machine provisioner.
+                        var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase));
+                        var accessToken = systemConnection?.Authorization?.Parameters["AccessToken"];
+                        VariableValue identifier = null;
+                        VariableValue definitionId = null;
 
-                        // worker haven't exit within cancellation timeout.
-                        if (exitTask != workerProcessTask)
+                        if (message.Plan.PlanType == "Build")
                         {
-                            Trace.Info($"worker process for job {message.JobId} haven't exit within cancellation timout, kill running worker.");
-                            workerProcessCancelTokenSource.Cancel();
+                            message.Variables.TryGetValue("build.buildId", out identifier);
+                            message.Variables.TryGetValue("system.definitionId", out definitionId);
+                        }
+                        else if (message.Plan.PlanType == "Release")
+                        {
+                            message.Variables.TryGetValue("release.deploymentId", out identifier);
+                            message.Variables.TryGetValue("release.definitionId", out definitionId);
+                        }
+
+                        await notification.JobStarted(message.JobId, accessToken, systemConnection.Url, message.Plan.PlanId, (identifier?.Value ?? "0"), (definitionId?.Value ?? "0"), message.Plan.PlanType);
+
+                        HostContext.WritePerfCounter($"SentJobToWorker_{requestId.ToString()}");
+
+                        try
+                        {
+                            TaskResult resultOnAbandonOrCancel = TaskResult.Succeeded;
+                            // wait for renewlock, worker process or cancellation token been fired.
+                            // keep listening iff we receive a metadata update
+                            bool keepListening = true;
+                            while (keepListening)
+                            {
+                                // Job execution monitoring loop - waiting for worker completion, renewal, cancellation, or metadata updates
+                                Trace.Verbose($"Job execution monitoring cycle started [JobId:{message.JobId}, WaitingFor:WorkerCompletion|RenewalUpdate|Cancellation|MetadataUpdate]");
+                                var metadataUpdateTask = newJobDispatch.MetadataSource.Task;
+                                var completedTask = await Task.WhenAny(renewJobRequest, workerProcessTask, Task.Delay(-1, jobRequestCancellationToken), metadataUpdateTask);
+                                if (completedTask == workerProcessTask)
+                                {
+                                    keepListening = false;
+                                    Trace.Info($"Worker process completion detected [JobId:{message.JobId}, MonitoringMode:WorkerFinished, Action:ProcessResults]");
+                                    // worker finished successfully, complete job request with result, attach unhandled exception reported by worker, stop renew lock, job has finished.
+                                    int returnCode = await workerProcessTask;
+                                    Trace.Info($"Worker finished for job {message.JobId}. Code: " + returnCode);
+
+                                    string detailInfo = null;
+                                    if (!TaskResultUtil.IsValidReturnCode(returnCode))
+                                    {
+                                        detailInfo = string.Join(Environment.NewLine, workerOutput);
+                                        Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
+                                        await LogWorkerProcessUnhandledException(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
+                                    }
+
+                                    TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
+                                    Trace.Info($"Finish job request for job {message.JobId} with result: {result}");
+                                    term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, result));
+
+                                    Trace.Info($"Stop renew job request for job {message.JobId}.");
+                                    // stop renew lock
+                                    lockRenewalTokenSource.Cancel();
+                                    // renew job request should never blows up.
+                                    await renewJobRequest;
+
+                                    Trace.Info($"Job request completion initiated - Completing job request for job: {message.JobId}");
+                                    // complete job request
+                                    await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+                                    Trace.Info("Job request completion completed");
+
+                                    // print out unhandled exception happened in worker after we complete job request.
+                                    // when we run out of disk space, report back to server has higher priority.
+                                    if (!string.IsNullOrEmpty(detailInfo))
+                                    {
+                                        Trace.Error("Unhandled exception happened in worker:");
+                                        Trace.Error(detailInfo);
+                                    }
+
+                                    return;
+                                }
+                                else if (completedTask == renewJobRequest)
+                                {
+                                    keepListening = false;
+                                    Trace.Warning($"Job renewal process completed [JobId:{message.JobId}, Result:Abandoned, Action:StopListening]");
+                                    resultOnAbandonOrCancel = TaskResult.Abandoned;
+                                }
+                                else if (completedTask == metadataUpdateTask)
+                                {
+                                    Trace.Info($"Send job metadata update message to worker for job {message.JobId}.");
+                                    using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
+                                    {
+                                        var body = JsonUtility.ToString(metadataUpdateTask.Result);
+                                        Trace.Verbose($"Sending metadata update to worker [JobId:{message.JobId}, MessageType:JobMetadataUpdate, Body:{body}]");
+                                        await processChannel.SendAsync(
+                                            messageType: MessageType.JobMetadataUpdate,
+                                            body: body,
+                                            cancellationToken: csSendCancel.Token);
+                                    }
+                                    newJobDispatch.ResetMetadataSource();
+                                }
+                                else
+                                {
+                                    keepListening = false;
+                                    Trace.Info($"Job cancellation detected [JobId:{message.JobId}, MonitoringMode:Cancellation, CancellationRequested:{jobRequestCancellationToken.IsCancellationRequested}, Result:Canceled, Action:StopListening]");
+                                    resultOnAbandonOrCancel = TaskResult.Canceled;
+                                }
+                            }
+
+                            // renew job request completed or job request cancellation token been fired for RunAsync(jobrequestmessage)
+                            // cancel worker gracefully first, then kill it after worker cancel timeout
                             try
                             {
-                                await workerProcessTask;
-                                Trace.Info("Worker process forceful termination completed");
+                                Trace.Info($"Send job cancellation message to worker for job {message.JobId}.");
+                                using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
+                                {
+                                    var messageType = MessageType.CancelRequest;
+                                    if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                                    {
+                                        var service = HostContext.GetService<IFeatureFlagProvider>();
+                                        var ffState = await service.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.FailJobWhenAgentDies", Trace);
+                                        if (ffState.EffectiveState == "On")
+                                        {
+                                            await PublishTelemetry(message, TaskResult.Failed.ToString(), "100");
+                                            resultOnAbandonOrCancel = TaskResult.Failed;
+                                        }
+                                        switch (HostContext.AgentShutdownReason)
+                                        {
+                                            case ShutdownReason.UserCancelled:
+                                                messageType = MessageType.AgentShutdown;
+                                                break;
+                                            case ShutdownReason.OperatingSystemShutdown:
+                                                messageType = MessageType.OperatingSystemShutdown;
+                                                break;
+                                        }
+                                    }
+
+                                    await processChannel.SendAsync(
+                                        messageType: messageType,
+                                        body: string.Empty,
+                                        cancellationToken: csSendCancel.Token);
+                                }
                             }
                             catch (OperationCanceledException)
                             {
-                                Trace.Info("worker process has been killed.");
+                                // message send been cancelled.
+                                Trace.Info($"Job cancel message sending for job {message.JobId} been cancelled, kill running worker.");
+                                workerProcessCancelTokenSource.Cancel();
+                                try
+                                {
+                                    await workerProcessTask;
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    Trace.Info("worker process has been killed.");
+                                }
                             }
+
+                            Trace.Info($"Waiting for worker to exit gracefully for job: {message.JobId}");
+                            // wait worker to exit
+                            // if worker doesn't exit within timeout, then kill worker.
+                            var exitTask = await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
+
+                            // worker haven't exit within cancellation timeout.
+                            if (exitTask != workerProcessTask)
+                            {
+                                Trace.Info($"worker process for job {message.JobId} haven't exit within cancellation timout, kill running worker.");
+                                workerProcessCancelTokenSource.Cancel();
+                                try
+                                {
+                                    await workerProcessTask;
+                                    Trace.Info("Worker process forceful termination completed");
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    Trace.Info("worker process has been killed.");
+                                }
+                            }
+                            else
+                            {   
+                                Trace.Info("Worker process exit completed - Worker exited gracefully within timeout");
+                            }
+
+                            Trace.Info($"Finish job request for job {message.JobId} with result: {resultOnAbandonOrCancel}");
+                            term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, resultOnAbandonOrCancel));
+                            // complete job request with cancel result, stop renew lock, job has finished.
+
+                            // stop renew lock
+                            lockRenewalTokenSource.Cancel();
+                            // renew job request should never blows up.
+                            await renewJobRequest;
+
+                            Trace.Info($"Job request completion initiated - Completing cancelled job request for job: {message.JobId}");
+                            // complete job request
+                            await CompleteJobRequestAsync(_poolId, message, lockToken, resultOnAbandonOrCancel);
+                            Trace.Info("Job request completion completed for cancelled job");
                         }
-                        else
-                        {   
-                            Trace.Info("Worker process exit completed - Worker exited gracefully within timeout");
+                        catch (AggregateException e)
+                        {
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                         }
-
-                        Trace.Info($"Finish job request for job {message.JobId} with result: {resultOnAbandonOrCancel}");
-                        term.WriteLine(StringUtil.Loc("JobCompleted", DateTime.UtcNow, message.JobDisplayName, resultOnAbandonOrCancel));
-                        // complete job request with cancel result, stop renew lock, job has finished.
-
-                        // stop renew lock
-                        lockRenewalTokenSource.Cancel();
-                        // renew job request should never blows up.
-                        await renewJobRequest;
-
-                        Trace.Info($"Job request completion initiated - Completing cancelled job request for job: {message.JobId}");
-                        // complete job request
-                        await CompleteJobRequestAsync(_poolId, message, lockToken, resultOnAbandonOrCancel);
-                        Trace.Info("Job request completion completed for cancelled job");
-                    }
-                    catch (AggregateException e)
-                    {
-                        ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
-                    }
-                    finally
-                    {
-                        Trace.Info($"Next job readiness - Sending job completion notification for job: {message.JobId}");
-                        // This should be the last thing to run so we don't notify external parties until actually finished
-                        await notification.JobCompleted(message.JobId);
-                        Trace.Info($"Job dispatcher cleanup completed - Ready for next job after job: {message.JobId}");
+                        finally
+                        {
+                            Trace.Info($"Next job readiness - Sending job completion notification for job: {message.JobId}");
+                            // This should be the last thing to run so we don't notify external parties until actually finished
+                            await notification.JobCompleted(message.JobId);
+                            Trace.Info($"Job dispatcher cleanup completed - Ready for next job after job: {message.JobId}");
+                        }
                     }
                 }
             }
