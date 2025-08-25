@@ -71,24 +71,66 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartClient(string pipeNameInput, string pipeNameOutput)
         {
-            _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
-            _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
-            _readStream = new StreamString(_inClient);
-            _writeStream = new StreamString(_outClient);
+            try
+            {
+                _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
+                _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
+                _readStream = new StreamString(_inClient);
+                _writeStream = new StreamString(_outClient);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex);
+                try { _inClient?.Dispose(); } catch { }
+                try { _outClient?.Dispose(); } catch { }
+                _inClient = null;
+                _outClient = null;
+                _readStream = null;
+                _writeStream = null;
+                throw;
+            }
         }
 
         public async Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken)
         {
-            await _writeStream.WriteInt32Async((int)messageType, cancellationToken);
-            await _writeStream.WriteStringAsync(body, cancellationToken);
+            try
+            {
+                await _writeStream.WriteInt32Async((int)messageType, cancellationToken);
+                await _writeStream.WriteStringAsync(body ?? string.Empty, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex);
+                throw;
+            }
         }
 
         public async Task<WorkerMessage> ReceiveAsync(CancellationToken cancellationToken)
         {
             WorkerMessage result = new WorkerMessage(MessageType.NotInitialized, string.Empty);
-            result.MessageType = (MessageType)await _readStream.ReadInt32Async(cancellationToken);
-            result.Body = await _readStream.ReadStringAsync(cancellationToken);
-            return result;
+            try
+            {
+                result.MessageType = (MessageType)await _readStream.ReadInt32Async(cancellationToken);
+                result.Body = await _readStream.ReadStringAsync(cancellationToken);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex);
+                throw;
+            }
         }
 
         public void Dispose()

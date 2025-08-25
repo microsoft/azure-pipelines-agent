@@ -180,8 +180,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 }
                             }
                         }
+                        catch (ReflectionTypeLoadException rtlEx)
+                        {
+                            Trace.Error($"[Warmup] Failed to load types for assembly '{Path.GetFileName(assemblyFile)}': {rtlEx.Message}");
+                            if (rtlEx.LoaderExceptions != null)
+                            {
+                                foreach (var loaderException in rtlEx.LoaderExceptions)
+                                {
+                                    if (loaderException != null)
+                                    {
+                                        Trace.Error($"[Warmup] Loader exception: {loaderException.GetType().Name}: {loaderException.Message}");
+                                    }
+                                }
+                            }
+                            Trace.Verbose($"[Warmup] Full ReflectionTypeLoadException details: {rtlEx}");
+                        }
+                        catch (FileNotFoundException fnfEx)
+                        {
+                            Trace.Error($"[Warmup] Assembly file not found during warmup: '{assemblyFile}'. File may have been moved or deleted. BaseDirectory: {AppContext.BaseDirectory}");
+                            Trace.Error($"[Warmup] FileNotFoundException: {fnfEx.Message}");
+                        }
                         catch (Exception ex)
                         {
+                            Trace.Error($"[Warmup] Unexpected error loading assembly '{Path.GetFileName(assemblyFile)}': {ex.GetType().Name}: {ex.Message}");
                             Trace.Error(ex);
                         }
                     }

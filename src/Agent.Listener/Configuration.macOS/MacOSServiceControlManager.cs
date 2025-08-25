@@ -57,6 +57,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 var unixUtil = HostContext.CreateService<IUnixUtil>();
                 unixUtil.ChmodAsync("755", svcShPath).GetAwaiter().GetResult();
             }
+            catch (FileNotFoundException fnfEx)
+            {
+                Trace.Error($"Service template file not found: {fnfEx.Message}");
+                throw new InvalidOperationException($"Cannot find service template file: {fnfEx.Message}", fnfEx);
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                Trace.Error($"Access denied creating service file: {uaEx.Message}");
+                throw new InvalidOperationException($"Access denied writing service file. Run with appropriate permissions: {uaEx.Message}", uaEx);
+            }
+            catch (IOException ioEx)
+            {
+                Trace.Error($"I/O error creating service file: {ioEx.Message}");
+                throw new InvalidOperationException($"Failed to write service file: {ioEx.Message}", ioEx);
+            }
             catch (Exception e)
             {
                 Trace.Error(e);

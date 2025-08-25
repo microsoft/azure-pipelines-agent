@@ -117,7 +117,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             _traceSource.TraceEvent(
                 eventType: eventType,
                 id: 0,
-                message: _secretMasker.MaskSecrets(message));
+                message: _secretMasker.MaskSecrets(message)
+            );
         }
 
         private void Dispose(bool disposing)

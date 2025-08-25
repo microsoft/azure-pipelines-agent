@@ -82,6 +82,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"Git download has been cancelled.");
                     throw;
                 }
+                catch (HttpRequestException httpEx)
+                {
+                    retryCount++;
+                    Trace.Info($"Git download failed due to HTTP error (attempt {retryCount}): {httpEx.Message}");
+                    Trace.Error(httpEx);
+
+                    if (retryCount >= retryLimit)
+                    {
+                        throw new InvalidOperationException($"Failed to download Git after {retryLimit} attempts due to HTTP errors", httpEx);
+                    }
+                }
+                catch (TaskCanceledException tcEx) when (tcEx.InnerException is System.TimeoutException)
+                {
+                    retryCount++;
+                    Trace.Info($"Git download timed out (attempt {retryCount}): {tcEx.Message}");
+                    Trace.Error(tcEx);
+
+                    if (retryCount >= retryLimit)
+                    {
+                        throw new InvalidOperationException($"Git download timed out after {retryLimit} attempts", tcEx);
+                    }
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    Trace.Error($"Access denied writing Git executable to '{downloadGitPath}': {uaEx.Message}");
+                    throw new InvalidOperationException($"Cannot write Git executable - check file permissions: {uaEx.Message}", uaEx);
+                }
+                catch (IOException ioEx)
+                {
+                    retryCount++;
+                    Trace.Info($"Git download I/O error (attempt {retryCount}): {ioEx.Message}");
+                    Trace.Error(ioEx);
+
+                    if (retryCount >= retryLimit)
+                    {
+                        throw new InvalidOperationException($"Failed to download Git after {retryLimit} attempts due to I/O errors", ioEx);
+                    }
+                }
                 catch (Exception ex)
                 {
                     retryCount++;

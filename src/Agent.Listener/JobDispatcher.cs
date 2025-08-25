@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using System.Net.Http;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -481,23 +482,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             HostContext.WritePerfCounter("StartingWorkerProcess");
                             var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
                             string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
-                            Trace.Info("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
-                                workerFileName, pipeHandleOut, pipeHandleIn, message.JobId);
-                            workerProcessTask = processInvoker.ExecuteAsync(
-                                workingDirectory: assemblyDirectory,
-                                fileName: workerFileName,
-                                arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
-                                environment: environment,
-                                requireExitCodeZero: false,
-                                outputEncoding: null,
-                                killProcessOnCancel: true,
-                                redirectStandardIn: null,
-                                inheritConsoleHandler: false,
-                                keepStandardInOpen: false,
-                                highPriorityProcess: true,
-                                continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                                cancellationToken: workerProcessCancelTokenSource.Token);
-                            Trace.Info("Worker process started successfully");
+                            try
+                            {
+                                if (!File.Exists(workerFileName))
+                                {
+                                    Trace.Error($"Worker executable not found: '{workerFileName}'");
+                                    throw new FileNotFoundException("Worker executable not found", workerFileName);
+                                }
+                                Trace.Info("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
+                                    workerFileName, pipeHandleOut, pipeHandleIn, message.JobId);
+                                workerProcessTask = processInvoker.ExecuteAsync(
+                                    workingDirectory: assemblyDirectory,
+                                    fileName: workerFileName,
+                                    arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
+                                    environment: environment,
+                                    requireExitCodeZero: false,
+                                    outputEncoding: null,
+                                    killProcessOnCancel: true,
+                                    redirectStandardIn: null,
+                                    inheritConsoleHandler: false,
+                                    keepStandardInOpen: false,
+                                    highPriorityProcess: true,
+                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
+                                    cancellationToken: workerProcessCancelTokenSource.Token);
+                            }
+                            catch (System.ComponentModel.Win32Exception w32ex)
+                            {
+                                Trace.Error($"Failed to start worker process file='{workerFileName}' wd='{assemblyDirectory}' err={w32ex.NativeErrorCode} {w32ex.Message}");
+                                throw;
+                            }
+                            catch (Exception ex)
+                            {
+                                Trace.Error($"Failed to start worker process file='{workerFileName}' wd='{assemblyDirectory}' err={ex.GetType().Name}: {ex.Message}");
+                                throw;
+                            }
                         }
                     );
 
@@ -534,9 +552,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 message.JobId, _channelTimeout.TotalSeconds);
                             await workerProcessTask;
                         }
-                        catch (OperationCanceledException)
+                        catch (OperationCanceledException ocex)
                         {
-                            Trace.Info("worker process has been killed.");
+                            Trace.Info($"worker process kill requested due to send-timeout; op=kill detail={ocex.Message}");
                         }
 
                         Trace.Info($"Stop renew job request for job {message.JobId}.");
@@ -697,9 +715,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             {
                                 await workerProcessTask;
                             }
-                            catch (OperationCanceledException)
+                            catch (OperationCanceledException ocex)
                             {
-                                Trace.Info("worker process has been killed.");
+                                Trace.Info($"worker process kill requested due to cancel-send-timeout; op=kill detail={ocex.Message}");
                             }
                         }
 
@@ -718,9 +736,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 await workerProcessTask;
                                 Trace.Info("Worker process forceful termination completed");
                             }
-                            catch (OperationCanceledException)
+                            catch (OperationCanceledException ocex)
                             {
-                                Trace.Info("worker process has been killed.");
+                                Trace.Info($"worker process kill requested due to cancel-timeout; op=kill detail={ocex.Message}");
                             }
                         }
                         else
@@ -810,7 +828,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     // OperationCanceledException may caused by http timeout or _lockRenewalTokenSource.Cance();
                     // Stop renew only on cancellation token fired.
-                    Trace.Info($"job renew has been canceled, stop renew job request {requestId}.");
+                    Trace.Info($"[CANCELLED] op=RenewJob requestId={requestId}");
                     return;
                 }
                 catch (Exception ex)
@@ -840,12 +858,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         TimeSpan delayTime;
                         if (!firstJobRequestRenewed.Task.IsCompleted)
                         {
-                            Trace.Info($"Retrying lock renewal for jobrequest {requestId}. The first job renew request has failed.");
+                            Trace.Info($"[RETRY RenewJob] requestId={requestId} firstRenewFailed=true");
                             delayTime = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
                         }
                         else
                         {
-                            Trace.Info($"Retrying lock renewal for jobrequest {requestId}. Job is valid until {request.LockedUntil.Value}.");
+                            Trace.Info($"[RETRY RenewJob] requestId={requestId} validUntil={request.LockedUntil.Value:o}");
                             if (encounteringError > 5)
                             {
                                 delayTime = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30));
@@ -869,7 +887,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
-                            Trace.Info($"job renew has been canceled, stop renew job request {requestId}.");
+                            Trace.Info($"[CANCELLED] op=RenewJob requestId={requestId}");
                         }
                     }
                     else
@@ -895,6 +913,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
 
             var agentServer = HostContext.GetService<IAgentServer>();
+            if (!string.IsNullOrEmpty(detailInfo))
+            {
+                Trace.Verbose($"[CompleteJobRequest] detailInfo-length={detailInfo.Length}");
+            }
             int completeJobRequestRetryLimit = 5;
             List<Exception> exceptions = new List<Exception>();
             Trace.Info("Job completion retry configuration [JobId:{0}, RetryLimit:{1}, DelayBetweenRetries:5s]", message.JobId, completeJobRequestRetryLimit);
