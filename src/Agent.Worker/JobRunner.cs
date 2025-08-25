@@ -52,6 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(message.Variables, nameof(message.Variables));
             ArgUtil.NotNull(message.Steps, nameof(message.Steps));
             Trace.Entering();
+            Trace.Info($"Job ID {message.JobId}");
 
             DateTime jobStartTimeUtc = DateTime.UtcNow;
 
@@ -83,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
             Uri jobServerUrl = systemConnection.Url;
 
-            Trace.Info("Creating job server connection [URL:{0}]", jobServerUrl);
+            Trace.Info($"Creating job server connection [URL:{jobServerUrl}]");
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
             VssConnection jobConnection = VssUtil.CreateConnection(
@@ -97,7 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             _jobServerQueue.Start(message);
             HostContext.WritePerfCounter($"WorkerJobServerQueueStarted_{message.RequestId.ToString()}");
-            Trace.Info("JobServer connection established successfully [URL:{0}, ThrottlingEnabled:True]", jobServerUrl);
+            Trace.Info($"JobServer connection established successfully [URL:{jobServerUrl}, ThrottlingEnabled:True]");
 
             IExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
@@ -141,14 +142,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         case ShutdownReason.UserCancelled:
                             errorMessage = StringUtil.Loc("UserShutdownAgent");
-                            Trace.Warning("Agent shutdown initiated [Reason:UserCancelled, JobId:{0}]", message.JobId);
+                            Trace.Warning($"Agent shutdown initiated [Reason:UserCancelled, JobId:{message.JobId}]");
                             break;
                         case ShutdownReason.OperatingSystemShutdown:
                             errorMessage = StringUtil.Loc("OperatingSystemShutdown", Environment.MachineName);
-                            Trace.Warning("Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{0}, Machine:{1}]", message.JobId, Environment.MachineName);
+                            Trace.Warning($"Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{message.JobId}, Machine:{Environment.MachineName}]");
                             break;
                         default:
-                            Trace.Error("Unknown shutdown reason detected [Reason:{0}, JobId:{1}]", HostContext.AgentShutdownReason, message.JobId);
+                            Trace.Error($"Unknown shutdown reason detected [Reason:{HostContext.AgentShutdownReason}, JobId:{message.JobId}]");
                             throw new ArgumentException(HostContext.AgentShutdownReason.ToString(), nameof(HostContext.AgentShutdownReason));
                     }
                     jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
@@ -182,8 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
                 jobContext.SetVariable(Constants.Variables.Agent.OSArchitecture, VarUtil.OSArchitecture);
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
-                Trace.Info("Agent metadata populated [AgentId:{0}, AgentName:{1}, OS:{2}, Architecture:{3}, SelfHosted:{4}, CloudId:{5}, MachineName:{6}]", 
-                    settings.AgentId, settings.AgentName, VarUtil.OS, VarUtil.OSArchitecture, !settings.IsMSHosted, settings.AgentCloudId, Environment.MachineName);
+                Trace.Info($"Agent metadata populated [AgentId:{settings.AgentId}, AgentName:{settings.AgentName}, OS:{VarUtil.OS}, Architecture:{VarUtil.OSArchitecture}, SelfHosted:{!settings.IsMSHosted}, CloudId:{settings.AgentCloudId}, MachineName:{Environment.MachineName}]");
                 if (PlatformUtil.RunningOnWindows)
                 {
                     string serverOMDirectoryVariable = AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean()
@@ -242,7 +242,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var taskServerCredential = VssUtil.GetVssCredential(systemConnection);
                 if (taskServerUri != null)
                 {
-                    Trace.Info("Creating task server [URI:{0}]", taskServerUri);
+                    Trace.Info($"Creating task server [URI:{taskServerUri}]");
 
                     taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
                     await taskServer.ConnectAsync(taskConnection);
@@ -441,7 +441,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (AggregateException e)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
 
                 return TaskResult.Failed;
             }
@@ -509,7 +509,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (AggregateException ex)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)ex, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)ex, (message) => Trace.Error(message));
 
                 result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
             }
@@ -588,7 +588,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (AggregateException ex)
                 {
-                    ExceptionsUtil.HandleAggregateException(ex, Trace.Error);
+                    ExceptionsUtil.HandleAggregateException(ex, (message) => Trace.Error(message));
 
                     if (throwOnFailure)
                     {

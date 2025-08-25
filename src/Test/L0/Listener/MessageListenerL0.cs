@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 listener.Initialize(tc);
 
                 bool result = await listener.CreateSessionAsync(tokenSource.Token);
-                trace.Info("result: {0}", result);
+                trace.Info($"result: {result}");
 
                 // Assert.
                 Assert.True(result);

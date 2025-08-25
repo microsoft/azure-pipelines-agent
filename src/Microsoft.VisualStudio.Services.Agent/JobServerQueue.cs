@@ -229,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _timelineUpdateQueue.TryAdd(timelineId, new ConcurrentQueue<TimelineRecord>());
 
-            Trace.Verbose("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id);
+            Trace.Verbose($"Enqueue timeline {timelineId} update queue: {timelineRecord.Id}");
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
         }
 
@@ -346,7 +346,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                         }
 
-                        Trace.Info("Try to append {0} batches web console lines for record '{2}', success rate: {1}/{0}.", batchedLines.Count, batchedLines.Count - errorCount, stepRecordId);
+                        Trace.Info($"Try to append {batchedLines.Count} batches web console lines for record '{stepRecordId}', success rate: {batchedLines.Count - errorCount}/{batchedLines.Count}.");
                     }
                 }
 
@@ -417,7 +417,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         }
                     }
 
-                    Trace.Info("Try to upload {0} log files or attachments, success rate: {1}/{0}.", filesToUpload.Count, filesToUpload.Count - errorCount);
+                    Trace.Info($"Try to upload {filesToUpload.Count} log files or attachments, success rate: {filesToUpload.Count - errorCount}/{filesToUpload.Count}.");
                 }
 
                 if (runOnce)
@@ -502,7 +502,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, CancellationToken.None);
                             if (_bufferedRetryRecords.Remove(update.TimelineId))
                             {
-                                Trace.Verbose("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId);
+                                Trace.Verbose($"Cleanup buffered timeline record for timeline: {update.TimelineId}.");
                             }
                         }
                         catch (Exception ex)

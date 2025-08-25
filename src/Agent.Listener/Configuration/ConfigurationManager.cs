@@ -350,7 +350,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             catch (SocketException ex)
             {
-                ExceptionsUtil.HandleSocketException(ex, agentSettings.ServerUrl, Trace.Error);
+                ExceptionsUtil.HandleSocketException(ex, agentSettings.ServerUrl, (message) => Trace.Error(message));
                 throw;
             }
 

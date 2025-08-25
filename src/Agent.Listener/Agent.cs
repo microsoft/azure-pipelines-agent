@@ -359,7 +359,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             try
             {
-                Trace.Info($"Entering main agent execution loop({0})", nameof(RunAsync));
+                Trace.Info($"Entering main agent execution loop({nameof(RunAsync)})");
 
                 var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                 var checkPsModulesFeatureFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.CheckPsModulesLocations", Trace);
@@ -513,7 +513,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         var agentUpdateMessage = JsonUtility.FromString<AgentRefreshMessage>(message.Body);
                                         var selfUpdater = HostContext.GetService<ISelfUpdater>();
                                         selfUpdateTask = selfUpdater.SelfUpdate(agentUpdateMessage, jobDispatcher, !runOnce && HostContext.StartupType != StartupType.Service, HostContext.AgentShutdownToken);
-                                        Trace.Info("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion);
+                                        Trace.Info($"Agent update handling - Self-update task initiated, target version: {agentUpdateMessage.TargetVersion}");
                                     }
                                     else
                                     {
@@ -585,7 +585,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         catch (AggregateException e)
                         {
                             Trace.Error($"Exception occurred while processing message from queue: {e.Message}");
-                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                         }
                         finally
                         {

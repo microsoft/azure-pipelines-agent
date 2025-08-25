@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var agents = await _agentServer.GetAgentsAsync(agentSettings.PoolId, agentSettings.AgentName);
-            Trace.Verbose("Returns {0} agents", agents.Count);
+            Trace.Verbose($"Returns {agents.Count} agents");
             return agents.FirstOrDefault();
         }
     }
@@ -233,7 +233,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var machines = await GetDeploymentTargetsAsync(agentSettings);
-            Trace.Verbose("Returns {0} machines with name {1}", machines.Count, agentSettings.AgentName);
+            Trace.Verbose($"Returns {machines.Count} machines with name {agentSettings.AgentName}");
             var machine = machines.FirstOrDefault();
             if (machine != null)
             {
@@ -274,7 +274,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var machines = await GetDeploymentTargetsAsync(agentSettings);
-            Trace.Verbose("Returns {0} machines", machines.Count);
+            Trace.Verbose($"Returns {machines.Count} machines");
             var machine = machines.FirstOrDefault();
             if (machine != null)
             {
@@ -372,7 +372,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 catch (SocketException ex)
                 {
                     azureSubscriptionId = string.Empty;
-                    ExceptionsUtil.HandleSocketException(ex, imdsUri, Trace.Info);
+                    ExceptionsUtil.HandleSocketException(ex, imdsUri, (message) => Trace.Info(message));
                 }
                 catch (Exception ex)
                 {
@@ -459,7 +459,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             agentSettings.EnvironmentId = environmentInstance.Id;
             agentSettings.ProjectName = environmentInstance.Project.Name;
             agentSettings.ProjectId = environmentInstance.Project.Id.ToString();
-            Trace.Info("vm resource configuration: environment id: '{0}', project name: '{1}', project id: '{2}'", agentSettings.EnvironmentId, agentSettings.ProjectName, agentSettings.ProjectId);
+            Trace.Info($"vm resource configuration: environment id: '{agentSettings.EnvironmentId}', project name: '{agentSettings.ProjectName}', project id: '{agentSettings.ProjectId}'");
         }
 
         public override string GetFailedToFindPoolErrorString() => StringUtil.Loc("FailedToFindEnvironment");
@@ -483,7 +483,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Environment virtual machine resource with name: '{0}', id: '{1}' has been added successfully.", virtualMachine.Name, virtualMachine.Id);
 
             var pool = await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
-            Trace.Info("environment pool id: '{0}'", pool.Id);
+            Trace.Info($"environment pool id: '{pool.Id}'");
             agentSettings.PoolId = pool.Id;
             agentSettings.AgentName = virtualMachine.Name;
             agentSettings.EnvironmentVMResourceId = virtualMachine.Id;
@@ -517,7 +517,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public override async Task DeleteAgentAsync(AgentSettings agentSettings)
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
-            Trace.Info("Deleting environment virtual machine resource with id: '{0}'", agentSettings.EnvironmentVMResourceId);
+            Trace.Info($"Deleting environment virtual machine resource with id: '{agentSettings.EnvironmentVMResourceId}'");
             if (!string.IsNullOrWhiteSpace(agentSettings.ProjectId))
             {
                 await _environmentsServer.DeleteEnvironmentVMAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, agentSettings.EnvironmentVMResourceId);
@@ -526,14 +526,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             {
                 await _environmentsServer.DeleteEnvironmentVMAsync(agentSettings.ProjectName, agentSettings.EnvironmentId, agentSettings.EnvironmentVMResourceId);
             }
-            Trace.Info("Environment virtual machine resource with id: '{0}' has been successfully deleted.", agentSettings.EnvironmentVMResourceId);
+            Trace.Info($"Environment virtual machine resource with id: '{agentSettings.EnvironmentVMResourceId}' has been successfully deleted.");
         }
 
         public override async Task<TaskAgent> GetAgentAsync(AgentSettings agentSettings)
         {
             ArgUtil.NotNull(agentSettings, nameof(agentSettings));
             var vmResources = await GetEnvironmentVMsAsync(agentSettings);
-            Trace.Verbose("Returns {0} virtual machine resources", vmResources.Count);
+            Trace.Verbose($"Returns {vmResources.Count} virtual machine resources");
             var machine = vmResources.FirstOrDefault();
             if (machine != null)
             {
@@ -553,9 +553,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             vmResource.Agent = agent;
             vmResource.Tags = tags;
-            Trace.Info("Replacing environment virtual machine resource with id: '{0}'", vmResource.Id);
+            Trace.Info($"Replacing environment virtual machine resource with id: '{vmResource.Id}'");
             vmResource = await _environmentsServer.ReplaceEnvironmentVMAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId, vmResource);
-            Trace.Info("environment virtual machine resource with id: '{0}' has been replaced successfully", vmResource.Id);
+            Trace.Info($"environment virtual machine resource with id: '{vmResource.Id}' has been replaced successfully");
             var pool = await _environmentsServer.GetEnvironmentPoolAsync(new Guid(agentSettings.ProjectId), agentSettings.EnvironmentId);
 
             agentSettings.AgentName = vmResource.Name;

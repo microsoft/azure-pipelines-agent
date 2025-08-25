@@ -682,12 +682,12 @@ resources:
 
             public void Info(String format, params Object[] args)
             {
-                m_trace.Info(format, args);
+                m_trace.Info(string.Format(CultureInfo.InvariantCulture, format, args));
             }
 
             public void Verbose(String format, params Object[] args)
             {
-                m_trace.Verbose(format, args);
+                m_trace.Verbose(string.Format(CultureInfo.InvariantCulture, format, args));
             }
 
             private readonly Tracing m_trace;

@@ -45,13 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public SourceSwitch Switch { get; private set; }
 
-        public Tracing this[string name]
-        {
-            get
-            {
-                return _sources.GetOrAdd(name, key => CreateTraceSource(key));
-            }
-        }
+        public Tracing this[string name] => _sources.GetOrAdd(name, key => CreateTraceSource(key));
 
         public void Dispose()
         {

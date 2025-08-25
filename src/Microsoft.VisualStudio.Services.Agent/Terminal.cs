@@ -56,8 +56,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Trace.Error(ex);
             }
 
-            Console.OutputEncoding = terminalEncoding;
-            Console.InputEncoding = terminalEncoding;
+            try
+            {
+                Console.OutputEncoding = terminalEncoding;
+                Console.InputEncoding = terminalEncoding;
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Failed to set console output encoding to '{terminalEncoding.WebName}': {ex.Message}");
+                Trace.Verbose(ex.ToString());
+            }
+
         }
 
         private void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)

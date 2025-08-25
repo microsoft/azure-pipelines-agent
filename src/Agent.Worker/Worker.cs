@@ -35,8 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
             VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
-            Trace.Info("VSS client settings initialized [UserAgent:{0}, ProxyConfigured:{1}, CertValidationSkipped:{2}]", 
-                HostContext.UserAgent, agentWebProxy.WebProxy != null, agentCertManager.SkipServerCertificateValidation);
+            Trace.Info($"VSS client settings initialized [UserAgent:{HostContext.UserAgent}, ProxyConfigured:{agentWebProxy.WebProxy != null}, CertValidationSkipped:{agentCertManager.SkipServerCertificateValidation}]");
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
             Trace.Info("JobRunner service created - preparing for IPC channel establishment");
@@ -46,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var channelTokenSource = new CancellationTokenSource())
             {
                 // Start the channel.
-                Trace.Info("Starting process channel client - establishing IPC communication with listener - pipeIn: {0}, pipeOut: {1}", pipeIn, pipeOut);
+                Trace.Info($"Starting process channel client - establishing IPC communication with listener - pipeIn: {pipeIn}, pipeOut: {pipeOut}");
                 channel.StartClient(pipeIn, pipeOut);
                 Trace.Info("IPC channel established successfully - communication link active with listener process");
 
@@ -67,8 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
                 HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
-                Trace.Info("Job message deserialized successfully [JobId:{0}, PlanId:{1}, RequestId:{2}]",
-                    jobMessage.JobId, jobMessage.Plan.PlanId, jobMessage.RequestId);
+                Trace.Info($"Job message deserialized successfully [JobId:{jobMessage.JobId}, PlanId:{jobMessage.Plan.PlanId}, RequestId:{jobMessage.RequestId}]");
                 jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
 
                 // Initialize the secret masker and set the thread culture.
@@ -87,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     messageLoopIteration++;
                     // Start listening for a cancel message from the channel.
-                    Trace.Info("Starting listener for control messages from listener process [Iteration:{0}]", messageLoopIteration);
+                    Trace.Info($"Starting listener for control messages from listener process [Iteration:{messageLoopIteration}]");
                     Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
 
                     // Wait for one of the tasks to complete.
@@ -106,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Otherwise a message was received from the channel.
                     channelMessage = await channelTask;
-                    Trace.Info("Control message received from listener [Type:{0}, Iteration:{1}]", channelMessage.MessageType, messageLoopIteration);
+                    Trace.Info($"Control message received from listener [Type:{channelMessage.MessageType}, Iteration:{messageLoopIteration}]");
                     switch (channelMessage.MessageType)
                     {
                         case MessageType.CancelRequest:
@@ -249,8 +247,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     HostContext.SecretMasker.AddValue(file.Ticket, WellKnownSecretAliases.SecureFileTicket);
                 }
             }
-            Trace.Info("Secret masker initialization complete [SecretVariables:{0}, EndpointSecrets:{1}, SecureFiles:{2}]", 
-                secretCount, endpointSecretCount, secureFileCount);
+            Trace.Info($"Secret masker initialization complete [SecretVariables:{secretCount}, EndpointSecrets:{endpointSecretCount}, SecureFiles:{secureFileCount}]");
         }
 
         private void SetCulture(Pipelines.AgentJobRequestMessage message)
