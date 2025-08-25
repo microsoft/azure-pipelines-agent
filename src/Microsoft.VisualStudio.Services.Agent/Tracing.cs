@@ -126,8 +126,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (disposing)
             {
+                // Important: do not close the TraceSource here because it will close
+                // the shared HostTraceListener used across the entire process.
+                // Closing the shared listener from one Tracing instance would stop all logging.
                 _traceSource.Flush();
-                _traceSource.Close();
             }
         }
     }

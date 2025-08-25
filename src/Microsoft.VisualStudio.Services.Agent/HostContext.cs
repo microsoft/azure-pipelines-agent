@@ -123,12 +123,16 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 // this should give us _diag folder under agent root directory as default value for diagLogDirctory
                 string diagLogPath = GetDiagDirectory(_hostType);
-                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker, this);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
 
             }
             else
             {
-                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker, this);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
             }
 
             _trace = GetTrace(nameof(HostContext));
