@@ -252,7 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         trace.Error(ex);
                     }
 
-                    trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                    trace.Info(StringUtil.SafeLog("STDOUT: {0}", string.Join(Environment.NewLine, stdout)));
                     Assert.True(stdout.Contains("More line of STDIN"), "STDIN should keep open and accept more inputs after first input line.");
                 }
             }

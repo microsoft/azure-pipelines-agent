@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _jobInfos.TryAdd(newDispatch.JobId, newDispatch);
             _jobDispatchedQueue.Enqueue(newDispatch.JobId);
-            Trace.Info($"Job dispatcher setup complete [JobId:{newDispatch.JobId}, QueuePosition:{_jobDispatchedQueue.Count}, ActiveJobs:{_jobInfos.Count}, DispatchMode:{(runOnce ? "RunOnce" : "Normal")}]");
+            Trace.Info(StringUtil.SafeLog("Job dispatcher setup complete [JobId:{0}, QueuePosition:{1}, ActiveJobs:{2}, DispatchMode:{3}]", newDispatch.JobId, _jobDispatchedQueue.Count, _jobInfos.Count, runOnce ? "RunOnce" : "Normal"));
         }
 
         public void MetadataUpdate(JobMetadataMessage jobMetadataMessage)

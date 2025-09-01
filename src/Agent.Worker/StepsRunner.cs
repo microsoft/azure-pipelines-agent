@@ -94,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (taskStep != null)
                 {
                     HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
-                    Trace.Info($"Task step initiated [TaskName:{taskStep.Task.Reference.Name}, TaskId:{taskStep.Task.Reference.Id}, Version:{taskStep.Task.Reference.Version}, Stage:{taskStep.Stage}]");
+                    Trace.Info(StringUtil.SafeLog("Task step initiated [TaskName:{0}, TaskId:{1}, Version:{2}, Stage:{3}]", taskStep.Task.Reference.Name, taskStep.Task.Reference.Id, taskStep.Task.Reference.Version, taskStep.Stage));
                 }
                 else
                 {
@@ -386,7 +386,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                 }
             }
-            Trace.Info($"Step async command summary [Step:'{step.DisplayName}', TotalCommands:{step.ExecutionContext.AsyncCommands?.Count ?? 0}, CommandResult:{step.ExecutionContext.CommandResult}]");
+                        Trace.Info(StringUtil.SafeLog("Step async command summary [Step:'{0}', TotalCommands:{1}, CommandResult:{2}]", step.DisplayName, (step.ExecutionContext.AsyncCommands?.Count ?? 0).ToString(), step.ExecutionContext.CommandResult?.ToString()));
 
             // Merge executioncontext result with command result
             if (step.ExecutionContext.CommandResult != null)

@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Console.WriteLine(ex.ToString());
                 try
                 {
-                    trace.Error(ex, "Worker process execution failed with unhandled exception");
+                    trace.Error(StringUtil.SafeLog("Worker process execution failed with unhandled exception - {0}", ex.Message));
                 }
                 catch (Exception e)
                 {

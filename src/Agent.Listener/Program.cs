@@ -67,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 catch (Exception e)
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error(e, "Directory permission validation failed - insufficient permissions");
+                    trace.Error(StringUtil.SafeLog($"Directory permission validation failed - insufficient permissions - {0}", e.Message));
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
@@ -92,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     catch (Exception e)
                     {
                         terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                        trace.Error(e, "PowerShell validation failed - required version not found or accessible");
+                        trace.Error(StringUtil.SafeLog("PowerShell validation failed - required version not found or accessible - {0}", e.Message));
                         return Constants.Agent.ReturnCode.TerminatedError;
                     }
 

@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 DeleteSource = deleteSource
             };
 
-            Trace.Verbose("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId);
+            Trace.Verbose(StringUtil.SafeLog("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId));
             _fileUploadQueue.Enqueue(newFile);
         }
 

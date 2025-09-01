@@ -99,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                                   }));
 
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Initialize-AzurePowerShellSupport)");
-            Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter({0}={1})", _connectedServiceName, connectedServiceNameValue);
+            Trace.Verbose(StringUtil.SafeLog("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter({0}={1})", _connectedServiceName, connectedServiceNameValue));
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(StorageAccount={0})", storageAccount);
 
             additionalCommands.Add(new Tuple<string, List<Tuple<string, string>>>("Initialize-AzurePowerShellSupport",
@@ -119,12 +119,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (inputs.TryGetValue(_connectedServiceNameSelector, out connectedServiceSelectorValue))
             {
                 connectedServiceName = connectedServiceSelectorValue;
-                Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - Found ConnectedServiceSelector value : {0}", connectedServiceName);
+                Trace.Verbose(StringUtil.SafeLog("AzurePowerShellHandler.UpdatePowerShellEnvironment - Found ConnectedServiceSelector value : {0}", connectedServiceName?.ToString()));
             }
 
             if (!inputs.TryGetValue(connectedServiceName, out environment))
             {
-                Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - Could not find {0}, so looking for DeploymentEnvironmentName.", connectedServiceName);
+                Trace.Verbose(StringUtil.SafeLog("AzurePowerShellHandler.UpdatePowerShellEnvironment - Could not find {0}, so looking for DeploymentEnvironmentName.", connectedServiceName?.ToString()));
                 if (!inputs.TryGetValue("DeploymentEnvironmentName", out environment))
                 {
                     throw new ArgumentNullException($"The required {connectedServiceName} parameter was not found by the AzurePowerShellRunner.");

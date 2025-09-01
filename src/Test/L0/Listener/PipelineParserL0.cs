@@ -1,3 +1,4 @@
+using Microsoft.VisualStudio.Services.Agent.Util;
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
@@ -682,12 +683,12 @@ resources:
 
             public void Info(String format, params Object[] args)
             {
-                m_trace.Info(string.Format(CultureInfo.InvariantCulture, format, args));
+                m_trace.Info(StringUtil.SafeLog(format, args));
             }
 
             public void Verbose(String format, params Object[] args)
             {
-                m_trace.Verbose(string.Format(CultureInfo.InvariantCulture, format, args));
+                m_trace.Verbose(StringUtil.SafeLog(format, args));
             }
 
             private readonly Tracing m_trace;

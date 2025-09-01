@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
                             break;
                         case MessageType.JobMetadataUpdate:
-                            Trace.Info("Metadata update message received - updating job runner metadata, Metadata: {0}", channelMessage.Body);
+                            Trace.Info(StringUtil.SafeLog("Metadata update message received - updating job runner metadata, Metadata: {0}", channelMessage.Body));
                             var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
                             jobRunner.UpdateMetadata(metadataMessage);
                             Trace.Info("Job metadata update processed successfully");

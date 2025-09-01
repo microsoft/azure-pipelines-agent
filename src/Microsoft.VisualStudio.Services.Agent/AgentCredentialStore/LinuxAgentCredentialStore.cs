@@ -203,17 +203,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                     var exitCode = invoker.ExecuteAsync(HostContext.GetDirectory(WellKnownDirectory.Root), chmodPath, arguments, null, default(CancellationToken)).GetAwaiter().GetResult();
                     if (exitCode == 0)
                     {
-                        Trace.Info("Successfully set permissions for credentials store file {0}", _credStoreFile);
+                        Trace.Info(StringUtil.SafeLog("Successfully set permissions for credentials store file {0}", _credStoreFile));
                     }
                     else
                     {
-                        Trace.Warning("Unable to successfully set permissions for credentials store file {0}. Received exit code {1} from {2}", _credStoreFile, exitCode, chmodPath);
+                        Trace.Warning(StringUtil.SafeLog("Unable to successfully set permissions for credentials store file {0}. Received exit code {1} from {2}", _credStoreFile, exitCode, chmodPath));
                     }
                 }
             }
             else
             {
-                Trace.Warning("Unable to locate chmod to set permissions for credentials store file {0}.", _credStoreFile);
+                Trace.Warning(StringUtil.SafeLog("Unable to locate chmod to set permissions for credentials store file {0}.", _credStoreFile));
             }
         }
     }
