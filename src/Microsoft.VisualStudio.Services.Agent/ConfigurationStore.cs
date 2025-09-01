@@ -245,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             Trace.Info("HasCredentials()");
             bool credsStored = (new FileInfo(_credFilePath)).Exists;
-            Trace.Info($"stored {credsStored}");
+            Trace.Info(StringUtil.SafeLog("stored {0}", credsStored));
             return credsStored;
         }
 
@@ -253,7 +253,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             Trace.Info("IsConfigured()");
             bool configured = (new FileInfo(_configFilePath)).Exists;
-            Trace.Info($"IsConfigured: {configured}");
+            Trace.Info(StringUtil.SafeLog("IsConfigured: {0}", configured));
             return configured;
         }
 
@@ -333,7 +333,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public void SaveCredential(CredentialData credential)
         {
             ArgUtil.NotNull(credential, nameof(credential));
-            Trace.Info($"Saving {credential.Scheme} credential @ {_credFilePath}");
+            Trace.Info(StringUtil.SafeLog("Saving {0} credential @ {1}", credential.Scheme, _credFilePath));
             if (File.Exists(_credFilePath))
             {
                 // Delete existing credential file first, since the file is hidden and not able to overwrite.

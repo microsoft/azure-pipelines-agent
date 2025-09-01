@@ -22,9 +22,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (HostContext context = new HostContext(HostType.Worker))
             {
                 Tracing trace = context.GetTrace(nameof(Program));
-                trace.Info($"Worker process entry point initiated [HostType:Worker, Arguments:{string.Join(" ", args ?? new string[0])}]");
+                trace.Info(StringUtil.SafeLog("Worker process entry point initiated [HostType:Worker, Arguments:{0}]", string.Join(" ", args ?? new string[0])));
                 var result = MainAsync(context, args).GetAwaiter().GetResult();
-                trace.Info($"Worker process entry point completed [ExitCode:{result}]");
+                trace.Info(StringUtil.SafeLog("Worker process entry point completed [ExitCode:{0}]", result));
                 return result;
             }
         }
@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Tracing trace = context.GetTrace(nameof(Program));
             try
             {
-                trace.Info($"Worker process initialization starting - setting up runtime environment. Version: {BuildConstants.AgentPackage.Version}, Commit: {BuildConstants.Source.CommitHash}, Culture: {CultureInfo.CurrentCulture.Name}, UI Culture: {CultureInfo.CurrentUICulture.Name}");
+                trace.Info("Worker process initialization starting - setting up runtime environment. Version: {BuildConstants.AgentPackage.Version}, Commit: {BuildConstants.Source.CommitHash}, Culture: {CultureInfo.CurrentCulture.Name}, UI Culture: {CultureInfo.CurrentUICulture.Name}");
                 context.WritePerfCounter("WorkerProcessStarted");
 
                 // Validate args.
@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.Equal("spawnclient", args[0].ToLowerInvariant(), $"{nameof(args)}[0]");
                 ArgUtil.NotNullOrEmpty(args[1], $"{nameof(args)}[1]");
                 ArgUtil.NotNullOrEmpty(args[2], $"{nameof(args)}[2]");
-                trace.Info($"Command validation successful [Mode:{args[0]}, PipeIn:{args[1]}, PipeOut:{args[2]}]");
+                trace.Info(StringUtil.SafeLog("Command validation successful [Mode:{0}, PipeIn:{1}, PipeOut:{2}]", args[0], args[1], args[2]));
                 var worker = context.GetService<IWorker>();
 
                 // Run the worker.
