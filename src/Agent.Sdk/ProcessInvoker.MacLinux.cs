@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             if (_proc == null)
             {
-                Trace.Info(StringUtil.SafeLog("Process already exited, no need to send {0}.", signal));
+                Trace.Info($"Process already exited, no need to send {signal}.");
                 return true;
             }
 
