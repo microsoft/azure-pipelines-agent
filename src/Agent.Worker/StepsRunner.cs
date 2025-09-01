@@ -84,6 +84,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (IStep step in steps)
                 {
                     Trace.Info($"Processing step {stepIndex + 1}/{steps.Count}: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
+                    jobContext.SetCorrelationStep(step.ExecutionContext.Id.ToString("D"));
+                    
+                    if (step is ITaskRunner corrTaskStep)
+                    {
+                        jobContext.SetCorrelationTask(corrTaskStep.Task.Reference.Id.ToString("D"));
+                    }
+
+                    Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
                     ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                     ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
                     ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
@@ -126,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             jobCancelRegister = jobContext.CancellationToken.Register(() =>
                             {
                                 Trace.Info($"Job cancellation callback triggered [Step:'{step.DisplayName}', AgentShutdown:{HostContext.AgentShutdownToken.IsCancellationRequested}]");
-                                // mark job as cancelled
+                                // Mark job as cancelled
                                 jobContext.Result = TaskResult.Canceled;
                                 jobContext.Variables.Agent_JobStatus = jobContext.Result;
 
@@ -290,6 +298,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         Trace.Info($"Task step completion - TaskName:{taskStep.Task.Reference.Name}, StepIndex:{stepIndex}/{steps.Count}, Result: {step.ExecutionContext.Result}, TaskStage:{taskStep.Stage}");
                     }
 
+                    Trace.Info($"Current state: job state = '{jobContext.Result}'");
+                    jobContext.ClearCorrelationStep();
+                    jobContext.ClearCorrelationTask();
                 }
                 Trace.Info($"Step iteration loop completed - All {steps.Count} steps processed, Final job result: {jobContext.Result}");
             }
@@ -475,7 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                if (step.ExecutionContext.Variables.Retain_Default_Encoding != true && Console.InputEncoding.CodePage != 65001)
+                if (!step.ExecutionContext.Variables.Retain_Default_Encoding && Console.InputEncoding.CodePage != 65001)
                 {
                     using var pi = HostContext.CreateService<IProcessInvoker>();
 

@@ -80,6 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
+                executionContext.SetCorrelationTask(task.Id.ToString("D"));
                 if (task.Id == Pipelines.PipelineConstants.CheckoutTask.Id && task.Version == Pipelines.PipelineConstants.CheckoutTask.Version)
                 {
                     Trace.Info("Skip download checkout task.");
@@ -100,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
                     }
                 }
+                executionContext.ClearCorrelationTask();
             }
         }
 

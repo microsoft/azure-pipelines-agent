@@ -12,10 +12,12 @@ using System.Threading.Tasks;
 using System.Runtime.Loader;
 using System.Reflection;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System.Net.Http.Headers;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Agent.Sdk.SecretMasking;
+using Moq;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -27,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private readonly ITraceManager _traceManager;
         private readonly Terminal _term;
         private readonly ILoggedSecretMasker _secretMasker;
+        private readonly ICorrelationContextManager _correlationContextManager;
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private CancellationTokenSource _workerShutdownForTimeoutTokenSource = new CancellationTokenSource();
         private string _suiteName;
@@ -40,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public CancellationToken WorkerShutdownForTimeout => _workerShutdownForTimeoutTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
+        public ICorrelationContextManager CorrelationContextManager => _correlationContextManager;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
         public TestHostContext(object testClass, [CallerMemberName] string testName = "", bool useNewSecretMasker = true)
@@ -89,6 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, origin: "Test");
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
             _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
+            _correlationContextManager = new CorrelationContextManager();
             _traceManager = new TraceManager(traceListener, _secretMasker, this);
             _trace = GetTrace(nameof(TestHostContext));
             _secretMasker.SetTrace(_trace);
@@ -99,6 +104,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _term.Silent = true;
             SetSingleton<ITerminal>(_term);
             EnqueueInstance<ITerminal>(_term);
+
+            // Register a mock configuration store for tests that use ExecutionContext.Initialize()
+            var configStore = new Tests.L1.Worker.FakeConfigurationStore
+            {
+                WorkingDirectoryName = $"test_{_suiteName}_{_testName}"
+            };
+            SetSingleton<IConfigurationStore>(configStore);
+
+            // Register a mock job server queue for tests that use ExecutionContext.Initialize()
+            var mockJobServerQueue = new Moq.Mock<IJobServerQueue>();
+            mockJobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+            SetSingleton<IJobServerQueue>(mockJobServerQueue.Object);
+
+            // Register a mock web proxy for tests that use ExecutionContext.InitializeJob()
+            var mockWebProxy = new Moq.Mock<IVstsAgentWebProxy>();
+            SetSingleton<IVstsAgentWebProxy>(mockWebProxy.Object);
+
+            // Register a mock certificate manager for tests that use ExecutionContext.InitializeJob()
+            var mockCertManager = new Moq.Mock<IAgentCertificateManager>();
+            SetSingleton<IAgentCertificateManager>(mockCertManager.Object);
 
             if (!TestUtil.IsWindows())
             {
@@ -504,6 +529,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _term?.Dispose();
                 _trace?.Dispose();
                 _secretMasker?.Dispose();
+                _correlationContextManager?.Dispose();
                 _agentShutdownTokenSource?.Dispose();
                 _workerShutdownForTimeoutTokenSource?.Dispose();
                 try
