@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         encounteringError = true;
                     }
 
-                    Trace.Info($"Sleeping for {_sessionCreationRetryInterval.TotalSeconds} seconds before retrying.");
+                    Trace.Info(StringUtil.SafeLog("Sleeping for {0} seconds before retrying.", _sessionCreationRetryInterval.TotalSeconds));
                     await HostContext.Delay(_sessionCreationRetryInterval, token);
                 }
             }
@@ -245,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // re-create VssConnection before next retry
                         await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue, TimeSpan.FromSeconds(60));
 
-                        Trace.Info($"Sleeping for {_getNextMessageRetryInterval.TotalSeconds} seconds before retrying.");
+                        Trace.Info(StringUtil.SafeLog("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds));
                         await HostContext.Delay(_getNextMessageRetryInterval, token);
                     }
                 }
@@ -263,7 +263,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
 
                     _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15), _getNextMessageRetryInterval);
-                    Trace.Info($"Sleeping for {_getNextMessageRetryInterval.TotalSeconds} seconds before retrying.");
+                    Trace.Info(StringUtil.SafeLog("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds));
                     await HostContext.Delay(_getNextMessageRetryInterval, token);
                     continue;
                 }

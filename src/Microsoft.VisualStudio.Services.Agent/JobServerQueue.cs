@@ -229,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _timelineUpdateQueue.TryAdd(timelineId, new ConcurrentQueue<TimelineRecord>());
 
-            Trace.Verbose($"Enqueue timeline {timelineId} update queue: {timelineRecord.Id}");
+            Trace.Verbose(StringUtil.SafeLog("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
         }
 
@@ -346,7 +346,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                         }
 
-                        Trace.Info($"Try to append {batchedLines.Count} batches web console lines for record '{stepRecordId}', success rate: {batchedLines.Count - errorCount}/{batchedLines.Count}.");
+                        Trace.Info(StringUtil.SafeLog("Try to append {0} batches web console lines for record '{1}', success rate: {2}/{3}.", batchedLines.Count, stepRecordId, batchedLines.Count - errorCount, batchedLines.Count));
                     }
                 }
 
@@ -417,7 +417,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         }
                     }
 
-                    Trace.Info($"Try to upload {filesToUpload.Count} log files or attachments, success rate: {filesToUpload.Count - errorCount}/{filesToUpload.Count}.");
+                    Trace.Info(StringUtil.SafeLog("Try to upload {0} log files or attachments, success rate: {1}/{2}.", filesToUpload.Count, filesToUpload.Count - errorCount, filesToUpload.Count));
                 }
 
                 if (runOnce)
@@ -502,7 +502,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, CancellationToken.None);
                             if (_bufferedRetryRecords.Remove(update.TimelineId))
                             {
-                                Trace.Verbose($"Cleanup buffered timeline record for timeline: {update.TimelineId}.");
+                                Trace.Verbose(StringUtil.SafeLog("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId));
                             }
                         }
                         catch (Exception ex)

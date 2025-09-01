@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
             Uri jobServerUrl = systemConnection.Url;
 
-            Trace.Info($"Creating job server connection [URL:{jobServerUrl}]");
+            Trace.Info(StringUtil.SafeLog("Creating job server connection [URL:{0}]", jobServerUrl));
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
             VssConnection jobConnection = VssUtil.CreateConnection(
@@ -97,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             _jobServerQueue.Start(message);
             HostContext.WritePerfCounter($"WorkerJobServerQueueStarted_{message.RequestId.ToString()}");
-            Trace.Info($"JobServer connection established successfully [URL:{jobServerUrl}, ThrottlingEnabled:True]");
+            Trace.Info(StringUtil.SafeLog("JobServer connection established successfully [URL:{0}, ThrottlingEnabled:True]", jobServerUrl));
 
             IExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
@@ -145,10 +145,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             break;
                         case ShutdownReason.OperatingSystemShutdown:
                             errorMessage = StringUtil.Loc("OperatingSystemShutdown", Environment.MachineName);
-                            Trace.Warning($"Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{message.JobId}, Machine:{Environment.MachineName}]");
+                            Trace.Warning(StringUtil.SafeLog("Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{0}, Machine:{1}]", message.JobId, Environment.MachineName));
                             break;
                         default:
-                            Trace.Error($"Unknown shutdown reason detected [Reason:{HostContext.AgentShutdownReason}, JobId:{message.JobId}]");
+                            Trace.Error(StringUtil.SafeLog("Unknown shutdown reason detected [Reason:{0}, JobId:{1}]", HostContext.AgentShutdownReason, message.JobId));
                             throw new ArgumentException(HostContext.AgentShutdownReason.ToString(), nameof(HostContext.AgentShutdownReason));
                     }
                     jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
@@ -182,7 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.SetVariable(Constants.Variables.Agent.OS, VarUtil.OS);
                 jobContext.SetVariable(Constants.Variables.Agent.OSArchitecture, VarUtil.OSArchitecture);
                 jobContext.SetVariable(Constants.Variables.Agent.RootDirectory, HostContext.GetDirectory(WellKnownDirectory.Work), isFilePath: true);
-                Trace.Info(StringUtil.SafeLog("Agent metadata populated [AgentId:{0}, AgentName:{1}, OS:{2}, Architecture:{3}, SelfHosted:{4}, CloudId:{5}, MachineName:{6}]", settings.AgentId, settings.AgentName, VarUtil.OS, VarUtil.OSArchitecture, !settings.IsMSHosted, settings.AgentCloudId, Environment.MachineName));
+                Trace.Info($"Agent metadata populated [AgentId:{settings.AgentId}, AgentName:{settings.AgentName}, OS:{VarUtil.OS}, Architecture:{VarUtil.OSArchitecture}, SelfHosted:{!settings.IsMSHosted}, CloudId:{settings.AgentCloudId}, MachineName:{Environment.MachineName}]");
                 if (PlatformUtil.RunningOnWindows)
                 {
                     string serverOMDirectoryVariable = AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean()
@@ -241,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var taskServerCredential = VssUtil.GetVssCredential(systemConnection);
                 if (taskServerUri != null)
                 {
-                    Trace.Info($"Creating task server [URI:{taskServerUri}]");
+                    Trace.Info(StringUtil.SafeLog("Creating task server [URI:{0}]", taskServerUri));
 
                     taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
                     await taskServer.ConnectAsync(taskConnection);
