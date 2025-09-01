@@ -117,10 +117,23 @@ namespace AgentService
 
                                 lock (ServiceLock)
                                 {
-                                    AgentListener.OutputDataReceived -= AgentListener_OutputDataReceived;
-                                    AgentListener.ErrorDataReceived -= AgentListener_ErrorDataReceived;
-                                    AgentListener.Dispose();
-                                    AgentListener = null;
+                                    if (AgentListener != null)
+                                    {
+                                        AgentListener.OutputDataReceived -= AgentListener_OutputDataReceived;
+                                        AgentListener.ErrorDataReceived -= AgentListener_ErrorDataReceived;
+                                        try
+                                        {
+                                            AgentListener.Dispose();
+                                        }
+                                        catch (Exception disposeEx)
+                                        {
+                                            WriteToEventLog($"Agent.Listener dispose failed: {disposeEx.Message}", EventLogEntryType.Warning);
+                                        }
+                                        finally
+                                        {
+                                            AgentListener = null;
+                                        }
+                                    }
                                     stopping = Stopping;
                                 }
                             }
@@ -307,9 +320,20 @@ namespace AgentService
 
         private string GetDiagnosticFolderPath()
         {
-            return Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)), "_diag");
+            try
+            {
+                string entry = Assembly.GetEntryAssembly().Location;
+                string parent = Path.GetDirectoryName(Path.GetDirectoryName(entry));
+                return Path.Combine(parent ?? string.Empty, "_diag");
+            }
+            catch (Exception ex)
+            {
+                WriteToEventLog($"Failed to resolve diagnostic folder path: {ex.Message}", EventLogEntryType.Warning);
+                return "_diag"; // fallback
+            }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1811:AvoidUncalledPrivateCode", Justification = "Reserved for diagnostics")]
         private void WriteError(int exitCode)
         {
             String diagFolder = GetDiagnosticFolderPath();

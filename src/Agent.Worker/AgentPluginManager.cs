@@ -59,9 +59,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Type type = Type.GetType(pluginTypeName, throwOnError: true);
                     taskPlugin = Activator.CreateInstance(type) as IAgentTaskPlugin;
                 }
+                catch (TypeLoadException tle)
+                {
+                    Trace.Error($"Failed to load plugin type '{pluginTypeName}': {tle.Message}");
+                    Trace.Error(tle);
+                    continue; // Skip this plugin but continue loading others
+                }
+                catch (BadImageFormatException bife)
+                {
+                    Trace.Error($"Invalid assembly format for plugin '{pluginTypeName}': {bife.Message}");
+                    Trace.Error(bife);
+                    continue; // Skip this plugin but continue loading others
+                }
+                catch (ReflectionTypeLoadException rtle)
+                {
+                    Trace.Error($"Failed to load types from plugin assembly '{pluginTypeName}': {rtle.Message}");
+                    if (rtle.LoaderExceptions != null)
+                    {
+                        foreach (var loaderEx in rtle.LoaderExceptions)
+                        {
+                            Trace.Error($"Loader exception: {loaderEx?.Message}");
+                        }
+                    }
+                    Trace.Error(rtle);
+                    continue; // Skip this plugin but continue loading others
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Unexpected error loading plugin '{pluginTypeName}': {ex.Message}");
+                    Trace.Error(ex);
+                    continue; // Skip this plugin but continue loading others
+                }
                 finally
                 {
                     AssemblyLoadContext.Default.Resolving -= ResolveAssembly;
+                }
+
+                // Skip if plugin loading failed
+                if (taskPlugin == null)
+                {
+                    Trace.Warning($"Skipping null plugin '{pluginTypeName}' due to loading failure.");
+                    continue;
                 }
 
                 ArgUtil.NotNull(taskPlugin, nameof(taskPlugin));

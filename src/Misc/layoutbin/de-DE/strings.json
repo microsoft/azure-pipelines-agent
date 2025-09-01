@@ -602,6 +602,7 @@
   "ServerTarpitUrl": "Link zur Seite „Ressourcennutzung“ (globale 1-Stunden-Ansicht): {0}.",
   "ServerTarpitUrlScoped": "Link zur Seite zur Ressourcennutzung (1-Stunden-Ansicht nach Pipeline): {0}.",
   "ServerUrl": "Server-URL",
+  "ServerUrlInvalid": "Ungültige Server-URL. Bitte geben Sie eine gültige URL an (z.B. https://dev.azure.com/myorganization oder https://myserver:8080/tfs).",
   "ServiceAlreadyExists": "Der Dienst ist bereits vorhanden: {0}. Er wird er ersetzt.",
   "ServiceConfigured": "Der Dienst „{0}“ wurde erfolgreich konfiguriert.",
   "ServiceDelayedStartOptionSet": "Der Dienst „{0}“ für verzögerten Autostart wurde erfolgreich festgelegt.",

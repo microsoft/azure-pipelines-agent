@@ -135,14 +135,44 @@ namespace Agent.Plugins
 
             if (!isSingleArtifactDownload && items.Any())
             {
-                Directory.CreateDirectory(rootPath);
+                try
+                {
+                    Directory.CreateDirectory(rootPath);
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    throw new InvalidOperationException($"Access denied creating directory '{rootPath}': {uaEx.Message}", uaEx);
+                }
+                catch (IOException ioEx)
+                {
+                    throw new InvalidOperationException($"I/O error creating directory '{rootPath}': {ioEx.Message}", ioEx);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to create directory '{rootPath}': {ex.Message}", ex);
+                }
             }
 
             var folderItems = items.Where(i => i.ItemType == ContainerItemType.Folder);
             Parallel.ForEach(folderItems, (folder) =>
             {
                 var targetPath = ResolveTargetPath(rootPath, folder, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
-                Directory.CreateDirectory(targetPath);
+                try
+                {
+                    Directory.CreateDirectory(targetPath);
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    throw new InvalidOperationException($"Access denied creating directory '{targetPath}': {uaEx.Message}", uaEx);
+                }
+                catch (IOException ioEx)
+                {
+                    throw new InvalidOperationException($"I/O error creating directory '{targetPath}': {ioEx.Message}", ioEx);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to create directory '{targetPath}': {ex.Message}", ex);
+                }
             });
 
             var fileItems = items.Where(i => i.ItemType == ContainerItemType.File);
@@ -202,7 +232,22 @@ namespace Agent.Plugins
                 {
                     var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
                     var directory = Path.GetDirectoryName(targetPath);
-                    Directory.CreateDirectory(directory);
+                    try
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    catch (UnauthorizedAccessException uaEx)
+                    {
+                        throw new InvalidOperationException($"Access denied creating directory '{directory}': {uaEx.Message}", uaEx);
+                    }
+                    catch (IOException ioEx)
+                    {
+                        throw new InvalidOperationException($"I/O error creating directory '{directory}': {ioEx.Message}", ioEx);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"Failed to create directory '{directory}': {ex.Message}", ex);
+                    }
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                         async () =>
                         {
@@ -488,7 +533,22 @@ namespace Agent.Plugins
                 tracer.Info(StringUtil.Loc("TarsFound", tarsFoundCount));
 
                 string targetDirectory = Path.Combine(rootPath, "extracted_tars");
-                Directory.CreateDirectory(targetDirectory);
+                try
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    throw new InvalidOperationException($"Access denied creating target directory '{targetDirectory}': {uaEx.Message}", uaEx);
+                }
+                catch (IOException ioEx)
+                {
+                    throw new InvalidOperationException($"I/O error creating target directory '{targetDirectory}': {ioEx.Message}", ioEx);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to create target directory '{targetDirectory}': {ex.Message}", ex);
+                }
                 MoveDirectory(extractedTarsTempPath, targetDirectory);
             }
         }
@@ -500,7 +560,22 @@ namespace Agent.Plugins
         {
             tracer.Info(StringUtil.Loc("TarExtraction", tarArchivePath));
 
-            Directory.CreateDirectory(extractedFilesDir);
+            try
+            {
+                Directory.CreateDirectory(extractedFilesDir);
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                throw new InvalidOperationException($"Access denied creating extraction directory '{extractedFilesDir}': {uaEx.Message}", uaEx);
+            }
+            catch (IOException ioEx)
+            {
+                throw new InvalidOperationException($"I/O error creating extraction directory '{extractedFilesDir}': {ioEx.Message}", ioEx);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to create extraction directory '{extractedFilesDir}': {ex.Message}", ex);
+            }
             var extractionProcessInfo = new ProcessStartInfo("tar")
             {
                 Arguments = $"xf {tarArchivePath} --directory {extractedFilesDir}",

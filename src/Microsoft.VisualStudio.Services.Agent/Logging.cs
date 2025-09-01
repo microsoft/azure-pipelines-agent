@@ -70,7 +70,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             // lazy creation on write
             if (_pageWriter == null)
             {
-                Create();
+                try
+                {
+                    Create();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error(ex);
+                    // If we cannot create a page, drop the write to avoid crashing the agent.
+                    return;
+                }
             }
 
             if (message.Contains(groupStartTag, StringComparison.OrdinalIgnoreCase))
@@ -86,7 +95,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             } 
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
-            _pageWriter.WriteLine(line);
+            try
+            {
+                _pageWriter.WriteLine(line);
+            }
+            catch (Exception ex)
+            {
+                Trace.Error(ex);
+                return; // best effort logging
+            }
 
             _totalLines++;
             if (line.IndexOf('\n') != -1)
@@ -103,7 +120,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             _byteCount += System.Text.Encoding.UTF8.GetByteCount(line);
             if (_byteCount >= PageSize)
             {
-                NewPage();
+                try
+                {
+                    NewPage();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error(ex);
+                }
             }
         }
 
@@ -130,14 +154,31 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (_pageWriter != null)
             {
-                _pageWriter.Flush();
-                _pageData.Flush();
-                //The StreamWriter object calls Dispose() on the provided Stream object when StreamWriter.Dispose is called.
-                _pageWriter.Dispose();
-                _pageWriter = null;
-                _pageData.Dispose();
-                _pageData = null;
-                _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
+                try
+                {
+                    _pageWriter.Flush();
+                    _pageData.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error(ex);
+                }
+                finally
+                {
+                    try { _pageWriter.Dispose(); } catch { }
+                    _pageWriter = null;
+                    try { _pageData.Dispose(); } catch { }
+                    _pageData = null;
+                }
+
+                try
+                {
+                    _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error(ex);
+                }
             }
         }
         public void Dispose()

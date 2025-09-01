@@ -100,27 +100,72 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Clean up containers left by previous runs
             executionContext.Debug($"Delete stale containers from previous jobs");
-            var staleContainers = await _dockerManger.DockerPS(executionContext, $"--all --quiet --no-trunc --filter \"label={_dockerManger.DockerInstanceLabel}\"");
-            foreach (var staleContainer in staleContainers)
+            try
             {
-                int containerRemoveExitCode = await _dockerManger.DockerRemove(executionContext, staleContainer);
-                if (containerRemoveExitCode != 0)
+                var staleContainers = await _dockerManger.DockerPS(executionContext, $"--all --quiet --no-trunc --filter \"label={_dockerManger.DockerInstanceLabel}\"");
+                foreach (var staleContainer in staleContainers)
                 {
-                    executionContext.Warning($"Delete stale containers failed, docker rm fail with exit code {containerRemoveExitCode} for container {staleContainer}");
+                    try
+                    {
+                        int containerRemoveExitCode = await _dockerManger.DockerRemove(executionContext, staleContainer);
+                        if (containerRemoveExitCode != 0)
+                        {
+                            executionContext.Warning($"Delete stale containers failed, docker rm fail with exit code {containerRemoveExitCode} for container {staleContainer}");
+                        }
+                    }
+                    catch (System.TimeoutException tex)
+                    {
+                        executionContext.Warning($"Container cleanup timeout for {staleContainer}: {tex.Message}");
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                executionContext.Warning($"Failed to enumerate stale containers: {ex.Message}");
+                Trace.Warning($"Container enumeration failed: {ex}");
             }
 
             executionContext.Debug($"Delete stale container networks from previous jobs");
-            int networkPruneExitCode = await _dockerManger.DockerNetworkPrune(executionContext);
-            if (networkPruneExitCode != 0)
+            try
             {
-                executionContext.Warning($"Delete stale container networks failed, docker network prune fail with exit code {networkPruneExitCode}");
+                int networkPruneExitCode = await _dockerManger.DockerNetworkPrune(executionContext);
+                if (networkPruneExitCode != 0)
+                {
+                    executionContext.Warning($"Delete stale container networks failed, docker network prune fail with exit code {networkPruneExitCode}");
+                }
+            }
+            catch (System.TimeoutException tex)
+            {
+                executionContext.Warning($"Network cleanup timeout: {tex.Message}");
+            }
+            catch (Exception ex)
+            {
+                executionContext.Warning($"Network cleanup failed: {ex.Message}");
+                Trace.Warning($"Network cleanup error: {ex}");
             }
 
             // We need to pull the containers first before setting up the network
             foreach (var container in containers)
             {
-                await PullContainerAsync(executionContext, container);
+                try
+                {
+                    await PullContainerAsync(executionContext, container);
+                }
+                catch (HttpRequestException httpEx)
+                {
+                    executionContext.Error($"Network error pulling container {container.ContainerImage}: {httpEx.Message}");
+                    throw; // Re-throw as this is critical for job execution
+                }
+                catch (System.TimeoutException timeoutEx)
+                {
+                    executionContext.Error($"Timeout pulling container {container.ContainerImage}: {timeoutEx.Message}");
+                    throw; // Re-throw as this is critical for job execution
+                }
+                catch (TaskCanceledException tcEx) when (tcEx.InnerException is System.TimeoutException)
+                {
+                    executionContext.Error($"Network timeout pulling container {container.ContainerImage}: {tcEx.Message}");
+                    throw; // Re-throw as this is critical for job execution
+                }
             }
 
             // Create local docker network for this job to avoid port conflict when multiple agents run on same machine.

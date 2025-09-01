@@ -74,7 +74,22 @@ namespace Agent.Plugins.PipelineCache
         {
             ValidateTarManifest(manifest);
 
-            Directory.CreateDirectory(targetDirectory);
+            try
+            {
+                Directory.CreateDirectory(targetDirectory);
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                throw new InvalidOperationException($"Access denied creating target directory '{targetDirectory}': {uaEx.Message}", uaEx);
+            }
+            catch (IOException ioEx)
+            {
+                throw new InvalidOperationException($"I/O error creating target directory '{targetDirectory}': {ioEx.Message}", ioEx);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to create target directory '{targetDirectory}': {ex.Message}", ex);
+            }
 
             DedupIdentifier dedupId = DedupIdentifier.Create(manifest.Items.Single(i => i.Path.EndsWith(archive, StringComparison.OrdinalIgnoreCase)).Blob.Id);
 
