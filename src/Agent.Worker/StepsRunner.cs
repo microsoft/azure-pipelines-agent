@@ -440,7 +440,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     step.ExecutionContext.CommandResult = TaskResultUtil.MergeTaskResults(step.ExecutionContext.CommandResult, TaskResult.Failed);
                 }
             }
-                        Trace.Info(StringUtil.SafeLog("Step async command summary [Step:'{0}', TotalCommands:{1}, CommandResult:{2}]", step.DisplayName, (step.ExecutionContext.AsyncCommands?.Count ?? 0).ToString(), step.ExecutionContext.CommandResult?.ToString()));
+            Trace.Info($"Step async command summary [Step:'{step.DisplayName}', TotalCommands:{step.ExecutionContext.AsyncCommands?.Count ?? 0}, CommandResult:{step.ExecutionContext.CommandResult}]");
 
             // Merge executioncontext result with command result
             if (step.ExecutionContext.CommandResult != null)
