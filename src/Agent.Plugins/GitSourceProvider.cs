@@ -799,7 +799,39 @@ namespace Agent.Plugins.Repository
                     string args = ComposeGitArgs(executionContext, gitCommandManager, configKey, username, password, useBearerAuthType);
                     additionalFetchArgs.Add(args);
 
-                    if (additionalFetchFilterOptions.Any() && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
+                    // Partial Clone Credential Handling:
+                    // Two feature flags control when credentials are added to git checkout for partial clones:
+                    // 1. AddForceCredentialsToGitCheckout (legacy): Only checks explicit fetch filters
+                    // 2. AddForceCredentialsToGitCheckoutEnhanced (new): Checks both explicit filters AND inherited partial clone config
+                    // The enhanced flag takes precedence when both are enabled.
+                    bool hasExplicitFetchFilter = additionalFetchFilterOptions.Any();
+                    bool forceCredentialsLegacyEnabled = AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean();
+                    bool forceCredentialsEnhancedEnabled = AgentKnobs.AddForceCredentialsToGitCheckoutEnhanced.GetValue(executionContext).AsBoolean();
+
+                    bool shouldAddCredentials = false;
+ 
+                    // Enhanced behavior takes precedence - checks both explicit filters and promisor remote configuration
+                    if (forceCredentialsEnhancedEnabled)
+                    {
+                        // Enhanced detection: check for inherited partial clone configuration via git config
+                        bool hasInheritedPartialCloneConfig = await IsPartialCloneRepository(executionContext, gitCommandManager, targetPath);
+                        executionContext.Debug($"Enhanced partial clone detection - ExplicitFilter: {hasExplicitFetchFilter}, InheritedConfig: {hasInheritedPartialCloneConfig}, ForceCredentialsEnhanced: {forceCredentialsEnhancedEnabled}");
+                        if (hasExplicitFetchFilter || hasInheritedPartialCloneConfig)
+                        {
+                            executionContext.Debug("Adding credentials to checkout due to enhanced partial clone detection");
+                            shouldAddCredentials = true;
+                        }
+                    }
+                    else if (forceCredentialsLegacyEnabled && hasExplicitFetchFilter)
+                    {
+                        // Legacy behavior: only check explicit fetch filter, used when enhanced flag is disabled
+                        executionContext.Debug($"Legacy partial clone detection - ExplicitFilter: {hasExplicitFetchFilter}, ForceCredentials: {forceCredentialsLegacyEnabled}");
+                        executionContext.Debug("Adding credentials to checkout due to explicit fetch filter and legacy force credentials knob");
+                        shouldAddCredentials = true;
+                    }
+
+                    // Apply credentials to checkout if either feature flag condition was satisfied
+                    if (shouldAddCredentials)
                     {
                         additionalCheckoutArgs.Add(args);
                     }
@@ -1528,6 +1560,41 @@ namespace Agent.Plugins.Repository
             }
 
             return filters;
+        }
+
+        private async Task<bool> IsPartialCloneRepository(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)
+        {
+            try
+            {
+                // Skip check if .git directory doesn't exist (not a Git repository)
+                string gitDir = Path.Combine(targetPath, ".git");
+                if (!Directory.Exists(gitDir))
+                {
+                    executionContext.Debug("Not a Git repository: .git directory does not exist");
+                    return false;
+                }
+
+                // Check for promisor remote configuration (primary indicator)
+                if (await gitCommandManager.GitConfigExist(executionContext, targetPath, "remote.origin.promisor"))
+                {
+                    executionContext.Debug("Detected partial clone: remote.origin.promisor exists");
+                    return true;
+                }
+
+                // Check for partial clone filter configuration (secondary indicator)
+                if (await gitCommandManager.GitConfigExist(executionContext, targetPath, "remote.origin.partialclonefilter"))
+                {
+                    executionContext.Debug("Detected partial clone: remote.origin.partialclonefilter exists");
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Default to false on detection failure to avoid breaking builds
+                executionContext.Debug($"Failed to detect partial clone state: {ex.Message}");
+                return false;
+            }
         }
 
         private async Task RunGitStatusIfSystemDebug(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)

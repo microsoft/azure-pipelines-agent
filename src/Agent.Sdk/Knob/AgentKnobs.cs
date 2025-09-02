@@ -800,6 +800,13 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource(nameof(AddForceCredentialsToGitCheckout)),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob AddForceCredentialsToGitCheckoutEnhanced = new Knob(
+            nameof(AddForceCredentialsToGitCheckoutEnhanced),
+            "If true, the credentials will be added to Git checkout for partial clones with enhanced detection including promisor remote config.",
+            new RuntimeKnobSource("ADD_FORCE_CREDENTIALS_TO_GIT_CHECKOUT_ENHANCED"),
+            new PipelineFeatureSource(nameof(AddForceCredentialsToGitCheckoutEnhanced)),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob InstallLegacyTfExe = new Knob(
             nameof(InstallLegacyTfExe),
             "If true, the agent will install the legacy versions of TF, vstsom and vstshost",
