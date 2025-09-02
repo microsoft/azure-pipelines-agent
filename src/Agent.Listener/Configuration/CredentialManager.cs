@@ -36,14 +36,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public ICredentialProvider GetCredentialProvider(string credType)
         {
             Trace.Info(nameof(GetCredentialProvider));
-            Trace.Info(StringUtil.SafeLog("Creating type {0}", credType));
+            Trace.Info(StringUtil.Format("Creating type {0}", credType));
 
             if (!CredentialTypes.ContainsKey(credType))
             {
                 throw new ArgumentException("Invalid Credential Type");
             }
 
-            Trace.Info(StringUtil.SafeLog("Creating credential type: {0}", credType));
+            Trace.Info(StringUtil.Format("Creating credential type: {0}", credType));
             var creds = Activator.CreateInstance(CredentialTypes[credType]) as ICredentialProvider;
             Trace.Verbose("Created credential type");
             return creds;

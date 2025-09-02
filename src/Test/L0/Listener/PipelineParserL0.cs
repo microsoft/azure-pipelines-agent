@@ -683,12 +683,12 @@ resources:
 
             public void Info(String format, params Object[] args)
             {
-                m_trace.Info(StringUtil.SafeLog(format, args));
+                m_trace.Info(StringUtil.Format(format, args));
             }
 
             public void Verbose(String format, params Object[] args)
             {
-                m_trace.Verbose(StringUtil.SafeLog(format, args));
+                m_trace.Verbose(StringUtil.Format(format, args));
             }
 
             private readonly Tracing m_trace;

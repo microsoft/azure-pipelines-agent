@@ -260,15 +260,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
 
 
-                    Trace.Verbose(StringUtil.SafeLog("Trying to connect to monitor at port {0}", port));
+                    Trace.Verbose(StringUtil.Format("Trying to connect to monitor at port {0}", port));
                     _monitorSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
                     _monitorSocket.Connect(address, port);
-                    Trace.Info(StringUtil.SafeLog("Connection successful to local port {0}", port));
+                    Trace.Info(StringUtil.Format("Connection successful to local port {0}", port));
                     _isMonitorConfigured = true;
                 }
                 catch (Exception e)
                 {
-                    Trace.Error(StringUtil.SafeLog("Connection to monitor port {0} failed!", port));
+                    Trace.Error(StringUtil.Format("Connection to monitor port {0} failed!", port));
                     Trace.Error(e);
                 }
             }

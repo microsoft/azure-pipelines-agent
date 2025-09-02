@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
             VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
-            Trace.Info(StringUtil.SafeLog("VSS client settings initialized [UserAgent:{0}, ProxyConfigured:{1}, CertValidationSkipped:{2}]",
+            Trace.Info(StringUtil.Format("VSS client settings initialized [UserAgent:{0}, ProxyConfigured:{1}, CertValidationSkipped:{2}]",
                 HostContext.UserAgent, agentWebProxy.WebProxy != null, agentCertManager.SkipServerCertificateValidation));
 
             var jobRunner = HostContext.CreateService<IJobRunner>();
@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             using (var channelTokenSource = new CancellationTokenSource())
             {
                 // Start the channel.
-                Trace.Info(StringUtil.SafeLog("Starting process channel client - establishing IPC communication with listener - pipeIn: {0}, pipeOut: {1}", pipeIn, pipeOut));
+                Trace.Info(StringUtil.Format("Starting process channel client - establishing IPC communication with listener - pipeIn: {0}, pipeOut: {1}", pipeIn, pipeOut));
                 channel.StartClient(pipeIn, pipeOut);
                 Trace.Info("IPC channel established successfully - communication link active with listener process");
 
@@ -67,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNull(jobMessage, nameof(jobMessage));
                 HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
-                Trace.Info(StringUtil.SafeLog("Job message deserialized successfully [JobId:{0}, PlanId:{1}, RequestId:{2}]",
+                Trace.Info(StringUtil.Format("Job message deserialized successfully [JobId:{0}, PlanId:{1}, RequestId:{2}]",
                     jobMessage.JobId, jobMessage.Plan.PlanId, jobMessage.RequestId));
                 jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
 
@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     messageLoopIteration++;
                     // Start listening for a cancel message from the channel.
-                    Trace.Info(StringUtil.SafeLog("Starting listener for control messages from listener process [Iteration:{0}]", messageLoopIteration));
+                    Trace.Info(StringUtil.Format("Starting listener for control messages from listener process [Iteration:{0}]", messageLoopIteration));
                     Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
 
                     // Wait for one of the tasks to complete.
@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Otherwise a message was received from the channel.
                     channelMessage = await channelTask;
-                    Trace.Info(StringUtil.SafeLog("Control message received from listener [Type:{0}, Iteration:{1}]",
+                    Trace.Info(StringUtil.Format("Control message received from listener [Type:{0}, Iteration:{1}]",
                         channelMessage.MessageType, messageLoopIteration));
                     switch (channelMessage.MessageType)
                     {
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
                             break;
                         case MessageType.JobMetadataUpdate:
-                            Trace.Info(StringUtil.SafeLog("Metadata update message received - updating job runner metadata, Metadata: {0}", channelMessage.Body));
+                            Trace.Info(StringUtil.Format("Metadata update message received - updating job runner metadata, Metadata: {0}", channelMessage.Body));
                             var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
                             jobRunner.UpdateMetadata(metadataMessage);
                             Trace.Info("Job metadata update processed successfully");
@@ -250,7 +250,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     HostContext.SecretMasker.AddValue(file.Ticket, WellKnownSecretAliases.SecureFileTicket);
                 }
             }
-            Trace.Info(StringUtil.SafeLog("Secret masker initialization complete [SecretVariables:{0}, EndpointSecrets:{1}, SecureFiles:{2}]",
+            Trace.Info(StringUtil.Format("Secret masker initialization complete [SecretVariables:{0}, EndpointSecrets:{1}, SecureFiles:{2}]",
                 secretCount, endpointSecretCount, secureFileCount));
         }
 

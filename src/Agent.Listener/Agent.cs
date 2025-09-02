@@ -359,7 +359,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             try
             {
-                Trace.Info(StringUtil.SafeLog("Entering main agent execution loop({0})", nameof(RunAsync)));
+                Trace.Info(StringUtil.Format("Entering main agent execution loop({0})", nameof(RunAsync)));
 
                 var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                 var checkPsModulesFeatureFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.CheckPsModulesLocations", Trace);
@@ -513,7 +513,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         var agentUpdateMessage = JsonUtility.FromString<AgentRefreshMessage>(message.Body);
                                         var selfUpdater = HostContext.GetService<ISelfUpdater>();
                                         selfUpdateTask = selfUpdater.SelfUpdate(agentUpdateMessage, jobDispatcher, !runOnce && HostContext.StartupType != StartupType.Service, HostContext.AgentShutdownToken);
-                                        Trace.Info(StringUtil.SafeLog("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion));
+                                        Trace.Info(StringUtil.Format("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion));
                                     }
                                     else
                                     {

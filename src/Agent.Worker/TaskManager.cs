@@ -150,7 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
 
-            Trace.Verbose(StringUtil.SafeLog("Deleting task destination folder: {0}", destinationDirectory));
+            Trace.Verbose(StringUtil.Format("Deleting task destination folder: {0}", destinationDirectory));
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
             Directory.CreateDirectory(destinationDirectory);
@@ -195,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // delete existing task folder.
-            Trace.Verbose(StringUtil.SafeLog("Deleting task destination folder: {0}", destDirectory));
+            Trace.Verbose(StringUtil.Format("Deleting task destination folder: {0}", destDirectory));
             IOUtil.DeleteDirectory(destDirectory, CancellationToken.None);
 
             // Inform the user that a download is taking place. The download could take a while if
@@ -314,14 +314,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     //if the temp folder wasn't moved -> wipe it
                     if (Directory.Exists(tempDirectory))
                     {
-                        Trace.Verbose(StringUtil.SafeLog("Deleting task temp folder: {0}", tempDirectory));
+                        Trace.Verbose(StringUtil.Format("Deleting task temp folder: {0}", tempDirectory));
                         IOUtil.DeleteDirectory(tempDirectory, CancellationToken.None); // Don't cancel this cleanup and should be pretty fast.
                     }
                 }
                 catch (Exception ex)
                 {
                     //it is not critical if we fail to delete the temp folder
-                    Trace.Warning(StringUtil.SafeLog("Failed to delete temp folder '{0}'. Exception: {1}", tempDirectory, ex?.ToString()));
+                    Trace.Warning(StringUtil.Format("Failed to delete temp folder '{0}'. Exception: {1}", tempDirectory, ex?.ToString()));
                     executionContext.Warning(StringUtil.Loc("FailedDeletingTempDirectory0Message1", tempDirectory, ex.Message));
                 }
             }

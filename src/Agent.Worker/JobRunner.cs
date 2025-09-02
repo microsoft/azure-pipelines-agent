@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
             Uri jobServerUrl = systemConnection.Url;
 
-            Trace.Info(StringUtil.SafeLog("Creating job server connection [URL:{0}]", jobServerUrl));
+            Trace.Info(StringUtil.Format("Creating job server connection [URL:{0}]", jobServerUrl));
             // jobServerQueue is the throttling reporter.
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
             VssConnection jobConnection = VssUtil.CreateConnection(
@@ -97,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             _jobServerQueue.Start(message);
             HostContext.WritePerfCounter($"WorkerJobServerQueueStarted_{message.RequestId.ToString()}");
-            Trace.Info(StringUtil.SafeLog("JobServer connection established successfully [URL:{0}, ThrottlingEnabled:True]", jobServerUrl));
+            Trace.Info(StringUtil.Format("JobServer connection established successfully [URL:{0}, ThrottlingEnabled:True]", jobServerUrl));
 
             IExecutionContext jobContext = null;
             CancellationTokenRegistration? agentShutdownRegistration = null;
@@ -145,10 +145,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             break;
                         case ShutdownReason.OperatingSystemShutdown:
                             errorMessage = StringUtil.Loc("OperatingSystemShutdown", Environment.MachineName);
-                            Trace.Warning(StringUtil.SafeLog("Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{0}, Machine:{1}]", message.JobId, Environment.MachineName));
+                            Trace.Warning(StringUtil.Format("Agent shutdown initiated [Reason:OperatingSystemShutdown, JobId:{0}, Machine:{1}]", message.JobId, Environment.MachineName));
                             break;
                         default:
-                            Trace.Error(StringUtil.SafeLog("Unknown shutdown reason detected [Reason:{0}, JobId:{1}]", HostContext.AgentShutdownReason, message.JobId));
+                            Trace.Error(StringUtil.Format("Unknown shutdown reason detected [Reason:{0}, JobId:{1}]", HostContext.AgentShutdownReason, message.JobId));
                             throw new ArgumentException(HostContext.AgentShutdownReason.ToString(), nameof(HostContext.AgentShutdownReason));
                     }
                     jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
@@ -161,7 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Directory.CreateDirectory(workDirectory);
                     IOUtil.ValidateExecutePermission(workDirectory);
-                    Trace.Info(StringUtil.SafeLog("Work directory validation successful [Path:{0}]", workDirectory));
+                    Trace.Info(StringUtil.Format("Work directory validation successful [Path:{0}]", workDirectory));
                 }
                 catch (Exception ex)
                 {
@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string toolsDirectory = HostContext.GetDirectory(WellKnownDirectory.Tools);
                 Directory.CreateDirectory(toolsDirectory);
                 jobContext.SetVariable(Constants.Variables.Agent.ToolsDirectory, toolsDirectory, isFilePath: true);
-                Trace.Info(StringUtil.SafeLog("Tools directory initialized [Path:{0}]", toolsDirectory));
+                Trace.Info(StringUtil.Format("Tools directory initialized [Path:{0}]", toolsDirectory));
 
                 if (AgentKnobs.DisableGitPrompt.GetValue(jobContext).AsBoolean())
                 {
@@ -241,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var taskServerCredential = VssUtil.GetVssCredential(systemConnection);
                 if (taskServerUri != null)
                 {
-                    Trace.Info(StringUtil.SafeLog("Creating task server [URI:{0}]", taskServerUri));
+                    Trace.Info(StringUtil.Format("Creating task server [URI:{0}]", taskServerUri));
 
                     taskConnection = VssUtil.CreateConnection(taskServerUri, taskServerCredential, Trace, skipServerCertificateValidation);
                     await taskServer.ConnectAsync(taskConnection);

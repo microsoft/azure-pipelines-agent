@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     // Now write the parameters to disk
                     SaveParameters(default(RSAParameters), keyContainerName, useCng);
-                    Trace.Info(StringUtil.SafeLog("Successfully saved containerName to file {0} in container {1}", _keyFile, keyContainerName));
+                    Trace.Info(StringUtil.Format("Successfully saved containerName to file {0} in container {1}", _keyFile, keyContainerName));
                 }
                 else
                 {
@@ -62,12 +62,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                     // Now write the parameters to disk
                     SaveParameters(default(RSAParameters), Params.KeyContainerName, useCng);
-                    Trace.Info(StringUtil.SafeLog("Successfully saved containerName to file {0} in container {1}", _keyFile, Params.KeyContainerName));
+                    Trace.Info(StringUtil.Format("Successfully saved containerName to file {0} in container {1}", _keyFile, Params.KeyContainerName));
                 }
             }
             else
             {
-                Trace.Info(StringUtil.SafeLog("Found existing RSA key parameters file {0}", _keyFile));
+                Trace.Info(StringUtil.Format("Found existing RSA key parameters file {0}", _keyFile));
 
                 var result = LoadParameters();
 
@@ -102,11 +102,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 // Now write the parameters to disk
                 SaveParameters(rsa.ExportParameters(true), string.Empty, false);
-                Trace.Info(StringUtil.SafeLog("Successfully saved RSA key parameters to file {0}", _keyFile));
+                Trace.Info(StringUtil.Format("Successfully saved RSA key parameters to file {0}", _keyFile));
             }
             else
             {
-                Trace.Info(StringUtil.SafeLog("Found existing RSA key parameters file {0}", _keyFile));
+                Trace.Info(StringUtil.Format("Found existing RSA key parameters file {0}", _keyFile));
 
                 var result = LoadParameters();
 
@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             if (File.Exists(_keyFile))
             {
-                Trace.Info(StringUtil.SafeLog("Deleting RSA key parameters file {0}", _keyFile));
+                Trace.Info(StringUtil.Format("Deleting RSA key parameters file {0}", _keyFile));
                 File.Delete(_keyFile);
             }
         }
@@ -144,7 +144,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new CryptographicException(StringUtil.Loc("RSAKeyFileNotFound", _keyFile));
             }
 
-            Trace.Info(StringUtil.SafeLog("Loading RSA key parameters from file {0}", _keyFile));
+            Trace.Info(StringUtil.Format("Loading RSA key parameters from file {0}", _keyFile));
 
             var result = LoadParameters();
 
@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new CryptographicException(StringUtil.Loc("RSAKeyFileNotFound", _keyFile));
             }
 
-            Trace.Info(StringUtil.SafeLog("Loading RSA key parameters from file {0}", _keyFile));
+            Trace.Info(StringUtil.Format("Loading RSA key parameters from file {0}", _keyFile));
 
             var result = LoadParameters();
 

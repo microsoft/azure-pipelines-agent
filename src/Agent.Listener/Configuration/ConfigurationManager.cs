@@ -589,7 +589,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         isEnvironmentVMResource = settings.EnvironmentId > 0;
                     }
 
-                    Trace.Info(StringUtil.SafeLog("Agent configured for deploymentGroup : {0}", isDeploymentGroup.ToString()));
+                    Trace.Info(StringUtil.Format("Agent configured for deploymentGroup : {0}", isDeploymentGroup.ToString()));
 
                     string agentType = isDeploymentGroup
                    ? Constants.Agent.AgentConfigurationProvider.DeploymentAgentConfiguration
@@ -875,7 +875,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             string authType = command.GetAuth(defaultValue: defaultAuth);
 
             // Create the credential.
-            Trace.Info(StringUtil.SafeLog("Creating credential for auth: {0}", authType));
+            Trace.Info(StringUtil.Format("Creating credential for auth: {0}", authType));
             var provider = credentialManager.GetCredentialProvider(authType);
             if (provider.RequireInteractive && command.Unattended())
             {
@@ -1006,9 +1006,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     // Notify user if there are some potentially insecure access rules for the agent root folder
                     if (potentiallyInsecureRules.Count != 0)
                     {
-                        Trace.Warning(StringUtil.SafeLog("The {0} group have the following permissions to the agent root folder: ", bulitInUsersGroup.ToString()));
+                        Trace.Warning(StringUtil.Format("The {0} group have the following permissions to the agent root folder: ", bulitInUsersGroup.ToString()));
 
-                        potentiallyInsecureRules.ForEach(accessRule => Trace.Warning(StringUtil.SafeLog("- {0}", accessRule.FileSystemRights.ToString())));
+                        potentiallyInsecureRules.ForEach(accessRule => Trace.Warning(StringUtil.Format("- {0}", accessRule.FileSystemRights.ToString())));
 
                         _term.Write(StringUtil.Loc("agentRootFolderInsecure", bulitInUsersGroup.ToString()));
                     }

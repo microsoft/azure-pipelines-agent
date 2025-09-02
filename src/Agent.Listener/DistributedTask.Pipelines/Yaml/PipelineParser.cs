@@ -161,7 +161,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                 }
             }
 
-            m_trace.Verbose(StringUtil.SafeLog("{0}", new TraceObject<Process, ProcessConverter>("After resolution", process)));
+            m_trace.Verbose(StringUtil.Format("{0}", new TraceObject<Process, ProcessConverter>("After resolution", process)));
             return process;
         }
 
@@ -270,7 +270,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
                     throw new System.OperationCanceledException(TaskResources.MustacheEvaluationTimeout(path, m_options.MustacheEvaluationTimeout.TotalSeconds), ex);
                 }
 
-                m_trace.Verbose(StringUtil.SafeLog("{0}", new TraceFileContent($"{file.Name} after mustache replacement", mustacheReplaced)));
+                m_trace.Verbose(StringUtil.Format("{0}", new TraceFileContent($"{file.Name} after mustache replacement", mustacheReplaced)));
             }
             finally
             {
@@ -285,7 +285,7 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
             deserializerBuilder.WithTypeConverter(new TConverter());
             IDeserializer deserializer = deserializerBuilder.Build();
             TObject obj = deserializer.Deserialize<TObject>(mustacheReplaced);
-            m_trace.Verbose(StringUtil.SafeLog("{0}", new TraceObject<TObject, TConverter>($"{file.Name} after deserialization ", obj)));
+            m_trace.Verbose(StringUtil.Format("{0}", new TraceObject<TObject, TConverter>($"{file.Name} after deserialization ", obj)));
             var result = new PipelineFile<TObject> { Name = file.Name, Directory = file.Directory, Object = obj };
             return result;
         }

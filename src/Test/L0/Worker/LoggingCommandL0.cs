@@ -99,19 +99,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 if (!string.Equals(e1.Area, e2.Area, StringComparison.OrdinalIgnoreCase))
                 {
-                    hc.GetTrace("CommandEqual").Info(StringUtil.SafeLog("Area 1={0}, Area 2={1}", e1.Area, e2.Area));
+                    hc.GetTrace("CommandEqual").Info(StringUtil.Format("Area 1={0}, Area 2={1}", e1.Area, e2.Area));
                     return false;
                 }
 
                 if (!string.Equals(e1.Event, e2.Event, StringComparison.OrdinalIgnoreCase))
                 {
-                    hc.GetTrace("CommandEqual").Info(StringUtil.SafeLog("Event 1={0}, Event 2={1}", e1.Event, e2.Event));
+                    hc.GetTrace("CommandEqual").Info(StringUtil.Format("Event 1={0}, Event 2={1}", e1.Event, e2.Event));
                     return false;
                 }
 
                 if (!string.Equals(e1.Data, e2.Data, StringComparison.OrdinalIgnoreCase) && (!string.IsNullOrEmpty(e1.Data) && !string.IsNullOrEmpty(e2.Data)))
                 {
-                    hc.GetTrace("CommandEqual").Info(StringUtil.SafeLog("Data 1={0}, Data 2={1}", e1.Data, e2.Data));
+                    hc.GetTrace("CommandEqual").Info(StringUtil.Format("Data 1={0}, Data 2={1}", e1.Data, e2.Data));
                     return false;
                 }
 
@@ -127,13 +127,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     hc.GetTrace("CommandEqual").Info("Properties for event 1:");
                     foreach (var data in e1.Properties)
                     {
-                        hc.GetTrace("CommandEqual").Info(StringUtil.SafeLog("Key={0}, Value={1}", data.Key, data.Value));
+                        hc.GetTrace("CommandEqual").Info(StringUtil.Format("Key={0}, Value={1}", data.Key, data.Value));
                     }
 
                     hc.GetTrace("CommandEqual").Info("Properties for event 2:");
                     foreach (var data in e2.Properties)
                     {
-                        hc.GetTrace("CommandEqual").Info(StringUtil.SafeLog("Key={0}, Value={1}", data.Key, data.Value));
+                        hc.GetTrace("CommandEqual").Info(StringUtil.Format("Key={0}, Value={1}", data.Key, data.Value));
                     }
 
                     return false;

@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 DeleteSource = deleteSource
             };
 
-            Trace.Verbose(StringUtil.SafeLog("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId));
+            Trace.Verbose(StringUtil.Format("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId));
             _fileUploadQueue.Enqueue(newFile);
         }
 
@@ -229,7 +229,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _timelineUpdateQueue.TryAdd(timelineId, new ConcurrentQueue<TimelineRecord>());
 
-            Trace.Verbose(StringUtil.SafeLog("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
+            Trace.Verbose(StringUtil.Format("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
         }
 
@@ -346,7 +346,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                         }
 
-                        Trace.Info(StringUtil.SafeLog("Try to append {0} batches web console lines for record '{1}', success rate: {2}/{3}.", batchedLines.Count, stepRecordId, batchedLines.Count - errorCount, batchedLines.Count));
+                        Trace.Info(StringUtil.Format("Try to append {0} batches web console lines for record '{1}', success rate: {2}/{3}.", batchedLines.Count, stepRecordId, batchedLines.Count - errorCount, batchedLines.Count));
                     }
                 }
 
@@ -417,7 +417,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         }
                     }
 
-                    Trace.Info(StringUtil.SafeLog("Try to upload {0} log files or attachments, success rate: {1}/{2}.", filesToUpload.Count, filesToUpload.Count - errorCount, filesToUpload.Count));
+                    Trace.Info(StringUtil.Format("Try to upload {0} log files or attachments, success rate: {1}/{2}.", filesToUpload.Count, filesToUpload.Count - errorCount, filesToUpload.Count));
                 }
 
                 if (runOnce)
@@ -502,7 +502,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, CancellationToken.None);
                             if (_bufferedRetryRecords.Remove(update.TimelineId))
                             {
-                                Trace.Verbose(StringUtil.SafeLog("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId));
+                                Trace.Verbose(StringUtil.Format("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId));
                             }
                         }
                         catch (Exception ex)
