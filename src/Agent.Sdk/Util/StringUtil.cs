@@ -187,11 +187,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return Format(CultureInfo.CurrentCulture, Loc(locKey), args);
         }
 
-        public static string SafeLog(string format, params object[] args)
-        {
-            return Format(CultureInfo.InvariantCulture, format, args);
-        }
-        
         private static string Format(CultureInfo culture, string format, params object[] args)
         {
             try
