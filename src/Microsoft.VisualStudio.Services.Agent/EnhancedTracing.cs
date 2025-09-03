@@ -45,32 +45,17 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Error, message, operation);
         }
 
-        // public override void Error(string format, [CallerMemberName] string operation = "", params object[] args)
-        // {
-        //     LogWithOperation(TraceEventType.Error, StringUtil.Format(format, args), operation);
-        // }
-
         // Override ALL Warning methods to ensure enhanced logging
         public override void Warning(string message, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Warning, message, operation);
         }
 
-        // public override void Warning(string format, [CallerMemberName] string operation = "", params object[] args)
-        // {
-        //     LogWithOperation(TraceEventType.Warning, StringUtil.Format(format, args), operation);
-        // }
-
         // Override ALL Verbose methods to ensure enhanced logging
         public override void Verbose(string message, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Verbose, message, operation);
         }
-
-        // public override void Verbose(string format, [CallerMemberName] string operation = "", params object[] args)
-        // {
-        //     LogWithOperation(TraceEventType.Verbose, StringUtil.Format(format, args), operation);
-        // }
 
         public override void Verbose(object item, [CallerMemberName] string operation = "")
         {
