@@ -23,11 +23,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Information, message, operation);
         }
 
-        // public override void Info(string format, [CallerMemberName] string operation = "", params object[] args)
-        // {
-        //     LogWithOperation(TraceEventType.Information, StringUtil.Format(format, args), operation);
-        // }
-
         public override void Info(object item, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Information, item?.ToString() ?? "null", operation);
