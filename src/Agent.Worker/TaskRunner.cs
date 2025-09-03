@@ -59,32 +59,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task RunAsync()
         {
-            // Validate args.
-            Trace.Entering();
-            ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
-            ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
-            ArgUtil.NotNull(Task, nameof(Task));
-            Trace.Info($"Task execution initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
-
-            bool logTaskNameInUserAgent = AgentKnobs.LogTaskNameInUserAgent.GetValue(ExecutionContext).AsBoolean();
-
-            if (logTaskNameInUserAgent)
+            using (Trace.EnteringWithDuration())
             {
-                VssUtil.PushTaskIntoAgentInfo(Task.Name ?? "", Task.Reference?.Version ?? "");
-            }
+                // Validate args.
+                Trace.Entering();
+                ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
+                ArgUtil.NotNull(ExecutionContext.Variables, nameof(ExecutionContext.Variables));
+                ArgUtil.NotNull(Task, nameof(Task));
+                Trace.Info($"Task execution initiated - Task: '{Task?.Reference?.Name}@{Task?.Reference?.Version}', Stage: {Stage}");
 
-            try
-            {
-                Trace.Info($"Core task execution initiated - transitioning to RunAsyncInternal()");
-                await RunAsyncInternal();
-                Trace.Info($"Core task execution completed successfully - Task: '{DisplayName}'");
-            }
-            finally
-            {
+                bool logTaskNameInUserAgent = AgentKnobs.LogTaskNameInUserAgent.GetValue(ExecutionContext).AsBoolean();
+
                 if (logTaskNameInUserAgent)
                 {
-                    VssUtil.RemoveTaskFromAgentInfo();
-                    Trace.Info($"Task information removed from user agent - Task: '{DisplayName}'");
+                    VssUtil.PushTaskIntoAgentInfo(Task.Name ?? "", Task.Reference?.Version ?? "");
+                }
+
+                try
+                {
+                    Trace.Info($"Core task execution initiated - transitioning to RunAsyncInternal()");
+                    await RunAsyncInternal();
+                    Trace.Info($"Core task execution completed successfully - Task: '{DisplayName}'");
+                }
+                finally
+                {
+                    if (logTaskNameInUserAgent)
+                    {
+                        VssUtil.RemoveTaskFromAgentInfo();
+                        Trace.Info($"Task information removed from user agent - Task: '{DisplayName}'");
+                    }
                 }
             }
         }
