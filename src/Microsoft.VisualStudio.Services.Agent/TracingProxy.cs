@@ -154,6 +154,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             inner.Leaving(name);
         }
 
+        public override IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            var inner = _inner;
+            if (inner is null)
+            {
+                return base.EnteringWithDuration(name);
+            }
+            return inner.EnteringWithDuration(name);
+        }
+
         protected override void Dispose(bool disposing)
         {
             // Do not dispose the inner here; TraceManager owns inner lifetimes.

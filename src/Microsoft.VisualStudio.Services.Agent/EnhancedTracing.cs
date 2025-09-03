@@ -23,6 +23,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Information, message, operation);
         }
 
+        // public override void Info(string format, [CallerMemberName] string operation = "", params object[] args)
+        // {
+        //     LogWithOperation(TraceEventType.Information, StringUtil.Format(format, args), operation);
+        // }
+
         public override void Info(object item, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Information, item?.ToString() ?? "null", operation);
@@ -40,17 +45,32 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Error, message, operation);
         }
 
+        // public override void Error(string format, [CallerMemberName] string operation = "", params object[] args)
+        // {
+        //     LogWithOperation(TraceEventType.Error, StringUtil.Format(format, args), operation);
+        // }
+
         // Override ALL Warning methods to ensure enhanced logging
         public override void Warning(string message, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Warning, message, operation);
         }
 
+        // public override void Warning(string format, [CallerMemberName] string operation = "", params object[] args)
+        // {
+        //     LogWithOperation(TraceEventType.Warning, StringUtil.Format(format, args), operation);
+        // }
+
         // Override ALL Verbose methods to ensure enhanced logging
         public override void Verbose(string message, [CallerMemberName] string operation = "")
         {
             LogWithOperation(TraceEventType.Verbose, message, operation);
         }
+
+        // public override void Verbose(string format, [CallerMemberName] string operation = "", params object[] args)
+        // {
+        //     LogWithOperation(TraceEventType.Verbose, StringUtil.Format(format, args), operation);
+        // }
 
         public override void Verbose(object item, [CallerMemberName] string operation = "")
         {
@@ -62,9 +82,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Verbose, $"Entering {name}", name);
         }
 
+        public override IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            LogWithOperation(TraceEventType.Verbose, $"Entering {name}", name);
+            return new MethodTimer(this, name);
+        }
+
         public override void Leaving([CallerMemberName] string name = "")
         {
             LogWithOperation(TraceEventType.Verbose, $"Leaving {name}", name);
+        }
+
+        internal void LogLeavingWithDuration(string methodName, TimeSpan duration)
+        {
+            var formattedDuration = FormatDuration(duration);
+            var message = $"Leaving {methodName} (Duration: {formattedDuration})";
+            LogWithOperation(TraceEventType.Verbose, message, methodName);
         }
 
         private void LogWithOperation(TraceEventType eventType, string message, string operation)
@@ -77,6 +110,42 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             var operationPart = !string.IsNullOrEmpty(operation) ? $"[{operation}]" : "";
             return $"{operationPart} {message}".TrimEnd();
+        }
+
+        private string FormatDuration(TimeSpan duration)
+        {
+            if (duration.TotalHours >= 1)
+                return $"{(int)duration.TotalHours}h {duration.Minutes}m {duration.Seconds}.{duration.Milliseconds:D3}s";
+            if (duration.TotalMinutes >= 1)
+                return $"{duration.Minutes}m {duration.Seconds}.{duration.Milliseconds:D3}s";
+            if (duration.TotalSeconds >= 1)
+                return $"{duration.TotalSeconds:F3}s";
+            return $"{duration.TotalMilliseconds:F2}ms";
+        }
+
+        private sealed class MethodTimer : IDisposable
+        {
+            private readonly EnhancedTracing _tracing;
+            private readonly string _methodName;
+            private readonly Stopwatch _stopwatch;
+            private bool _disposed = false;
+
+            public MethodTimer(EnhancedTracing tracing, string methodName)
+            {
+                _tracing = tracing;
+                _methodName = methodName;
+                _stopwatch = Stopwatch.StartNew();
+            }
+
+            public void Dispose()
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    _stopwatch.Stop();
+                    _tracing.LogLeavingWithDuration(_methodName, _stopwatch.Elapsed);
+                }
+            }
         }
     }
 }
