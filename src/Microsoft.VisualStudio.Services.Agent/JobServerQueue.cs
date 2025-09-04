@@ -26,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
         void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
+        Task QueueTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord);
         void UpdateWebConsoleLineRate(Int32 rateInMillis);
     }
 
@@ -231,6 +232,31 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             Trace.Verbose(StringUtil.Format("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
+        }
+        public async Task QueueTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord)
+        {
+            ArgUtil.NotEmpty(timelineId, nameof(timelineId));
+            ArgUtil.NotNull(timelineRecord, nameof(timelineRecord));
+            ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
+
+            // For job timeline records transitioning to InProgress, send immediately to avoid race conditions
+            if (timelineId == _jobTimelineId && timelineRecord.Id == _jobTimelineRecordId)
+            {
+                Trace.Info($"Sending job timeline record {timelineRecord.Id} state update immediately to avoid race condition");
+                try
+                {
+                    var immediateUpdate = new List<TimelineRecord> { timelineRecord.Clone() };
+                    await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, timelineId, immediateUpdate, CancellationToken.None);
+                    Trace.Info($"Job timeline record {timelineRecord.Id} state successfully updated to {timelineRecord.State} on server");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Failed to send immediate job state update: {ex.Message}. Falling back to normal queue.");
+                }
+            }
+            QueueTimelineRecordUpdate(timelineId, timelineRecord);
+
         }
 
         public void ReportThrottling(TimeSpan delay, DateTime expiration)
