@@ -64,6 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // timeline record update methods
         void Start(string currentOperation = null);
+        Task WaitForJobStateAsync(TimelineRecordState expectedState);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
         void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
@@ -296,6 +297,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     _logger.Write(StringUtil.Loc("BuildLogsMessage", _buildLogsFile));
                 }
+            }
+        }
+        public async Task WaitForJobStateAsync(TimelineRecordState expectedState)
+        {
+            // Only wait for job-level contexts to reach the expected state
+            if (_record.RecordType == ExecutionContextType.Job && _record.State == expectedState)
+            {
+                Trace.Info($"Waiting for job timeline record {_record.Id} to reach {expectedState} state on server");
+                await _jobServerQueue.QueueTimelineRecordUpdateAsync(_mainTimelineId, _record);
+                Trace.Info($"Job state {expectedState} confirmed on server - ready to proceed with step execution");
+            }
+            else
+            {
+                Trace.Verbose($"No wait needed - RecordType: {_record.RecordType}, CurrentState: {_record.State}, ExpectedState: {expectedState}");
             }
         }
 
