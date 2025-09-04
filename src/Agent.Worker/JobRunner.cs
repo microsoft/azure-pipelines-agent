@@ -113,10 +113,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 jobContext.Start();
                 jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                 Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
-                // Wait for job state to be confirmed as InProgress on server before proceeding with steps
-                Trace.Info("Waiting for job state confirmation before starting step execution");
-                await jobContext.WaitForJobStateAsync(TimelineRecordState.InProgress);
-                Trace.Info("Job state confirmed as InProgress - proceeding with job initialization");
 
                 //Start Resource Diagnostics if enabled in the job message 
                 jobContext.Variables.TryGetValue("system.debug", out var systemDebug);

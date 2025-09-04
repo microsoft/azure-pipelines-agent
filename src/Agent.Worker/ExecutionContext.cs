@@ -64,7 +64,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // timeline record update methods
         void Start(string currentOperation = null);
-        Task WaitForJobStateAsync(TimelineRecordState expectedState);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
         void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
@@ -275,7 +274,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.StartTime = DateTime.UtcNow;
             _record.State = TimelineRecordState.InProgress;
 
-            _jobServerQueue.QueueTimelineRecordUpdateAsync(_mainTimelineId, _record).GetAwaiter().GetResult();
+            // sending immediate server update for the job timeline records InProgress state
+            if (_record.RecordType == ExecutionContextType.Job)
+            {
+                try
+                {
+                    _jobServerQueue.SendTimelineRecordUpdateAsync(_mainTimelineId, _record).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Failed to send immediate timeline record initialization: {ex.Message}. Falling back to queue mechanism.");
+                    _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+                }
+            }
+            // for all other type of timeline records, use queue mechanism to update the record.
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
@@ -297,20 +313,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     _logger.Write(StringUtil.Loc("BuildLogsMessage", _buildLogsFile));
                 }
-            }
-        }
-        public async Task WaitForJobStateAsync(TimelineRecordState expectedState)
-        {
-            // Only wait for job-level contexts to reach the expected state
-            if (_record.RecordType == ExecutionContextType.Job && _record.State == expectedState)
-            {
-                Trace.Info($"Waiting for job timeline record {_record.Id} to reach {expectedState} state on server");
-                await _jobServerQueue.QueueTimelineRecordUpdateAsync(_mainTimelineId, _record);
-                Trace.Info($"Job state {expectedState} confirmed on server - ready to proceed with step execution");
-            }
-            else
-            {
-                Trace.Verbose($"No wait needed - RecordType: {_record.RecordType}, CurrentState: {_record.State}, ExpectedState: {expectedState}");
             }
         }
 
@@ -834,7 +836,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.WorkerName = configuration.GetSettings().AgentName;
             _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
-            _jobServerQueue.QueueTimelineRecordUpdateAsync(_mainTimelineId, _record).GetAwaiter().GetResult();
+            // sending immediate server update for the job timeline record creation.
+            if (recordType == ExecutionContextType.Job)
+            {
+                try
+                {
+                    _jobServerQueue.SendTimelineRecordUpdateAsync(_mainTimelineId, _record).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Failed to send immediate job timeline record initialization: {ex.Message}. Falling back to queue mechanism.");
+                    _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+                }
+            }
+            // for all other type of timeline records, use queue mechanism to update the record.
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
         }
 
         private void JobServerQueueThrottling_EventReceived(object sender, ThrottlingEventArgs data)
