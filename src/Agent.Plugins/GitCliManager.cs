@@ -68,7 +68,7 @@ namespace Agent.Plugins.Repository
 
             return gitVersion >= requiredVersion;
         }
-
+        
         public bool EnsureGitLFSVersion(Version requiredVersion, bool throwOnNotMatch)
         {
             ArgUtil.NotNull(gitLfsPath, nameof(gitLfsPath));
@@ -192,6 +192,42 @@ namespace Agent.Plugins.Repository
             context.Debug($"Init git repository at: {repositoryPath}.");
             string repoRootEscapeSpace = StringUtil.Format(@"""{0}""", repositoryPath.Replace(@"""", @"\"""));
             return await ExecuteGitCommandAsync(context, repositoryPath, "init", StringUtil.Format($"{repoRootEscapeSpace}"));
+        }
+
+
+        // Checks if the git author name, email, or commit message contains Vso commands before reposirtory checkout.
+        public async Task<bool> GitCheckVsoCommands(AgentTaskPluginExecutionContext context, string repositoryPath)
+        {   context.Debug($"Checking if Git author name, email, or commit message contains any VSO commands.");
+            List<string> updatedGitMetaData = new List<string>();
+            const int maxRetryCount = 3;
+            for(int retry = 0;retry < maxRetryCount;retry++){
+                List<string> outputStrings = new List<string>();
+                int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "log", "-1 --pretty=format:'%an%n%ae%n%s'", outputStrings);
+                if (exitCode == 0)
+                {   //Check if git metadata contains any VSO commands
+                    bool containVsoCommands = outputStrings.Any(msg => msg.Contains("vso[task.setvariable"));
+                    if(!containVsoCommands) 
+                        return true;
+                    updatedGitMetaData = outputStrings.Select(str => {
+                        string trimmed = str.Trim().Trim('"', '\'');
+                        return trimmed.Replace("vso[task.setvariable", "vso", StringComparison.OrdinalIgnoreCase);
+                    }).ToList();
+                    break;
+                }
+            }
+            if (updatedGitMetaData.Count < 3)
+            {   context.Debug($"Unable to get Git latest commit metadata.");
+                return false;
+            }
+            for(int retry = 0;retry< maxRetryCount;retry++){
+                string authorString = $"{updatedGitMetaData[0]} <{updatedGitMetaData[1]}>";
+                string commitMessage = updatedGitMetaData[2];
+                string options = $"--amend --author=\"{authorString}\" -m \"{commitMessage}\"";
+                int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "commit",options);
+                if(exitCode == 0) return true;
+            }
+            context.Debug($"Unable to update VSO commands from Git Metadata.");
+            return false;
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]

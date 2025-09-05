@@ -1394,6 +1394,9 @@ namespace Agent.Plugins.Repository
                 executionContext.SetTaskVariable("clientCertAskPass", clientCertPrivateKeyAskPassFile);
             }
 
+            //Check if Git author name, email, or commit message contains VSO commands.
+            await gitCommandManager.GitCheckVsoCommands(executionContext, targetPath);
+
             await RunGitStatusIfSystemDebug(executionContext, gitCommandManager, targetPath);
         }
 
