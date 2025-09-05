@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         bool ForceDrainTimelineQueue { get; set; }
         event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
         Task ShutdownAsync();
+        Task SendTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord);
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
         void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
@@ -231,6 +232,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             Trace.Verbose(StringUtil.Format("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
+        }
+        public async Task SendTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord)
+        {
+            ArgUtil.NotEmpty(timelineId, nameof(timelineId));
+            ArgUtil.NotNull(timelineRecord, nameof(timelineRecord));
+            ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
+            var immediateUpdate = new List<TimelineRecord> { timelineRecord.Clone() };
+            await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, timelineId, immediateUpdate, CancellationToken.None);
+            Trace.Info($"Job timeline record {timelineRecord.Id} sent successfully to server");
         }
 
         public void ReportThrottling(TimeSpan delay, DateTime expiration)
