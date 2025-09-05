@@ -15,6 +15,7 @@ using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System.Runtime.InteropServices;
 
 namespace Agent.Plugins.Repository
 {
@@ -25,6 +26,10 @@ namespace Agent.Plugins.Repository
 
     public class GitCliManager : IGitCliManager
     {
+        internal static class GitVersionInfo
+        {
+            public static readonly Version CaseSensitivityIssueVersion = new Version(2, 51, 0);
+        }
         private static Encoding _encoding
         {
             get => PlatformUtil.RunningOnWindows
@@ -191,7 +196,32 @@ namespace Agent.Plugins.Repository
         {
             context.Debug($"Init git repository at: {repositoryPath}.");
             string repoRootEscapeSpace = StringUtil.Format(@"""{0}""", repositoryPath.Replace(@"""", @"\"""));
-            return await ExecuteGitCommandAsync(context, repositoryPath, "init", StringUtil.Format($"{repoRootEscapeSpace}"));
+            string refFormat = string.Empty;
+            if (ShouldUseReftable(context))
+            {
+                context.Debug($"Using reftable format for Git init due to case-sensitivity requirements. Git version: {gitVersion}");
+                refFormat = "--ref-format=reftable";
+            }
+            else
+            {
+                context.Debug($"Using default ref format. Git version: {gitVersion}");
+            }
+            string options = $"{refFormat} {repoRootEscapeSpace}".Trim();
+            return await ExecuteGitCommandAsync(context, repositoryPath, "init", options);
+        }
+
+        private bool ShouldUseReftable(AgentTaskPluginExecutionContext context)
+        {
+            // For Git 2.51.0 and above on case-insensitive filesystems
+            context.Debug($"in function ShouldUseReftable, _gitVersion = {gitVersion}");
+            if (gitVersion >= GitVersionInfo.CaseSensitivityIssueVersion)
+            {
+                bool isCaseInsensitive = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                                        RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+                context.Debug($"isCaseInsensitive = {isCaseInsensitive}");
+                return isCaseInsensitive;
+            }
+            return false;
         }
 
         // git fetch --tags --prune --progress --no-recurse-submodules [--depth=15] origin [+refs/pull/*:refs/remote/pull/*]
