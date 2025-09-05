@@ -133,7 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     }
                     catch (SocketException e)
                     {
-                        ExceptionsUtil.HandleSocketException(e, serverUrl, trace.Error);
+                        ExceptionsUtil.HandleSocketException(e, serverUrl, (message) => trace.Error(message));
                         throw;
                     }
 
@@ -214,7 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             ArgUtil.NotNullOrEmpty(token, nameof(token));
 
-            trace.Info("token retrieved: {0} chars", token.Length);
+            trace.Info(StringUtil.Format("token retrieved: {0} chars", token.Length));
 
             // PAT uses a basic credential
             VssBasicCredential basicCred = new VssBasicCredential("VstsAgent", token);
@@ -259,7 +259,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNullOrEmpty(token, nameof(token));
             ArgUtil.NotNullOrEmpty(username, nameof(username));
 
-            trace.Info("token retrieved: {0} chars", token.Length);
+            trace.Info(StringUtil.Format("token retrieved: {0} chars", token.Length));
 
             // ServiceIdentity uses a service identity credential
             VssServiceIdentityToken identityToken = new VssServiceIdentityToken(token);
@@ -306,8 +306,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(username, nameof(username));
             ArgUtil.NotNull(password, nameof(password));
 
-            trace.Info("username retrieved: {0} chars", username.Length);
-            trace.Info("password retrieved: {0} chars", password.Length);
+            trace.Info(StringUtil.Format("username retrieved: {0} chars", username.Length));
+            trace.Info(StringUtil.Format("password retrieved: {0} chars", password.Length));
 
             VssBasicCredential loginCred = new VssBasicCredential(username, password);
             VssCredentials creds = new VssCredentials(null, loginCred, CredentialPromptType.DoNotPrompt);
@@ -339,15 +339,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.TenantId, out string tenantId);
             ArgUtil.NotNullOrEmpty(tenantId, nameof(tenantId));
-            trace.Info("tenant id retrieved: {0} chars", tenantId.Length);
+            trace.Info(StringUtil.Format("tenant id retrieved: {0} chars", tenantId.Length));
 
             CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientId, out string clientId);
             ArgUtil.NotNullOrEmpty(clientId, nameof(clientId));
-            trace.Info("client id retrieved: {0} chars", clientId.Length);
+            trace.Info(StringUtil.Format("client id retrieved: {0} chars", clientId.Length));
 
             CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientSecret, out string clientSecret);
             ArgUtil.NotNullOrEmpty(clientSecret, nameof(clientSecret));
-            trace.Info("client secret retrieved: {0} chars", clientSecret.Length);
+            trace.Info(StringUtil.Format("client secret retrieved: {0} chars", clientSecret.Length));
 
             var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
 

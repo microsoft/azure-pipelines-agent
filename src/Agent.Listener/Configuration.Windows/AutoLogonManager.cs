@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     logonAccount = String.Format("{0}\\{1}", Environment.MachineName, userName);
                     domainName = Environment.MachineName;
                 }
-                Trace.Info("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName);
+                Trace.Info(StringUtil.Format("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName));
 
                 logonPassword = command.GetWindowsLogonPassword(logonAccount);
                 if (_windowsServiceHelper.IsValidAutoLogonCredential(domainName, userName, logonPassword))

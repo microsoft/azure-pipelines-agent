@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
             catch (SocketException e)
             {
-                ExceptionsUtil.HandleSocketException(e, _connection.Uri.ToString(), Trace.Error);
+                ExceptionsUtil.HandleSocketException(e, _connection.Uri.ToString(), (msg) => Trace.Error(msg));
                 throw;
             }
 

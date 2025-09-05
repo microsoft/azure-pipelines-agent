@@ -19,6 +19,7 @@ using Microsoft.TeamFoundation.TestClient.PublishTestResults.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Agent.Sdk.Knob;
 using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -354,12 +355,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
+        private async Task InitializeRuntimeFeatures()
+        {
+            try
+            {
+                Trace.Info("Initializing runtime features from feature flags");
+
+                var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                var traceManager = HostContext.GetService<ITraceManager>();
+
+                // Check enhanced logging feature flag
+                var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
+                bool enhancedLoggingEnabled = string.Equals(enhancedLoggingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
+                Trace.Info($"Enhanced logging feature flag is {(enhancedLoggingEnabled ? "enabled" : "disabled")}");
+                // Set the result on TraceManager - this automatically switches all trace sources
+                traceManager.SetEnhancedLoggingEnabled(enhancedLoggingEnabled);
+
+                // Ensure child processes (worker/plugin) pick up enhanced logging via knob
+                Environment.SetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING", enhancedLoggingEnabled ? "true" : null);
+
+                Trace.Info("Runtime features initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                // Don't fail the agent if feature flag check fails
+                Trace.Warning($"Runtime features initialization failed, using defaults: {ex}");
+            }
+        }
+
         //create worker manager, create message listener and start listening to the queue
         private async Task<int> RunAsync(AgentSettings settings, bool runOnce = false)
         {
             try
             {
-                Trace.Info($"Entering main agent execution loop({0})", nameof(RunAsync));
+                Trace.Info(StringUtil.Format("Entering main agent execution loop({0})", nameof(RunAsync)));
 
                 var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                 var checkPsModulesFeatureFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.CheckPsModulesLocations", Trace);
@@ -385,6 +415,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 HostContext.WritePerfCounter("SessionCreated");
                 Trace.Info("Session created successfully - agent is now listening for jobs");
+
+                // Check feature flags for enhanced logging and other runtime features
+                await InitializeRuntimeFeatures();
+
                 _term.WriteLine(StringUtil.Loc("ListenForJobs", DateTime.UtcNow));
 
                 IJobDispatcher jobDispatcher = null;
@@ -513,7 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         var agentUpdateMessage = JsonUtility.FromString<AgentRefreshMessage>(message.Body);
                                         var selfUpdater = HostContext.GetService<ISelfUpdater>();
                                         selfUpdateTask = selfUpdater.SelfUpdate(agentUpdateMessage, jobDispatcher, !runOnce && HostContext.StartupType != StartupType.Service, HostContext.AgentShutdownToken);
-                                        Trace.Info("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion);
+                                        Trace.Info(StringUtil.Format("Agent update handling - Self-update task initiated, target version: {0}", agentUpdateMessage.TargetVersion));
                                     }
                                     else
                                     {
@@ -585,7 +619,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         catch (AggregateException e)
                         {
                             Trace.Error($"Exception occurred while processing message from queue: {e.Message}");
-                            ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                            ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                         }
                         finally
                         {
