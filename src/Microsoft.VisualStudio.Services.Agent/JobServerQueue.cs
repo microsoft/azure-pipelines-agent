@@ -240,7 +240,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
             var immediateUpdate = new List<TimelineRecord> { timelineRecord.Clone() };
             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, timelineId, immediateUpdate, CancellationToken.None);
-            Trace.Info($"Job timeline record {timelineRecord.Id} state successfully updated to {timelineRecord.State} on server");
+            Trace.Info($"Job timeline record {timelineRecord.Id} sent successfully to server");
         }
 
         public void ReportThrottling(TimeSpan delay, DateTime expiration)
