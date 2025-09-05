@@ -114,7 +114,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (SocketException ex)
                 {
-                    ExceptionsUtil.HandleSocketException(ex, downloadUrl, Tracer.Warning);
+                    ExceptionsUtil.HandleSocketException(ex, downloadUrl, (message) => Tracer.Warning(message));
                 }
                 catch (Exception ex)
                 {
@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // delete .zip file
                         if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                         {
-                            Tracer.Verbose("Deleting Node 6 runner package zip: {0}", filePath);
+                            Tracer.Verbose(StringUtil.Format("Deleting Node 6 runner package zip: {0}", filePath));
                             IOUtil.DeleteFile(filePath);
                             IOUtil.DeleteDirectory(Path.Combine(externalsFolder, Path.GetFileNameWithoutExtension(filePath)), cancellationToken);
                         }
@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     catch (Exception ex)
                     {
                         //it is not critical if we fail to delete the .zip file
-                        Tracer.Warning("Failed to delete Node 6 runner package zip '{0}'. Exception: {1}", filePath, ex);
+                        Tracer.Warning(StringUtil.Format("Failed to delete Node 6 runner package zip '{0}'. Exception: {1}", filePath, ex));
                     }
 
                     PublishTelemetry(context, downloadUrl, false, isInstalled);

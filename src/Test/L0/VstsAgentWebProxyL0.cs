@@ -3,12 +3,9 @@
 
 using System;
 using System.IO;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Xunit;
 using Moq;
-using Microsoft.VisualStudio.Services.Agent;
-using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -30,18 +27,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     "127\\.0\\.0\\.1"
                 };
 
-                // Act.
-                Environment.SetEnvironmentVariable("no_proxy", "127.0.0.1,.ing.net,.intranet,.corp.int,.*corp.int,127\\.0\\.0\\.1");
-                var vstsAgentWebProxy = new VstsAgentWebProxy();
-                vstsAgentWebProxy.Initialize(_hc);
-                vstsAgentWebProxy.LoadProxyBypassList();
-
-                // Assert
-                Assert.NotNull(vstsAgentWebProxy.ProxyBypassList);
-                Assert.True(vstsAgentWebProxy.ProxyBypassList.Count == 6);
-                for (int i = 0; i < answers.Length; i++)
+                // Ensure clean slate: remove any file-based bypass entries and clear any existing in-memory list
+                var proxyBypassPath = _hc.GetConfigFile(WellKnownConfigFile.ProxyBypass);
+                if (File.Exists(proxyBypassPath))
                 {
-                    Assert.Equal(answers[i], vstsAgentWebProxy.ProxyBypassList[i]);
+                    File.Delete(proxyBypassPath);
+                }
+
+                // Preserve and set environment; restore after
+                var prevNoProxy = Environment.GetEnvironmentVariable("no_proxy");
+                try
+                {
+                    Environment.SetEnvironmentVariable("no_proxy", "127.0.0.1,.ing.net,.intranet,.corp.int,.*corp.int,127\\.0\\.0\\.1");
+
+                    var vstsAgentWebProxy = new VstsAgentWebProxy();
+                    vstsAgentWebProxy.Initialize(_hc);
+
+                    // Clear any state on the instance to avoid accumulation across calls
+                    vstsAgentWebProxy.ProxyBypassList.Clear();
+
+                    vstsAgentWebProxy.LoadProxyBypassList();
+
+                    // Assert strictly the six env-derived patterns in order
+                    Assert.NotNull(vstsAgentWebProxy.ProxyBypassList);
+                    Assert.Equal(6, vstsAgentWebProxy.ProxyBypassList.Count);
+                    for (int i = 0; i < answers.Length; i++)
+                    {
+                        Assert.Equal(answers[i], vstsAgentWebProxy.ProxyBypassList[i]);
+                    }
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("no_proxy", prevNoProxy);
                 }
             }
         }

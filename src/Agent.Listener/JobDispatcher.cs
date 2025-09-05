@@ -106,14 +106,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _jobInfos.TryAdd(newDispatch.JobId, newDispatch);
             _jobDispatchedQueue.Enqueue(newDispatch.JobId);
-            Trace.Info("Job dispatcher setup complete [JobId:{0}, QueuePosition:{1}, ActiveJobs:{2}, DispatchMode:{3}]", 
-                newDispatch.JobId, _jobDispatchedQueue.Count, _jobInfos.Count, runOnce ? "RunOnce" : "Normal");
+            Trace.Info(StringUtil.Format("Job dispatcher setup complete [JobId:{0}, QueuePosition:{1}, ActiveJobs:{2}, DispatchMode:{3}]",
+                newDispatch.JobId, _jobDispatchedQueue.Count, _jobInfos.Count, (runOnce ? "RunOnce" : "Normal")));
         }
 
         public void MetadataUpdate(JobMetadataMessage jobMetadataMessage)
         {
             ArgUtil.NotNull(jobMetadataMessage, nameof(jobMetadataMessage));
-            Trace.Info("Job metadata update received for job: {0}", jobMetadataMessage.JobId);
+            Trace.Info(StringUtil.Format("Job metadata update received for job: {0}", jobMetadataMessage.JobId));
 
             WorkerDispatcher workerDispatcher;
             if (!_jobInfos.TryGetValue(jobMetadataMessage.JobId, out workerDispatcher))
@@ -196,7 +196,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public async Task ShutdownAsync()
         {
-            Trace.Info("JobDispatcher shutdown initiated [ActiveJobs:{0}, QueuedJobs:{1}]", _jobInfos.Count, _jobDispatchedQueue.Count);
+            Trace.Info(StringUtil.Format("JobDispatcher shutdown initiated [ActiveJobs:{0}, QueuedJobs:{1}]", _jobInfos.Count, _jobDispatchedQueue.Count));
             WorkerDispatcher currentDispatch = null;
             if (_jobDispatchedQueue.Count > 0)
             {
@@ -205,9 +205,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     try
                     {
-                        Trace.Info("Waiting for worker completion and cancelling any running jobs for job: {0}", currentDispatch.JobId);
+                        Trace.Info(StringUtil.Format("Waiting for worker completion and cancelling any running jobs for job: {0}", currentDispatch.JobId));
                         await EnsureDispatchFinished(currentDispatch, cancelRunningJob: true);
-                        Trace.Info("Worker process shutdown completed successfully for job: {0}", currentDispatch.JobId);
+                        Trace.Info(StringUtil.Format("Worker process shutdown completed successfully for job: {0}", currentDispatch.JobId));
                     }
                     catch (Exception ex)
                     {
@@ -230,20 +230,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         
         private async Task EnsureDispatchFinished(WorkerDispatcher jobDispatch, bool cancelRunningJob = false)
         {
-            Trace.Info("EnsureDispatchFinished initiated [JobId:{0}, RequestId:{1}, CancelRunningJob:{2}, IsCompleted:{3}]", 
-                jobDispatch.JobId, jobDispatch.RequestId, cancelRunningJob, jobDispatch.WorkerDispatch.IsCompleted);
-            
+            Trace.Info(StringUtil.Format("EnsureDispatchFinished initiated [JobId:{0}, RequestId:{1}, CancelRunningJob:{2}, IsCompleted:{3}]",
+                jobDispatch.JobId, jobDispatch.RequestId, cancelRunningJob, jobDispatch.WorkerDispatch.IsCompleted));
+
             if (!jobDispatch.WorkerDispatch.IsCompleted)
             {
                 if (cancelRunningJob)
                 {
                     // cancel running job when shutting down the agent.
                     // this will happen when agent get Ctrl+C or message queue loop crashed.
-                    Trace.Info("Forced job cancellation initiated [JobId:{0}, Reason:AgentShutdown, Action:CancelAndWait]", jobDispatch.JobId);
+                    Trace.Info(StringUtil.Format("Forced job cancellation initiated [JobId:{0}, Reason:AgentShutdown, Action:CancelAndWait]",
+                        jobDispatch.JobId));
                     jobDispatch.WorkerCancellationTokenSource.Cancel();
                     // wait for worker process exit then return.
                     await jobDispatch.WorkerDispatch;
-                    Trace.Info("Forced job cancellation completed [JobId:{0}, Status:Cancelled, WorkerTerminated:True]", jobDispatch.JobId);
+                    Trace.Info(StringUtil.Format("Forced job cancellation completed [JobId:{0}, Status:Cancelled, WorkerTerminated:True]",
+                        jobDispatch.JobId));
 
                     return;
                 }
@@ -252,17 +254,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // if the agent received a new job request while a previous job request is still running, this typically indicate two situations
                 // 1. an agent bug cause server and agent mismatch on the state of the job request, ex. agent not renew jobrequest properly but think it still own the job reqest, however server already abandon the jobrequest.
                 // 2. a server bug or design change that allow server send more than one job request to an given agent that haven't finish previous job request.
-                Trace.Info("Concurrent job detected - checking server job status [JobId:{0}, RequestId:{1}, PoolId:{2}]", 
-                    jobDispatch.JobId, jobDispatch.RequestId, _poolId);
+                Trace.Info(StringUtil.Format("Concurrent job detected - checking server job status [JobId:{0}, RequestId:{1}, PoolId:{2}]",
+                    jobDispatch.JobId, jobDispatch.RequestId, _poolId));
                 var agentServer = HostContext.GetService<IAgentServer>();
                 TaskAgentJobRequest request = null;
                 try
                 {
-                    Trace.Info("Querying server for job status [JobId:{0}, RequestId:{1}, Operation:GetAgentRequest]", 
-                        jobDispatch.JobId, jobDispatch.RequestId);
+                    Trace.Info(StringUtil.Format("Querying server for job status [JobId:{0}, RequestId:{1}, Operation:GetAgentRequest]",
+                        jobDispatch.JobId, jobDispatch.RequestId));
                     request = await agentServer.GetAgentRequestAsync(_poolId, jobDispatch.RequestId, CancellationToken.None);
-                    Trace.Info("Server job status query completed [JobId:{0}, HasResult:{1}, ServerStatus:{2}]", 
-                        jobDispatch.JobId, request.Result != null, request.Result?.ToString() ?? "InProgress");
+                    Trace.Info(StringUtil.Format("Server job status query completed [JobId:{0}, HasResult:{1}, ServerStatus:{2}]",
+                        jobDispatch.JobId, request.Result != null, request.Result?.ToString() ?? "InProgress"));
                 }
                 catch (Exception ex)
                 {
@@ -273,7 +275,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     jobDispatch.WorkerCancellationTokenSource.Cancel();
                     // make sure worker process exit before we rethrow, otherwise we might leave orphan worker process behind.
                     await jobDispatch.WorkerDispatch;
-                    Trace.Info("Emergency worker termination completed [JobId:{0}, WorkerCancelled:True, Status:Rethrowing]", jobDispatch.JobId);
+                    Trace.Info(StringUtil.Format("Emergency worker termination completed [JobId:{0}, WorkerCancelled:True, Status:Rethrowing]",
+                        jobDispatch.JobId));
 
                     // rethrow original exception
                     throw;
@@ -295,21 +298,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // no need to localize the exception string should never happen.
                         throw new InvalidOperationException($"Job dispatch process for {jobDispatch.JobId} has encountered unexpected error, the dispatch task is not able to be canceled within 45 seconds.");
                     }
-                    Trace.Info("Zombie worker termination successful [JobId:{0}, ServerResult:{1}, WorkerCancelled:True]", 
-                        jobDispatch.JobId, request.Result.Value);
+                    Trace.Info(StringUtil.Format("Zombie worker termination successful [JobId:{0}, ServerResult:{1}, WorkerCancelled:True]",
+                        jobDispatch.JobId, request.Result.Value));
                 }
                 else
                 {
                     // something seriously wrong on server side. stop agent from continue running.
                     // no need to localize the exception string should never happen.
-                    Trace.Error("Server state inconsistency detected [JobId:{0}, Issue:NewJobWhilePreviousIncomplete, ServerBehavior:Unexpected, Action:ThrowException]", 
-                        jobDispatch.JobId);
+                    Trace.Error(StringUtil.Format("Server state inconsistency detected [JobId:{0}, Issue:NewJobWhilePreviousIncomplete, ServerBehavior:Unexpected, Action:ThrowException]",
+                        jobDispatch.JobId));
                     throw new InvalidOperationException($"Server send a new job request while the previous job request {jobDispatch.JobId} haven't finished.");
                 }
             }
 
-            Trace.Info("Normal dispatch completion wait initiated [JobId:{0}, WorkerCompleted:{1}]", 
-                jobDispatch.JobId, jobDispatch.WorkerDispatch.IsCompleted);
+            Trace.Info(StringUtil.Format("Normal dispatch completion wait initiated [JobId:{0}, WorkerCompleted:{1}]",
+                jobDispatch.JobId, jobDispatch.WorkerDispatch.IsCompleted));
             try
             {
                 await jobDispatch.WorkerDispatch;
@@ -327,13 +330,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     Trace.Verbose($"Remove WorkerDispather from {nameof(_jobInfos)} dictionary for job {jobDispatch.JobId}.");
                     workerDispatcher.Dispose();
-                    Trace.Info("Worker dispatcher cleanup completed [JobId:{0}, RemovedFromDictionary:True, Disposed:True, ActiveJobs:{1}]", 
-                        jobDispatch.JobId, _jobInfos.Count);
+                    Trace.Info(StringUtil.Format("Worker dispatcher cleanup completed [JobId:{0}, RemovedFromDictionary:True, Disposed:True, ActiveJobs:{1}]",
+                        jobDispatch.JobId, _jobInfos.Count));
                 }
                 else
                 {
-                    Trace.Warning("Worker dispatcher cleanup failed [JobId:{0}, Reason:NotFoundInDictionary, ActiveJobs:{1}]", 
-                        jobDispatch.JobId, _jobInfos.Count);
+                    Trace.Warning(StringUtil.Format("Worker dispatcher cleanup failed [JobId:{0}, Reason:NotFoundInDictionary, ActiveJobs:{1}]",
+                        jobDispatch.JobId, _jobInfos.Count));
                 }
             }
         }
@@ -346,7 +349,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (AggregateException e)
             {
-                ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
             }
             finally
             {
@@ -357,17 +360,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         private async Task RunAsync(Pipelines.AgentJobRequestMessage message, WorkerDispatcher previousJobDispatch, WorkerDispatcher newJobDispatch)
         {
-            Trace.Info("Starting job execution [JobId:{0}, PlanId:{1}, DisplayName:{2}]", message.JobId, message.Plan.PlanId, message.JobDisplayName);
-            
+            Trace.Info(StringUtil.Format("Starting job execution [JobId:{0}, PlanId:{1}, DisplayName:{2}]",
+                message.JobId, message.Plan.PlanId, message.JobDisplayName));
+
             if (previousJobDispatch != null)
             {
-                Trace.Verbose("Waiting for previous job completion before starting new job [PreviousJobId:{0}, NewJobId:{1}]", previousJobDispatch.JobId, message.JobId);
+                Trace.Verbose(StringUtil.Format("Waiting for previous job completion before starting new job [PreviousJobId:{0}, NewJobId:{1}]",
+                    previousJobDispatch.JobId, message.JobId));
                 await EnsureDispatchFinished(previousJobDispatch);
                 Trace.Info("Previous job cleanup completed - ready for new job execution");
             }
             else
             {
-                Trace.Info("No previous job detected - this is the first job request. [JobId:{0}]", message.JobId);
+                Trace.Info(StringUtil.Format("No previous job detected - this is the first job request. [JobId:{0}]",
+                    message.JobId));
             }
 
             var jobRequestCancellationToken = newJobDispatch.WorkerCancellationTokenSource.Token;
@@ -389,7 +395,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Because an agent can be idle for a long time between jobs, it is possible that in that time
                 // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
                 // start of a new job
-                Trace.Info("Refreshing server connection before job execution [ConnectionType:JobRequest, Timeout:30s, JobId:{0}]", message.JobId);
+                Trace.Info(StringUtil.Format("Refreshing server connection before job execution [ConnectionType:JobRequest, Timeout:30s, JobId:{0}]",
+                    message.JobId));
                 var agentServer = HostContext.GetService<IAgentServer>();
                 await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
 
@@ -399,7 +406,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 // wait till first renew succeed or job request is canceled
                 // not even start worker if the first renew fail
-                Trace.Info("Waiting for first job request renewal to confirm [JobId:{0}, RequestId:{1}]", message.JobId, requestId);
+                Trace.Info(StringUtil.Format("Waiting for first job request renewal to confirm [JobId:{0}, RequestId:{1}]",
+                    message.JobId, requestId));
                 await Task.WhenAny(firstJobRequestRenewed.Task, renewJobRequest, Task.Delay(-1, jobRequestCancellationToken));
 
                 if (renewJobRequest.IsCompleted)
@@ -411,7 +419,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                 if (jobRequestCancellationToken.IsCancellationRequested)
                 {
-                    Trace.Info("Job cancellation requested during setup - stopping job request renewal for job: {0}", message.JobId);
+                    Trace.Info(StringUtil.Format("Job cancellation requested during setup - stopping job request renewal for job: {0}",
+                        message.JobId));
                     // stop renew lock
                     lockRenewalTokenSource.Cancel();
                     // renew job request should never blows up.
@@ -430,19 +439,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 using (var processChannel = HostContext.CreateService<IProcessChannel>())
                 using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
                 {
-                    Trace.Info("Initializing worker process communication channel for job: {0}", message.JobId);
+                    Trace.Info(StringUtil.Format("Initializing worker process communication channel for job: {0}",
+                        message.JobId));
 
                     var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                     var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
+                    var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
                     var environment = new Dictionary<string, string>();
                     if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
                     {
                         environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
                     }
+
+                    // Ensure worker sees the enhanced logging knob if the listener enabled it
+                    if (enhancedLoggingFlag?.EffectiveState == "On")
+                    {
+                        environment["AZP_USE_ENHANCED_LOGGING"] = "true";
+                        var traceManager = HostContext.GetService<ITraceManager>();
+                        traceManager.SetEnhancedLoggingEnabled(true);
+                    }
+
                     // Start the process channel.
                     // It's OK if StartServer bubbles an execption after the worker process has already started.
                     // The worker will shutdown after 30 seconds if it hasn't received the job message.
-                    Trace.Info("Starting process channel server for worker communication [JobId:{0}]", message.JobId);
+                    Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
+                        message.JobId));
                     processChannel.StartServer(
                         // Delegate to start the child process.
                         startProcess:  (string pipeHandleOut, string pipeHandleIn) =>
@@ -451,7 +472,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
                             ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
 
-                            Trace.Info("Setting up worker process output capture [JobId:{0}]", message.JobId);
+                            Trace.Info(StringUtil.Format("Setting up worker process output capture [JobId:{0}]", message.JobId));
                             // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
                             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
                             {
@@ -481,8 +502,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             HostContext.WritePerfCounter("StartingWorkerProcess");
                             var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
                             string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
-                            Trace.Info("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
-                                workerFileName, pipeHandleOut, pipeHandleIn, message.JobId);
+                            Trace.Info(StringUtil.Format("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
+                                workerFileName, pipeHandleOut, pipeHandleIn, message.JobId));
                             workerProcessTask = processInvoker.ExecuteAsync(
                                 workingDirectory: assemblyDirectory,
                                 fileName: workerFileName,
@@ -509,7 +530,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         var body = JsonUtility.ToString(message);
                         var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
                         string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
-                        Trace.Info("Sending job request message to worker process - job: {0}, size: {1}", message.JobId, numBytesString);
+                        Trace.Info(StringUtil.Format("Sending job request message to worker process - job: {0}, size: {1}",
+                            message.JobId, numBytesString));
                         HostContext.WritePerfCounter($"AgentSendingJobToWorker_{message.JobId}");
                         var stopWatch = Stopwatch.StartNew();
                         using (var csSendJobRequest = new CancellationTokenSource(_channelTimeout))
@@ -530,8 +552,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         workerProcessCancelTokenSource.Cancel();
                         try
                         {
-                            Trace.Info("Waiting for worker process termination after job message send timeout [JobId:{0}, Timeout:{1}s, Reason:SendMessageCancelled]", 
-                                message.JobId, _channelTimeout.TotalSeconds);
+                            Trace.Info(StringUtil.Format("Waiting for worker process termination after job message send timeout [JobId:{0}, Timeout:{1}s, Reason:SendMessageCancelled]",
+                                message.JobId, _channelTimeout.TotalSeconds));
                             await workerProcessTask;
                         }
                         catch (OperationCanceledException)
@@ -580,13 +602,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         while (keepListening)
                         {
                             // Job execution monitoring loop - waiting for worker completion, renewal, cancellation, or metadata updates
-                            Trace.Verbose("Job execution monitoring cycle started [JobId:{0}, WaitingFor:WorkerCompletion|RenewalUpdate|Cancellation|MetadataUpdate]", message.JobId);
+                            Trace.Verbose(StringUtil.Format("Job execution monitoring cycle started [JobId:{0}, WaitingFor:WorkerCompletion|RenewalUpdate|Cancellation|MetadataUpdate]",
+                                message.JobId));
                             var metadataUpdateTask = newJobDispatch.MetadataSource.Task;
                             var completedTask = await Task.WhenAny(renewJobRequest, workerProcessTask, Task.Delay(-1, jobRequestCancellationToken), metadataUpdateTask);
                             if (completedTask == workerProcessTask)
                             {
                                 keepListening = false;
-                                Trace.Info("Worker process completion detected [JobId:{0}, MonitoringMode:WorkerFinished, Action:ProcessResults]", message.JobId);         
+                                Trace.Info(StringUtil.Format("Worker process completion detected [JobId:{0}, MonitoringMode:WorkerFinished, Action:ProcessResults]",
+                                    message.JobId));
                                 // worker finished successfully, complete job request with result, attach unhandled exception reported by worker, stop renew lock, job has finished.
                                 int returnCode = await workerProcessTask;
                                 Trace.Info($"Worker finished for job {message.JobId}. Code: " + returnCode);
@@ -627,7 +651,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             else if (completedTask == renewJobRequest)
                             {
                                 keepListening = false;
-                                Trace.Warning("Job renewal process completed [JobId:{0}, Result:Abandoned, Action:StopListening]", message.JobId);
+                                Trace.Warning(StringUtil.Format("Job renewal process completed [JobId:{0}, Result:Abandoned, Action:StopListening]",
+                                    message.JobId));
                                 resultOnAbandonOrCancel = TaskResult.Abandoned;
                             }
                             else if (completedTask == metadataUpdateTask)
@@ -636,8 +661,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 using (var csSendCancel = new CancellationTokenSource(_channelTimeout))
                                 {
                                     var body = JsonUtility.ToString(metadataUpdateTask.Result);
-                                    Trace.Verbose("Sending metadata update to worker [JobId:{0}, MessageType:JobMetadataUpdate, Body:{1}]", 
-                                        message.JobId, body);
+                                    Trace.Verbose(StringUtil.Format("Sending metadata update to worker [JobId:{0}, MessageType:JobMetadataUpdate, Body:{1}]",
+                                        message.JobId, body));
                                     await processChannel.SendAsync(
                                         messageType: MessageType.JobMetadataUpdate,
                                         body: body,
@@ -648,8 +673,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             else
                             {
                                 keepListening = false;
-                                Trace.Info("Job cancellation detected [JobId:{0}, MonitoringMode:Cancellation, CancellationRequested:{1}, Result:Canceled, Action:StopListening]", 
-                                    message.JobId, jobRequestCancellationToken.IsCancellationRequested);
+                                Trace.Info(StringUtil.Format("Job cancellation detected [JobId:{0}, MonitoringMode:Cancellation, CancellationRequested:{1}, Result:Canceled, Action:StopListening]",
+                                    message.JobId, jobRequestCancellationToken.IsCancellationRequested));
                                 resultOnAbandonOrCancel = TaskResult.Canceled;
                             }
                         }
@@ -744,7 +769,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     catch (AggregateException e)
                     {
-                        ExceptionsUtil.HandleAggregateException((AggregateException)e, Trace.Error);
+                        ExceptionsUtil.HandleAggregateException((AggregateException)e, (message) => Trace.Error(message));
                     }
                     finally
                     {
@@ -760,7 +785,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         public async Task RenewJobRequestAsync(int poolId, long requestId, Guid lockToken, TaskCompletionSource<int> firstJobRequestRenewed, CancellationToken token)
         {
             ArgUtil.NotNull(firstJobRequestRenewed, nameof(firstJobRequestRenewed));
-            Trace.Info("Job request renewal process initiated [PoolId:{0}, RequestId:{1}, FirstRenewal:{2}]", poolId, requestId, !firstJobRequestRenewed.Task.IsCompleted);
+            Trace.Info(StringUtil.Format("Job request renewal process initiated [PoolId:{0}, RequestId:{1}, FirstRenewal:{2}]",
+                poolId, requestId, !firstJobRequestRenewed.Task.IsCompleted));
             var agentServer = HostContext.GetService<IAgentServer>();
             TaskAgentJobRequest request = null;
             int firstRenewRetryLimit = 5;
@@ -780,7 +806,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         // fire first renew succeed event.
                         firstJobRequestRenewed.TrySetResult(0);
-                        Trace.Info("First job request renewal completed successfully [RequestId:{0}, InitialRenewal:True, Status:Confirmed]", requestId);
+                        Trace.Info(StringUtil.Format("First job request renewal completed successfully [RequestId:{0}, InitialRenewal:True, Status:Confirmed]",
+                            requestId));
                     }
 
                     if (encounteringError > 0)
@@ -788,7 +815,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         encounteringError = 0;
                         agentServer.SetConnectionTimeout(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(60));
                         HostContext.WritePerfCounter("JobRenewRecovered");
-                        Trace.Info("Job renewal error recovery completed [RequestId:{0}, ErrorsCleared:True, ConnectionTimeout:60s, Status:Recovered]", requestId);
+                        Trace.Info(StringUtil.Format("Job renewal error recovery completed [RequestId:{0}, ErrorsCleared:True, ConnectionTimeout:60s, Status:Recovered]",
+                            requestId));
                     }
 
                     // renew again after 60 sec delay
@@ -859,7 +887,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // Re-establish connection to server in order to avoid affinity with server.
                         // Reduce connection timeout to 30 seconds (from 60s)
                         HostContext.WritePerfCounter("ResetJobRenewConnection");
-                        Trace.Info("Job renewal connection refresh initiated [RequestId:{0}, Timeout:30s, Reason:RetryRecovery, ErrorCount:{1}]", requestId, encounteringError);
+                        Trace.Info(StringUtil.Format("Job renewal connection refresh initiated [RequestId:{0}, Timeout:30s, Reason:RetryRecovery, ErrorCount:{1}]",
+                            requestId, encounteringError));
                         await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
 
                         try
@@ -874,8 +903,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     else
                     {
-                        Trace.Info("Job renewal retry exhausted [RequestId:{0}, ErrorCount:{1}, RemainingTime:0, Action:StopRenewal, Status:Failed]", 
-                            requestId, encounteringError);
+                        Trace.Info(StringUtil.Format("Job renewal retry exhausted [RequestId:{0}, ErrorCount:{1}, RemainingTime:0, Action:StopRenewal, Status:Failed]",
+                            requestId, encounteringError));
                         HostContext.WritePerfCounter("JobRenewReachLimit");
                         return;
                     }
@@ -897,16 +926,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             var agentServer = HostContext.GetService<IAgentServer>();
             int completeJobRequestRetryLimit = 5;
             List<Exception> exceptions = new List<Exception>();
-            Trace.Info("Job completion retry configuration [JobId:{0}, RetryLimit:{1}, DelayBetweenRetries:5s]", message.JobId, completeJobRequestRetryLimit);
+            Trace.Info(StringUtil.Format("Job completion retry configuration [JobId:{0}, RetryLimit:{1}, DelayBetweenRetries:5s]",
+                message.JobId, completeJobRequestRetryLimit));
             while (completeJobRequestRetryLimit-- > 0)
             {
                 try
                 {
-                    Trace.Info("Finishing agent request [JobId:{0}, RequestId:{1}, Result:{2}, RemainingRetries:{4}]",
-                        message.JobId, message.RequestId, result, completeJobRequestRetryLimit);
+                    Trace.Info(StringUtil.Format("Finishing agent request [JobId:{0}, RequestId:{1}, Result:{2}, RemainingRetries:{3}]",
+                        message.JobId, message.RequestId, result, completeJobRequestRetryLimit));
                     await agentServer.FinishAgentRequestAsync(poolId, message.RequestId, lockToken, DateTime.UtcNow, result, CancellationToken.None);
-                    Trace.Info("Job completion successful [JobId:{0}, RequestId:{1}, Result:{2}, Status:Completed]",
-                        message.JobId, message.RequestId, result);
+                    Trace.Info(StringUtil.Format("Job completion successful [JobId:{0}, RequestId:{1}, Result:{2}, Status:Completed]",
+                        message.JobId, message.RequestId, result));
                     return;
                 }
                 catch (TaskAgentJobNotFoundException)
@@ -927,14 +957,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
 
                 // delay 5 seconds before next retry.
-                 Trace.Info("Job completion retry delay initiated [JobId:{0}, DelayDuration:5s, RemainingRetries:{1}]",
-                    message.JobId, completeJobRequestRetryLimit);
+                Trace.Info(StringUtil.Format("Job completion retry delay initiated [JobId:{0}, DelayDuration:5s, RemainingRetries:{1}]",
+                    message.JobId, completeJobRequestRetryLimit));
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
 
             // rethrow all catched exceptions during retry.
-            Trace.Error("Job completion failed - all retries exhausted [JobId:{0}, RequestId:{1}, TotalExceptions:{2}, FinalAction:ThrowAggregateException]",
-                message.JobId, message.RequestId, exceptions.Count);
+            Trace.Error(StringUtil.Format("Job completion failed - all retries exhausted [JobId:{0}, RequestId:{1}, TotalExceptions:{2}, FinalAction:ThrowAggregateException]",
+                message.JobId, message.RequestId, exceptions.Count));
             throw new AggregateException(exceptions);
         }
 
@@ -990,7 +1020,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (SocketException ex)
             {
-                ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), Trace.Error);
+                ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), (message) => Trace.Error(message));
             }
             catch (Exception ex)
             {
