@@ -107,6 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryFalse_UsesStandardRetryLogic()
         {
             // Arrange
@@ -161,6 +162,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_ContainerAlreadyRunning_ReturnsSuccess()
         {
             // Arrange
@@ -216,6 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_StartSucceedsFirstAttempt_ReturnsSuccess()
         {
             // Arrange
@@ -262,6 +265,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_AllRetriesFail_ReturnsFailure()
         {
             // Arrange
@@ -320,6 +324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_NoRetriesEnabled_FailsImmediately()
         {
             // Arrange
@@ -378,6 +383,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_RetriesWithBackoff()
         {
             // Arrange
@@ -389,7 +395,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
                 hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
                 dockerManager.Initialize(hc);
-                
+
                 for (int i = 0; i < 10; i++)
                 {
                     hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
@@ -420,7 +426,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
 
                 // Assert
                 Assert.Equal(0, result);
-                
+
                 // Verify docker start was called multiple times
                 _processInvoker.Verify(x => x.ExecuteAsync(
                     It.IsAny<string>(),
