@@ -171,18 +171,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             CancellationToken cancellationToken = executionContext.CancellationToken;
             Trace.Entering();
+            executionContext.Debug("MSI access token retrieval initiated");
+
             // Check environment variable for debugging
             var envVar = Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
-            // Future: Set this client id. This is the MSI client ID.
-            ChainedTokenCredential credential = envVar == "1"
-                ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
-                : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
-            executionContext.Debug("Retrieving AAD token using MSI authentication...");
-            AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
-                "https://management.core.windows.net/"
-            }), cancellationToken);
+            bool isDebugMode = envVar == "1";
 
-            return accessToken.Token.ToString();
+            try
+            {
+                // Future: Set this client id. This is the MSI client ID.
+                ChainedTokenCredential credential = envVar == "1"
+                    ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
+                    : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
+                executionContext.Debug("Retrieving AAD token using MSI authentication...");
+                AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
+                    "https://management.core.windows.net/"
+                }), cancellationToken);
+
+                return accessToken.Token.ToString();
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                executionContext.Error($"MSI authentication failed: {ex.Message}");
+                if (isDebugMode)
+                {
+                    executionContext.Error("Debug mode authentication failure - check ManagedIdentity, VisualStudio, and AzureCLI configurations");
+                    executionContext.Error("Verify that at least one authentication method is properly configured");
+                }
+                else
+                {
+                    executionContext.Error("Production MSI authentication failure - verify Managed Identity is enabled and properly configured");
+                    executionContext.Error("Check that the system/user-assigned managed identity has appropriate permissions");
+                }
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                executionContext.Warning("MSI token retrieval was cancelled due to timeout or cancellation request");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                executionContext.Error($"Unexpected error during MSI token retrieval: {ex.Message}");
+                executionContext.Error($"Exception type: {ex.GetType().Name}");
+                throw;
+            }
         }
 
         private async Task<string> GetAccessTokenUsingWorkloadIdentityFederation(IExecutionContext executionContext, ServiceEndpoint registryEndpoint)
@@ -192,52 +225,99 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             CancellationToken cancellationToken = executionContext.CancellationToken;
             Trace.Entering();
+            executionContext.Debug("Workload Identity Federation access token retrieval initiated");
 
-            var tenantId = string.Empty;
-            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
+            try
             {
-                throw new InvalidOperationException($"Could not read {c_tenantId}");
-            }
-
-            var clientId = string.Empty;
-            if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_clientId, out clientId) ?? false)
-            {
-                throw new InvalidOperationException($"Could not read {c_clientId}");
-            }
-
-            var resourceId = string.Empty;
-            if (!registryEndpoint.Data?.TryGetValue(c_activeDirectoryServiceEndpointResourceId, out resourceId) ?? false)
-            {
-                throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
-            }
-
-            var app = ConfidentialClientApplicationBuilder.Create(clientId)
-                .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
-                .WithClientAssertion(async (AssertionRequestOptions options) =>
+                var tenantId = string.Empty;
+                if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
                 {
-                    var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
-                    ArgUtil.NotNull(systemConnection, nameof(systemConnection));
-                    VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
-                    var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
-                    using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
-                    TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+                    executionContext.Error($"Failed to read required parameter: {c_tenantId}");
+                    throw new InvalidOperationException($"Could not read {c_tenantId}");
+                }
+                executionContext.Debug($"Tenant ID extracted: {tenantId}");
 
-                    var idToken = await taskClient.CreateOidcTokenAsync(
+                var clientId = string.Empty;
+                if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_clientId, out clientId) ?? false)
+                {
+                    executionContext.Error($"Failed to read required parameter: {c_clientId}");
+                    throw new InvalidOperationException($"Could not read {c_clientId}");
+                }
+                executionContext.Debug($"Client ID extracted: {clientId}");
+
+                var resourceId = string.Empty;
+                if (!registryEndpoint.Data?.TryGetValue(c_activeDirectoryServiceEndpointResourceId, out resourceId) ?? false)
+                {
+                    executionContext.Error($"Failed to read required parameter: {c_activeDirectoryServiceEndpointResourceId}");
+                    throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
+                }
+                executionContext.Debug($"Resource ID extracted: {resourceId}");
+
+                executionContext.Debug("Building MSAL ConfidentialClientApplication with Workload Identity Federation");
+                var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                    .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
+                    .WithClientAssertion(async (AssertionRequestOptions options) =>
+                    {
+                        executionContext.Debug("Creating OIDC token for client assertion");
+                        var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
+                        ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+                        executionContext.Debug("System connection retrieved for OIDC token creation");
+
+                        VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
+                        var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
+                        executionContext.Debug($"Collection URI: {collectionUri}");
+
+                        using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
+                        TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+
+                        var teamProjectId = executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID");
+                        var hostType = Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType);
+                        var planId = new Guid(executionContext.Variables.System_PlanId);
+                        var jobId = new Guid(executionContext.Variables.System_JobId);
+
+                        executionContext.Debug($"OIDC token parameters - Project ID: {teamProjectId}, Host Type: {hostType}, Plan ID: {planId}, Job ID: {jobId}, Service Connection ID: {registryEndpoint.Id}");
+
+                        var idToken = await taskClient.CreateOidcTokenAsync(
                         scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
                         hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
                         planId: new Guid(executionContext.Variables.System_PlanId),
                         jobId: new Guid(executionContext.Variables.System_JobId),
-                        serviceConnectionId: registryEndpoint.Id,
-                        claims: null,
-                        cancellationToken: cancellationToken
-                    );
+                            serviceConnectionId: registryEndpoint.Id,
+                            claims: null,
+                            cancellationToken: cancellationToken
+                        );
 
-                    return idToken.OidcToken;
-                })
-                .Build();
+                        executionContext.Debug("OIDC token created successfully");
+                        return idToken.OidcToken;
+                    })
+                    .Build();
 
-            var authenticationResult = await app.AcquireTokenForClient(new string[] { $"{resourceId}/.default" }).ExecuteAsync(cancellationToken);
-            return authenticationResult.AccessToken;
+                executionContext.Debug($"Acquiring access token for resource scope: {resourceId}/.default");
+                var authenticationResult = await app.AcquireTokenForClient(new string[] { $"{resourceId}/.default" }).ExecuteAsync(cancellationToken);
+
+                executionContext.Debug("Access token acquired successfully using Workload Identity Federation");
+                executionContext.Debug($"Token expires at: {authenticationResult.ExpiresOn:yyyy-MM-dd HH:mm:ss} UTC");
+
+                return authenticationResult.AccessToken;
+            }
+            catch (OperationCanceledException)
+            {
+                executionContext.Warning("Workload Identity Federation token acquisition was cancelled");
+                throw;
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                executionContext.Error($"Workload Identity Federation authentication failed: {ex.Message}");
+                executionContext.Error("Verify that the service connection is properly configured for Workload Identity Federation");
+                executionContext.Error("Check that the federated identity credential is correctly set up in Azure AD");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                executionContext.Error($"Unexpected error during Workload Identity Federation token acquisition: {ex.Message}");
+                executionContext.Error($"Exception type: {ex.GetType().Name}");
+                throw;
+            }
         }
 
         private async Task<string> GetAcrPasswordFromAADToken(IExecutionContext executionContext, string AADToken, string tenantId, string registryServer, string loginServer)
@@ -245,62 +325,105 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Trace.Entering();
             CancellationToken cancellationToken = executionContext.CancellationToken;
             Uri url = new Uri(registryServer + "/oauth2/exchange");
+            executionContext.Debug($"ACR OAuth2 exchange endpoint: {url}");
             const int retryLimit = 5;
-            using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
-            using HttpClient httpClient = new HttpClient(httpClientHandler);
-            httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
 
-            List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
+            try
             {
-                new KeyValuePair<string, string>("grant_type", "access_token"),
-                new KeyValuePair<string, string>("service", loginServer),
-                new KeyValuePair<string, string>("tenant", tenantId),
-                new KeyValuePair<string, string>("access_token", AADToken)
-            };
-            using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
-            string AcrPassword = string.Empty;
-            int retryCount = 0;
-            int timeElapsed = 0;
-            int timeToWait = 0;
-            do
-            {
-                executionContext.Debug("Attempting to convert AAD token to an ACR token");
+                using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
+                using HttpClient httpClient = new HttpClient(httpClientHandler);
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
+                executionContext.Debug("HTTP client configured for ACR token exchange");
 
-                var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
-                executionContext.Debug($"Status Code: {response.StatusCode}");
-
-                if (response.StatusCode == HttpStatusCode.OK)
+                List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
                 {
-                    executionContext.Debug("Successfully converted AAD token to an ACR token");
-                    string result = await response.Content.ReadAsStringAsync();
-                    Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
-                    AcrPassword = list["refresh_token"];
-                }
-                else if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                    new KeyValuePair<string, string>("grant_type", "access_token"),
+                    new KeyValuePair<string, string>("service", loginServer),
+                    new KeyValuePair<string, string>("tenant", tenantId),
+                    new KeyValuePair<string, string>("access_token", AADToken)
+                };
+                executionContext.Debug($"Token exchange parameters configured - Grant type: access_token, Service: {loginServer}, Tenant: {tenantId}");
+
+                using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
+                string AcrPassword = string.Empty;
+                int retryCount = 0;
+                int timeElapsed = 0;
+                int timeToWait = 0;
+                do
                 {
-                    executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+                    executionContext.Debug("Attempting to convert AAD token to an ACR token");
 
-                    timeElapsed = 2000 + timeToWait * 2;
-                    retryCount++;
-                    await Task.Delay(timeToWait);
-                    timeToWait = timeElapsed;
-                }
-                else
+                    var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
+                    executionContext.Debug($"Status Code: {response.StatusCode}");
+
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        executionContext.Debug("Successfully converted AAD token to an ACR token");
+                        string result = await response.Content.ReadAsStringAsync();
+
+                        try
+                        {
+                            Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+                            if (list != null && list.ContainsKey("refresh_token"))
+                            {
+                                AcrPassword = list["refresh_token"];
+                                executionContext.Debug("ACR refresh token successfully extracted from response");
+                            }
+                            else
+                            {
+                                executionContext.Error("ACR token exchange response missing refresh_token field");
+                                throw new InvalidOperationException("ACR token exchange response missing refresh_token field");
+                            }
+                        }
+                        catch (JsonException ex)
+                        {
+                            executionContext.Error($"Failed to parse ACR token exchange response JSON: {ex.Message}");
+                            throw new InvalidOperationException($"Failed to parse ACR token exchange response: {ex.Message}");
+                        }
+                    }
+                    else if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                    {
+                        executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
+
+                        timeElapsed = 2000 + timeToWait * 2;
+                        retryCount++;
+                        await Task.Delay(timeToWait);
+                        timeToWait = timeElapsed;
+                    }
+                    else
+                    {
+                        throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
+                    }
+
+                } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
+
+                if (string.IsNullOrEmpty(AcrPassword))
                 {
-                    throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
+                    throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
                 }
 
-            } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
+                // Mark retrieved password as secret
+                executionContext.Debug("ACR password successfully retrieved and will be masked");
+                HostContext.SecretMasker.AddValue(AcrPassword, origin: "AcrPassword");
 
-            if (string.IsNullOrEmpty(AcrPassword))
-            {
-                throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
+                return AcrPassword;
             }
-
-            // Mark retrieved password as secret
-            HostContext.SecretMasker.AddValue(AcrPassword, origin: "AcrPassword");
-
-            return AcrPassword;
+            catch (OperationCanceledException)
+            {
+                executionContext.Warning("ACR token exchange was cancelled");
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                executionContext.Error($"HTTP request failed during ACR token exchange: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                executionContext.Error($"Unexpected error during ACR token exchange: {ex.Message}");
+                executionContext.Error($"Exception type: {ex.GetType().Name}");
+                throw;
+            }
         }
 
         private async Task PullContainerAsync(IExecutionContext executionContext, ContainerInfo container)
@@ -311,11 +434,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(container, nameof(container));
             ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
 
+            executionContext.Debug("PullContainerAsync initiated");
+
             Trace.Info($"Container name: {container.ContainerName}");
             Trace.Info($"Container image: {container.ContainerImage}");
             Trace.Info($"Container registry: {container.ContainerRegistryEndpoint.ToString()}");
             Trace.Info($"Container options: {container.ContainerCreateOptions}");
             Trace.Info($"Skip container image pull: {container.SkipContainerImagePull}");
+
+            // Log registry authentication requirements
+            if (container.ContainerRegistryEndpoint != Guid.Empty)
+            {
+                executionContext.Debug("Private registry authentication required");
+            }
+            else
+            {
+                executionContext.Debug("Using public Docker registry (no authentication)");
+            }
 
             // Login to private docker registry
             string registryServer = string.Empty;
@@ -324,14 +459,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var registryEndpoint = executionContext.Endpoints.FirstOrDefault(x => x.Type == "dockerregistry" && x.Id == container.ContainerRegistryEndpoint);
                 ArgUtil.NotNull(registryEndpoint, nameof(registryEndpoint));
 
+                // Log registry endpoint details for troubleshooting
+                executionContext.Debug($"Registry endpoint ID: {registryEndpoint.Id}");
+                executionContext.Debug($"Registry endpoint name: {registryEndpoint.Name ?? "not specified"}");
+                executionContext.Debug($"Registry endpoint URL: {registryEndpoint.Url?.ToString() ?? "not specified"}");
+
                 string username = string.Empty;
                 string password = string.Empty;
                 string registryType = string.Empty;
                 string authType = string.Empty;
 
                 registryEndpoint.Data?.TryGetValue("registrytype", out registryType);
+                executionContext.Debug($"Registry type determined: {registryType ?? "not specified"}");
+
                 if (string.Equals(registryType, "ACR", StringComparison.OrdinalIgnoreCase))
                 {
+                    executionContext.Debug("Processing Azure Container Registry (ACR) authentication");
+
                     try
                     {
                         executionContext.Debug("Attempting to get endpoint authorization scheme...");
@@ -342,10 +486,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             executionContext.Debug("Attempting to get endpoint authorization scheme as an authorization parameter...");
                             registryEndpoint.Authorization?.Parameters?.TryGetValue("scheme", out authType);
                         }
+
+                        executionContext.Debug($"ACR authorization scheme resolved: {authType ?? "not specified"}");
                     }
-                    catch
+                    catch (Exception ex)
                     {
                         executionContext.Debug("Failed to get endpoint authorization scheme as an authorization parameter. Will default authorization scheme to ServicePrincipal");
+                        executionContext.Debug($"Exception details: {ex.Message}");
                         authType = "ServicePrincipal";
                     }
 
@@ -354,40 +501,71 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (loginServer != null)
                     {
                         loginServer = loginServer.ToLower();
+                        executionContext.Debug($"ACR login server: {loginServer}");
+                    }
+                    else
+                    {
+                        executionContext.Warning("ACR login server not found in endpoint parameters");
                     }
 
                     registryServer = $"https://{loginServer}";
+                    executionContext.Debug($"Constructed registry server URL: {registryServer}");
+
                     if (string.Equals(authType, c_managedServiceIdentityScheme, StringComparison.OrdinalIgnoreCase))
                     {
+                        executionContext.Debug("Using Managed Service Identity (MSI) authentication for ACR");
+
                         string tenantId = string.Empty;
                         registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId);
+                        executionContext.Debug($"Tenant ID for MSI authentication: {tenantId ?? "not specified"}");
+
                         // Documentation says to pass username through this way
                         username = Guid.Empty.ToString("D");
+                        executionContext.Debug("Set MSI username to empty GUID as per Azure documentation");
+
                         string AADToken = await GetMSIAccessToken(executionContext);
                         executionContext.Debug("Successfully retrieved AAD token using the MSI authentication scheme.");
                         // change to getting password from string
                         password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
+                        executionContext.Debug("Successfully retrieved ACR password from AAD token");
                     }
                     else if (string.Equals(authType, c_workloadIdentityFederationScheme, StringComparison.OrdinalIgnoreCase))
                     {
+                        executionContext.Debug("Using Workload Identity Federation authentication for ACR");
+
                         string tenantId = string.Empty;
                         registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId);
+                        executionContext.Debug($"Tenant ID for Workload Identity Federation: {tenantId ?? "not specified"}");
+
                         username = Guid.Empty.ToString("D");
+                        executionContext.Debug("Set Workload Identity Federation username to empty GUID");
+
                         string AADToken = await GetAccessTokenUsingWorkloadIdentityFederation(executionContext, registryEndpoint);
                         executionContext.Debug("Successfully retrieved AAD token using the workload identity federation authentication scheme.");
                         password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
+                        executionContext.Debug("Successfully retrieved ACR password from AAD token");
+                        executionContext.Debug("Successfully retrieved password from AAD token using the workload identity federation authentication scheme.");
                     }
                     else
                     {
+                        executionContext.Debug("Using Service Principal authentication for ACR (fallback method)");
                         registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalid", out username);
                         registryEndpoint.Authorization?.Parameters?.TryGetValue("serviceprincipalkey", out password);
+
+                        executionContext.Debug($"Service Principal ID retrieved: {(!string.IsNullOrEmpty(username) ? "Yes" : "No")}");
+                        executionContext.Debug($"Service Principal Key retrieved: {(!string.IsNullOrEmpty(password) ? "Yes" : "No")}");
                     }
                 }
                 else
                 {
+                    executionContext.Debug("Using standard registry authentication (non-ACR)");
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("registry", out registryServer);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("username", out username);
                     registryEndpoint.Authorization?.Parameters?.TryGetValue("password", out password);
+
+                    executionContext.Debug($"Registry server from parameters: {registryServer ?? "not found"}");
+                    executionContext.Debug($"Username retrieved: {(!string.IsNullOrEmpty(username) ? "Yes" : "No")}");
+                    executionContext.Debug($"Password retrieved: {(!string.IsNullOrEmpty(password) ? "Yes" : "No")}");
                 }
 
                 ArgUtil.NotNullOrEmpty(registryServer, nameof(registryServer));
@@ -404,21 +582,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
                 }
+                else
+                {
+                    executionContext.Debug($"Docker login successful to {registryServer}");
+                }
             }
 
             try
             {
                 if (!container.SkipContainerImagePull)
                 {
+                    executionContext.Output($"Pulling container image: {container.ContainerImage}");
+                    executionContext.Debug("Starting image pull operation");
+
+                    // Parse image information for better logging
+                    var imageParts = container.ContainerImage.Split('/');
+                    var imageRepo = imageParts.Length > 1 ? string.Join("/", imageParts.Take(imageParts.Length - 1)) : "";
+                    var imageNameTag = imageParts.Last();
+                    var tagSeparator = imageNameTag.LastIndexOf(':');
+                    var imageName = tagSeparator > 0 ? imageNameTag.Substring(0, tagSeparator) : imageNameTag;
+                    var imageTag = tagSeparator > 0 ? imageNameTag.Substring(tagSeparator + 1) : "latest";
+
+                    executionContext.Debug($"Image repository: {imageRepo}");
+                    executionContext.Debug($"Image name: {imageName}");
+                    executionContext.Debug($"Image tag: {imageTag}");
+
+                    // Handle image URL prefixing for non-Docker Hub registries
+                    var originalImage = container.ContainerImage;
                     if (!string.IsNullOrEmpty(registryServer) &&
                         registryServer.IndexOf("index.docker.io", StringComparison.OrdinalIgnoreCase) < 0)
                     {
+                        executionContext.Debug("Checking if image URL needs registry prefix for non-Docker Hub registry");
+
                         var registryServerUri = new Uri(registryServer);
                         if (!container.ContainerImage.StartsWith(registryServerUri.Authority, StringComparison.OrdinalIgnoreCase))
                         {
                             container.ContainerImage = $"{registryServerUri.Authority}/{container.ContainerImage}";
+                            executionContext.Debug($"Modified image URL from '{originalImage}' to '{container.ContainerImage}'");
+                        }
+                        else
+                        {
+                            executionContext.Debug("Image URL already contains registry authority, no modification needed");
                         }
                     }
+                    else
+                    {
+                        executionContext.Debug("Using Docker Hub registry or registry server not specified, no URL modification needed");
+                    }
+
+                    // Execute Docker pull with timing
+                    var pullStartTime = DateTime.UtcNow;
+                    executionContext.Debug($"Executing docker pull for image: {container.ContainerImage}");
 
                     int pullExitCode = await _dockerManger.DockerPull(
                         executionContext,
@@ -428,21 +642,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         throw new InvalidOperationException($"Docker pull failed with exit code {pullExitCode}");
                     }
+                    else
+                    {
+                        executionContext.Debug($"Docker pull completed successfully for {container.ContainerImage}");
+                    }
                 }
+                else
+                {
+                    executionContext.Output("Skipping container image pull as requested");
+                    executionContext.Debug($"SkipContainerImagePull flag is set to true for image: {container.ContainerImage}");
+                }
+
+                // Platform-specific container OS detection and compatibility checks
+                executionContext.Debug("Starting container OS detection and platform compatibility verification");
 
                 if (PlatformUtil.RunningOnMacOS)
                 {
                     container.ImageOS = PlatformUtil.OS.Linux;
+                    executionContext.Debug("Container will run in Linux mode on macOS host");
                 }
                 // if running on Windows, and attempting to run linux container, require container to have node
                 else if (PlatformUtil.RunningOnWindows)
                 {
+                    executionContext.Debug("Detecting container OS for Windows host compatibility");
                     string containerOS = await _dockerManger.DockerInspect(context: executionContext,
                                                                 dockerObject: container.ContainerImage,
                                                                 options: $"--format=\"{{{{.Os}}}}\"");
+                    executionContext.Debug($"Detected container OS: {containerOS}");
                     if (string.Equals("linux", containerOS, StringComparison.OrdinalIgnoreCase))
                     {
                         container.ImageOS = PlatformUtil.OS.Linux;
+                        executionContext.Debug("Container will run in Linux mode on Windows host");
+                    }
+                    else
+                    {
+                        executionContext.Debug("Container will run in Windows mode on Windows host");
                     }
                 }
             }
@@ -460,6 +694,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        #pragma warning disable CA1505
         private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
@@ -483,6 +718,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.ImageOS != PlatformUtil.OS.Windows)
             {
+                executionContext.Debug($"Setting up volume mounts for Linux container");
                 string workspace = executionContext.Variables.Get(Constants.Variables.Pipeline.Workspace);
                 workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
                 string mountWorkspace = container.TranslateToHostPath(workspace);
@@ -496,11 +732,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             else
             {
+                executionContext.Debug($"Setting up volume mounts for Windows container");
                 container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work)),
                     readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
 
                 if (AgentKnobs.AllowMountTasksReadonlyOnWindows.GetValue(executionContext).AsBoolean())
                 {
+                    executionContext.Debug("Windows tasks mount enabled via agent knob");
                     container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
                         readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
                 }
@@ -520,10 +758,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!File.Exists(taskKeyFile))
                 {
+                    executionContext.Debug("Creating .taskkey file for container mount");
                     File.WriteAllText(taskKeyFile, string.Empty);
+                }
+                else
+                {
+                    executionContext.Debug("Found existing .taskkey file for container mount");
                 }
                 container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
             }
+
+            // Log complete mount configuration
+            var mountSummary = container.MountVolumes.Select(m =>
+                $"{m.SourceVolumePath ?? "anonymous"}:{m.TargetVolumePath}{(m.ReadOnly ? ":ro" : "")}");
+            executionContext.Debug($"Configured {container.MountVolumes.Count} volume mounts: {string.Join(", ", mountSummary)}");
 
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useAgentNode = false;
@@ -543,6 +791,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.IsJobContainer)
             {
+                executionContext.Debug("Configuring Node.js for job container");
                 // See if this container brings its own Node.js
                 container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
                                                                     dockerObject: container.ContainerImage,
@@ -560,12 +809,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!string.IsNullOrEmpty(container.CustomNodePath))
                 {
+                    executionContext.Debug($"Container provides custom Node.js at: {container.CustomNodePath}");
                     container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
                     container.ResultNodePath = container.CustomNodePath;
                 }
                 else if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
                 {
                     // require container to have node if running on macOS, or if running on Windows and attempting to run Linux container
+                    executionContext.Debug("Platform requires container to provide Node.js, using 'node' command");
                     container.CustomNodePath = "node";
                     container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
                     container.ResultNodePath = container.CustomNodePath;
@@ -573,32 +824,75 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     useAgentNode = true;
+                    executionContext.Debug($"Using agent-provided Node.js. Node20 enabled: {useNode20ToStartContainer}");
+                    executionContext.Debug($"Node paths - Default: {nodeContainerPath}, Node16: {node16ContainerPath}, Node20: {node20ContainerPath}");
                     string sleepCommand = useNode20ToStartContainer ? $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'" : nodeSetInterval(nodeContainerPath);
                     container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
                     container.ResultNodePath = nodeContainerPath;
                 }
             }
 
-            container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
-            ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
-            if (container.IsJobContainer)
-            {
-                executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
-            }
+            executionContext.Output("Creating Docker container...");
+            executionContext.Debug($"Docker create command will be executed with image: {container.ContainerImage}");
 
-            // Start container
-            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
-            if (startExitCode != 0)
+            // Log resource constraints if specified
+            if (!string.IsNullOrEmpty(container.ContainerCreateOptions))
             {
-                throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
+                if (container.ContainerCreateOptions.Contains("--memory"))
+                {
+                    executionContext.Debug("Container has memory constraints specified");
+                }
+                if (container.ContainerCreateOptions.Contains("--cpus"))
+                {
+                    executionContext.Debug("Container has CPU constraints specified");
+                }
+                if (container.ContainerCreateOptions.Contains("--ulimit"))
+                {
+                    executionContext.Debug("Container has ulimit constraints specified");
+                }
             }
 
             try
             {
+                container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
+                ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
+
+                executionContext.Debug($"Container created successfully. ID: {container.ContainerId.Substring(0, 12)}");
+            }
+            catch (Exception ex)
+            {
+                executionContext.Error($"Docker container creation failed for image {container.ContainerImage}");
+                executionContext.Error($"Container options: {container.ContainerCreateOptions}");
+                executionContext.Error($"Registry endpoint: {container.ContainerRegistryEndpoint}");
+                throw new InvalidOperationException($"Failed to create container from image {container.ContainerImage}: {ex.Message}", ex);
+            }
+
+            if (container.IsJobContainer)
+            {
+                executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
+                executionContext.Debug($"Set job container ID variable: {container.ContainerId}");
+            }
+
+            // Start container
+            executionContext.Output("Starting Docker container...");
+            int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
+            if (startExitCode != 0)
+            {
+                throw new InvalidOperationException($"Docker start failed with exit code {startExitCode} for container {container.ContainerId}");
+            }
+
+            executionContext.Output("Container started successfully");
+
+            try
+            {
+                executionContext.Debug("Verifying container is running...");
+
                 // Make sure container is up and running
                 var psOutputs = await _dockerManger.DockerPS(executionContext, $"--all --filter id={container.ContainerId} --filter status=running --no-trunc --format \"{{{{.ID}}}} {{{{.Status}}}}\"");
                 if (psOutputs.FirstOrDefault(x => !string.IsNullOrEmpty(x))?.StartsWith(container.ContainerId) != true)
                 {
+                    executionContext.Warning("Container is not in running state, retrieving container status and logs...");
+
                     // container is not up and running, pull docker log for this container.
                     await _dockerManger.DockerPS(executionContext, $"--all --filter id={container.ContainerId} --no-trunc --format \"{{{{.ID}}}} {{{{.Status}}}}\"");
                     int logsExitCode = await _dockerManger.DockerLogs(executionContext, container.ContainerId);
@@ -687,6 +981,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     await DockerExec(executionContext, container.ContainerId, $"sh -c \"command -v bash\"");
 
                     // Get current username
+                    executionContext.Debug("Retrieving host user information...");
                     container.CurrentUserName = (await ExecuteCommandAsync(executionContext, "whoami", string.Empty)).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentUserName, nameof(container.CurrentUserName));
 
@@ -700,6 +995,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     container.CurrentGroupName = (await ExecuteCommandAsync(executionContext, "id", $"-gn {container.CurrentUserName}")).FirstOrDefault();
                     ArgUtil.NotNullOrEmpty(container.CurrentGroupName, nameof(container.CurrentGroupName));
 
+                    executionContext.Debug($"Host user: {container.CurrentUserName} (UID: {container.CurrentUserId}, GID: {container.CurrentGroupId}, Group: {container.CurrentGroupName})");
                     executionContext.Output(StringUtil.Loc("CreateUserWithSameUIDInsideContainer", container.CurrentUserId));
 
                     // Create an user with same uid as the agent run as user inside the container.
@@ -709,10 +1005,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string containerUserName = string.Empty;
 
                     // We need to find out whether there is a user with same UID inside the container
+                    executionContext.Debug($"Looking for existing user with UID {container.CurrentUserId} in container...");
                     List<string> userNames = await DockerExec(executionContext, container.ContainerId, $"bash -c \"getent passwd {container.CurrentUserId} | cut -d: -f1 \"");
 
                     if (userNames.Count > 0)
                     {
+                        executionContext.Debug($"Found {userNames.Count} potential usernames for UID {container.CurrentUserId}: {string.Join(", ", userNames)}");
                         // check all potential usernames that might match the UID
                         foreach (string username in userNames)
                         {
@@ -724,9 +1022,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                             catch (Exception ex) when (ex is InvalidOperationException)
                             {
+                                executionContext.Debug($"User {username} verification failed, checking next candidate");
                                 // check next username
                             }
                         }
+                    }
+                    else
+                    {
+                        executionContext.Debug($"No existing users found with UID {container.CurrentUserId}");
                     }
 
                     // Determinate if we need to use another primary group for container user.
@@ -816,10 +1119,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (string.IsNullOrEmpty(containerUserName))
                     {
+                        executionContext.Debug($"Creating new container user with UID {container.CurrentUserId}");
                         string nameSuffix = "_azpcontainer";
 
                         // Linux allows for a 32-character username
                         containerUserName = KeepAllowedLength(container.CurrentUserName, 32, nameSuffix);
+                        executionContext.Debug($"Generated container username: {containerUserName}");
 
                         // Create a new user with same UID as on the host
                         string fallback = addUserWithId(containerUserName, container.CurrentUserId);
@@ -828,23 +1133,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             try
                             {
+                                executionContext.Debug($"Creating user with matching host group ID {container.CurrentGroupId}");
                                 // Linux allows for a 32-character groupname
                                 string containerGroupName = KeepAllowedLength(container.CurrentGroupName, 32, nameSuffix);
 
                                 // Create a new user with the same UID and the same GID as on the host
                                 await DockerExec(executionContext, container.ContainerId, addGroupWithId(containerGroupName, container.CurrentGroupId));
                                 await DockerExec(executionContext, container.ContainerId, addUserWithIdAndGroup(containerUserName, container.CurrentUserId, containerGroupName));
+                                executionContext.Debug($"Successfully created user {containerUserName} with group {containerGroupName}");
                             }
                             catch (Exception ex) when (ex is InvalidOperationException)
                             {
                                 Trace.Info($"Falling back to the '{fallback}' command.");
                                 await DockerExec(executionContext, container.ContainerId, fallback);
+                                executionContext.Debug($"Created user using fallback command: {fallback}");
                             }
                         }
                         else
                         {
                             await DockerExec(executionContext, container.ContainerId, fallback);
+                            executionContext.Debug($"Created user using standard command: {fallback}");
                         }
+                    }
+                    else
+                    {
+                        executionContext.Debug($"Using existing container user: {containerUserName}");
                     }
 
                     executionContext.Output(StringUtil.Loc("GrantContainerUserSUDOPrivilege", containerUserName));
@@ -862,6 +1175,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
+                        executionContext.Debug($"Docker group setup enabled via agent knob");
                         executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
                         // Get docker.sock group id on Host
                         string statFormatOption = "-c %g";
@@ -870,6 +1184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             statFormatOption = "-f %g";
                         }
                         string dockerSockGroupId = (await ExecuteCommandAsync(executionContext, "stat", $"{statFormatOption} /var/run/docker.sock")).FirstOrDefault();
+                        executionContext.Debug($"Host docker.sock group ID: {dockerSockGroupId}");
 
                         // We need to find out whether there is a group with same GID inside the container
                         string existingGroupName = null;
@@ -907,7 +1222,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             // create a new group with same gid
                             existingGroupName = "azure_pipelines_docker";
+                            executionContext.Debug($"Creating new docker group '{existingGroupName}' with GID {dockerSockGroupId}");
                             await DockerExec(executionContext, container.ContainerId, addGroupWithId(existingGroupName, dockerSockGroupId));
+                        }
+                        else
+                        {
+                            executionContext.Debug($"Found existing docker group '{existingGroupName}' with matching GID {dockerSockGroupId}");
                         }
                         // Add the new created user to the docker socket group.
                         await DockerExec(executionContext, container.ContainerId, addUserToGroup(containerUserName, existingGroupName));
@@ -958,9 +1278,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!string.IsNullOrEmpty(containerUserName))
                     {
                         container.CurrentUserName = containerUserName;
+                        executionContext.Debug($"Container user setup completed. Final user: {containerUserName}");
                     }
+
+                    executionContext.Debug("Container user setup completed successfully");
                 }
             }
+
+            executionContext.Output("Container startup completed successfully");
+            Trace.Info($"StartContainerAsync completed for {container.ContainerName} ({container.ContainerId?.Substring(0, 12)})");
         }
 
         private async Task StopContainerAsync(IExecutionContext executionContext, ContainerInfo container)
@@ -1171,8 +1497,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Check OS version (Windows server 1803 is required)
             object windowsInstallationType = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "InstallationType", defaultValue: null);
             ArgUtil.NotNull(windowsInstallationType, nameof(windowsInstallationType));
+            executionContext.Debug($"Windows installation type: {windowsInstallationType}");
+
+            executionContext.Debug("Retrieving Windows release ID from registry...");
             object windowsReleaseId = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "ReleaseId", defaultValue: null);
             ArgUtil.NotNull(windowsReleaseId, nameof(windowsReleaseId));
+            executionContext.Debug($"Windows release ID: {windowsReleaseId}");
             executionContext.Debug($"Current Windows version: '{windowsReleaseId} ({windowsInstallationType})'");
 
             if (int.TryParse(windowsReleaseId.ToString(), out int releaseId))
