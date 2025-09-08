@@ -70,8 +70,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             Trace(TraceEventType.Verbose, message);
         }
-
-
         public virtual void Verbose(object item, [CallerMemberName] string operation = "")
         {
             string json = item?.ToString() ?? "null";
@@ -86,6 +84,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         public virtual void Leaving([CallerMemberName] string name = "")
         {
             Trace(TraceEventType.Verbose, $"Leaving {name}");
+        }
+
+        public virtual IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            Entering(name);
+            return null;
         }
 
         public void Dispose()
