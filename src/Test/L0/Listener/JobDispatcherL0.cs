@@ -507,5 +507,131 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 Assert.True(jobDispatcher.RunOnceJobCompleted.Task.Result, "JobDispatcher should set task complete token to 'TRUE' for one time agent.");
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task HandleWorkerTimeoutAsync_WhenFeatureEnabled_SendsFlushLogsRequest()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange
+                var jobDispatcher = new JobDispatcher();
+                _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings() { PoolId = 1 });
+                hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
+                hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                hc.SetSingleton<IProcessInvoker>(_processInvoker.Object);
+                hc.SetSingleton<IProcessChannel>(_processChannel.Object);
+                hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+
+                jobDispatcher.Initialize(hc);
+
+                var message = CreateJobRequestMessage();
+                var workerProcessTask = Task.FromResult(0);
+                using var workerProcessCancelTokenSource = new CancellationTokenSource();
+                using var workerCancelTimeoutTokenSource = new CancellationTokenSource();
+                var workerCancelTimeoutKillToken = workerCancelTimeoutTokenSource.Token;
+
+                _processChannel.Setup(x => x.SendAsync(
+                    MessageType.FlushLogsRequest,
+                    string.Empty,
+                    It.IsAny<CancellationToken>()))
+                    .Returns(Task.CompletedTask);
+
+                // Use reflection to access the private HandleWorkerTimeoutAsync method
+                var method = typeof(JobDispatcher).GetMethod("HandleWorkerTimeoutAsync", 
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.NotNull(method);
+
+                // Act
+                var task = (Task)method.Invoke(jobDispatcher, new object[] {
+                    message.JobId,
+                    true, // timeoutLogFlushingEnabled
+                    _processChannel.Object,
+                    workerProcessTask,
+                    workerProcessCancelTokenSource,
+                    workerCancelTimeoutKillToken
+                });
+
+                await task;
+
+                // Assert
+                _processChannel.Verify(x => x.SendAsync(
+                    MessageType.FlushLogsRequest,
+                    string.Empty,
+                    It.IsAny<CancellationToken>()), Times.Once);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task HandleWorkerTimeoutAsync_WhenFeatureDisabled_DoesNotSendFlushLogsRequest()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                // Arrange
+                var jobDispatcher = new JobDispatcher();
+                _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings() { PoolId = 1 });
+                hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
+                hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                hc.SetSingleton<IProcessInvoker>(_processInvoker.Object);
+                hc.SetSingleton<IProcessChannel>(_processChannel.Object);
+                hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+
+                jobDispatcher.Initialize(hc);
+
+                var message = CreateJobRequestMessage();
+                var workerProcessTask = Task.FromResult(0);
+                using var workerProcessCancelTokenSource = new CancellationTokenSource();
+                using var workerCancelTimeoutTokenSource = new CancellationTokenSource();
+                var workerCancelTimeoutKillToken = workerCancelTimeoutTokenSource.Token;
+
+                // Use reflection to access the private HandleWorkerTimeoutAsync method
+                var method = typeof(JobDispatcher).GetMethod("HandleWorkerTimeoutAsync", 
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.NotNull(method);
+
+                // Act
+                var task = (Task)method.Invoke(jobDispatcher, new object[] {
+                    message.JobId,
+                    false, // timeoutLogFlushingEnabled
+                    _processChannel.Object,
+                    workerProcessTask,
+                    workerProcessCancelTokenSource,
+                    workerCancelTimeoutKillToken
+                });
+
+                await task;
+
+                // Assert - Should NOT send FlushLogsRequest when feature is disabled
+                _processChannel.Verify(x => x.SendAsync(
+                    MessageType.FlushLogsRequest,
+                    string.Empty,
+                    It.IsAny<CancellationToken>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public void JobDispatcher_HasHandleWorkerTimeoutAsyncMethod()
+        {
+            // Arrange & Act
+            var method = typeof(JobDispatcher).GetMethod("HandleWorkerTimeoutAsync", 
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            // Assert - Verify that the timeout log flushing method exists
+            Assert.NotNull(method);
+            
+            var parameters = method.GetParameters();
+            Assert.Equal(6, parameters.Length);
+            Assert.Equal("jobId", parameters[0].Name);
+            Assert.Equal("timeoutLogFlushingEnabled", parameters[1].Name);
+            Assert.Equal("processChannel", parameters[2].Name);
+            Assert.Equal("workerProcessTask", parameters[3].Name);
+            Assert.Equal("workerProcessCancelTokenSource", parameters[4].Name);
+            Assert.Equal("workerCancelTimeoutKillToken", parameters[5].Name);
+        }
     }
 }
