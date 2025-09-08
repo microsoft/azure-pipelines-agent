@@ -268,27 +268,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return child;
         }
 
-        private void UpdateStateOnServer(TimelineRecord record)
-        {
-            //sending immediate server update for the job timeline records to server
-            if (record.RecordType == ExecutionContextType.Job)
-            {
-                try
-                {
-                    _jobServerQueue.SendTimelineRecordUpdateAsync(_mainTimelineId, record).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Warning($"Failed to send immediate update to the server: {ex.Message}. Falling back to queue mechanism.");
-                    _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, record);
-                }
-            }
-            // for all other type of timeline records, use queue mechanism to update the record.
-            else
-            {
-                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, record);
-            }
-        }
 
         public void Start(string currentOperation = null)
         {
@@ -296,8 +275,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.StartTime = DateTime.UtcNow;
             _record.State = TimelineRecordState.InProgress;
 
-            //update the state on server
-            UpdateStateOnServer(_record);
+            //update the state immediately on server
+            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
@@ -842,8 +821,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.WorkerName = configuration.GetSettings().AgentName;
             _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
-            //update the record state on server
-            UpdateStateOnServer(_record);
+            //update the state immediately on server
+            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
         }
 
         private void JobServerQueueThrottling_EventReceived(object sender, ThrottlingEventArgs data)
