@@ -109,6 +109,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(_knobContext).AsInt();
             settings.SendTimeout = timeout ?? TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
 
+            // Basic connection diagnostics
+            if (trace != null)
+            {
+                trace.Info($"Creating VssConnection to {serverUri} (timeout: {settings.SendTimeout.TotalSeconds}s)");
+                
+                // Log critical socket exhaustion indicators
+                if (PlatformUtil.UseLegacyHttpHandler)
+                {
+                    trace.Info("Using legacy HTTP handler - isolated connection pools");
+                }
+                else
+                {
+                    trace.Info("Using modern SocketsHttpHandler - shared connection pool");
+                }
+            }
+
             // Remove Invariant from the list of accepted languages.
             //
             // The constructor of VssHttpRequestSettings (base class of VssClientHttpRequestSettings) adds the current

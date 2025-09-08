@@ -11,9 +11,11 @@ using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
@@ -392,6 +394,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Run all job steps
                 Trace.Info("Run all job steps.");
                 var stepsRunner = HostContext.GetService<IStepsRunner>();
+                
+                // Start periodic diagnostics logging during job execution
+                var diagnosticsTimer = new Timer(LogDiagnostics, jobContext, (int)TimeSpan.FromMinutes(10).TotalMilliseconds, (int)TimeSpan.FromMinutes(10).TotalMilliseconds);
+                
                 try
                 {
                     Trace.Info("Step execution pipeline initiated - beginning job steps execution with StepsRunner");
@@ -409,6 +415,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 finally
                 {
+                    // Stop periodic diagnostics logging
+                    diagnosticsTimer?.Dispose();
                     Trace.Info("Finalize job.");
                     await jobExtension.FinalizeJob(jobContext);
                 }
@@ -703,6 +711,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"Unable to publish agent shutdown telemetry data. Exception: {ex}");
+            }
+        }
+
+        private void LogDiagnostics(object state)
+        {
+            try
+            {
+                var jobContext = state as IExecutionContext;
+                if (jobContext == null) return;
+
+                // Log network statistics using IPGlobalProperties
+                var ipProperties = IPGlobalProperties.GetIPGlobalProperties();
+                var tcpStats = ipProperties.GetTcpIPv4Statistics();
+                
+                // Log memory usage
+                var process = Process.GetCurrentProcess();
+                var gcMemory = GC.GetTotalMemory(false);
+                
+                jobContext.Output($"[DIAGNOSTICS] TCP Connections: {tcpStats.CurrentConnections}, Memory: WorkingSet={process.WorkingSet64 / 1024 / 1024}MB, GC={gcMemory / 1024 / 1024}MB");
+            }
+            catch (Exception ex)
+            {
+                // Don't let diagnostics logging crash the job
+                Trace.Warning($"Failed to log diagnostics: {ex.Message}");
             }
         }
     }

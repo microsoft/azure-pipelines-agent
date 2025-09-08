@@ -29,6 +29,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public override VssCredentials GetVssCredentials(IHostContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
+            
+            var trace = context.GetTrace(nameof(OAuthCredential));
+            trace.Info("Starting OAuth credential creation");
 
             var clientId = this.CredentialData.Data.GetValueOrDefault("clientId", null);
             var authorizationUrl = this.CredentialData.Data.GetValueOrDefault("authorizationUrl", null);
@@ -39,12 +42,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNullOrEmpty(clientId, nameof(clientId));
             ArgUtil.NotNullOrEmpty(authorizationUrl, nameof(authorizationUrl));
 
+            trace.Info($"OAuth endpoint: {oathEndpointUrl}");
+            trace.Info($"OAuth authorization URL: {authorizationUrl}");
+
             // We expect the key to be in the machine store at this point. Configuration should have set all of
             // this up correctly so we can use the key to generate access tokens.
             var keyManager = context.GetService<IRSAKeyManager>();
             var signingCredentials = VssSigningCredentials.Create(() => keyManager.GetKey());
             var clientCredential = new VssOAuthJwtBearerClientCredential(clientId, authorizationUrl, signingCredentials);
             var agentCredential = new VssOAuthCredential(new Uri(oathEndpointUrl, UriKind.Absolute), VssOAuthGrant.ClientCredentials, clientCredential);
+
+            trace.Info("OAuth credential creation completed");
 
             // Construct a credentials cache with a single OAuth credential for communication. The windows credential
             // is explicitly set to null to ensure we never do that negotiation.

@@ -91,23 +91,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         private async Task<AuthenticationResult> AcquireATokenFromCacheOrDeviceCodeFlowAsync(IHostContext context, IPublicClientApplication app, IEnumerable<String> scopes)
         {
+            var trace = context.GetTrace(nameof(AadDeviceCodeAccessToken));
+            trace.Info("Starting AAD token acquisition");
+            
             AuthenticationResult result = null;
             var accounts = await app.GetAccountsAsync().ConfigureAwait(false);
 
             if (accounts.Any())
             {
+                trace.Info("Attempting silent token acquisition from cache");
 
                 // Attempt to get a token from the cache (or refresh it silently if needed)
                 result = await app.AcquireTokenSilent(scopes, accounts.FirstOrDefault())
                     .ExecuteAsync().ConfigureAwait(false);
 
+                trace.Info("Silent token acquisition completed");
             }
 
             // Cache empty or no token for account in the cache, attempt by device code flow
             if (result == null)
             {
+                trace.Info("Attempting device code flow token acquisition");
+                
                 result = await GetTokenUsingDeviceCodeFlowAsync(context, app, scopes).ConfigureAwait(false);
+                
+                trace.Info("Device code flow token acquisition completed");
             }
+
+            trace.Info("AAD token acquisition completed");
 
             return result;
         }
@@ -162,20 +173,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         private async Task<AuthenticationResult> GetTokenUsingDeviceCodeFlowAsync(IHostContext context, IPublicClientApplication app, IEnumerable<string> scopes)
         {
             Tracing trace = context.GetTrace(nameof(AadDeviceCodeAccessToken));
+            trace.Info("Starting device code flow token acquisition");
+            
             AuthenticationResult result;
             try
             {
+                trace.Info("Initiating device code flow");
+                
                 result = await app.AcquireTokenWithDeviceCode(scopes,
                     deviceCodeCallback =>
                     {
+                        trace.Info("Device code callback received");
+                        
                         // This will print the message on the console which tells the user where to go sign-in using 
                         // a separate browser and the code to enter once they sign in.
                         var term = context.GetService<ITerminal>();
-                        term.WriteLine($"Please finish AAD device code flow in browser ({deviceCodeCallback.VerificationUrl}), user code: {deviceCodeCallback.UserCode}"); return Task.FromResult(0);
+                        term.WriteLine($"Please finish AAD device code flow in browser ({deviceCodeCallback.VerificationUrl}), user code: {deviceCodeCallback.UserCode}");
+                        
+                        trace.Info($"Waiting for user authentication at {deviceCodeCallback.VerificationUrl}");
+                        
+                        return Task.FromResult(0);
                     }).ExecuteAsync().ConfigureAwait(false);
+                    
+                trace.Info("Device code flow authentication completed successfully");
             }
-            catch (MsalServiceException)
+            catch (MsalServiceException msalEx)
             {
+                trace.Error($"Device code flow failed with MSAL service exception: {msalEx.Message}");
+                
                 // AADSTS50059: No tenant-identifying information found in either the request or implied by any provided credentials.
                 // AADSTS90133: Device Code flow is not supported under /common or /consumers endpoint.
                 // AADSTS90002: Tenant <tenantId or domain you used in the authority> not found. This may happen if there are 
@@ -184,12 +209,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             }
             catch (OperationCanceledException ex)
             {
-                trace.Warning(ex.Message);
+                trace.Warning($"Device code flow cancelled: {ex.Message}");
                 result = null;
             }
             catch (MsalClientException ex)
             {
-                trace.Warning(ex.Message);
+                trace.Warning($"Device code flow failed with MSAL client exception: {ex.Message}");
                 result = null;
             }
             return result;

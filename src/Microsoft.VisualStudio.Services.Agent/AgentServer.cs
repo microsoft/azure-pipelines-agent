@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.OAuth;
 using Agent.Sdk.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent
@@ -99,6 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             Trace.Info($"Refresh {connectionType} VssConnection to get on a different AFD node.");
             VssConnection newConnection = null;
+            
             switch (connectionType)
             {
                 case AgentConnectionType.MessageQueue:
@@ -117,6 +119,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (Exception ex)
                     {
+                        // Enhanced diagnostics for connection failures
+                        if (ex is VssUnauthorizedException)
+                        {
+                            Trace.Error($"Authentication failure during {connectionType} refresh - token may need renewal");
+                        }
+                        else if (ex is System.Net.Http.HttpRequestException httpEx && httpEx.InnerException is SocketException sockEx &&
+                                 (sockEx.SocketErrorCode == SocketError.AddressAlreadyInUse || sockEx.SocketErrorCode == SocketError.AddressNotAvailable))
+                        {
+                            Trace.Error($"Socket exhaustion detected during {connectionType} refresh: {sockEx.SocketErrorCode}");
+                        }
+                        
                         Trace.Error($"Catch exception during reset {connectionType} connection.");
                         Trace.Error(ex);
                         newConnection?.Dispose();
@@ -142,6 +155,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (Exception ex)
                     {
+                        // Enhanced diagnostics for connection failures
+                        if (ex is VssUnauthorizedException)
+                        {
+                            Trace.Error($"Authentication failure during {connectionType} refresh - token may need renewal");
+                        }
+                        else if (ex is System.Net.Http.HttpRequestException httpEx && httpEx.InnerException is SocketException sockEx &&
+                                 (sockEx.SocketErrorCode == SocketError.AddressAlreadyInUse || sockEx.SocketErrorCode == SocketError.AddressNotAvailable))
+                        {
+                            Trace.Error($"Socket exhaustion detected during {connectionType} refresh: {sockEx.SocketErrorCode}");
+                        }
+                        
                         Trace.Error($"Catch exception during reset {connectionType} connection.");
                         Trace.Error(ex);
                         newConnection?.Dispose();
@@ -167,6 +191,17 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                     catch (Exception ex)
                     {
+                        // Enhanced diagnostics for connection failures
+                        if (ex is VssUnauthorizedException)
+                        {
+                            Trace.Error($"Authentication failure during {connectionType} refresh - token may need renewal");
+                        }
+                        else if (ex is System.Net.Http.HttpRequestException httpEx && httpEx.InnerException is SocketException sockEx &&
+                                 (sockEx.SocketErrorCode == SocketError.AddressAlreadyInUse || sockEx.SocketErrorCode == SocketError.AddressNotAvailable))
+                        {
+                            Trace.Error($"Socket exhaustion detected during {connectionType} refresh: {sockEx.SocketErrorCode}");
+                        }
+                        
                         Trace.Error($"Catch exception during reset {connectionType} connection.");
                         Trace.Error(ex);
                         newConnection?.Dispose();
@@ -204,24 +239,139 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private async Task<VssConnection> EstablishVssConnection(Uri serverUrl, VssCredentials credentials, TimeSpan timeout)
         {
-            Trace.Info($"Establish connection with {timeout.TotalSeconds} seconds timeout.");
+            Trace.Info($"Starting VssConnection establishment with {timeout.TotalSeconds} seconds timeout.");
+            
+            // Enhanced logging for connection diagnostics
+            Trace.Info($"Establishing connection to: {serverUrl}");
+            Trace.Info($"Connection timeout: {timeout.TotalSeconds}s");
+            
+            // Log credential information for debugging
+            if (credentials?.Federated is VssOAuthAccessTokenCredential oauthCred)
+            {
+                // Don't log the actual token, just metadata about it
+                Trace.Info("Using OAuth access token credential");
+                // Note: We cannot safely access token content or expiry without risking exposing secrets
+                // The VssOAuthAccessTokenCredential doesn't expose expiry information publicly
+            }
+            else if (credentials?.Federated != null)
+            {
+                var credType = credentials.Federated.GetType().Name;
+                Trace.Info($"Using federated credential type: {credType}");
+            }
+            else if (credentials?.Storage != null)
+            {
+                Trace.Info("Using stored credential (PAT/Basic)");
+            }
+            else
+            {
+                Trace.Warning("Unknown credential type or null credentials");
+            }
+            
             int attemptCount = 5;
             var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
 
             while (attemptCount-- > 0)
             {
                 var connection = VssUtil.CreateConnection(serverUrl, credentials, timeout: timeout, trace: Trace, skipServerCertificateValidation: agentCertManager.SkipServerCertificateValidation);
+                var connectStartTime = DateTime.UtcNow;
                 try
                 {
+                    Trace.Info($"Attempting connection (attempt {5 - attemptCount}/5)...");
+                    
                     await connection.ConnectAsync();
+                    
+                    var connectDuration = DateTime.UtcNow - connectStartTime;
+                    Trace.Info($"Connection established successfully in {connectDuration.TotalMilliseconds:F0}ms");
+                    
+                    // Log authentication state
+                    if (connection.HasAuthenticated)
+                    {
+                        Trace.Info("Connection authenticated successfully");
+                        try
+                        {
+                            var authIdentity = connection.AuthorizedIdentity;
+                            if (authIdentity != null)
+                            {
+                                Trace.Info($"Authenticated as: {authIdentity.DisplayName} (ID: {authIdentity.Id})");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Warning($"Could not retrieve authenticated identity info: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Trace.Warning("Connection created but authentication status unclear");
+                    }
+                    
+                    Trace.Info("VssConnection establishment completed successfully");
+                    
                     return connection;
                 }
                 catch (Exception ex) when (attemptCount > 0)
                 {
-                    Trace.Info($"Catch exception during connect. {attemptCount} attempt left.");
+                    var connectDuration = DateTime.UtcNow - connectStartTime;
+                    Trace.Info($"Connection attempt failed after {connectDuration.TotalMilliseconds:F0}ms. {attemptCount} attempt(s) left.");
+                    
+                    // Enhanced error logging for different types of failures
+                    if (ex is System.Net.Http.HttpRequestException httpEx)
+                    {
+                        Trace.Warning($"HTTP request exception during connection: {httpEx.Message}");
+                        if (httpEx.InnerException != null)
+                        {
+                            Trace.Warning($"Inner exception: {httpEx.InnerException.GetType().Name}: {httpEx.InnerException.Message}");
+                            
+                            // Check for socket-specific issues in inner exceptions
+                            if (httpEx.InnerException is System.Net.Sockets.SocketException sockInnerEx)
+                            {
+                                Trace.Warning($"*** SOCKET ERROR in HTTP request *** Error: {sockInnerEx.SocketErrorCode} ({sockInnerEx.ErrorCode})");
+                                
+                                if (sockInnerEx.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse ||
+                                    sockInnerEx.SocketErrorCode == System.Net.Sockets.SocketError.AddressNotAvailable ||
+                                    sockInnerEx.SocketErrorCode == System.Net.Sockets.SocketError.TooManyOpenSockets)
+                                {
+                                    Trace.Warning("*** SOCKET EXHAUSTION DETECTED *** Consider enabling legacy HTTP handler for connection pool isolation");
+                                }
+                            }
+                        }
+                    }
+                    else if (ex is System.Net.Sockets.SocketException sockEx)
+                    {
+                        Trace.Warning($"Socket exception during connection: Error {sockEx.ErrorCode} - {sockEx.Message}");
+                        Trace.Warning($"Socket error type: {sockEx.SocketErrorCode}");
+                        
+                        // Provide specific guidance for socket exhaustion
+                        if (sockEx.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse ||
+                            sockEx.SocketErrorCode == System.Net.Sockets.SocketError.AddressNotAvailable ||
+                            sockEx.SocketErrorCode == System.Net.Sockets.SocketError.TooManyOpenSockets)
+                        {
+                            Trace.Warning("*** SOCKET EXHAUSTION DETECTED *** This may be caused by PowerShellOnTargetMachine or similar tasks using many connections");
+                        }
+                    }
+                    else if (ex is VssUnauthorizedException authEx)
+                    {
+                        Trace.Warning($"Authentication failed during connection: {authEx.Message}");
+                        // This could indicate token expiry or invalid credentials
+                        Trace.Warning("*** AUTHENTICATION FAILURE *** This may indicate expired or invalid authentication credentials");
+                    }
+                    else if (ex is System.Threading.Tasks.TaskCanceledException timeoutEx)
+                    {
+                        Trace.Warning($"Connection timeout: {timeoutEx.Message}");
+                        if (timeoutEx.InnerException is System.TimeoutException)
+                        {
+                            Trace.Warning("Connection timed out - this may indicate server load or network issues");
+                        }
+                    }
+                    else
+                    {
+                        Trace.Warning($"Unexpected connection error: {ex.GetType().Name}: {ex.Message}");
+                    }
+                    
                     Trace.Error(ex);
 
                     await HostContext.Delay(TimeSpan.FromMilliseconds(100), CancellationToken.None);
+                    connection?.Dispose();
                 }
             }
 
