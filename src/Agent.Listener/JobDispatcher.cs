@@ -1070,6 +1070,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             public TaskCompletionSource<JobMetadataMessage> MetadataSource { get; set; }
             public CancellationTokenSource WorkerCancellationTokenSource { get; private set; }
             public CancellationTokenSource WorkerCancelTimeoutKillTokenSource { get; private set; }
+            public CancellationTokenSource WorkerFlushLogsTimeoutTokenSource { get; private set; }
             private readonly object _lock = new object();
 
             const int maxValueInMinutes = 35790; // 35790 * 60 * 1000 = 2147400000
@@ -1080,18 +1081,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 JobId = jobId;
                 RequestId = requestId;
-                WorkerCancelTimeoutKillTokenSource = new CancellationTokenSource();
                 WorkerCancellationTokenSource = new CancellationTokenSource();
+                WorkerCancelTimeoutKillTokenSource = new CancellationTokenSource();
+                WorkerFlushLogsTimeoutTokenSource = new CancellationTokenSource();
                 MetadataSource = new TaskCompletionSource<JobMetadataMessage>();
             }
 
             public bool Cancel(TimeSpan timeout)
             {
-                if (WorkerCancellationTokenSource != null && WorkerCancelTimeoutKillTokenSource != null)
+                if (WorkerCancellationTokenSource != null && WorkerCancelTimeoutKillTokenSource != null && WorkerFlushLogsTimeoutTokenSource != null)
                 {
                     lock (_lock)
                     {
-                        if (WorkerCancellationTokenSource != null && WorkerCancelTimeoutKillTokenSource != null)
+                        if (WorkerCancellationTokenSource != null && WorkerCancelTimeoutKillTokenSource != null && WorkerFlushLogsTimeoutTokenSource != null)
                         {
                             WorkerCancellationTokenSource.Cancel();
 
@@ -1107,7 +1109,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 timeout = TimeSpan.FromMinutes(maxValueInMinutes);
                             }
 
-                            WorkerCancelTimeoutKillTokenSource.CancelAfter(timeout.Subtract(TimeSpan.FromSeconds(15)));
+                            // Use the original timeout for worker execution (no flush signal beforehand)
+                            WorkerFlushLogsTimeoutTokenSource.CancelAfter(timeout.Subtract(TimeSpan.FromSeconds(15)));
+                            
+                            // Set kill timeout to original timeout + 1 minute for log flushing
+                            TimeSpan killTimeout = timeout.Add(TimeSpan.FromMinutes(1));
+                            WorkerCancelTimeoutKillTokenSource.CancelAfter(killTimeout);
                             return true;
                         }
                     }
@@ -1139,7 +1146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 if (disposing)
                 {
-                    if (WorkerCancellationTokenSource != null || WorkerCancelTimeoutKillTokenSource != null)
+                    if (WorkerCancellationTokenSource != null || WorkerCancelTimeoutKillTokenSource != null || WorkerFlushLogsTimeoutTokenSource != null)
                     {
                         lock (_lock)
                         {
@@ -1154,8 +1161,82 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                 WorkerCancelTimeoutKillTokenSource.Dispose();
                                 WorkerCancelTimeoutKillTokenSource = null;
                             }
+
+                            if (WorkerFlushLogsTimeoutTokenSource != null)
+                            {
+                                WorkerFlushLogsTimeoutTokenSource.Dispose();
+                                WorkerFlushLogsTimeoutTokenSource = null;
+                            }
                         }
                     }
+                }
+            }
+        }
+
+        private async Task HandleWorkerTimeoutAsync(
+            Guid jobId,
+            bool timeoutLogFlushingEnabled,
+            IProcessChannel processChannel,
+            Task<int> workerProcessTask,
+            CancellationTokenSource workerProcessCancelTokenSource,
+            CancellationToken workerCancelTimeoutKillToken)
+        {
+            if (timeoutLogFlushingEnabled)
+            {
+                Trace.Info($"Worker process for job {jobId} hasn't completed within original timeout, sending flush logs request and waiting 1 minute before forceful kill.");
+                try
+                {
+                    // Send special flush logs request to worker
+                    using (var csSendFlush = new CancellationTokenSource(_channelTimeout))
+                    {
+                        await processChannel.SendAsync(
+                            messageType: MessageType.FlushLogsRequest,
+                            body: string.Empty,
+                            cancellationToken: csSendFlush.Token);
+                    }
+                    Trace.Info("Flush logs request sent to worker, waiting 1 minute for log flushing before forceful kill.");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Failed to send flush logs request to worker: {ex.Message}");
+                }
+                
+                // Now wait for the additional 1 minute log flushing period
+                try
+                {
+                    await Task.WhenAny(workerProcessTask, Task.Delay(-1, workerCancelTimeoutKillToken));
+                    
+                    if (!workerProcessTask.IsCompleted)
+                    {
+                        // Worker still hasn't exited after 1 minute log flushing period, force kill
+                        Trace.Info($"Worker process for job {jobId} hasn't exited after 1 minute log flushing period, proceeding to forceful kill.");
+                        workerProcessCancelTokenSource.Cancel();
+                        await workerProcessTask;
+                        Trace.Info("Worker process forceful termination completed");
+                    }
+                    else
+                    {
+                        Trace.Info("Worker process exited gracefully after flush logs signal");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Trace.Info("worker process has been killed.");
+                }
+            }
+            else
+            {
+                // Timeout log flushing is disabled, proceed with immediate force kill
+                Trace.Info($"Worker process for job {jobId} hasn't completed within original timeout, timeout log flushing is disabled, proceeding to forceful kill.");
+                workerProcessCancelTokenSource.Cancel();
+                try
+                {
+                    await workerProcessTask;
+                    Trace.Info("Worker process forceful termination completed");
+                }
+                catch (OperationCanceledException)
+                {
+                    Trace.Info("worker process has been killed.");
                 }
             }
         }

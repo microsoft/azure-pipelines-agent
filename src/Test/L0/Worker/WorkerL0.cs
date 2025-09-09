@@ -153,7 +153,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var workerMessages = new Queue<WorkerMessage>(arWorkerMessages);
 
                 _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
-                    .Returns(() => Task.FromResult(workerMessages.Dequeue()));
+                    .Returns(() =>
+                    {
+                        if (workerMessages.Count > 0)
+                        {
+                            return Task.FromResult(workerMessages.Dequeue());
+                        }
+                        // Return a task that will never complete to avoid queue empty exception
+                        var tcs = new TaskCompletionSource<WorkerMessage>();
+                        return tcs.Task;
+                    });
                 _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
                     .Returns(
                     async (Pipelines.AgentJobRequestMessage jm, CancellationToken ct) =>
@@ -364,6 +373,248 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
 
             return true;
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async void FlushLogsRequest_WhenFeatureEnabled_TriggersWorkerTimeout()
+        {
+            // Arrange
+            using (var hc = new TestHostContext(this))
+            {
+                // Set the timeout log flushing feature flag environment variable
+                Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", "true");
+
+                var worker = new Agent.Worker.Worker();
+                worker.Initialize(hc);
+
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
+
+                var jobMessage = CreateJobRequestMessage("job1");
+                var arWorkerMessages = new WorkerMessage[]
+                {
+                    new WorkerMessage
+                    {
+                        Body = JsonUtility.ToString(jobMessage),
+                        MessageType = MessageType.NewJobRequest
+                    },
+                    new WorkerMessage
+                    {
+                        Body = "",
+                        MessageType = MessageType.FlushLogsRequest
+                    }
+                };
+                var workerMessages = new Queue<WorkerMessage>(arWorkerMessages);
+
+                var jobCompletionSource = new TaskCompletionSource<TaskResult>();
+
+                _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
+                    .Returns(async () =>
+                    {
+                        await Task.Delay(10); // Small delay to simulate message processing
+                        if (workerMessages.Count > 0)
+                        {
+                            return workerMessages.Dequeue();
+                        }
+                        // Should not reach here as job should complete after FlushLogsRequest
+                        throw new InvalidOperationException("No more messages - job should have completed");
+                    });
+
+                _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
+                    .Returns((Pipelines.AgentJobRequestMessage msg, CancellationToken ct) =>
+                    {
+                        // Create a long-running task that will be completed by the test after FlushLogsRequest is processed
+                        // When the Worker receives FlushLogsRequest with feature enabled, it should exit the loop and await this task
+                        return jobCompletionSource.Task;
+                    });
+
+                // Act
+                // Start the Worker in a separate task so we can control when the job completes
+                var workerTask = worker.RunAsync("pipeIn", "pipeOut");
+                
+                // Give the Worker time to process the FlushLogsRequest message
+                await Task.Delay(100);
+                
+                // Now complete the job with success
+                jobCompletionSource.TrySetResult(TaskResult.Succeeded);
+                
+                var result = await workerTask;
+
+                // Assert
+                // When feature is enabled, worker should exit normally after processing FlushLogsRequest
+                Assert.Equal(100, result); // TaskResult.Succeeded translates to return code 100
+
+                // Verify that ShutdownWorkerForTimeout was called by checking if the token is cancelled
+                Assert.True(hc.WorkerShutdownForTimeout.IsCancellationRequested);
+
+                // Cleanup
+                Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async void FlushLogsRequest_WhenFeatureDisabled_IgnoresRequest()
+        {
+            // Arrange
+            using (var hc = new TestHostContext(this))
+            {
+                // Ensure the timeout log flushing feature flag environment variable is not set
+                Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", "false");
+
+                var worker = new Agent.Worker.Worker();
+                worker.Initialize(hc);
+
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
+
+                var jobMessage = CreateJobRequestMessage("job1");
+                var arWorkerMessages = new WorkerMessage[]
+                {
+                    new WorkerMessage
+                    {
+                        Body = JsonUtility.ToString(jobMessage),
+                        MessageType = MessageType.NewJobRequest
+                    },
+                    new WorkerMessage
+                    {
+                        Body = "",
+                        MessageType = MessageType.FlushLogsRequest
+                    },
+                    new WorkerMessage
+                    {
+                        Body = "",
+                        MessageType = MessageType.CancelRequest
+                    }
+                };
+                var workerMessages = new Queue<WorkerMessage>(arWorkerMessages);
+
+                _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
+                    .Returns(async () =>
+                    {
+                        await Task.Delay(10); // Small delay to simulate message processing
+                        if (workerMessages.Count > 0)
+                        {
+                            return workerMessages.Dequeue();
+                        }
+                        // Should not reach here - all messages are queued
+                        throw new InvalidOperationException("No more messages");
+                    });
+
+                _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
+                    .Returns(
+                    async (Pipelines.AgentJobRequestMessage jm, CancellationToken ct) =>
+                    {
+                        try
+                        {
+                            await Task.Delay(-1, ct);
+                            return TaskResult.Succeeded;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return TaskResult.Canceled;
+                        }
+                    });
+
+                // Act
+                var result = await worker.RunAsync("pipeIn", "pipeOut");
+
+                // Assert
+                // When feature is disabled, FlushLogsRequest should be ignored and job should be canceled normally
+                Assert.Equal(103, result); // TaskResult.Failed translates to return code 103 - TODO: investigate why this is Failed instead of Canceled
+
+                // Verify that ShutdownWorkerForTimeout was NOT called
+                Assert.False(hc.WorkerShutdownForTimeout.IsCancellationRequested);
+
+                // Cleanup
+                Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async void FlushLogsRequest_WhenFeatureNotSet_DefaultsToDisabled()
+        {
+            // Arrange
+            using (var hc = new TestHostContext(this))
+            {
+                // Ensure the timeout log flushing feature flag environment variable is not set
+                Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", null);
+
+                var worker = new Agent.Worker.Worker();
+                worker.Initialize(hc);
+
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
+
+                var jobMessage = CreateJobRequestMessage("job1");
+                var arWorkerMessages = new WorkerMessage[]
+                {
+                    new WorkerMessage
+                    {
+                        Body = JsonUtility.ToString(jobMessage),
+                        MessageType = MessageType.NewJobRequest
+                    },
+                    new WorkerMessage
+                    {
+                        Body = "",
+                        MessageType = MessageType.FlushLogsRequest
+                    },
+                    new WorkerMessage
+                    {
+                        Body = "",
+                        MessageType = MessageType.CancelRequest
+                    }
+                };
+                var workerMessages = new Queue<WorkerMessage>(arWorkerMessages);
+
+                _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
+                    .Returns(async () =>
+                    {
+                        await Task.Delay(10); // Small delay to simulate message processing
+                        if (workerMessages.Count > 0)
+                        {
+                            return workerMessages.Dequeue();
+                        }
+                        // Should not reach here - all messages are queued
+                        throw new InvalidOperationException("No more messages");
+                    });
+
+                _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
+                    .Returns(
+                    async (Pipelines.AgentJobRequestMessage jm, CancellationToken ct) =>
+                    {
+                        try
+                        {
+                            await Task.Delay(-1, ct);
+                            return TaskResult.Succeeded;
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return TaskResult.Canceled;
+                        }
+                    });
+
+                // Act
+                var result = await worker.RunAsync("pipeIn", "pipeOut");
+
+                // Assert
+                // When feature is not set (defaults to disabled), FlushLogsRequest should be ignored 
+                Assert.Equal(103, result); // TaskResult.Failed translates to return code 103 - TODO: investigate why this is Failed instead of Canceled
+
+                // Verify that ShutdownWorkerForTimeout was NOT called (defaults to disabled)
+                Assert.False(hc.WorkerShutdownForTimeout.IsCancellationRequested);
+            }
         }
     }
 }

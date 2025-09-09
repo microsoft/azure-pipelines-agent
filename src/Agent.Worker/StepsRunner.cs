@@ -282,8 +282,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private async Task RunStepAsync(IStep step, CancellationToken jobCancellationToken)
         {
             Trace.Info($"Individual step execution initiated: '{step.DisplayName}'");
-            // Start the step.
 
+            // Start the step.
             step.ExecutionContext.Section(StringUtil.Loc("StepStarting", step.DisplayName));
             step.ExecutionContext.SetTimeout(timeout: step.Timeout);
 
