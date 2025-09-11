@@ -498,6 +498,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 retryCount++;
             }
 
+            context.Output($"Final exit code for {command}: {exitCode}");
             return exitCode;
         }
 
