@@ -195,7 +195,7 @@ extends:
 
         - script: |
             cd release
-            npm install
+            npm ci
 
             node createReleaseBranch.js $(AgentVersion) --derivedFrom=${{ parameters.derivedFrom }} --targetCommitId=$(Build.SourceVersion)
           env:

@@ -62,9 +62,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             LogWithOperation(TraceEventType.Verbose, $"Entering {name}", name);
         }
 
+        public override IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            LogWithOperation(TraceEventType.Verbose, $"Entering {name}", name);
+            return new MethodTimer(this, name);
+        }
+
         public override void Leaving([CallerMemberName] string name = "")
         {
             LogWithOperation(TraceEventType.Verbose, $"Leaving {name}", name);
+        }
+
+        internal void LogLeavingWithDuration(string methodName, TimeSpan duration)
+        {
+            var formattedDuration = FormatDuration(duration);
+            var message = $"Leaving {methodName} (Duration: {formattedDuration})";
+            LogWithOperation(TraceEventType.Verbose, message, methodName);
         }
 
         private void LogWithOperation(TraceEventType eventType, string message, string operation)
@@ -77,6 +90,42 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             var operationPart = !string.IsNullOrEmpty(operation) ? $"[{operation}]" : "";
             return $"{operationPart} {message}".TrimEnd();
+        }
+
+        private string FormatDuration(TimeSpan duration)
+        {
+            if (duration.TotalHours >= 1)
+                return $"{(int)duration.TotalHours}h {duration.Minutes}m {duration.Seconds}.{duration.Milliseconds:D3}s";
+            if (duration.TotalMinutes >= 1)
+                return $"{duration.Minutes}m {duration.Seconds}.{duration.Milliseconds:D3}s";
+            if (duration.TotalSeconds >= 1)
+                return $"{duration.TotalSeconds:F3}s";
+            return $"{duration.TotalMilliseconds:F2}ms";
+        }
+
+        private sealed class MethodTimer : IDisposable
+        {
+            private readonly EnhancedTracing _tracing;
+            private readonly string _methodName;
+            private readonly Stopwatch _stopwatch;
+            private bool _disposed = false;
+
+            public MethodTimer(EnhancedTracing tracing, string methodName)
+            {
+                _tracing = tracing;
+                _methodName = methodName;
+                _stopwatch = Stopwatch.StartNew();
+            }
+
+            public void Dispose()
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    _stopwatch.Stop();
+                    _tracing.LogLeavingWithDuration(_methodName, _stopwatch.Elapsed);
+                }
+            }
         }
     }
 }

@@ -268,13 +268,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return child;
         }
 
+
         public void Start(string currentOperation = null)
         {
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
             _record.StartTime = DateTime.UtcNow;
             _record.State = TimelineRecordState.InProgress;
 
-            _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            //update the state immediately on server
+            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
@@ -819,7 +821,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.WorkerName = configuration.GetSettings().AgentName;
             _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
-            _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            //update the state immediately on server
+            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
         }
 
         private void JobServerQueueThrottling_EventReceived(object sender, ThrottlingEventArgs data)
