@@ -84,18 +84,18 @@ then
                 exit 1
             fi
 
-            package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
             # debian 10 uses libssl1.1
             # debian 9 uses libssl1.0.2
             # other debian linux use libssl1.0.0            
-            apt install -y libssl3 || apt install -y libssl1.1 || apt install -y libssl1.0.2 || apt install -y libssl1.0.0 || \
-                    (wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" \
-                    && dpkg -i $package)
-            if [ $? -ne 0 ]
-            then
-                echo "'apt' failed with exit code '$?'"
-                print_errormessage
-                exit 1
+            if ! apt install -y libssl3 && ! apt install -y libssl1.1 && ! apt install -y libssl1.0.2 && ! apt install -y libssl1.0.0; then
+                package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
+                wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" && dpkg -i $package
+                if [ $? -ne 0 ]
+                then
+                    echo "'apt' failed with exit code '$?'"
+                    print_errormessage
+                    exit 1
+                fi
             fi
 
             # libicu versions: libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
@@ -121,15 +121,15 @@ then
                 # debian 10 uses libssl1.1
                 # debian 9 uses libssl1.0.2
                 # other debian linux use libssl1.0.0
-                package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
-                apt-get install -y libssl3 || apt-get install -y libssl1.1 || apt-get install -y libssl1.0.2 || apt-get install -y libssl1.0.0 || \
-                   (wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" \
-                   && dpkg -i $package)
-                if [ $? -ne 0 ]
-                then
-                    echo "'apt-get' failed with exit code '$?'"
-                    print_errormessage
-                    exit 1
+                if ! apt-get install -y libssl3 && ! apt-get install -y libssl1.1 && ! apt-get install -y libssl1.0.2 && ! apt-get install -y libssl1.0.0; then
+                    package=$(wget -qO- http://security.ubuntu.com/ubuntu/pool/main/o/openssl/ | grep -oP '(libssl1.1_1.1.1f.*?_amd64.deb)' | head -1)
+                    wget "http://security.ubuntu.com/ubuntu/pool/main/o/openssl/${package}" && dpkg -i $package
+                    if [ $? -ne 0 ]
+                    then
+                        echo "'apt-get' failed with exit code '$?'"
+                        print_errormessage
+                        exit 1
+                    fi
                 fi
 
                 # libicu versions: libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
