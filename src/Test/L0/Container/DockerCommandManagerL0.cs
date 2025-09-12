@@ -96,11 +96,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 .ReturnsAsync(0);
         }
 
-        private void SetupEnvironmentVariables(string var1, string var2)
+        private void SetupEnvironmentVariables(string dockerActionRetries, string checkBeforeRetryDockerStart)
         {
             var environment = new SystemEnvironment();
-            environment.SetEnvironmentVariable("VSTSAGENT_DOCKER_ACTION_RETRIES", var1);
-            environment.SetEnvironmentVariable("AGENT_CHECK_BEFORE_RETRY_DOCKER_START", var2);
+            environment.SetEnvironmentVariable("VSTSAGENT_DOCKER_ACTION_RETRIES", dockerActionRetries);
+            environment.SetEnvironmentVariable("AGENT_CHECK_BEFORE_RETRY_DOCKER_START", checkBeforeRetryDockerStart);
             _ec.Setup(x => x.GetScopedEnvironment()).Returns(environment);
         }
 
