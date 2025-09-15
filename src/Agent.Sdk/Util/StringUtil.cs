@@ -282,7 +282,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         /// <summary>
         /// Finds all vso commands in the line and deactivates them
-        /// Also, assuming line to be base64 encoded, finds all vso commands in the decoded string and deactivates them and re-encode
         /// </summary>
         /// <returns>String without vso commands that can be executed</returns>
         public static string DeactivateVsoCommands(string input)
@@ -292,41 +291,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return string.Empty;
             }
 
-            try
-            {
-                input = DeactivateVsoCommandsIfBase64Encoded(input);
-            }
-            catch (FormatException)
-            {
-                // Ignore exception and continue to deactivate vso commands in the input string.
-            }
-            return ScrapVsoCommands(input);
-        }
-
-        /// <summary>
-        /// Tries to decode the input string assuming it to be base64 encoded and
-        /// scraps vso command if any and re-encodes the updated string.
-        /// An exception is thrown for the case when the input is not base64 encoded.
-        /// </summary>
-        /// <returns>String without vso commands that can be executed</returns>
-        public static string DeactivateVsoCommandsIfBase64Encoded(string input)
-        {
-            if (input == null)
-            {
-                throw new ArgumentNullException(nameof(input), "Input string cannot be null.");
-            }
-            if (input.Length == 0)
-            {
-                return string.Empty;
-            }
-            byte[] decodedBytes = Convert.FromBase64String(input);
-            string decodedString = Encoding.UTF8.GetString(decodedBytes);
-            decodedString = ScrapVsoCommands(decodedString);
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(decodedString));
-        }
-
-        private static string ScrapVsoCommands(string input)
-        {
             return Regex.Replace(input, "##vso", "**vso", RegexOptions.IgnoreCase);
         }
     }

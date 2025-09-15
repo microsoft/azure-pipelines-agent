@@ -28,100 +28,121 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task<int> RunAsync(string pipeIn, string pipeOut)
         {
-            // Validate args.
-            ArgUtil.NotNullOrEmpty(pipeIn, nameof(pipeIn));
-            ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
-            var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
-            var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
-            VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
-
-            var jobRunner = HostContext.CreateService<IJobRunner>();
-
-            using (var channel = HostContext.CreateService<IProcessChannel>())
-            using (var jobRequestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken))
-            using (var channelTokenSource = new CancellationTokenSource())
+            using (Trace.EnteringWithDuration())
             {
-                // Start the channel.
-                channel.StartClient(pipeIn, pipeOut);
+                // Validate args.
+                ArgUtil.NotNullOrEmpty(pipeIn, nameof(pipeIn));
+                ArgUtil.NotNullOrEmpty(pipeOut, nameof(pipeOut));
+                Trace.Entering();
+                var agentWebProxy = HostContext.GetService<IVstsAgentWebProxy>();
+                var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
+                VssUtil.InitializeVssClientSettings(HostContext.UserAgent, agentWebProxy.WebProxy, agentCertManager.VssClientCertificateManager, agentCertManager.SkipServerCertificateValidation);
+                Trace.Info(StringUtil.Format("VSS client settings initialized [UserAgent:{0}, ProxyConfigured:{1}, CertValidationSkipped:{2}]",
+                    HostContext.UserAgent, agentWebProxy.WebProxy != null, agentCertManager.SkipServerCertificateValidation));
 
-                // Wait for up to 30 seconds for a message from the channel.
-                HostContext.WritePerfCounter("WorkerWaitingForJobMessage");
-                Trace.Info("Waiting to receive the job message from the channel.");
-                WorkerMessage channelMessage;
-                using (var csChannelMessage = new CancellationTokenSource(_workerStartTimeout))
+                var jobRunner = HostContext.CreateService<IJobRunner>();
+                Trace.Info("JobRunner service created - preparing for IPC channel establishment");
+
+                using (var channel = HostContext.CreateService<IProcessChannel>())
+                using (var jobRequestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken))
+                using (var channelTokenSource = new CancellationTokenSource())
                 {
-                    channelMessage = await channel.ReceiveAsync(csChannelMessage.Token);
-                }
+                    // Start the channel.
+                    Trace.Info(StringUtil.Format("Starting process channel client - establishing IPC communication with listener - pipeIn: {0}, pipeOut: {1}", pipeIn, pipeOut));
+                    channel.StartClient(pipeIn, pipeOut);
+                    Trace.Info("IPC channel established successfully - communication link active with listener process");
 
-                // Deserialize the job message.
-                Trace.Info("Message received.");
-                ArgUtil.Equal(MessageType.NewJobRequest, channelMessage.MessageType, nameof(channelMessage.MessageType));
-                ArgUtil.NotNullOrEmpty(channelMessage.Body, nameof(channelMessage.Body));
-                var jobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(channelMessage.Body);
-                ArgUtil.NotNull(jobMessage, nameof(jobMessage));
-                HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
-
-                Trace.Info("Deactivating vso commands in job message variables.");
-                jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
-
-                // Initialize the secret masker and set the thread culture.
-                InitializeSecretMasker(jobMessage);
-                SetCulture(jobMessage);
-
-                // Start the job.
-                Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
-                Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
-
-                bool cancel = false;
-                while (!cancel)
-                {
-                    // Start listening for a cancel message from the channel.
-                    Trace.Info("Listening for cancel message from the channel.");
-                    Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
-
-                    // Wait for one of the tasks to complete.
-                    Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
-                    await Task.WhenAny(jobRunnerTask, channelTask);
-
-                    // Handle if the job completed.
-                    if (jobRunnerTask.IsCompleted)
+                    // Wait for up to 30 seconds for a message from the channel.
+                    Trace.Info("Process channel established - waiting for job message from listener process");
+                    HostContext.WritePerfCounter("WorkerWaitingForJobMessage");
+                    WorkerMessage channelMessage;
+                    using (var csChannelMessage = new CancellationTokenSource(_workerStartTimeout))
                     {
-                        Trace.Info("Job completed.");
-                        channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
-                        return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                        channelMessage = await channel.ReceiveAsync(csChannelMessage.Token);
                     }
 
-                    // Otherwise a message was received from the channel.
-                    channelMessage = await channelTask;
-                    switch (channelMessage.MessageType)
-                    {
-                        case MessageType.CancelRequest:
-                            Trace.Info("Cancellation/Shutdown message received.");
-                            cancel = true;
-                            jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
-                            break;
-                        case MessageType.AgentShutdown:
-                            Trace.Info("Cancellation/Shutdown message received.");
-                            cancel = true;
-                            HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
-                            break;
-                        case MessageType.OperatingSystemShutdown:
-                            Trace.Info("Cancellation/Shutdown message received.");
-                            cancel = true;
-                            HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
-                            break;
-                        case MessageType.JobMetadataUpdate:
-                            Trace.Info("Metadata update message received.");
-                            var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
-                            jobRunner.UpdateMetadata(metadataMessage);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
-                    }
-                }
+                    // Deserialize the job message.
+                    Trace.Info("Job message received from listener - beginning deserialization and validation");
+                    ArgUtil.Equal(MessageType.NewJobRequest, channelMessage.MessageType, nameof(channelMessage.MessageType));
+                    ArgUtil.NotNullOrEmpty(channelMessage.Body, nameof(channelMessage.Body));
+                    var jobMessage = JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(channelMessage.Body);
+                    ArgUtil.NotNull(jobMessage, nameof(jobMessage));
+                    HostContext.WritePerfCounter($"WorkerJobMessageReceived_{jobMessage.RequestId.ToString()}");
 
-                // Await the job.
-                return TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                    Trace.Info(StringUtil.Format("Job message deserialized successfully [JobId:{0}, PlanId:{1}, RequestId:{2}]",
+                        jobMessage.JobId, jobMessage.Plan.PlanId, jobMessage.RequestId));
+                    jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
+
+                    // Initialize the secret masker and set the thread culture.
+                    InitializeSecretMasker(jobMessage);
+                    SetCulture(jobMessage);
+
+                    // Start the job.
+                    Trace.Info("Job preprocessing complete - starting JobRunner execution with detailed message logging");
+                    Trace.Info($"Job message:{Environment.NewLine} {StringUtil.ConvertToJson(WorkerUtilities.ScrubPiiData(jobMessage))}");
+                    Task<TaskResult> jobRunnerTask = jobRunner.RunAsync(jobMessage, jobRequestCancellationToken.Token);
+
+                    Trace.Info("Entering message monitoring loop - listening for cancellation and shutdown signals");
+                    bool cancel = false;
+                    int messageLoopIteration = 0;
+                    while (!cancel)
+                    {
+                        messageLoopIteration++;
+                        // Start listening for a cancel message from the channel.
+                        Trace.Info(StringUtil.Format("Starting listener for control messages from listener process [Iteration:{0}]", messageLoopIteration));
+                        Task<WorkerMessage> channelTask = channel.ReceiveAsync(channelTokenSource.Token);
+
+                        // Wait for one of the tasks to complete.
+                        Trace.Info("Waiting for the job to complete or for a cancel message from the channel.");
+                        await Task.WhenAny(jobRunnerTask, channelTask);
+
+                        // Handle if the job completed.
+                        if (jobRunnerTask.IsCompleted)
+                        {
+                            Trace.Info("Worker process termination initiated - Cancelling channel communication");
+                            channelTokenSource.Cancel(); // Cancel waiting for a message from the channel.
+                            var result = TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                            Trace.Info($"JobRunner completion detected - Job execution finished with result: {result}");
+                            return result;
+                        }
+
+                        // Otherwise a message was received from the channel.
+                        channelMessage = await channelTask;
+                        Trace.Info(StringUtil.Format("Control message received from listener [Type:{0}, Iteration:{1}]",
+                            channelMessage.MessageType, messageLoopIteration));
+                        switch (channelMessage.MessageType)
+                        {
+                            case MessageType.CancelRequest:
+                                Trace.Info("Job cancellation request received - initiating graceful job termination");
+                                cancel = true;
+                                jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
+                                break;
+                            case MessageType.AgentShutdown:
+                                Trace.Info("Agent shutdown request received - terminating job and shutting down worker");
+                                cancel = true;
+                                HostContext.ShutdownAgent(ShutdownReason.UserCancelled);
+                                break;
+                            case MessageType.OperatingSystemShutdown:
+                                Trace.Info("Operating system shutdown detected - performing emergency job termination");
+                                cancel = true;
+                                HostContext.ShutdownAgent(ShutdownReason.OperatingSystemShutdown);
+                                break;
+                            case MessageType.JobMetadataUpdate:
+                                Trace.Info(StringUtil.Format("Metadata update message received - updating job runner metadata, Metadata: {0}", channelMessage.Body));
+                                var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
+                                jobRunner.UpdateMetadata(metadataMessage);
+                                Trace.Info("Job metadata update processed successfully");
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
+                        }
+                    }
+
+                    // Await the job.
+                    var workerResult = TaskResultUtil.TranslateToReturnCode(await jobRunnerTask);
+                    Trace.Info($"Worker process lifecycle completed successfully - returning with exit code: {workerResult}");
+                    return workerResult;
+                }
             }
         }
 
@@ -148,14 +169,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void InitializeSecretMasker(Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
+            Trace.Info("Secret masker initialization initiated - processing job security configuration");
             ArgUtil.NotNull(message, nameof(message));
             ArgUtil.NotNull(message.Resources, nameof(message.Resources));
+            int secretCount = 0;
             // Add mask hints for secret variables
             foreach (var variable in (message.Variables ?? new Dictionary<string, VariableValue>()))
             {
                 // Skip secrets which are just white spaces.
                 if (variable.Value.IsSecret && !string.IsNullOrWhiteSpace(variable.Value.Value))
                 {
+                    secretCount++;
                     AddUserSuppliedSecret(variable.Value.Value);
                     // also, we escape some characters for variables when we print them out in debug mode. We need to
                     // add the escaped version of these secrets as well
@@ -206,25 +230,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // TODO: Avoid adding redundant secrets. If the endpoint auth matches the system connection, then it's added as a value secret and as a regex secret. Once as a value secret b/c of the following code that iterates over each endpoint. Once as a regex secret due to the hint sent down in the job message.
 
             // Add masks for service endpoints
+            int endpointSecretCount = 0;
             foreach (ServiceEndpoint endpoint in message.Resources.Endpoints ?? new List<ServiceEndpoint>())
             {
                 foreach (var keyValuePair in endpoint.Authorization?.Parameters ?? new Dictionary<string, string>())
                 {
                     if (!string.IsNullOrEmpty(keyValuePair.Value) && MaskingUtil.IsEndpointAuthorizationParametersSecret(keyValuePair.Key))
                     {
+                        endpointSecretCount++;
                         HostContext.SecretMasker.AddValue(keyValuePair.Value, $"Worker_EndpointAuthorizationParameters_{keyValuePair.Key}");
                     }
                 }
             }
 
             // Add masks for secure file download tickets
+            int secureFileCount = 0;
             foreach (SecureFile file in message.Resources.SecureFiles ?? new List<SecureFile>())
             {
                 if (!string.IsNullOrEmpty(file.Ticket))
                 {
+                    secureFileCount++;
                     HostContext.SecretMasker.AddValue(file.Ticket, WellKnownSecretAliases.SecureFileTicket);
                 }
             }
+            Trace.Info(StringUtil.Format("Secret masker initialization complete [SecretVariables:{0}, EndpointSecrets:{1}, SecureFiles:{2}]",
+                secretCount, endpointSecretCount, secureFileCount));
         }
 
         private void SetCulture(Pipelines.AgentJobRequestMessage message)

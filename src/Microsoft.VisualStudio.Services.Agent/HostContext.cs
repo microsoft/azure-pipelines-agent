@@ -23,8 +23,6 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Microsoft.Security.Utilities;
-using LegacySecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
-using ISecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -125,12 +123,16 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 // this should give us _diag folder under agent root directory as default value for diagLogDirctory
                 string diagLogPath = GetDiagDirectory(_hostType);
-                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker, this);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
 
             }
             else
             {
-                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker, this);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
             }
 
             _trace = GetTrace(nameof(HostContext));
@@ -179,7 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool enableNewMaskerAndRegexes = AgentKnobs.EnableNewMaskerAndRegexes.GetValue(this).AsBoolean();
 
 #pragma warning disable CA2000 // Dispose objects before losing scope. False positive: LoggedSecretMasker takes ownership.
-            ISecretMasker rawSecretMasker;
+            IRawSecretMasker rawSecretMasker;
             if (enableNewMaskerAndRegexes)
             {
                 rawSecretMasker = new OssSecretMasker(WellKnownRegexPatterns.PreciselyClassifiedSecurityKeys);
@@ -188,7 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 rawSecretMasker = new LegacySecretMasker();
             }
-            ILoggedSecretMasker secretMasker = new LoggedSecretMasker(rawSecretMasker);
+            ILoggedSecretMasker secretMasker = LoggedSecretMasker.Create(rawSecretMasker);
 #pragma warning restore CA2000 // Dispose objects before losing scope.
 
             secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, $"HostContext_{WellKnownSecretAliases.JsonStringEscape}");

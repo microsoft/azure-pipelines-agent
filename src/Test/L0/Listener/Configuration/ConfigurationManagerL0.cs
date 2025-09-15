@@ -640,5 +640,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             rsa?.Dispose();
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "ConfigurationManagement")]
+        public void SetupVstsProxySettingWithBasicAuth()
+        {
+            using (TestHostContext tc = CreateTestContext())
+            {
+                Tracing trace = tc.GetTrace();
+
+                trace.Info("Creating config manager");
+                var configManager = new ConfigurationManager();
+                configManager.Initialize(tc);
+
+                // Test with proxy basic auth flag
+                var commandWithBasicAuth = new CommandSettings(
+                    tc,
+                    new[]
+                    {
+                       "configure",
+                       "--proxyurl", "http://proxy.example.com:8080",
+                       "--proxyusername", "testuser",
+                       "--proxypassword", "testpass",
+                       "--usebasicauthforproxy"
+                    });
+
+                // Use reflection to call private SetupVstsProxySetting method
+                var method = typeof(ConfigurationManager).GetMethod("SetupVstsProxySetting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                bool result = (bool)method.Invoke(configManager, new object[] { _vstsAgentWebProxy.Object, commandWithBasicAuth });
+
+                Assert.True(result);
+                _vstsAgentWebProxy.Verify(x => x.SetupProxy("http://proxy.example.com:8080", "testuser", "testpass", true), Times.Once);
+
+                // Test without proxy basic auth flag (default behavior)
+                var commandWithoutBasicAuth = new CommandSettings(
+                    tc,
+                    new[]
+                    {
+                       "configure", 
+                       "--proxyurl", "http://proxy2.example.com:8080",
+                       "--proxyusername", "testuser2",
+                       "--proxypassword", "testpass2"
+                    });
+
+                // Should call SetupProxy with basicAuth=false (default)
+                bool result2 = (bool)method.Invoke(configManager, new object[] { _vstsAgentWebProxy.Object, commandWithoutBasicAuth });
+
+                Assert.True(result2);
+                _vstsAgentWebProxy.Verify(x => x.SetupProxy("http://proxy2.example.com:8080", "testuser2", "testpass2", false), Times.Once);
+            }
+        }
     }
 }

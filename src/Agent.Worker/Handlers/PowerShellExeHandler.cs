@@ -71,7 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     string tempDirectory = Path.GetTempPath();
                     ArgUtil.Directory(tempDirectory, nameof(tempDirectory));
                     scriptFile = Path.Combine(tempDirectory, $"{Guid.NewGuid()}.ps1");
-                    Trace.Info("Writing inline script to temp file: '{0}'", scriptFile);
+                    Trace.Info(StringUtil.Format("Writing inline script to temp file: '{0}'", scriptFile));
                     File.WriteAllText(scriptFile, Data.InlineScript ?? string.Empty, Encoding.UTF8);
                 }
                 else

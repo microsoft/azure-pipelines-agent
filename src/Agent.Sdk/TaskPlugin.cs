@@ -17,6 +17,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Knob;
+using System.Runtime.CompilerServices;
 
 namespace Agent.Sdk
 {
@@ -121,7 +122,7 @@ namespace Agent.Sdk
             {
                 if (!string.IsNullOrEmpty(WebProxySettings.ProxyAddress))
                 {
-                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(WebProxySettings.ProxyAddress, WebProxySettings.ProxyUsername, WebProxySettings.ProxyPassword, WebProxySettings.ProxyBypassList);
+                    VssHttpMessageHandler.DefaultWebProxy = new AgentWebProxy(WebProxySettings.ProxyAddress, WebProxySettings.ProxyUsername, WebProxySettings.ProxyPassword, WebProxySettings.ProxyBypassList, WebProxySettings.UseBasicAuthForProxy);
                 }
             }
 
@@ -150,13 +151,13 @@ namespace Agent.Sdk
             return value;
         }
 
-        public void Info(string message)
+        public void Info(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
             Debug(message);
         }
 
-        public void Verbose(string message)
+        public void Verbose(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
 #if DEBUG
@@ -330,13 +331,15 @@ namespace Agent.Sdk
                 string proxyUsername = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyUsernameKey)?.Value;
                 string proxyPassword = this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyPasswordKey)?.Value;
                 List<string> proxyBypassHosts = StringUtil.ConvertFromJson<List<string>>(this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentProxyBypassListKey)?.Value ?? "[]");
+                bool useBasicAuthForProxy = StringUtil.ConvertToBoolean(this.Variables.GetValueOrDefault(AgentWebProxySettings.AgentUseBasicAuthForProxyKey)?.Value);
                 return new AgentWebProxySettings()
                 {
                     ProxyAddress = proxyUrl,
                     ProxyUsername = proxyUsername,
                     ProxyPassword = proxyPassword,
                     ProxyBypassList = proxyBypassHosts,
-                    WebProxy = new AgentWebProxy(proxyUrl, proxyUsername, proxyPassword, proxyBypassHosts)
+                    UseBasicAuthForProxy = useBasicAuthForProxy,
+                    WebProxy = new AgentWebProxy(proxyUrl, proxyUsername, proxyPassword, proxyBypassHosts, useBasicAuthForProxy)
                 };
             }
             // back-compat of proxy configuration via environment variables
@@ -346,12 +349,14 @@ namespace Agent.Sdk
                 ProxyUrl = ProxyUrl.Trim();
                 var ProxyUsername = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_USERNAME");
                 var ProxyPassword = Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_PASSWORD");
+                var UseBasicAuthForProxy = StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_HTTP_PROXY_BASIC_AUTH"));
                 return new AgentWebProxySettings()
                 {
                     ProxyAddress = ProxyUrl,
                     ProxyUsername = ProxyUsername,
                     ProxyPassword = ProxyPassword,
-                    WebProxy = new AgentWebProxy(proxyUrl, ProxyUsername, ProxyPassword, null)
+                    UseBasicAuthForProxy = UseBasicAuthForProxy,
+                    WebProxy = new AgentWebProxy(ProxyUrl, ProxyUsername, ProxyPassword, null, UseBasicAuthForProxy)
                 };
             }
             else

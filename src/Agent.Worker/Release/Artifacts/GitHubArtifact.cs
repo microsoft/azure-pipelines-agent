@@ -109,7 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 }
                 catch (SocketException e)
                 {
-                    ExceptionsUtil.HandleSocketException(e, "https://api.github.com", Trace.Info);
+                    ExceptionsUtil.HandleSocketException(e, "https://api.github.com", (message) => Trace.Info(message));
                     throw;
                 }
 

@@ -209,9 +209,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(containerId, nameof(containerId));
 
-            var action = new Func<Task<int>>(async () => await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken));
-            const string command = "Docker start";
-            return await ExecuteDockerCommandAsyncWithRetries(context, action, command);
+            if (!AgentKnobs.CheckBeforeRetryDockerStart.GetValue(context).AsBoolean())
+            {
+                var action = new Func<Task<int>>(async () => await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken));
+                const string command = "Docker start";
+                return await ExecuteDockerCommandAsyncWithRetries(context, action, command);
+            }
+            // Use the new helper for start with retries and running-state checks
+            return await ExecuteDockerStartWithRetriesAndCheck(context, containerId);
         }
 
         public async Task<int> DockerRemove(IExecutionContext context, string containerId)
@@ -532,6 +537,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// Executes 'docker start' with retries, checking if the container is already running before each retry.
+        /// Returns 0 if the container is running or started successfully, otherwise returns the last exit code.
+        /// </summary>
+        private async Task<int> ExecuteDockerStartWithRetriesAndCheck(IExecutionContext context, string containerId)
+        {
+            bool dockerActionRetries = AgentKnobs.DockerActionRetries.GetValue(context).AsBoolean();
+            context.Output($"DockerActionRetries variable value: {dockerActionRetries}");
+
+            int retryCount = 0;
+            const int maxRetries = 3;
+            TimeSpan delayInSeconds = TimeSpan.FromSeconds(10);
+            int exitCode = 0;
+
+            while (retryCount < maxRetries)
+            {
+                // Check if container is already running before attempting to start
+                if (await IsContainerRunning(context, containerId))
+                {
+                    context.Output($"Container {containerId} is running before attempt {retryCount + 1}.");
+                    break;
+                }
+
+                exitCode = await ExecuteDockerCommandAsync(context, "start", containerId, context.CancellationToken);
+                if (exitCode == 0 || !dockerActionRetries)
+                {
+                    break;
+                }
+
+                context.Warning($"Docker start failed with exit code {exitCode}, back off {delayInSeconds} seconds before retry.");
+                retryCount++;
+                await Task.Delay(delayInSeconds);
+
+            }
+
+            // handle the case where container is already running after retries but exit code is not 0
+            if (exitCode != 0 && await IsContainerRunning(context, containerId))
+            {
+                context.Output($"Container {containerId} is already running after {retryCount} retries. but exit code was {exitCode}.");
+                exitCode = 0; // Indicate success
+            }
+            // If the container is still not running after retries, log a warning
+            if (exitCode != 0)
+            {
+                context.Warning($"Container {containerId} is not running after {retryCount} retries. Last exit code: {exitCode}");
+            }
+            else
+            {
+                context.Output($"Container {containerId} started successfully after {retryCount} retries.");
+            }
+            //return the exit code
+            context.Debug($"Docker start completed with exit code {exitCode}.");
+            return exitCode;
         }
     }
 }

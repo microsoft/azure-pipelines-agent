@@ -377,7 +377,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 else
                 {
-                    Trace.Info($"Process _proc.HasExited={_proc.HasExited}, {_proc.Id},  and elapsed time {_stopWatch.Elapsed}.");
+                    Trace.Info($"Process _proc.HasExited={_proc.HasExited}, Process ID={_proc.Id},  and elapsed time {_stopWatch.Elapsed}.");
                 }
             }
 
@@ -404,10 +404,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if (_proc != null)
                 {
-                    //Dispose the standard output/error stream. Refer: https://github.com/dotnet/runtime/issues/58872
-                    _proc.StandardOutput?.Dispose();
-                    _proc.StandardError?.Dispose();
-
                     _proc.Dispose();
                     _proc = null;
                 }
@@ -469,7 +465,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);
                 if (sigint_succeed)
                 {
-                    Trace.Info("Process cancelled successfully through Ctrl+C/SIGINT.");
+                    Trace.Info($"Process {_proc.Id} cancelled successfully through Ctrl+C/SIGINT.");
                     return;
                 }
 
@@ -481,12 +477,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 bool sigterm_succeed = await SendSIGTERM(SigtermTimeout);
                 if (sigterm_succeed)
                 {
-                    Trace.Info("Process terminate successfully through Ctrl+Break/SIGTERM.");
+                    Trace.Info($"Process {_proc.Id} terminate successfully through Ctrl+Break/SIGTERM.");
                     return;
                 }
             }
 
-            Trace.Info("Kill entire process tree since both cancel and terminate signal has been ignored by the target process.");
+            Trace.Info($"[{_proc.Id}] Kill entire process tree with root {_proc.Id} since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
         }
 
@@ -549,7 +545,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info("STDOUT/STDERR stream read finished.");
+                Trace.Info($"[{_proc.Id}] STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
@@ -579,7 +575,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info("Close STDIN after the first redirect finished.");
+                                Trace.Info($"[{_proc.Id}] Close STDIN after the first redirect finished.");
                                 standardIn.Close();
                                 break;
                             }
@@ -587,7 +583,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info("STDIN stream write finished.");
+                Trace.Info($"[{_proc.Id}] STDIN stream write finished.");
             });
         }
 
@@ -607,7 +603,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             if (PlatformUtil.HostOS != PlatformUtil.OS.Linux)
             {
-                Trace.Info("OOM score adjustment is Linux-only.");
+                Trace.Info($"[{process.Id}] OOM score adjustment is Linux-only.");
                 return;
             }
 
@@ -622,7 +618,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 else
                 {
-                    Trace.Info($"Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
+                    Trace.Info($"[{process.Id}] Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
                 }
             }
             // Values (up to 1000) make the process more likely to be killed under OOM scenario,

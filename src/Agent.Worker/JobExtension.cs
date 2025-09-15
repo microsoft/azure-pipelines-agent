@@ -14,6 +14,7 @@ using System.Linq;
 using System.Diagnostics;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.SecretMasking;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.Identity.Client.TelemetryCore.TelemetryClient;
@@ -75,6 +76,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     context.Start();
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("InitializeJob")));
+
+                    if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(context).AsBoolean())
+                    {
+                        jobContext.GetHostContext().SecretMasker.StartTelemetry(_maxSecretMaskerTelemetryUniqueCorrelationIds);
+                    }
 
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
@@ -593,6 +599,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     context.Start();
                     context.Section(StringUtil.Loc("StepStarting", StringUtil.Loc("FinalizeJob")));
 
+                    PublishSecretMaskerTelemetryIfOptedIn(jobContext);
+
                     // Wait for agent log plugin process exits
                     var logPlugin = HostContext.GetService<IAgentLogPlugin>();
                     try
@@ -804,6 +812,60 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Verbose($"Ignoring exception during 'AgentCDNAccessStatus' telemetry publish: '{ex.Message}'");
+            }
+        }
+
+        // How secret masker telemetry limits were chosen:
+        //
+        //  - We don't want to introduce telemetry events much larger than
+        //    others we send today.
+        //
+        //  - The KnobsStatus telemetry event is among the largest and we
+        //    routinely see it with ~2000 chars in Properties.
+        //
+        //  - The longest rule moniker today is 73 chars. There's an issue filed
+        //    to shorten it so we should not expect longer than this in the
+        //    future.
+        //
+        //  - C3ID is 20 chars.
+        //
+        //  - So say max ~100 chars for "<C3ID>": "<moniker>"
+        //
+        //  - 10 of these is ~1000 chars / half of KnobsStatus, which leaves
+        //    plenty of buffer.
+        //
+        //  - We also don't want to send too many events so we send at most 5.
+        //
+        //  - This means we can send up to 50 unique C3IDs reported per job.
+        //    That's a lot for a real world scenario. More than that has a
+        //    significant chance of being malicious.
+        private const int _maxCorrelatingIdsPerSecretMaskerTelemetryEvent = 10;
+        private const int _maxSecretMaskerTelemetryCorrelationEvents = 5;
+        private const int _maxSecretMaskerTelemetryUniqueCorrelationIds = _maxCorrelatingIdsPerSecretMaskerTelemetryEvent * _maxSecretMaskerTelemetryCorrelationEvents;
+
+        private void PublishSecretMaskerTelemetryIfOptedIn(IExecutionContext jobContext)
+        {
+            try
+            {
+                if (AgentKnobs.SendSecretMaskerTelemetry.GetValue(jobContext).AsBoolean())
+                {
+                    string jobId = jobContext?.Variables?.System_JobId?.ToString() ?? string.Empty;
+                    string planId = jobContext?.Variables?.System_PlanId?.ToString() ?? string.Empty;
+                    ILoggedSecretMasker masker = jobContext.GetHostContext().SecretMasker;
+
+                    masker.StopAndPublishTelemetry(
+                        _maxCorrelatingIdsPerSecretMaskerTelemetryEvent,
+                        (feature, data) =>
+                        {
+                            data["JobId"] = jobId;
+                            data["PlanId"] = planId;
+                            PublishTelemetry(jobContext, data, feature);
+                        });
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Unable to publish secret masker telemetry data. Exception: {ex}");
             }
         }
 

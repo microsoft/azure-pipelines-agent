@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using Microsoft.Security.Utilities;
 using System;
 using System.IO;
 using System.Reflection;
@@ -229,6 +228,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             TestSecretMasking(input, expected, useNewMaskerAndRegexes: false);
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [MemberData(nameof(SecretsRequiringNewMasker_NewMasker))]
+        public void UserSecretsThatMatchOSSRules_NewMasker_MaskWithStarsNotId(string secret, string expectedIfNotAlsoALiteral)
+        {
+            _ = expectedIfNotAlsoALiteral; // Unused since this is not the expectatation in this case.
+
+            string input = $"The secret is '{secret}', mask it with stars even if it matches a rule.";
+            string expected = "The secret is '***', mask it with stars even if it matches a rule.";
+
+            TestSecretMasking(input,
+                              expected,
+                              useNewMaskerAndRegexes: true,
+                              values: new[] { secret });
+        }
+
         public sealed class SecretCases : TheoryData<string, string>
         {
             public SecretCases((string, string)[] cases, bool useNewMaskerAndRegexes, bool requireNewMaskerAndRegexes = false)
@@ -262,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         foreach (string value in values)
                         {
-                            _hc.SecretMasker.AddValue(value);
+                            _hc.SecretMasker.AddValue(value, origin: "Test");
                         }
                     }
 
@@ -305,9 +321,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public HostContext Setup([CallerMemberName] string testName = "")
         {
-            var hc = new HostContext(
-                hostType: HostType.Agent,
-                logFile: Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), $"trace_{nameof(HostContextL0)}_{testName}.log"));
+            // Use a unique log file name per invocation to avoid collisions across parallel theory runs
+            string dir = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            string unique = Guid.NewGuid().ToString("N");
+            string logFile = Path.Combine(dir, $"trace_{nameof(HostContextL0)}_{testName}_{unique}.log");
+            var hc = new HostContext(hostType: HostType.Agent, logFile: logFile);
             return hc;
         }
     }

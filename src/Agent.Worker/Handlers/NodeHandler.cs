@@ -107,6 +107,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             if (!PlatformUtil.RunningOnWindows && !AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
             {
+                Dictionary<string, string> telemetryData = new Dictionary<string, string>
+                {
+                    { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
+                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
+                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
+                    { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
+                    { "AgentVersion", ExecutionContext.Variables.Get(Constants.Variables.Agent.Version)},
+                    { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
+                    { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},
+                    { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)},
+                    { "VsoTaskLibUsed", "true" },
+                    { "Platform", PlatformUtil.HostOS.ToString() }
+                };
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+
+                await VsoTaskLibManager.DownloadVsoTaskLibAsync(ExecutionContext);
+                
                 // Ensure compat vso-task-lib exist at the root of _work folder
                 // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
                 // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.

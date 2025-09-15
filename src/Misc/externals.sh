@@ -26,8 +26,8 @@ NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
-NODE20_VERSION="20.18.2"
-MINGIT_VERSION="2.47.0.2"
+NODE20_VERSION="20.19.4"
+MINGIT_VERSION="2.50.1"
 LFS_VERSION="3.4.0"
 
 get_abs_path() {
@@ -234,8 +234,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
 else
     # Download external tools for Linux and OSX.
-
-    acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 
     if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
         ARCH="darwin-x64"

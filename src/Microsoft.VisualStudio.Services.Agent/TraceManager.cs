@@ -5,37 +5,50 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Agent.Sdk.SecretMasking;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
-    public interface ITraceManager : IDisposable
+    [ServiceLocator(Default = typeof(TraceManager))]
+    public interface ITraceManager : IAgentService, IDisposable
     {
         SourceSwitch Switch { get; }
         Tracing this[string name] { get; }
+        void SetEnhancedLoggingEnabled(bool enabled);
     }
 
-    public sealed class TraceManager : ITraceManager
+    public sealed class TraceManager : AgentService, ITraceManager
     {
-        private readonly ConcurrentDictionary<string, Tracing> _sources = new ConcurrentDictionary<string, Tracing>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, ITracingProxy> _sources = new(StringComparer.OrdinalIgnoreCase);
         private readonly HostTraceListener _hostTraceListener;
-        private TraceSetting _traceSetting;
-        private ISecretMasker _secretMasker;
+        private readonly TraceSetting _traceSetting;
+        private readonly ILoggedSecretMasker _secretMasker;
+        private readonly IKnobValueContext _knobValueContext;
 
-        public TraceManager(HostTraceListener traceListener, ISecretMasker secretMasker)
-            : this(traceListener, new TraceSetting(), secretMasker)
+        // Enhanced logging state (affects new and existing trace sources)
+        private volatile bool _enhancedLoggingEnabled;
+        private readonly object _switchLock = new();
+
+        public TraceManager(HostTraceListener traceListener, ILoggedSecretMasker secretMasker, IKnobValueContext knobValueContext)
+            : this(traceListener, new TraceSetting(), secretMasker, knobValueContext)
         {
         }
 
-        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ISecretMasker secretMasker)
+        public TraceManager(HostTraceListener traceListener, TraceSetting traceSetting, ILoggedSecretMasker secretMasker, IKnobValueContext knobValueContext)
         {
-            // Validate and store params.
             ArgUtil.NotNull(traceListener, nameof(traceListener));
             ArgUtil.NotNull(traceSetting, nameof(traceSetting));
             ArgUtil.NotNull(secretMasker, nameof(secretMasker));
+            ArgUtil.NotNull(knobValueContext, nameof(knobValueContext));
+
             _hostTraceListener = traceListener;
             _traceSetting = traceSetting;
             _secretMasker = secretMasker;
+            _knobValueContext = knobValueContext;
+
+            // Initialize from knob (which may be set via environment at process start)
+            _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
 
             Switch = new SourceSwitch("VSTSAgentSwitch")
             {
@@ -45,11 +58,22 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public SourceSwitch Switch { get; private set; }
 
-        public Tracing this[string name]
+        public Tracing this[string name] => (Tracing)_sources.GetOrAdd(name, CreateTracingProxy);
+
+        /// <summary>
+        /// Toggle enhanced logging across all existing sources if state changed.
+        /// </summary>
+        public void SetEnhancedLoggingEnabled(bool enabled)
         {
-            get
+            lock (_switchLock)
             {
-                return _sources.GetOrAdd(name, key => CreateTraceSource(key));
+                if (_enhancedLoggingEnabled == enabled)
+                {
+                    return; // no-op
+                }
+
+                _enhancedLoggingEnabled = enabled;
+                SwitchExistingTraceSources(enabled);
             }
         }
 
@@ -61,30 +85,62 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private void Dispose(bool disposing)
         {
-            if (disposing)
+            if (!disposing)
             {
-                foreach (Tracing traceSource in _sources.Values)
-                {
-                    traceSource.Dispose();
-                }
-
-                _sources.Clear();
+                return;
             }
+
+            foreach (var traceSource in _sources.Values)
+            {
+                var oldInner = traceSource.ExchangeInner(null);
+                oldInner?.Dispose();
+                traceSource.Dispose();
+            }
+
+            _sources.Clear();
         }
 
-        private Tracing CreateTraceSource(string name)
+        private ITracingProxy CreateTracingProxy(string name)
         {
-            SourceSwitch sourceSwitch = Switch;
+            var sourceSwitch = GetSourceSwitch(name);
+            var proxy = new TracingProxy(name, _secretMasker, sourceSwitch, _hostTraceListener);
+            var inner = CreateInnerTracing(name, sourceSwitch, _enhancedLoggingEnabled);
+            proxy.ExchangeInner(inner);
+            return proxy;
+        }
 
-            TraceLevel sourceTraceLevel;
-            if (_traceSetting.DetailTraceSetting.TryGetValue(name, out sourceTraceLevel))
+        private Tracing CreateInnerTracing(string name, SourceSwitch sourceSwitch, bool enhanced)
+        {
+            return enhanced
+                ? new EnhancedTracing(name, _secretMasker, sourceSwitch, _hostTraceListener)
+                : new Tracing(name, _secretMasker, sourceSwitch, _hostTraceListener);
+        }
+
+        private SourceSwitch GetSourceSwitch(string name)
+        {
+            if (_traceSetting.DetailTraceSetting.TryGetValue(name, out TraceLevel sourceTraceLevel))
             {
-                sourceSwitch = new SourceSwitch("VSTSAgentSubSwitch")
+                return new SourceSwitch("VSTSAgentSubSwitch")
                 {
                     Level = sourceTraceLevel.ToSourceLevels()
                 };
             }
-            return new Tracing(name, _secretMasker, sourceSwitch, _hostTraceListener);
+
+            return Switch;
+        }
+
+        /// <summary>
+        /// Switches existing trace sources to match the specified enhanced logging state.
+        /// </summary>
+        private void SwitchExistingTraceSources(bool shouldUseEnhanced)
+        {
+            foreach (var kvp in _sources)
+            {
+                var name = kvp.Key;
+                var proxy = kvp.Value;
+                var sourceSwitch = GetSourceSwitch(name);
+                proxy.ReplaceInner(() => CreateInnerTracing(name, sourceSwitch, shouldUseEnhanced));
+            }
         }
     }
 }

@@ -512,6 +512,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             return GetArg(Configure?.ProxyPassword, Constants.Agent.CommandLine.Args.ProxyPassword);
         }
 
+        public bool GetUseBasicAuthForProxy()
+        {
+            return TestFlag(Configure?.UseBasicAuthForProxy, Constants.Agent.CommandLine.Flags.UseBasicAuthForProxy);
+        }
+
         public bool GetSkipCertificateValidation()
         {
             return TestFlag(Configure?.SslSkipCertValidation, Constants.Agent.CommandLine.Flags.SslSkipCertValidation);

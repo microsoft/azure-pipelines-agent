@@ -191,6 +191,7 @@ namespace Agent.Plugins.Repository
         private const string _remoteRefsPrefix = "refs/remotes/origin/";
         private const string _pullRefsPrefix = "refs/pull/";
         private const string _remotePullRefsPrefix = "refs/remotes/pull/";
+        private const string _gitUseBasicAuthForProxyConfig = "-c http.proxyAuthMethod=basic";
 
         private const string _tenantId = "tenantid";
         private const string _clientId = "servicePrincipalId";
@@ -798,7 +799,39 @@ namespace Agent.Plugins.Repository
                     string args = ComposeGitArgs(executionContext, gitCommandManager, configKey, username, password, useBearerAuthType);
                     additionalFetchArgs.Add(args);
 
-                    if (additionalFetchFilterOptions.Any() && AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean())
+                    // Partial Clone Credential Handling:
+                    // Two feature flags control when credentials are added to git checkout for partial clones:
+                    // 1. AddForceCredentialsToGitCheckout (legacy): Only checks explicit fetch filters
+                    // 2. AddForceCredentialsToGitCheckoutEnhanced (new): Checks both explicit filters AND inherited partial clone config
+                    // The enhanced flag takes precedence when both are enabled.
+                    bool hasExplicitFetchFilter = additionalFetchFilterOptions.Any();
+                    bool forceCredentialsLegacyEnabled = AgentKnobs.AddForceCredentialsToGitCheckout.GetValue(executionContext).AsBoolean();
+                    bool forceCredentialsEnhancedEnabled = AgentKnobs.AddForceCredentialsToGitCheckoutEnhanced.GetValue(executionContext).AsBoolean();
+
+                    bool shouldAddCredentials = false;
+ 
+                    // Enhanced behavior takes precedence - checks both explicit filters and promisor remote configuration
+                    if (forceCredentialsEnhancedEnabled)
+                    {
+                        // Enhanced detection: check for inherited partial clone configuration via git config
+                        bool hasInheritedPartialCloneConfig = await IsPartialCloneRepository(executionContext, gitCommandManager, targetPath);
+                        executionContext.Debug($"Enhanced partial clone detection - ExplicitFilter: {hasExplicitFetchFilter}, InheritedConfig: {hasInheritedPartialCloneConfig}, ForceCredentialsEnhanced: {forceCredentialsEnhancedEnabled}");
+                        if (hasExplicitFetchFilter || hasInheritedPartialCloneConfig)
+                        {
+                            executionContext.Debug("Adding credentials to checkout due to enhanced partial clone detection");
+                            shouldAddCredentials = true;
+                        }
+                    }
+                    else if (forceCredentialsLegacyEnabled && hasExplicitFetchFilter)
+                    {
+                        // Legacy behavior: only check explicit fetch filter, used when enhanced flag is disabled
+                        executionContext.Debug($"Legacy partial clone detection - ExplicitFilter: {hasExplicitFetchFilter}, ForceCredentials: {forceCredentialsLegacyEnabled}");
+                        executionContext.Debug("Adding credentials to checkout due to explicit fetch filter and legacy force credentials knob");
+                        shouldAddCredentials = true;
+                    }
+
+                    // Apply credentials to checkout if either feature flag condition was satisfied
+                    if (shouldAddCredentials)
                     {
                         additionalCheckoutArgs.Add(args);
                     }
@@ -834,6 +867,14 @@ namespace Agent.Plugins.Repository
                     ArgUtil.NotNullOrEmpty(proxyUrlWithCredString, nameof(proxyUrlWithCredString));
                     additionalFetchArgs.Add($"-c http.proxy=\"{proxyUrlWithCredString}\"");
                     additionalLfsFetchArgs.Add($"-c http.proxy=\"{proxyUrlWithCredString}\"");
+                    
+                    // Add proxy authentication method if Basic auth is enabled
+                    if (agentProxy.UseBasicAuthForProxy)
+                    {
+                        executionContext.Debug("Config proxy to use Basic authentication for git fetch.");
+                        additionalFetchArgs.Add(_gitUseBasicAuthForProxyConfig);
+                        additionalLfsFetchArgs.Add(_gitUseBasicAuthForProxyConfig);
+                    }
                 }
 
                 // Prepare ignore ssl cert error config for fetch.
@@ -937,11 +978,18 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"sourceVersion : {sourceVersion}");
             executionContext.Debug($"fetchTags : {fetchTags}");
 
+            // Determine if we should use fetch by commit based on shallow vs full clone scenarios
+            bool shouldFetchByCommit = fetchByCommit && !string.IsNullOrEmpty(sourceVersion) &&
+                (fetchDepth > 0 || AgentKnobs.FetchByCommitForFullClone.GetValue(executionContext).AsBoolean());
+
+            executionContext.Debug($"shouldFetchByCommit : {shouldFetchByCommit}");
+
             if (IsPullRequest(sourceBranch))
             {
                 // Build a 'fetch-by-commit' refspec iff the server allows us to do so in the shallow fetch scenario
+                // or if it's a full clone and the FetchByCommitForFullClone knob is enabled
                 // Otherwise, fall back to fetch all branches and pull request ref
-                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (shouldFetchByCommit)
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
@@ -955,8 +1003,9 @@ namespace Agent.Plugins.Repository
             else
             {
                 // Build a refspec iff the server allows us to fetch a specific commit in the shallow fetch scenario
+                // or if it's a full clone and the FetchByCommitForFullClone knob is enabled
                 // Otherwise, use the default fetch behavior (i.e. with no refspecs)
-                if (fetchDepth > 0 && fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+                if (shouldFetchByCommit)
                 {
                     refFetchedByCommit = $"{_remoteRefsPrefix}{sourceVersion}";
                     additionalFetchSpecs.Add($"+{sourceVersion}:{refFetchedByCommit}");
@@ -1069,6 +1118,13 @@ namespace Agent.Plugins.Repository
                         executionContext.Debug($"Config proxy server '{agentProxy.ProxyAddress}' for git submodule update.");
                         ArgUtil.NotNullOrEmpty(proxyUrlWithCredString, nameof(proxyUrlWithCredString));
                         additionalSubmoduleUpdateArgs.Add($"-c http.proxy=\"{proxyUrlWithCredString}\"");
+                        
+                        // Add proxy authentication method if Basic auth is enabled
+                        if (agentProxy.UseBasicAuthForProxy)
+                        {
+                            executionContext.Debug("Config proxy to use Basic authentication for git submodule update.");
+                            additionalSubmoduleUpdateArgs.Add(_gitUseBasicAuthForProxyConfig);
+                        }
                     }
 
                     // Prepare ignore ssl cert error config for fetch.
@@ -1167,6 +1223,21 @@ namespace Agent.Plugins.Repository
                         if (exitCode_proxyconfig != 0)
                         {
                             throw new InvalidOperationException($"Git config failed with exit code: {exitCode_proxyconfig}");
+                        }
+                        
+                        // Add proxy authentication method if Basic auth is enabled
+                        if (agentProxy.UseBasicAuthForProxy)
+                        {
+                            executionContext.Debug("Save proxy authentication method 'basic' to git config.");
+                            string proxyAuthMethodKey = "http.proxyAuthMethod";
+                            string proxyAuthMethodValue = "basic";
+                            configModifications[proxyAuthMethodKey] = proxyAuthMethodValue;
+
+                            int exitCode_proxyauth = await gitCommandManager.GitConfig(executionContext, targetPath, proxyAuthMethodKey, proxyAuthMethodValue);
+                            if (exitCode_proxyauth != 0)
+                            {
+                                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_proxyauth}");
+                            }
                         }
                     }
 
@@ -1489,6 +1560,41 @@ namespace Agent.Plugins.Repository
             }
 
             return filters;
+        }
+
+        private async Task<bool> IsPartialCloneRepository(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)
+        {
+            try
+            {
+                // Skip check if .git directory doesn't exist (not a Git repository)
+                string gitDir = Path.Combine(targetPath, ".git");
+                if (!Directory.Exists(gitDir))
+                {
+                    executionContext.Debug("Not a Git repository: .git directory does not exist");
+                    return false;
+                }
+
+                // Check for promisor remote configuration (primary indicator)
+                if (await gitCommandManager.GitConfigExist(executionContext, targetPath, "remote.origin.promisor"))
+                {
+                    executionContext.Debug("Detected partial clone: remote.origin.promisor exists");
+                    return true;
+                }
+
+                // Check for partial clone filter configuration (secondary indicator)
+                if (await gitCommandManager.GitConfigExist(executionContext, targetPath, "remote.origin.partialclonefilter"))
+                {
+                    executionContext.Debug("Detected partial clone: remote.origin.partialclonefilter exists");
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Default to false on detection failure to avoid breaking builds
+                executionContext.Debug($"Failed to detect partial clone state: {ex.Message}");
+                return false;
+            }
         }
 
         private async Task RunGitStatusIfSystemDebug(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath)

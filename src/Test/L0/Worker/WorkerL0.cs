@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
-using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -296,37 +295,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             message.Variables[Constants.Variables.Build.SourceVersionMessage] = "";
             message.Variables[Constants.Variables.System.SourceVersionMessage] = null;
-            message.Variables[Constants.Variables.Build.DefinitionName] = "";
+            message.Variables[Constants.Variables.Build.DefinitionName] = " ";
 
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
             Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
             Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.System.SourceVersionMessage]);
-            Assert.Equal("", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
-        }
-
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void VerifyJobRequestMessageVsoCommandsDeactivatedIfVariableCasesHandlesBase64EncodedVsoCommands()
-        {
-            Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage("jobWithVsoCommands");
-            // Set up
-            // A build variable is assigned a VSO command encoded as base 64 string
-            string vsoCommand = "##vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            string encodedVsoCommand = Convert.ToBase64String(Encoding.UTF8.GetBytes(vsoCommand));
-            message.Variables[Constants.Variables.Build.SourceVersionMessage] = encodedVsoCommand;
-
-            // Act
-            var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
-
-            // Expected 
-            // Returned string in it's decode form would have ## replaced with ** to deactivate vso command
-            string deactivatedVsoCommand = "**vso[task.setvariable variable=downloadUrl]https://www.evil.com";
-            string expected = Convert.ToBase64String(Encoding.UTF8.GetBytes(deactivatedVsoCommand));
-
-            Assert.Equal(expected, scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionMessage]);
+            Assert.Equal(" ", scrubbedMessage.Variables[Constants.Variables.Build.DefinitionName]);
         }
 
         private bool IsMessageIdentical(Pipelines.AgentJobRequestMessage source, Pipelines.AgentJobRequestMessage target)

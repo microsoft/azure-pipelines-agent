@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
         private readonly ClientSettingsInfo clientSettings;
         private readonly IAppTraceSource tracer;
 
-        private BlobstoreClientSettings(ClientSettingsInfo settings, IAppTraceSource tracer)
+        internal BlobstoreClientSettings(ClientSettingsInfo settings, IAppTraceSource tracer)
         {
             clientSettings = settings;
             this.tracer = tracer;
@@ -90,7 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             // Note: 9/6/2023 Remove the below check in couple of months.
             if (AgentKnobs.AgentEnablePipelineArtifactLargeChunkSize.GetValue(context).AsBoolean())
             {
-                if (clientSettings != null && clientSettings.Properties.ContainsKey(ClientSettingsConstants.ChunkSize))
+                // grab the client settings from the server first if available:
+                if (clientSettings?.Properties.ContainsKey(ClientSettingsConstants.ChunkSize) == true)
                 {
                     try
                     {
@@ -99,6 +100,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     catch (Exception exception)
                     {
                         tracer.Info($"Error converting the chunk size '{clientSettings.Properties[ClientSettingsConstants.ChunkSize]}': {exception.Message}.  Falling back to default.");
+                    }
+                }
+
+                // now check if this pipeline has an override chunk size set, and use that if available:
+                string overrideChunkSize = AgentKnobs.OverridePipelineArtifactChunkSize.GetValue(context).AsString();
+                if (!String.IsNullOrEmpty(overrideChunkSize))
+                {
+                    try
+                    {
+                        HashTypeExtensions.Deserialize(overrideChunkSize, out HashType overrideHashType);
+                        if (ChunkerHelper.IsHashTypeChunk(overrideHashType))
+                        {
+                            hashType = overrideHashType;
+                            tracer.Info($"Overriding chunk size to '{overrideChunkSize}'.");
+                        }
+                        else
+                        {
+                            tracer.Info($"Override chunk size '{overrideChunkSize}' is not a valid chunk type. Falling back to client settings.");
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        tracer.Info($"Error overriding the chunk size to '{overrideChunkSize}': {exception.Message}.  Falling back to client settings.");
                     }
                 }
             }
