@@ -242,6 +242,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             message.Variables[Constants.Variables.Release.ReleaseDefinitionName] = "##vso[setVariable]etc5";
             message.Variables[Constants.Variables.Release.ReleaseEnvironmentName] = "##vso[setVariable]etc6";
             message.Variables[Constants.Variables.Build.SourceVersionAuthor] = "##vso[setVariable]etc7";
+            message.Variables[Constants.Variables.Build.RequestedForEmail] = "##vso[setVariable]etc8";
+             message.Variables[Constants.Variables.Release.ReleaseRequestedForEmail] = "##vso[setVariable]etc9";
+              message.Variables[Constants.Variables.Release.ReleaseDeploymentRequestedForEmail] = "##vso[setVariable]etc10";
+
 
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
@@ -252,6 +256,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal("**vso[setVariable]etc5", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseDefinitionName]);
             Assert.Equal("**vso[setVariable]etc6", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseEnvironmentName]);
             Assert.Equal("**vso[setVariable]etc7", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionAuthor]);
+            Assert.Equal("**vso[setVariable]etc8", scrubbedMessage.Variables[Constants.Variables.Build.RequestedForEmail]);
+            Assert.Equal("**vso[setVariable]etc9", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseRequestedForEmail]);
+            Assert.Equal("**vso[setVariable]etc10", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseDeploymentRequestedForEmail]);
         }
 
         [Fact]
