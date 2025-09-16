@@ -84,14 +84,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (IStep step in steps)
                 {
                     Trace.Info($"Processing step {stepIndex + 1}/{steps.Count}: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
-                    EnhancedCorrelationContext.SetStep(step.ExecutionContext.Id.ToString("D"));
-                if (step is ITaskRunner corrTaskStep)
-                {
-                    EnhancedCorrelationContext.SetTask(corrTaskStep.Task.Reference.Id.ToString("D"));
-                }
+                    jobContext.SetCorrelationStep(step.ExecutionContext.Id.ToString("D"));
+                    
+                    if (step is ITaskRunner corrTaskStep)
+                    {
+                        jobContext.SetCorrelationTask(corrTaskStep.Task.Reference.Id.ToString("D"));
+                    }
 
-                Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
-                ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
+                    Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
+                    ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
                     ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
                     ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
                     stepIndex++;
@@ -133,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             jobCancelRegister = jobContext.CancellationToken.Register(() =>
                             {
                                 Trace.Info($"Job cancellation callback triggered [Step:'{step.DisplayName}', AgentShutdown:{HostContext.AgentShutdownToken.IsCancellationRequested}]");
-                                // mark job as cancelled
+                                // Mark job as cancelled
                                 jobContext.Result = TaskResult.Canceled;
                                 jobContext.Variables.Agent_JobStatus = jobContext.Result;
 
@@ -298,9 +299,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
 
                     Trace.Info($"Current state: job state = '{jobContext.Result}'");
-                EnhancedCorrelationContext.ClearStep();
-                EnhancedCorrelationContext.ClearTask();
-            }
+                    step.ExecutionContext.ClearCorrelationStep();
+                    step.ExecutionContext.ClearCorrelationTask();
+                }
                 Trace.Info($"Step iteration loop completed - All {steps.Count} steps processed, Final job result: {jobContext.Result}");
             }
         }
