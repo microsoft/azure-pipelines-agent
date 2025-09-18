@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         AgentShutdown = 3,
         OperatingSystemShutdown = 4,
         JobMetadataUpdate = 5,
+        FlushLogsRequest = 9999,
     }
 
     public struct WorkerMessage

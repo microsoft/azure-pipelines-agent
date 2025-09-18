@@ -707,6 +707,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_ENABLE_NEW_MASKER_AND_REGEXES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableTimeoutLogFlushing = new Knob(
+            nameof(EnableTimeoutLogFlushing),
+            "If true, enables timeout log flushing where worker gets 1 minute to flush logs after job timeout before force kill.",
+            new PipelineFeatureSource("EnableTimeoutLogFlushing"),
+            new RuntimeKnobSource("AZP_ENABLE_TIMEOUT_LOG_FLUSHING"),
+            new EnvironmentKnobSource("AZP_ENABLE_TIMEOUT_LOG_FLUSHING"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob SendSecretMaskerTelemetry = new Knob(
             nameof(SendSecretMaskerTelemetry),
             "If true, the agent will send telemetry about secret masking",

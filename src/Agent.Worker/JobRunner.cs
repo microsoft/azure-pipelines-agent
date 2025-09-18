@@ -103,6 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 IExecutionContext jobContext = null;
                 CancellationTokenRegistration? agentShutdownRegistration = null;
+                CancellationTokenRegistration? workerTimeoutRegistration = null;
                 VssConnection taskConnection = null;
                 VssConnection legacyTaskConnection = null;
                 IResourceMetricsManager resourceDiagnosticManager = null;
@@ -154,6 +155,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 throw new ArgumentException(HostContext.AgentShutdownReason.ToString(), nameof(HostContext.AgentShutdownReason));
                         }
                         jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                    });
+
+                    // Register for worker timeout cancellation - similar to agent shutdown
+                    workerTimeoutRegistration = HostContext.WorkerShutdownForTimeout.Register(() =>
+                    {
+                        Trace.Warning($"Worker shutdown for timeout triggered [JobId:{message.JobId}]");
+                        jobContext.AddIssue(new Issue() { Type = IssueType.Error, Message = "Job cancelled due to worker timeout." });
                     });
 
                     // Validate directory permissions.
@@ -452,6 +460,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         agentShutdownRegistration.Value.Dispose();
                         agentShutdownRegistration = null;
+                    }
+
+                    if (workerTimeoutRegistration != null)
+                    {
+                        workerTimeoutRegistration.Value.Dispose();
+                        workerTimeoutRegistration = null;
                     }
 
                     legacyTaskConnection?.Dispose();
