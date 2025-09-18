@@ -459,7 +459,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
 
                         // Ensure worker sees the enhanced logging knob if the listener enabled it
-                        if (enhancedLoggingFlag?.EffectiveState == "On" || true)
+                        if (enhancedLoggingFlag?.EffectiveState == "On")
                         {
                             environment["AZP_USE_ENHANCED_LOGGING"] = "true";
                             var traceManager = HostContext.GetService<ITraceManager>();
