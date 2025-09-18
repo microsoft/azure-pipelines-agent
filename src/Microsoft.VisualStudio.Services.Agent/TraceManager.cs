@@ -139,6 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 var name = kvp.Key;
                 var proxy = kvp.Value;
                 var sourceSwitch = GetSourceSwitch(name);
+                
                 proxy.ReplaceInner(() => CreateInnerTracing(name, sourceSwitch, shouldUseEnhanced));
             }
         }

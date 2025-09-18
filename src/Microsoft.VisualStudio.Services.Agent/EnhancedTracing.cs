@@ -88,8 +88,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private string FormatEnhancedLogMessage(string message, string operation)
         {
+            var correlation = GetCorrelationId();
+            var correlationPart = !string.IsNullOrEmpty(correlation) ? $"[{correlation}]" : "";
             var operationPart = !string.IsNullOrEmpty(operation) ? $"[{operation}]" : "";
-            return $"{operationPart} {message}".TrimEnd();
+            return $"{operationPart} {message} {correlationPart}".TrimEnd();
+        }
+
+        private string GetCorrelationId()
+        {
+            return EnhancedCorrelationContext.Build();
         }
 
         private string FormatDuration(TimeSpan duration)
@@ -126,6 +133,70 @@ namespace Microsoft.VisualStudio.Services.Agent
                     _tracing.LogLeavingWithDuration(_methodName, _stopwatch.Elapsed);
                 }
             }
+        }
+
+    }
+
+    // Ambient correlation context for enhanced logs only
+    public static class EnhancedCorrelationContext
+    {
+        private static readonly AsyncLocal<string> _step = new AsyncLocal<string>();
+        private static readonly AsyncLocal<string> _task = new AsyncLocal<string>();
+
+        // Thread-local reference to current ExecutionContext for correlation
+        private static readonly AsyncLocal<object> _currentExecutionContext = new AsyncLocal<object>();
+
+        public static void SetStep(string stepId) => _step.Value = stepId;
+        public static void ClearStep() => _step.Value = null;
+        public static void SetTask(string taskId) => _task.Value = taskId;
+        public static void ClearTask() => _task.Value = null;
+
+        // Set the current ExecutionContext for this async context
+        public static void SetCurrentExecutionContext(object executionContext)
+        {
+            _currentExecutionContext.Value = executionContext;
+        }
+
+        public static void ClearCurrentExecutionContext()
+        {
+            _currentExecutionContext.Value = null;
+        }
+
+        internal static string Build()
+        {
+            // Try to get correlation from current ExecutionContext first
+            var currentContext = _currentExecutionContext.Value;
+            if (currentContext != null)
+            {
+                // Use reflection to call BuildCorrelationId method safely
+                try
+                {
+                    var method = currentContext.GetType().GetMethod("BuildCorrelationId");
+                    if (method != null)
+                    {
+                        var correlationId = method.Invoke(currentContext, null) as string;
+                        if (!string.IsNullOrEmpty(correlationId))
+                        {
+                            return correlationId;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fall through to legacy implementation if reflection fails
+                }
+            }
+
+            // Fall back to legacy AsyncLocal implementation
+            var step = _step.Value;
+            var task = _task.Value;
+
+            if (string.IsNullOrEmpty(step))
+            {
+                return string.IsNullOrEmpty(task) ? string.Empty : $"TASK-{task}";
+            }
+
+            return string.IsNullOrEmpty(task) ? $"STEP-{step}" : $"STEP-{step}|TASK-{task}";
         }
     }
 }
