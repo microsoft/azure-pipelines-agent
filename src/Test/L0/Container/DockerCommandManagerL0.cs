@@ -57,8 +57,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
 
         private DockerCommandManager CreateDockerCommandManager()
         {
-            // Create a real DockerCommandManager - we'll handle Docker availability at test level
             var dockerManager = new DockerCommandManager();
+            
+            var processInvokerProperty = typeof(DockerCommandManager)
+                .GetField("_processInvoker", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            processInvokerProperty?.SetValue(dockerManager, _processInvoker.Object);
+            
             return dockerManager;
         }
 
@@ -128,7 +132,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         public async Task DockerStart_WithCheckBeforeRetryFalse_UsesStandardRetryLogic()
         {
             if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
             var exitCode = 0;
@@ -353,7 +356,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         public async Task DockerStart_WithCheckBeforeRetryTrue_NoRetriesEnabled_FailsImmediately()
         {
             if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
 
