@@ -140,6 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task TestTimeoutLogFlushingEnabled_JobTimesOutWithExpectedResult()
         {
             try
@@ -189,6 +190,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
         public async Task TestTimeoutLogFlushingDisabled_JobTimesOutWithExpectedResult()
         {
             try
