@@ -136,7 +136,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 // StreamWriter manages the underlying file handle across all platforms
                 // This avoids platform-specific disposal timing issues (like "Bad file descriptor" on macOS)
-                _pageWriter.Flush();
+                try
+                {
+                    _pageWriter.Flush();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // StreamWriter was already disposed - this is safe to ignore
+                    // Can happen during shutdown or cleanup scenarios
+                }
+                catch (IOException)
+                {
+                    // File handle may be invalid (e.g., "Bad file descriptor" on POSIX systems)
+                    // This can happen if the underlying file was closed externally
+                    // Safe to ignore as we're disposing anyway
+                }
+                
                 _pageWriter.Dispose();
                 _pageWriter = null;
                 

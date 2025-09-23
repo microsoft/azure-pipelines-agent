@@ -251,6 +251,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             message.Variables[Constants.Variables.Release.ReleaseDefinitionName] = "##vso[setVariable]etc5";
             message.Variables[Constants.Variables.Release.ReleaseEnvironmentName] = "##vso[setVariable]etc6";
             message.Variables[Constants.Variables.Build.SourceVersionAuthor] = "##vso[setVariable]etc7";
+            message.Variables[Constants.Variables.Agent.Name] = "test";
+            message.Variables[Constants.Variables.Agent.MachineName] = "gA==";
 
             var scrubbedMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(message);
 
@@ -261,6 +263,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal("**vso[setVariable]etc5", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseDefinitionName]);
             Assert.Equal("**vso[setVariable]etc6", scrubbedMessage.Variables[Constants.Variables.Release.ReleaseEnvironmentName]);
             Assert.Equal("**vso[setVariable]etc7", scrubbedMessage.Variables[Constants.Variables.Build.SourceVersionAuthor]);
+            Assert.Equal("test", scrubbedMessage.Variables[Constants.Variables.Agent.Name]);
+            Assert.Equal("gA==", scrubbedMessage.Variables[Constants.Variables.Agent.MachineName]);
         }
 
         [Fact]
@@ -395,38 +399,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
 
                 var jobMessage = CreateJobRequestMessage("job1");
-                var messages = new List<WorkerMessage>
-                {
-                    new WorkerMessage
-                    {
-                        Body = JsonUtility.ToString(jobMessage),
-                        MessageType = MessageType.NewJobRequest
-                    },
-                    new WorkerMessage
-                    {
-                        Body = "",
-                        MessageType = MessageType.FlushLogsRequest
-                    }
-                };
-                int messageIndex = 0;
+                var callCount = 0;
+                var jobStarted = new TaskCompletionSource<bool>();
 
                 _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                     {
-                        await Task.Delay(10); // Small delay to simulate message processing
-                        if (messageIndex < messages.Count)
+                        callCount++;
+                        if (callCount == 1)
                         {
-                            return messages[messageIndex++];
+                            // First call - return the job request
+                            return new WorkerMessage
+                            {
+                                Body = JsonUtility.ToString(jobMessage),
+                                MessageType = MessageType.NewJobRequest
+                            };
                         }
-                        // After all real messages, keep returning CancelRequest to avoid blocking
-                        return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        else if (callCount == 2)
+                        {
+                            // Second call - wait for job to start, then return FlushLogsRequest
+                            await jobStarted.Task.ConfigureAwait(false);
+                            await Task.Delay(50); // Give job a moment to start
+                            return new WorkerMessage
+                            {
+                                Body = "",
+                                MessageType = MessageType.FlushLogsRequest
+                            };
+                        }
+                        else
+                        {
+                            // Subsequent calls - return CancelRequest to avoid blocking
+                            await Task.Delay(10);
+                            return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        }
                     });
 
                 _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
                     .Returns(async (Pipelines.AgentJobRequestMessage msg, CancellationToken ct) =>
                     {
-                        // Simulate a job that completes shortly after FlushLogsRequest is processed
-                        await Task.Delay(150); // Give time for FlushLogsRequest to be processed
+                        // Signal that the job has started
+                        jobStarted.SetResult(true);
+                        
+                        // Run long enough to allow FlushLogsRequest to be processed
+                        // Use a loop with cancellation token support to be more realistic
+                        for (int i = 0; i < 100; i++)
+                        {
+                            if (ct.IsCancellationRequested || hc.WorkerShutdownForTimeout.IsCancellationRequested)
+                            {
+                                break;
+                            }
+                            await Task.Delay(50, CancellationToken.None); // Don't use ct to avoid cancellation race
+                        }
+                        
                         return TaskResult.Succeeded;
                     });
 
@@ -465,39 +489,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
 
                 var jobMessage = CreateJobRequestMessage("job1");
-                var arWorkerMessages = new WorkerMessage[]
-                {
-                    new WorkerMessage
-                    {
-                        Body = JsonUtility.ToString(jobMessage),
-                        MessageType = MessageType.NewJobRequest
-                    },
-                    new WorkerMessage
-                    {
-                        Body = "",
-                        MessageType = MessageType.FlushLogsRequest
-                    }
-                };
-                int messageIndex = 0;
+                var callCount = 0;
+                var jobStarted = new TaskCompletionSource<bool>();
 
                 _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                     {
-                        await Task.Delay(10); // Small delay to simulate message processing
-                        if (messageIndex < arWorkerMessages.Length)
+                        callCount++;
+                        if (callCount == 1)
                         {
-                            return arWorkerMessages[messageIndex++];
+                            // First call - return the job request
+                            return new WorkerMessage
+                            {
+                                Body = JsonUtility.ToString(jobMessage),
+                                MessageType = MessageType.NewJobRequest
+                            };
                         }
-                        // After all real messages, keep returning CancelRequest to avoid blocking
-                        return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        else if (callCount == 2)
+                        {
+                            // Second call - wait for job to start, then return FlushLogsRequest
+                            await jobStarted.Task.ConfigureAwait(false);
+                            await Task.Delay(50); // Give job a moment to start
+                            return new WorkerMessage
+                            {
+                                Body = "",
+                                MessageType = MessageType.FlushLogsRequest
+                            };
+                        }
+                        else
+                        {
+                            // Subsequent calls - return CancelRequest to avoid blocking
+                            await Task.Delay(10);
+                            return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        }
                     });
 
                 _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
                     .Returns(async (Pipelines.AgentJobRequestMessage jm, CancellationToken ct) =>
                     {
-                        // Simulate a job that completes after a brief delay, allowing FlushLogsRequest to be processed
-                        // Don't use cancellation token to avoid being cancelled by CancelRequest
-                        await Task.Delay(150); // Increased delay to ensure FlushLogsRequest is processed
+                        // Signal that the job has started
+                        jobStarted.SetResult(true);
+                        
+                        // Run long enough to allow FlushLogsRequest to be processed
+                        // Use a loop with cancellation token support to be more realistic
+                        for (int i = 0; i < 100; i++)
+                        {
+                            if (ct.IsCancellationRequested || hc.WorkerShutdownForTimeout.IsCancellationRequested)
+                            {
+                                break;
+                            }
+                            await Task.Delay(50, CancellationToken.None); // Don't use ct to avoid cancellation race
+                        }
+                        
                         return TaskResult.Succeeded;
                     });
 
@@ -536,39 +579,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
 
                 var jobMessage = CreateJobRequestMessage("job1");
-                var arWorkerMessages = new WorkerMessage[]
-                {
-                    new WorkerMessage
-                    {
-                        Body = JsonUtility.ToString(jobMessage),
-                        MessageType = MessageType.NewJobRequest
-                    },
-                    new WorkerMessage
-                    {
-                        Body = "",
-                        MessageType = MessageType.FlushLogsRequest
-                    }
-                };
-                int messageIndex = 0;
+                var callCount = 0;
+                var jobStarted = new TaskCompletionSource<bool>();
 
                 _processChannel.Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
                     .Returns(async () =>
                     {
-                        await Task.Delay(10); // Small delay to simulate message processing
-                        if (messageIndex < arWorkerMessages.Length)
+                        callCount++;
+                        if (callCount == 1)
                         {
-                            return arWorkerMessages[messageIndex++];
+                            // First call - return the job request
+                            return new WorkerMessage
+                            {
+                                Body = JsonUtility.ToString(jobMessage),
+                                MessageType = MessageType.NewJobRequest
+                            };
                         }
-                        // After all real messages, keep returning CancelRequest to avoid blocking
-                        return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        else if (callCount == 2)
+                        {
+                            // Second call - wait for job to start, then return FlushLogsRequest
+                            await jobStarted.Task.ConfigureAwait(false);
+                            await Task.Delay(50); // Give job a moment to start
+                            return new WorkerMessage
+                            {
+                                Body = "",
+                                MessageType = MessageType.FlushLogsRequest
+                            };
+                        }
+                        else
+                        {
+                            // Subsequent calls - return CancelRequest to avoid blocking
+                            await Task.Delay(10);
+                            return new WorkerMessage { MessageType = MessageType.CancelRequest, Body = "" };
+                        }
                     });
 
                 _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
                     .Returns(async (Pipelines.AgentJobRequestMessage jm, CancellationToken ct) =>
                     {
-                        // Simulate a job that completes after a brief delay, allowing FlushLogsRequest to be processed
-                        // Don't use cancellation token to avoid being cancelled by CancelRequest
-                        await Task.Delay(150); // Increased delay to ensure FlushLogsRequest is processed
+                        // Signal that the job has started
+                        jobStarted.SetResult(true);
+                        
+                        // Run long enough to allow FlushLogsRequest to be processed
+                        // Use a loop with cancellation token support to be more realistic
+                        for (int i = 0; i < 100; i++)
+                        {
+                            if (ct.IsCancellationRequested || hc.WorkerShutdownForTimeout.IsCancellationRequested)
+                            {
+                                break;
+                            }
+                            await Task.Delay(50, CancellationToken.None); // Don't use ct to avoid cancellation race
+                        }
+                        
                         return TaskResult.Succeeded;
                     });
 
