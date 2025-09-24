@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
 
             Version clientVersion = null;
-            var clientVersionMatchResult = verRegex.Match(serverVersionStr);
+            var clientVersionMatchResult = verRegex.Match(clientVersionStr);
             if (clientVersionMatchResult.Success && !string.IsNullOrEmpty(clientVersionMatchResult.Value))
             {
                 if (!Version.TryParse(clientVersionMatchResult.Value, out clientVersion))

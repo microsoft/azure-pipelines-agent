@@ -62,7 +62,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task StartContainersAsync(IExecutionContext executionContext, object data)
         {
-            Trace.Entering();
             using (Trace.EnteringWithDuration())
             {
                 ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -186,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 try
                 {
                     // Future: Set this client id. This is the MSI client ID.
-                    ChainedTokenCredential credential = envVar == "1"
+                    ChainedTokenCredential credential = isDebugMode
                         ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
                         : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
                     executionContext.Debug("Retrieving AAD token using MSI authentication...");
@@ -233,7 +232,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgumentNullException.ThrowIfNull(registryEndpoint);
 
                 CancellationToken cancellationToken = executionContext.CancellationToken;
-                Trace.Entering();
                 executionContext.Debug("Workload Identity Federation access token retrieval initiated");
 
                 try
@@ -905,8 +903,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var psOutputs = await _dockerManger.DockerPS(executionContext, $"--all --filter id={container.ContainerId} --filter status=running --no-trunc --format \"{{{{.ID}}}} {{{{.Status}}}}\"");
                     if (psOutputs.FirstOrDefault(x => !string.IsNullOrEmpty(x))?.StartsWith(container.ContainerId) != true)
                     {
-                        executionContext.Warning("Container is not in running state, retrieving container status and logs...");
-
                         // container is not up and running, pull docker log for this container.
                         await _dockerManger.DockerPS(executionContext, $"--all --filter id={container.ContainerId} --no-trunc --format \"{{{{.ID}}}} {{{{.Status}}}}\"");
                         int logsExitCode = await _dockerManger.DockerLogs(executionContext, container.ContainerId);
