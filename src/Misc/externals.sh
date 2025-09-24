@@ -181,6 +181,18 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    
+    # Copy pre-packaged tf-latest tools from repository
+    local pkgs_dir="$(get_abs_path "$(dirname $0)/../../pkgs/vstsom/vstsom-latest")"
+    local tf_latest_dir="$LAYOUT_DIR/externals/tf-latest"
+    local vstsom_latest_dir="$LAYOUT_DIR/externals/vstsom-latest"
+    if [ -d "$pkgs_dir" ]; then
+        mkdir -p "$tf_latest_dir" || checkRC 'mkdir'
+        mkdir -p "$vstsom_latest_dir" || checkRC 'mkdir'
+        cp -r "$pkgs_dir"/* "$tf_latest_dir/" || checkRC 'cp'
+        cp -r "$pkgs_dir"/* "$vstsom_latest_dir/" || checkRC 'cp'
+    fi
+    
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
@@ -213,6 +225,18 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm${BIT}/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    
+    # Copy pre-packaged tf-latest tools from repository
+    local pkgs_dir="$(get_abs_path "$(dirname $0)/../../pkgs/vstsom/vstsom-latest")"
+    local tf_latest_dir="$LAYOUT_DIR/externals/tf-latest"
+    local vstsom_latest_dir="$LAYOUT_DIR/externals/vstsom-latest"
+    if [ -d "$pkgs_dir" ]; then
+        mkdir -p "$tf_latest_dir" || checkRC 'mkdir'
+        mkdir -p "$vstsom_latest_dir" || checkRC 'mkdir'
+        cp -r "$pkgs_dir"/* "$tf_latest_dir/" || checkRC 'cp'
+        cp -r "$pkgs_dir"/* "$vstsom_latest_dir/" || checkRC 'cp'
+    fi
+    
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 

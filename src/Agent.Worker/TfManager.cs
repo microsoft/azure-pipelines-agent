@@ -73,42 +73,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public static async Task DownloadLatestTfToolsAsync(IExecutionContext executionContext)
-        {
-            ArgUtil.NotNull(executionContext, nameof(executionContext));
-            string externalsPath = Path.Combine(executionContext.GetVariableValueOrDefault("Agent.HomeDirectory"), Constants.Path.ExternalsDirectory);
-            ArgUtil.NotNull(externalsPath, nameof(externalsPath));
-
-            string tfLatestExternalsPath = Path.Combine(externalsPath, Constants.Path.TfLatestDirectory);
-            var retryOptions = new RetryOptions() { CurrentCount = 0, Limit = 3 };
-
-            if (!Directory.Exists(tfLatestExternalsPath))
-            {
-                const string tfDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/dev17.11vs_c0748e6e/vstsom.zip";
-                string tempTfDirectory = Path.Combine(externalsPath, "tf_latest_download_temp");
-
-                await DownloadAsync(executionContext, tfDownloadUrl, tempTfDirectory, tfLatestExternalsPath, retryOptions);
-            }
-            else
-            {
-                executionContext.Debug($"tf-latest download already exists at {tfLatestExternalsPath}.");
-            }
-
-            string vstsomLatestExternalsPath = Path.Combine(externalsPath, Constants.Path.ServerOMLatestDirectory);
-
-            if (!Directory.Exists(vstsomLatestExternalsPath))
-            {
-                const string vstsomDownloadUrl = "https://vstsagenttools.blob.core.windows.net/tools/vstsom/dev17.11vs_c0748e6e/vstsom.zip";
-                string tempVstsomDirectory = Path.Combine(externalsPath, "vstsom_latest_download_temp");
-
-                await DownloadAsync(executionContext, vstsomDownloadUrl, tempVstsomDirectory, vstsomLatestExternalsPath, retryOptions);
-            }
-            else
-            {
-                executionContext.Debug($"vstsom-latest download already exists at {vstsomLatestExternalsPath}.");
-            }
-        }
-
         public static async Task DownloadAsync(IExecutionContext executionContext, string blobUrl, string tempDirectory, string extractPath, IRetryOptions retryOptions)
         {
             Directory.CreateDirectory(tempDirectory);
