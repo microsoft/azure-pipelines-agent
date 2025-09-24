@@ -45,6 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent
         void ShutdownAgent(ShutdownReason reason);
         void WritePerfCounter(string counter);
         ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
+        // Added for flush logs support
+        CancellationToken WorkerShutdownForTimeout { get; }
+        void ShutdownWorkerForTimeout();
     }
 
     public enum StartupType
@@ -73,6 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private ILoggedSecretMasker _secretMasker;
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
+        private CancellationTokenSource _workerShutdownForTimeout = new CancellationTokenSource();
         private object _perfLock = new object();
         private Tracing _trace;
         private Tracing _vssTrace;
@@ -86,6 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         private HostType _hostType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
+        public CancellationToken WorkerShutdownForTimeout => _workerShutdownForTimeout.Token;
+
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
         public ProductInfoHeaderValue UserAgent => _userAgent;
@@ -549,6 +555,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
         }
+        
+        public void ShutdownWorkerForTimeout()
+        {
+            _trace.Info($"Worker will be shutdown");
+            _workerShutdownForTimeout.Cancel();
+        }
 
         public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
@@ -650,6 +662,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;
+
+                _workerShutdownForTimeout?.Dispose();
+                _workerShutdownForTimeout = null;
 
                 base.Dispose();
             }

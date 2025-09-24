@@ -60,7 +60,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Info(message, operation);
                 return;
             }
             inner.Info(message, operation);
@@ -71,7 +70,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Info(item, operation);
                 return;
             }
             inner.Info(item, operation);
@@ -82,7 +80,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Error(exception, operation);
                 return;
             }
             inner.Error(exception, operation);
@@ -93,7 +90,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Error(message, operation);
                 return;
             }
             inner.Error(message, operation);
@@ -104,7 +100,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Warning(message, operation);
                 return;
             }
             inner.Warning(message, operation);
@@ -115,7 +110,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Verbose(message, operation);
                 return;
             }
             inner.Verbose(message, operation);
@@ -126,7 +120,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Verbose(item, operation);
                 return;
             }
             inner.Verbose(item, operation);
@@ -137,7 +130,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Entering(name);
                 return;
             }
             inner.Entering(name);
@@ -148,16 +140,32 @@ namespace Microsoft.VisualStudio.Services.Agent
             var inner = _inner;
             if (inner is null)
             {
-                base.Leaving(name);
                 return;
             }
             inner.Leaving(name);
+        }
+
+        public override IDisposable EnteringWithDuration([CallerMemberName] string name = "")
+        {
+            var inner = _inner;
+            if (inner is null)
+            {
+                return new NoOpDisposable();
+            }
+            return inner.EnteringWithDuration(name);
         }
 
         protected override void Dispose(bool disposing)
         {
             // Do not dispose the inner here; TraceManager owns inner lifetimes.
             base.Dispose(disposing);
+        }
+    }
+
+    internal sealed class NoOpDisposable : IDisposable
+    {
+        public void Dispose()
+        {
         }
     }
 }
