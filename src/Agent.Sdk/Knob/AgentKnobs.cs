@@ -821,7 +821,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_INSTALL_LATEST_TF_EXE"),
             new EnvironmentKnobSource("AGENT_INSTALL_LATEST_TF_EXE"),
             new PipelineFeatureSource("InstallLatestTfExe"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseSparseCheckoutInCheckoutTask = new Knob(
             nameof(UseSparseCheckoutInCheckoutTask),
