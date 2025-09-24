@@ -38,9 +38,25 @@ namespace Agent.Plugins.Repository
 
         public static readonly int RetriesOnFailure = 3;
 
-        private string TfPath => AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-            ? Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf-legacy")
-            : Path.Combine(ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", "tf");
+        private string TfPath
+        {
+            get
+            {
+                string agentHomeDirectory = ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value;
+                if (AgentKnobs.InstallLatestTfExe.GetValue(ExecutionContext).AsBoolean())
+                {
+                    return Path.Combine(agentHomeDirectory, "externals", "tf-latest");
+                }
+                else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
+                {
+                    return Path.Combine(agentHomeDirectory, "externals", "tf-legacy");
+                }
+                else
+                {
+                    return Path.Combine(agentHomeDirectory, "externals", "tf");
+                }
+            }
+        }
 
         public string FilePath => Path.Combine(TfPath, "tf.exe");
 

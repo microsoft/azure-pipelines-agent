@@ -302,10 +302,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
-                    if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
-                    {
-                        await TfManager.DownloadLegacyTfToolsAsync(context);
-                    }
+                    // Download TF tools if needed
+                    await DownloadTfToolsIfNeededAsync(context, jobContext);
 
                     // build up 3 lists of steps, pre-job, job, post-job
                     Stack<IStep> postJobStepsBuilder = new Stack<IStep>();
@@ -866,6 +864,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"Unable to publish secret masker telemetry data. Exception: {ex}");
+            }
+        }
+
+        private async Task DownloadTfToolsIfNeededAsync(IExecutionContext context, IExecutionContext jobContext)
+        {
+            if (AgentKnobs.InstallLatestTfExe.GetValue(jobContext).AsBoolean())
+            {
+                context.Debug("Downloading latest TF tools");
+                await TfManager.DownloadLatestTfToolsAsync(context);
+            }
+            
+            if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
+            {
+                context.Debug("Downloading legacy TF tools");
+                await TfManager.DownloadLegacyTfToolsAsync(context);
             }
         }
 

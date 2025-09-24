@@ -210,9 +210,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Copy the OM binaries into the legacy host folder.
             ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
 
-            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+            string sourceDirectory;
+            if (AgentKnobs.InstallLatestTfExe.GetValue(ExecutionContext).AsBoolean())
+            {
+                sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOMLatest);
+            }
+            else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
+            {
+                sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
+            }
+            else
+            {
+                sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+            }
 
             string targetDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
                 ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
