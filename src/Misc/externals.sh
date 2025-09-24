@@ -60,6 +60,22 @@ function checkRC() {
     fi
 }
 
+function acquireRepositoryTool() {
+    local source_dir=$1 # E.g. "../../pkgs/vstsom/vstsom-latest"
+    local target_name=$2 # E.g. "tf-latest"
+    
+    local abs_source_dir="$(get_abs_path "$(dirname $0)/$source_dir")"
+    local target_dir="$LAYOUT_DIR/externals/$target_name"
+    
+    if [ -d "$abs_source_dir" ]; then
+        echo "Copying from $abs_source_dir to $target_dir"
+        mkdir -p "$target_dir" || checkRC 'mkdir'
+        cp -r "$abs_source_dir"/* "$target_dir/" || checkRC 'cp'
+    else
+        echo "Source directory not found: $abs_source_dir"
+    fi
+}
+
 function acquireExternalTool() {
     local download_source=$1 # E.g. https://vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local target_dir="$LAYOUT_DIR/externals/$2" # E.g. $LAYOUT_DIR/externals/pdbstr
@@ -183,15 +199,8 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
     
     # Copy pre-packaged tf-latest tools from repository
-    local pkgs_dir="$(get_abs_path "$(dirname $0)/../../pkgs/vstsom/vstsom-latest")"
-    local tf_latest_dir="$LAYOUT_DIR/externals/tf-latest"
-    local vstsom_latest_dir="$LAYOUT_DIR/externals/vstsom-latest"
-    if [ -d "$pkgs_dir" ]; then
-        mkdir -p "$tf_latest_dir" || checkRC 'mkdir'
-        mkdir -p "$vstsom_latest_dir" || checkRC 'mkdir'
-        cp -r "$pkgs_dir"/* "$tf_latest_dir/" || checkRC 'cp'
-        cp -r "$pkgs_dir"/* "$vstsom_latest_dir/" || checkRC 'cp'
-    fi
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "tf-latest"
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "vstsom-latest"
     
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
@@ -227,15 +236,8 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
     
     # Copy pre-packaged tf-latest tools from repository
-    local pkgs_dir="$(get_abs_path "$(dirname $0)/../../pkgs/vstsom/vstsom-latest")"
-    local tf_latest_dir="$LAYOUT_DIR/externals/tf-latest"
-    local vstsom_latest_dir="$LAYOUT_DIR/externals/vstsom-latest"
-    if [ -d "$pkgs_dir" ]; then
-        mkdir -p "$tf_latest_dir" || checkRC 'mkdir'
-        mkdir -p "$vstsom_latest_dir" || checkRC 'mkdir'
-        cp -r "$pkgs_dir"/* "$tf_latest_dir/" || checkRC 'cp'
-        cp -r "$pkgs_dir"/* "$vstsom_latest_dir/" || checkRC 'cp'
-    fi
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "tf-latest"
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "vstsom-latest"
     
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
