@@ -355,6 +355,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void GetSourceGitFetchPR_CallsGitRemotePrune()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                // Arrange.
+                string dumySourceFolder = Path.Combine(tc.GetDirectory(WellKnownDirectory.Bin), "SourceProviderL0");
+                try
+                {
+                    Directory.CreateDirectory(dumySourceFolder);
+                    string dumyGitFolder = Path.Combine(dumySourceFolder, ".git");
+                    Directory.CreateDirectory(dumyGitFolder);
+                    string dumyGitConfig = Path.Combine(dumyGitFolder, "config");
+                    File.WriteAllText(dumyGitConfig, "test git confg file");
+
+                    var executionContext = GetTestExecutionContext(tc, dumySourceFolder, "refs/pull/12345/merge", "a596e13f5db8869f44574be0392fb8fe1e790ce4", false);
+                    var endpoint = GetTestSourceEndpoint("https://github.com/microsoft/azure-pipelines-agent", false, false);
+
+                    var _gitCommandManager = GetDefaultGitCommandMock();
+                    tc.SetSingleton<IGitCommandManager>(_gitCommandManager.Object);
+                    tc.SetSingleton<IVstsAgentWebProxy>(new VstsAgentWebProxy());
+                    var _configStore = new Mock<IConfigurationStore>();
+                    _configStore.Setup(x => x.GetSettings()).Returns(() => new AgentSettings() { ServerUrl = "http://localhost:8080/tfs" });
+                    tc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                    tc.SetSingleton<IAgentCertificateManager>(new AgentCertificateManager());
+
+                    GitSourceProvider gitSourceProvider = new ExternalGitSourceProvider();
+                    gitSourceProvider.Initialize(tc);
+                    gitSourceProvider.SetVariablesInEndpoint(executionContext.Object, endpoint);
+
+                    // Act.
+                    gitSourceProvider.GetSourceAsync(executionContext.Object, endpoint, default(CancellationToken)).GetAwaiter().GetResult();
+
+                    // Assert.
+                    // Verify that GitRemotePrune is called before GitFetch when we have refspecs and fetchTags is true
+                    _gitCommandManager.Verify(x => x.GitRemotePrune(executionContext.Object, dumySourceFolder, "origin"), Times.Once);
+                    _gitCommandManager.Verify(x => x.GitFetch(executionContext.Object, dumySourceFolder, "origin", It.IsAny<int>(), It.IsAny<bool>(), new List<string>() { "+refs/heads/*:refs/remotes/origin/*", "+refs/pull/12345/merge:refs/remotes/pull/12345/merge" }, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+                }
+                finally
+                {
+                    IOUtil.DeleteDirectory(dumySourceFolder, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void GetSourceReCloneOnUrlNotMatch()
         {
             using (TestHostContext tc = new TestHostContext(this))
