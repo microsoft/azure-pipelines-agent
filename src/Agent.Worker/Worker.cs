@@ -114,7 +114,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             case MessageType.CancelRequest:
                                 Trace.Info("Job cancellation request received - initiating graceful job termination");
-                                cancel = true;
                                 jobRequestCancellationToken.Cancel();   // Expire the host cancellation token.
                                 break;
                             case MessageType.AgentShutdown:
@@ -132,6 +131,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 var metadataMessage = JsonUtility.FromString<JobMetadataMessage>(channelMessage.Body);
                                 jobRunner.UpdateMetadata(metadataMessage);
                                 Trace.Info("Job metadata update processed successfully");
+                                break;
+                            case MessageType.FlushLogsRequest:
+                                Trace.Info("FlushLogsRequest received in main message loop");
+                                HostContext.ShutdownWorkerForTimeout();
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException(nameof(channelMessage.MessageType), channelMessage.MessageType, nameof(channelMessage.MessageType));
