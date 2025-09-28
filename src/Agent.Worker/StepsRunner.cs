@@ -145,6 +145,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     conditionReTestResult = false;
                                     Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:AgentShutdown]");
                                 }
+                                else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
+                                    HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
+                                {
+                                    jobContext.Result = TaskResult.Canceled;
+                                    jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                    conditionReTestResult = false;
+                                    Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:WorkerTimeout]");
+                                }
                                 else
                                 {
                                     try
@@ -202,6 +210,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             conditionResult = false;
                             Trace.Info($"Condition evaluation skipped due to agent shutdown: '{step.DisplayName}'");
                         }
+                        else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
+                            HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
+                        {
+                            jobContext.Result = TaskResult.Canceled;
+                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                            conditionResult = false;
+                            Trace.Info($"Condition evaluation skipped due to worker timeout: '{step.DisplayName}'");
+                        }
                         else
                         {
                             try
@@ -239,8 +255,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         else
                         {
                             Trace.Info($"RunStepAsync execution initiated for step: '{step.DisplayName}'");
-                            // Run the step.
-                            await RunStepAsync(step, jobContext.CancellationToken);
+                            // Run the step with worker timeout integration.
+                            await RunStepWithTimeoutAsync(step, jobContext.CancellationToken);
                             Trace.Info($"RunStepAsync execution completed for step: '{step.DisplayName}' - Result: {step.ExecutionContext.Result}");
                         }
                     }
@@ -276,6 +292,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 }
                 Trace.Info($"Step iteration loop completed - All {steps.Count} steps processed, Final job result: {jobContext.Result}");
+            }
+        }
+
+        private async Task RunStepWithTimeoutAsync(IStep step, CancellationToken jobCancellationToken)
+        {
+            Trace.Info($"Individual step execution initiated: '{step.DisplayName}'");
+
+            // Check if timeout log flushing feature is enabled
+            bool timeoutLogFlushingEnabled = AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean();
+
+            // Register for worker timeout to cancel the step only if timeout log flushing is enabled
+            CancellationTokenRegistration? workerTimeoutRegistration = null;
+            if (timeoutLogFlushingEnabled && !HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
+            {
+                workerTimeoutRegistration = HostContext.WorkerShutdownForTimeout.Register(() =>
+                {
+                    Trace.Warning($"Worker timeout detected during step execution: '{step.DisplayName}' - cancelling step");
+                    step.ExecutionContext.Error("Step cancelled due to worker timeout");
+                    step.ExecutionContext.CancelToken();
+                });
+                Trace.Info($"Worker timeout registration active for step: '{step.DisplayName}'");
+            }
+
+            try
+            {
+                await RunStepAsync(step, jobCancellationToken);
+            }
+            finally
+            {
+                // Dispose worker timeout registration
+                if (workerTimeoutRegistration != null)
+                {
+                    workerTimeoutRegistration.Value.Dispose();
+                    Trace.Info($"Worker timeout registration disposed for step: '{step.DisplayName}'");
+                }
             }
         }
 
@@ -398,7 +449,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info($"Step result merged with command result - Step: {step.DisplayName}, CommandResult:{step.ExecutionContext.CommandResult} FinalResult: {step.ExecutionContext.Result}");
             }
 
-           // Fixup the step result if ContinueOnError.
+            // Fixup the step result if ContinueOnError.
             if (step.ExecutionContext.Result == TaskResult.Failed && step.ContinueOnError)
             {
                 step.ExecutionContext.Result = TaskResult.SucceededWithIssues;
