@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("Category", "Worker")]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task Test_Base_Node10(bool writeToBlobstorageService)
+        public async Task Test_Base_Node20(bool writeToBlobstorageService)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateNode10ScriptTask("echo Hey!"));
+                message.Steps.Add(CreateNode20ScriptTask("echo Hey!"));
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act

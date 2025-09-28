@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return step;
         }
 
-        protected static TaskStep CreateNode10ScriptTask(string script)
+        protected static TaskStep CreateNode20ScriptTask(string script)
         {
             var step = new TaskStep
             {
