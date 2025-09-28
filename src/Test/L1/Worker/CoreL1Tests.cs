@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     // Assert we used Node 10 from debug logs
                     var log = GetTimelineLogLines(steps[1]);
-                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node10")).Count());
+                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node20")).Count());
                 }
             }
             finally
