@@ -26,3 +26,10 @@ src/Misc/dotnet-install.*
 
 #generated
 src/Microsoft.VisualStudio.Services.Agent/BuildConstants.cs
+
+# ASA (Attack Surface Analyzer) files
+asa.sqlite*
+_asa_reports/
+asa_reports/
+*.asa
+*.sqlite-journal

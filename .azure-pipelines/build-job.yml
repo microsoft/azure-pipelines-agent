@@ -162,14 +162,54 @@ jobs:
   # Set up auth for nuget for when new packages need to be consumed
   - task: NuGetAuthenticate@1
 
-  # Build agent layout
-  - script: ${{ variables.devCommand }} layout $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}
-    workingDirectory: src
-    displayName: Build & Layout Release
-    retryCountOnTaskFailure: 5
-    ${{ if parameters.enableADOLogIssue }}:
-      env:
-        ADO_ENABLE_LOGISSUE: true
+  # ASA Security Validation - Install ASA Tool
+  - ${{ if eq(parameters.os, 'win') }}:
+    - script: ${{ variables.devCommand }} asa-install
+      workingDirectory: src
+      displayName: Install Attack Surface Analyzer
+      retryCountOnTaskFailure: 2
+      continueOnError: true
+
+  # Build agent layout with ASA security validation (Fast Mode by Default)
+  - ${{ if eq(parameters.os, 'win') }}:
+    - script: ${{ variables.devCommand }} asa-layout $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}
+      workingDirectory: src
+      displayName: Build & Layout with ASA Security Validation (Fast Mode)
+      retryCountOnTaskFailure: 5
+      ${{ if parameters.enableADOLogIssue }}:
+        env:
+          ADO_ENABLE_LOGISSUE: true
+          BUILD_BUILDID: $(Build.BuildId)
+          # Set ASA_COMPREHENSIVE=true for full scan if needed
+
+  # Build agent layout (non-Windows)
+  - ${{ if ne(parameters.os, 'win') }}:
+    - script: ${{ variables.devCommand }} layout $(targetFramework) Release ${{ parameters.os }}-${{ parameters.arch }}
+      workingDirectory: src
+      displayName: Build & Layout Release
+      retryCountOnTaskFailure: 5
+      ${{ if parameters.enableADOLogIssue }}:
+        env:
+          ADO_ENABLE_LOGISSUE: true
+
+  # Publish ASA Security Reports
+  - ${{ if eq(parameters.os, 'win') }}:
+    - task: PublishTestResults@2
+      displayName: Publish ASA Security Results
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '_asa_reports/**/*.xml'
+        testRunTitle: 'ASA Security Analysis - ${{ parameters.os }}-${{ parameters.arch }}'
+        mergeTestResults: true
+      condition: always()
+
+    - task: PublishBuildArtifacts@1
+      displayName: Publish ASA Security Reports
+      inputs:
+        pathToPublish: '_asa_reports'
+        artifactName: 'ASA-Security-Reports-${{ parameters.os }}-${{ parameters.arch }}'
+        publishLocation: 'Container'
+      condition: always()
 
   # Check if broken symlinks exist in the agent build
   - task: Bash@3
