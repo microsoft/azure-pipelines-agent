@@ -148,9 +148,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("f9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Id = Guid.Parse("h9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
-                    Version = "2.201.1"
+                    Version = "2.264.2"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
