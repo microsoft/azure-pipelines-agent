@@ -1,3 +1,13 @@
+## Features
+ - Updated logic to flush logs when worker is stuck in long running jobs (#5314)
+ - Ensure safe access to _proc in ProcessInvoker  (#5327)
+
+## Bugs
+ - CG alert - Update cmdLine task  (#5308)
+
+## Misc
+ - Fixed test cases for job timeout (#5332)
+
 
 ## Agent Downloads
 
