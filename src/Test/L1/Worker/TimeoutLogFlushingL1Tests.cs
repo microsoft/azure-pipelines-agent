@@ -150,7 +150,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 Environment.SetEnvironmentVariable("AZP_ENABLE_TIMEOUT_LOG_FLUSHING", "true");
 
                 // Set a very short job timeout (5 seconds) to force timeout
-                JobTimeout = TimeSpan.FromSeconds(1);
+                JobTimeout = TimeSpan.FromSeconds(5);
 
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
