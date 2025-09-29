@@ -98,6 +98,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
 
             _sources.Clear();
+
+            // Dispose the HostTraceListener to prevent "Bad file descriptor" errors on POSIX systems
+            _hostTraceListener?.Dispose();
         }
 
         private ITracingProxy CreateTracingProxy(string name)
