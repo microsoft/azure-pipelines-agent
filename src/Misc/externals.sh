@@ -60,6 +60,22 @@ function checkRC() {
     fi
 }
 
+function acquireRepositoryTool() {
+    local source_dir=$1 # E.g. "../../pkgs/vstsom/vstsom-latest"
+    local target_name=$2 # E.g. "tf-latest"
+    
+    local abs_source_dir="$(get_abs_path "$(dirname $0)/$source_dir")"
+    local target_dir="$LAYOUT_DIR/externals/$target_name"
+    
+    if [ -d "$abs_source_dir" ]; then
+        echo "Copying from $abs_source_dir to $target_dir"
+        mkdir -p "$target_dir" || checkRC 'mkdir'
+        cp -r "$abs_source_dir"/* "$target_dir/" || checkRC 'cp'
+    else
+        echo "Source directory not found: $abs_source_dir"
+    fi
+}
+
 function acquireExternalTool() {
     local download_source=$1 # E.g. https://vstsagenttools.blob.core.windows.net/tools/pdbstr/1/pdbstr.zip
     local target_dir="$LAYOUT_DIR/externals/$2" # E.g. $LAYOUT_DIR/externals/pdbstr
@@ -181,6 +197,11 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    
+    # Copy pre-packaged tf-latest tools from repository
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "tf-latest"
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "vstsom-latest"
+    
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
@@ -213,6 +234,11 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm${BIT}/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    
+    # Copy pre-packaged tf-latest tools from repository
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "tf-latest"
+    acquireRepositoryTool "../../pkgs/vstsom/vstsom-latest" "vstsom-latest"
+    
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 

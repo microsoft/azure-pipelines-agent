@@ -89,9 +89,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             if (PlatformUtil.RunningOnWindows)
             {
                 // Set TFVC_BUILDAGENT_POLICYPATH
-                string vstsomPath = AgentKnobs.InstallLegacyTfExe.GetValue(executionContext).AsBoolean()
-                    ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                    : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+                string vstsomPath;
+                if (AgentKnobs.InstallLatestTfExe.GetValue(executionContext).AsBoolean())
+                {
+                    vstsomPath = HostContext.GetDirectory(WellKnownDirectory.ServerOMLatest);
+                }
+                else if (AgentKnobs.InstallLegacyTfExe.GetValue(executionContext).AsBoolean())
+                {
+                    vstsomPath = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
+                }
+                else
+                {
+                    vstsomPath = HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+                }
 
                 string policyDllPath = Path.Combine(vstsomPath, "Microsoft.TeamFoundation.VersionControl.Controls.dll");
                 ArgUtil.File(policyDllPath, nameof(policyDllPath));
