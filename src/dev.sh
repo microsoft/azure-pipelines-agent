@@ -116,7 +116,7 @@ function detect_platform_and_runtime_id() {
     heading "Platform / RID detection"
 
     CURRENT_PLATFORM="windows"
-    if [[ ($(uname) == "Linux") || ($(uname) == "Darwin") ]]; then
+    if [[ ($(uname) == "Linux") || ($(uname) == "FreeBSD") || ($(uname) == "Darwin") ]]; then
         CURRENT_PLATFORM=$(uname | awk '{print tolower($0)}')
     fi
     
@@ -155,6 +155,8 @@ function detect_platform_and_runtime_id() {
                 DETECTED_RUNTIME_ID='linux-musl-arm64'
             fi
         fi
+    elif [[ "$CURRENT_PLATFORM" == 'freebsd' ]]; then
+        DETECTED_RUNTIME_ID='freebsd-x64'
     elif [[ "$CURRENT_PLATFORM" == 'darwin' ]]; then
         DETECTED_RUNTIME_ID='osx-x64'
         if command -v uname >/dev/null; then
@@ -199,7 +201,7 @@ function cmd_layout() {
     make_build "Layout"
 
     #change execution flag to allow running with sudo
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "freebsd") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         chmod +x "${LAYOUT_DIR}/bin/Agent.Listener"
         chmod +x "${LAYOUT_DIR}/bin/Agent.Worker"
         chmod +x "${LAYOUT_DIR}/bin/Agent.PluginHost"
@@ -213,7 +215,7 @@ function cmd_layout() {
 function cmd_test_l0() {
     heading "Testing L0"
 
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "freebsd") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         ulimit -n 1024
     fi
 
@@ -235,7 +237,7 @@ function cmd_test_l1() {
 
     heading "Testing L1"
 
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "freebsd") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         ulimit -n 1024
     fi
 
@@ -283,7 +285,7 @@ function cmd_package() {
 
     pushd "$PACKAGE_DIR" >/dev/null
 
-    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
+    if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "freebsd") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${PACKAGE_DIR}"
         tar -czf "${tar_name}" -C "${LAYOUT_DIR}" .
@@ -424,7 +426,7 @@ else
     RUNTIME_ID=$DETECTED_RUNTIME_ID
 fi
 
-_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:osx-x64:osx-arm64:win-x64:win-x86:win-arm64'
+_VALID_RIDS='linux-x64:linux-arm:linux-arm64:linux-musl-x64:linux-musl-arm64:freebsd-x64:osx-x64:osx-arm64:win-x64:win-x86:win-arm64'
 if [[ ":$_VALID_RIDS:" != *:$RUNTIME_ID:* ]]; then
     failed "must specify a valid target runtime ID (one of: $_VALID_RIDS)"
 fi
