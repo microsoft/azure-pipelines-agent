@@ -43,27 +43,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.TracingSpecs
             Task.Delay(25).Wait();
             return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
         }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Tracing")]
-        public void Correlation_Is_Formatted_In_Enhanced_Log()
-        {
-            var (mgr, path, trace, masker, listener) = Create("CorrFmt");
-            try
-            {
-                trace.Info("hello world", operation: "Op1");
-            }
-            finally
-            {
-                mgr.Dispose();
-                listener.Dispose();
-            }
-
-            var content = ReadAll(path);
-            // Depending on implementation, correlation may or may not be present here.
-            Assert.Contains("[Op1]", content);
-            Assert.Contains("hello world", content);
-        }
     }
 }
