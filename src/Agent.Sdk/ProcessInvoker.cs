@@ -338,7 +338,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 afterCancelKillProcessTreeAttemptSignal.Set();
             }))
             {
-                Trace.Info($"Process started with process id {_proc.Id}, waiting for process exit.");
+                Trace.Info($"Process started with process id {_proc?.Id ?? -1}, waiting for process exit.");
 
                 while (true)
                 {
@@ -373,11 +373,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 if (_proc.HasExited)
                 {
-                    Trace.Info($"Finished process {_proc.Id} with exit code {_proc.ExitCode}, and elapsed time {_stopWatch.Elapsed}.");
+                    Trace.Info($"Finished process {_proc?.Id ?? -1} with exit code {_proc?.ExitCode ?? -1}, and elapsed time {_stopWatch.Elapsed}.");
                 }
                 else
                 {
-                    Trace.Info($"Process _proc.HasExited={_proc.HasExited}, Process ID={_proc.Id},  and elapsed time {_stopWatch.Elapsed}.");
+                    Trace.Info($"Process _proc.HasExited={_proc?.HasExited ?? false}, Process ID={_proc?.Id ?? -1},  and elapsed time {_stopWatch.Elapsed}.");
                 }
             }
 
@@ -459,13 +459,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
-            ArgUtil.NotNull(_proc, nameof(_proc));
+            // Store proc reference locally to prevent race conditions with Dispose()
+            Process proc = _proc;
+            ArgUtil.NotNull(proc, nameof(_proc));
+            
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);
                 if (sigint_succeed)
                 {
-                    Trace.Info($"Process {_proc.Id} cancelled successfully through Ctrl+C/SIGINT.");
+                    Trace.Info($"Process {proc.Id} cancelled successfully through Ctrl+C/SIGINT.");
                     return;
                 }
 
@@ -477,12 +480,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 bool sigterm_succeed = await SendSIGTERM(SigtermTimeout);
                 if (sigterm_succeed)
                 {
-                    Trace.Info($"Process {_proc.Id} terminate successfully through Ctrl+Break/SIGTERM.");
+                    Trace.Info($"Process {proc.Id} terminate successfully through Ctrl+Break/SIGTERM.");
                     return;
                 }
             }
 
-            Trace.Info($"[{_proc.Id}] Kill entire process tree with root {_proc.Id} since both cancel and terminate signal has been ignored by the target process.");
+            Trace.Info($"[{proc.Id}] Kill entire process tree with root {proc.Id} since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
         }
 
@@ -508,7 +511,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
-            Trace.Info($"Exited process {_proc.Id} with exit code {_proc.ExitCode}");
+            Trace.Info($"Exited process {_proc?.Id ?? -1} with exit code {_proc?.ExitCode ?? -1}");
             if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
@@ -545,7 +548,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info($"[{_proc.Id}] STDOUT/STDERR stream read finished.");
+                Trace.Info($"[{_proc?.Id ?? -1}] STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
@@ -575,7 +578,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info($"[{_proc.Id}] Close STDIN after the first redirect finished.");
+                                Trace.Info($"[{_proc?.Id ?? -1}] Close STDIN after the first redirect finished.");
                                 standardIn.Close();
                                 break;
                             }
@@ -583,7 +586,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info($"[{_proc.Id}] STDIN stream write finished.");
+                Trace.Info($"[{_proc?.Id ?? -1}] STDIN stream write finished.");
             });
         }
 
