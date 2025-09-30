@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private readonly Terminal _term;
         private readonly ILoggedSecretMasker _secretMasker;
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
+        private CancellationTokenSource _workerShutdownForTimeoutTokenSource = new CancellationTokenSource();
         private string _suiteName;
         private string _testName;
         private Tracing _trace;
@@ -36,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private StartupType _startupType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
+        public CancellationToken WorkerShutdownForTimeout => _workerShutdownForTimeoutTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
 
@@ -463,13 +465,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _agentShutdownTokenSource.Cancel();
         }
 
+        public void ShutdownWorkerForTimeout()
+        {
+            _workerShutdownForTimeoutTokenSource.Cancel();
+        }
+
         public void WritePerfCounter(string counter)
         {
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
         {
-            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.Tests.TestHostContext");
+            // Return null for unknown variables to allow knob fallback to other sources
+            return null;
         }
 
         IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
@@ -497,6 +505,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _trace?.Dispose();
                 _secretMasker?.Dispose();
                 _agentShutdownTokenSource?.Dispose();
+                _workerShutdownForTimeoutTokenSource?.Dispose();
                 try
                 {
                     Directory.Delete(_tempDirectoryRoot);
