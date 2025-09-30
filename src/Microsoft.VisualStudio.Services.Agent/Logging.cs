@@ -152,7 +152,15 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // Safe to ignore as we're disposing anyway
                 }
                 
-                _pageWriter.Dispose();
+                try
+                {
+                    _pageWriter.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // StreamWriter was already disposed - this is safe to ignore
+                    // Can happen during timeout scenarios or concurrent disposal
+                }
                 _pageWriter = null;
                 
                 _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
