@@ -142,15 +142,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return step;
         }
 
-        protected static TaskStep CreateNode10ScriptTask(string script)
+        protected static TaskStep CreateNode20ScriptTask(string script)
         {
             var step = new TaskStep
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("f9bafed4-0b18-4f58-968d-86655b4d2ce9"),
+                    Id = Guid.Parse("b9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
-                    Version = "2.201.1"
+                    Version = "2.250.1"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
@@ -250,10 +250,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
             await SetupMessage(_l1HostContext, message);
 
-            using (var cts = new CancellationTokenSource())
+            var cts = new CancellationTokenSource();
+            try
             {
                 cts.CancelAfter((int)JobTimeout.TotalMilliseconds);
-                return await RunWorker(_l1HostContext, message, cts.Token);
+                var result = await RunWorker(_l1HostContext, message, cts.Token);
+                
+                // If job timed out, give it a moment to complete finalization
+                if (result.TimedOut)
+                {
+                    await Task.Delay(100); // Allow 100ms for cleanup to complete
+                }
+                
+                return result;
+            }
+            finally
+            {
+                // Dispose after ensuring cleanup had time to complete
+                cts?.Dispose();
             }
         }
 
@@ -333,6 +347,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 }
                 else
                 {
+                    // Timeout occurred - give worker task a moment to complete cleanup gracefully
+                    try
+                    {
+                        // Wait up to 2 seconds for graceful shutdown after timeout
+                        using (var gracefulShutdownCts = new CancellationTokenSource(TimeSpan.FromSeconds(2)))
+                        {
+                            await workerTask.WaitAsync(gracefulShutdownCts.Token);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Worker didn't complete gracefully within 2 seconds, that's expected for timeout tests
+                    }
+                    catch (Exception)
+                    {
+                        // Other exceptions during shutdown are also expected in timeout scenarios
+                    }
+
                     return new TestResults
                     {
                         TimedOut = true
