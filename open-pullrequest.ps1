@@ -6,7 +6,7 @@ param(
 
 # Getting a created PR. Result object has interface in accordance with article https://docs.github.com/en/rest/reference/pulls#get-a-pull-request
 function Get-PullRequest() {
-    return (gh api -X GET repos/:owner/:repo/pulls -F head=":owner:$SourceBranch" -f state=open -f base=master | ConvertFrom-Json)
+    return (gh api -X GET repos/:owner/:repo/pulls -F head="$SourceBranch" -f state=open -f base=master | ConvertFrom-Json)
 }
 
 $openedPR = Get-PullRequest
