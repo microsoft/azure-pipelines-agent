@@ -11,6 +11,35 @@ These scripts allow you to create a copy of an existing PR, which is useful when
 
 ## Available Scripts
 
+### Bash Wrapper: `duplicate-pr.sh` (Linux/macOS)
+
+A convenient bash wrapper script for Unix-like systems.
+
+#### Prerequisites
+- Bash
+- Node.js (v12 or later)
+- Git
+- GitHub CLI (`gh`) installed and authenticated
+
+#### Usage
+
+```bash
+./release/duplicate-pr.sh <pr-number> [options]
+```
+
+#### Examples
+
+```bash
+# Duplicate PR #1234
+./release/duplicate-pr.sh 1234
+
+# Duplicate with custom branch
+./release/duplicate-pr.sh 1234 --branch=my-branch
+
+# Dry run
+./release/duplicate-pr.sh 1234 --dryrun
+```
+
 ### Node.js Version: `duplicatePR.js`
 
 A cross-platform Node.js script that works on Windows, macOS, and Linux.
