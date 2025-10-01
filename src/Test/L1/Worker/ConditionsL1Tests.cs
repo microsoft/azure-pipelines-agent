@@ -24,8 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Remove all tasks
                 message.Steps.Clear();
                 // Add a normal step and one that only runs on failure
-                message.Steps.Add(CreateScriptTask("echo This will run"));
-                var failStep = CreateScriptTask("echo This shouldn't...");
+                message.Steps.Add(CreateNode20ScriptTask("echo This will run"));
+                var failStep = CreateNode20ScriptTask("echo This shouldn't...");
                 failStep.Condition = "failed()";
                 message.Steps.Add(failStep);
 

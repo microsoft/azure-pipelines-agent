@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var message = LoadTemplateMessage();
                 // Remove all tasks
                 message.Steps.Clear();
-                var tagStep = CreateScriptTask("echo \"##vso[build.addbuildtag]sometag\"");
+                var tagStep = CreateNode20ScriptTask("echo \"##vso[build.addbuildtag]sometag\"");
                 tagStep.Target = new StepTarget
                 {
                     Commands = "restricted"

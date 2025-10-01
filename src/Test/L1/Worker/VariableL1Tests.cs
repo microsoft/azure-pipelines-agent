@@ -27,8 +27,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Remove all tasks
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateScriptTask("echo \"##vso[task.setvariable variable=testVar]b\""));
-                message.Steps.Add(CreateScriptTask("echo TestVar=$(testVar)"));
+                message.Steps.Add(CreateNode20ScriptTask("echo \"##vso[task.setvariable variable=testVar]b\""));
+                message.Steps.Add(CreateNode20ScriptTask("echo TestVar=$(testVar)"));
                 message.Variables.Add("testVar", new Pipelines.VariableValue("a", false, false));
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
@@ -63,8 +63,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             // Remove all tasks
             message.Steps.Clear();
             // Add a normal step and one that only runs on failure
-            message.Steps.Add(CreateScriptTask("echo ##vso[task.setvariable variable=system]someothervalue"));
-            var alwayStep = CreateScriptTask("echo SystemVariableValue=$(system)");
+            message.Steps.Add(CreateNode20ScriptTask("echo ##vso[task.setvariable variable=system]someothervalue"));
+            var alwayStep = CreateNode20ScriptTask("echo SystemVariableValue=$(system)");
             alwayStep.Condition = "always()";
             message.Steps.Add(alwayStep);
 
