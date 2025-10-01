@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateNode20ScriptTask("echo Hey!"));
+                message.Steps.Add(CreateScriptTask("echo Hey!"));
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
@@ -113,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Remove all tasks
                 message.Steps.Clear();
                 // Add variable setting tasks
-                var scriptTask = CreateNode20ScriptTask("echo   ");
+                var scriptTask = CreateScriptTask("echo   ");
                 Environment.SetEnvironmentVariable("DISABLE_INPUT_TRIMMING", disableInputTrimming.ToString());
                 message.Steps.Add(scriptTask);
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());

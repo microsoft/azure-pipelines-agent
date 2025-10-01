@@ -26,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
 
-                message.Steps.Add(CreateNode20ScriptTask("echo Testing timeout log flushing functionality"));
+                message.Steps.Add(CreateScriptTask("echo Testing timeout log flushing functionality"));
 
                 // Act
                 var results = await RunWorker(message);
@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
 
-                message.Steps.Add(CreateNode20ScriptTask("echo Testing default timeout log flushing behavior"));
+                message.Steps.Add(CreateScriptTask("echo Testing default timeout log flushing behavior"));
 
                 // Act
                 var results = await RunWorker(message);
@@ -86,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 message.Steps.Clear();
 
                 // Use cross-platform script task (works on Windows, macOS, and Linux)
-                message.Steps.Add(CreateNode20ScriptTask("echo Testing timeout log flushing with single step"));
+                message.Steps.Add(CreateScriptTask("echo Testing timeout log flushing with single step"));
 
                 // Act
                 var results = await RunWorker(message);
@@ -121,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     var message = LoadTemplateMessage();
                     message.Steps.Clear();
 
-                    message.Steps.Add(CreateNode20ScriptTask($"echo \"Testing with env value: {testValue}\""));
+                    message.Steps.Add(CreateScriptTask($"echo \"Testing with env value: {testValue}\""));
 
                     // Act
                     var results = await RunWorker(message);
@@ -159,17 +159,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Use reliable commands that will definitely take more than 5 seconds
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    message.Steps.Add(CreateNode20ScriptTask("powershell -Command \"Start-Sleep -Seconds 10\""));
+                    message.Steps.Add(CreateScriptTask("powershell -Command \"Start-Sleep -Seconds 10\""));
                 }
                 else
                 {
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                     {
-                        message.Steps.Add(CreateNode20ScriptTask("/bin/bash -c 'sleep 10'"));
+                        message.Steps.Add(CreateScriptTask("/bin/bash -c 'sleep 10'"));
                     }
                     else
                     {
-                        message.Steps.Add(CreateNode20ScriptTask("/bin/sleep 10"));
+                        message.Steps.Add(CreateScriptTask("/bin/sleep 10"));
                     }
                 }
 
@@ -208,17 +208,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Add a script task that runs longer than the timeout (sleep for 10 seconds, timeout is 5 seconds)
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    message.Steps.Add(CreateNode20ScriptTask("powershell -Command \"Start-Sleep -Seconds 10\""));
+                    message.Steps.Add(CreateScriptTask("powershell -Command \"Start-Sleep -Seconds 10\""));
                 }
                 else
                 {
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                     {
-                        message.Steps.Add(CreateNode20ScriptTask("/bin/bash -c 'sleep 10'"));
+                        message.Steps.Add(CreateScriptTask("/bin/bash -c 'sleep 10'"));
                     }
                     else
                     {
-                        message.Steps.Add(CreateNode20ScriptTask("/bin/sleep 10"));
+                        message.Steps.Add(CreateScriptTask("/bin/sleep 10"));
                     }
                 }
 

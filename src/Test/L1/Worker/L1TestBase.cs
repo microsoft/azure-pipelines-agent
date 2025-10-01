@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return JsonUtility.FromString<Pipelines.AgentJobRequestMessage>(message);
         }
 
-        protected static TaskStep CreateNode20ScriptTask(string script)
+        protected static TaskStep CreateScriptTask(string script)
         {
             var step = new TaskStep
             {
