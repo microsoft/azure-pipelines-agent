@@ -98,8 +98,8 @@ then
                 exit 1
             fi
 
-            # libicu versions: libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
-            apt install -y libicu74 || apt install -y libicu70 || apt install -y libicu67 || apt install  -y libicu66 || apt install -y libicu63 || apt install -y libicu60  || apt install -y libicu57 || apt install -y libicu55 || apt install -y libicu52
+            # libicu versions: libicu76 -> libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
+            apt install -y libicu76 || apt install -y libicu74 || apt install -y libicu70 || apt install -y libicu67 || apt install  -y libicu66 || apt install -y libicu63 || apt install -y libicu60  || apt install -y libicu57 || apt install -y libicu55 || apt install -y libicu52
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -132,8 +132,8 @@ then
                     exit 1
                 fi
 
-                # libicu versions: libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
-                apt-get install -y libicu74 || apt-get install -y libicu70 || apt-get install -y libicu67 || apt-get install -y libicu66 || apt-get install -y libicu63 || apt-get install -y libicu60 || apt-get install -y libicu57 || apt-get install -y libicu55 || apt-get install -y libicu52
+                # libicu versions: libicu76 -> libicu74 -> libicu70 -> libicu67 -> libicu66 -> libicu63 -> libicu60 -> libicu57 -> libicu55 -> libicu52
+                apt-get install -y libicu76 || apt-get install -y libicu74 || apt-get install -y libicu70 || apt-get install -y libicu67 || apt-get install -y libicu66 || apt-get install -y libicu63 || apt-get install -y libicu60 || apt-get install -y libicu57 || apt-get install -y libicu55 || apt-get install -y libicu52
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
