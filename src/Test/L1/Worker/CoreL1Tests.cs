@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateNode20ScriptTask("echo Hey!"));
+                message.Steps.Add(CreateScriptTask("echo Hey!"));
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act

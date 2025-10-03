@@ -129,25 +129,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("d9bafed4-0b18-4f58-968d-86655b4d2ce9"),
-                    Name = "CmdLine",
-                    Version = "2.164.0"
-                },
-                Name = "CmdLine",
-                DisplayName = "CmdLine",
-                Id = Guid.NewGuid()
-            };
-            step.Inputs.Add("script", script);
-
-            return step;
-        }
-
-        protected static TaskStep CreateNode20ScriptTask(string script)
-        {
-            var step = new TaskStep
-            {
-                Reference = new TaskStepDefinitionReference
-                {
                     Id = Guid.Parse("b9bafed4-0b18-4f58-968d-86655b4d2ce9"),
                     Name = "CmdLine",
                     Version = "2.250.1"
@@ -433,9 +414,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       },
       'type': 'task',
       'reference': {
-        'id': 'd9bafed4-0b18-4f58-968d-86655b4d2ce9',
+        'id': 'b9bafed4-0b18-4f58-968d-86655b4d2ce9',
         'name': 'CmdLine',
-        'version': '2.164.0'
+        'version': '2.250.0'
       },
       'id': '9c939e41-62c2-5605-5e05-fc3554afc9f5',
       'name': 'CmdLine',
