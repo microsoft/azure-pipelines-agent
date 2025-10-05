@@ -500,6 +500,7 @@ namespace Agent.Plugins.BuildArtifacts
             }
             catch (Exception ex)
             {
+                context.Debug(ex.ToString());
                 throw new ArgumentException("Get project failed " + projectName + " , exception: " + ex);
             }
 

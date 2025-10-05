@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.Services.Common;
 using System.Diagnostics;
 using Newtonsoft.Json;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
+using System.Net.Http;
 
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -927,6 +928,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
 
             var agentServer = HostContext.GetService<IAgentServer>();
+            if (!string.IsNullOrEmpty(detailInfo))
+            {
+                Trace.Verbose($"[CompleteJobRequest] detailInfo-length={detailInfo.Length}");
+            }
             int completeJobRequestRetryLimit = 5;
             List<Exception> exceptions = new List<Exception>();
             Trace.Info(StringUtil.Format("Job completion retry configuration [JobId:{0}, RetryLimit:{1}, DelayBetweenRetries:5s]",
@@ -1002,11 +1007,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     catch (InvalidOperationException ex)
                     {
                         //cannot parse the Uri - not a fatal error
+                        Trace.Error("Cannot parse job server URL (non-fatal)");
                         Trace.Error(ex);
                     }
                     catch (UriFormatException ex)
                     {
                         //cannot parse the Uri - not a fatal error
+                        Trace.Error("Cannot parse job server URL (non-fatal)");
                         Trace.Error(ex);
                     }
                 }
@@ -1023,6 +1030,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (SocketException ex)
             {
+                Trace.Error("Socket exception during error report to server");
+                Trace.Error(ex);
                 ExceptionsUtil.HandleSocketException(ex, message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection)).Url.ToString(), (message) => Trace.Error(message));
             }
             catch (Exception ex)

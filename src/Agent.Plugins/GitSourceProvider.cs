@@ -1593,6 +1593,7 @@ namespace Agent.Plugins.Repository
             {
                 // Default to false on detection failure to avoid breaking builds
                 executionContext.Debug($"Failed to detect partial clone state: {ex.Message}");
+                executionContext.Debug(ex.ToString());
                 return false;
             }
         }

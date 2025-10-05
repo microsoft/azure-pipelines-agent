@@ -105,7 +105,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info("Create local group and grant folder permission to logon account.");
             string agentRoot = HostContext.GetDirectory(WellKnownDirectory.Root);
             string workFolder = HostContext.GetDirectory(WellKnownDirectory.Work);
-            Directory.CreateDirectory(workFolder);
+
+            try
+            {
+                Directory.CreateDirectory(workFolder);
+            }
+            catch (Exception ex)
+            {
+                Trace.Error($"Failed to create work directory '{workFolder}'");
+                Trace.Error(ex);
+                throw;
+            }
+
             _windowsServiceHelper.GrantDirectoryPermissionForAccount(logonAccount, new[] { agentRoot, workFolder });
 
             _autoLogonRegManager.UpdateRegistrySettings(command, domainName, userName, logonPassword);
@@ -208,7 +219,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 //ExecuteAsync API of ProcessInvoker waits for the process to exit
                 var args = $@"-r -t 15 -c ""{msg}""";
                 Trace.Info($"Shutdown.exe path: {shutdownExePath}. Arguments: {args}");
-                Process.Start(shutdownExePath, $@"{args}");
+
+                try
+                {
+                    Process.Start(shutdownExePath, $@"{args}");
+                }
+                catch (System.ComponentModel.Win32Exception w32Ex)
+                {
+                    Trace.Error($"Failed to start shutdown process: Win32 error {w32Ex.NativeErrorCode}: {w32Ex.Message}");
+                    _terminal.WriteError($"Failed to restart machine automatically. Please restart manually. Error: {w32Ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Unexpected error starting shutdown process");
+                    Trace.Error(ex);
+                    _terminal.WriteError($"Failed to restart machine automatically. Please restart manually. Error: {ex.Message}");
+                }
             }
             else
             {

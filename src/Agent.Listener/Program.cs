@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
@@ -27,9 +28,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
             }
 
-            using (HostContext context = new HostContext(HostType.Agent))
-            {  
-                return MainAsync(context, args).GetAwaiter().GetResult();
+            // Top-level fatal guard: catch anything thrown before/around HostContext init
+            try
+            {
+                using (HostContext context = new HostContext(HostType.Agent))
+                {
+                    try
+                    {
+                        return MainAsync(context, args).GetAwaiter().GetResult();
+                    }
+                    catch (AggregateException aggEx)
+                    {
+                        var trace = context.GetTrace("AgentProcess");
+                        var flattenedExceptions = aggEx.Flatten().InnerExceptions;
+                        trace.Error($"Agent v{BuildConstants.AgentPackage.Version} failed with {flattenedExceptions.Count} aggregated error(s)");
+                        
+                        bool hasNonRetryable = false;
+                        foreach (var innerEx in flattenedExceptions)
+                        {
+                            trace.Error(innerEx);
+                            if (innerEx is NonRetryableException)
+                            {
+                                hasNonRetryable = true;
+                            }
+                        }
+                        
+                        return hasNonRetryable ? Constants.Agent.ReturnCode.TerminatedError : Constants.Agent.ReturnCode.RetryableError;
+                    }
+                    catch (NonRetryableException nrEx)
+                    {
+                        var trace = context.GetTrace("AgentProcess");
+                        trace.Error(nrEx);
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
+                    catch (OperationCanceledException) when (context.AgentShutdownToken.IsCancellationRequested)
+                    {
+                        var trace = context.GetTrace("AgentProcess");
+                        trace.Info("Agent shutdown requested");
+                        return Constants.Agent.ReturnCode.Success;
+                    }
+                    catch (Exception ex)
+                    {
+                        var trace = context.GetTrace("AgentProcess");
+                        trace.Error(ex);
+                        return Constants.Agent.ReturnCode.RetryableError;
+                    }
+                }
+            }
+            catch (TypeInitializationException tiEx)
+            {
+                Console.Error.WriteLine($"FATAL: Agent v{BuildConstants.AgentPackage.Version} initialization failed");
+                Console.Error.WriteLine(tiEx.ToString());
+                return Constants.Agent.ReturnCode.TerminatedError;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"FATAL: Agent v{BuildConstants.AgentPackage.Version} startup failed");
+                Console.Error.WriteLine(ex.ToString());
+                return Constants.Agent.ReturnCode.RetryableError;
             }
         }
 
@@ -64,10 +120,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     IOUtil.ValidateExecutePermission(agentDirectory);
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error(StringUtil.Format($"Directory permission validation failed - insufficient permissions - {0}", e.Message));
+                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", ex.Message));
+                    trace.Error(ex);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
@@ -89,10 +145,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         powerShellExeUtil.GetPath();
                         trace.Info("PowerShell validation successful - compatible version found");
                     }
-                    catch (Exception e)
+                    catch (Exception ex)
                     {
-                        terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                        trace.Error(StringUtil.Format("PowerShell validation failed - required version not found or accessible - {0}", e.Message));
+                        terminal.WriteError(StringUtil.Loc("ErrorOccurred", ex.Message));
+                        trace.Error(ex);
                         return Constants.Agent.ReturnCode.TerminatedError;
                     }
 
@@ -175,20 +231,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     trace.Info("Agent execution cancelled - graceful shutdown requested");
                     return Constants.Agent.ReturnCode.Success;
                 }
-                catch (NonRetryableException e)
+                catch (NonRetryableException nrEx)
                 {
-                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                    trace.Error("Non-retryable exception occurred during agent execution");
-                    trace.Error(e);
+                    terminal.WriteError(StringUtil.Loc("ErrorOccurred", nrEx.Message));
+                    trace.Error(nrEx);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
             }
-            catch (Exception e)
+            catch (AggregateException aggEx)
             {
-                terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                trace.Error("Unhandled exception during agent startup - initialization failed");
-                trace.Error(e);
+                var flattenedExceptions = aggEx.Flatten().InnerExceptions;
+                terminal.WriteError(StringUtil.Loc("ErrorOccurred", flattenedExceptions.FirstOrDefault()?.Message ?? aggEx.Message));
+                trace.Error($"Agent v{BuildConstants.AgentPackage.Version} failed with {flattenedExceptions.Count} aggregated error(s)");
+                
+                bool hasNonRetryable = false;
+                foreach (var innerEx in flattenedExceptions)
+                {
+                    trace.Error(innerEx);
+                    if (innerEx is NonRetryableException)
+                    {
+                        hasNonRetryable = true;
+                    }
+                }
+                
+                return hasNonRetryable ? Constants.Agent.ReturnCode.TerminatedError : Constants.Agent.ReturnCode.RetryableError;
+            }
+            catch (TypeInitializationException tiEx)
+            {
+                terminal.WriteError(StringUtil.Loc("ErrorOccurred", tiEx.Message));
+                trace.Error(tiEx);
+                return Constants.Agent.ReturnCode.TerminatedError;
+            }
+            catch (Exception ex)
+            {
+                terminal.WriteError(StringUtil.Loc("ErrorOccurred", ex.Message));
+                trace.Error(ex);
                 return Constants.Agent.ReturnCode.RetryableError;
             }
         }

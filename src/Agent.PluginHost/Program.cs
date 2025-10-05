@@ -81,7 +81,7 @@ namespace Agent.PluginHost
                     catch (Exception ex)
                     {
                         executionContext.Error(ex.Message);
-                        executionContext.Debug(ex.StackTrace);
+                        executionContext.Debug(ex.ToString());
                     }
                     finally
                     {

@@ -74,8 +74,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobMessage = WorkerUtilities.DeactivateVsoCommandsFromJobMessageVariables(jobMessage);
 
                     // Initialize the secret masker and set the thread culture.
-                    InitializeSecretMasker(jobMessage);
-                    SetCulture(jobMessage);
+                    try
+                    {
+                        InitializeSecretMasker(jobMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Error("CRITICAL: Cannot initialize secret masker");
+                        Trace.Error(ex);
+                        throw new InvalidOperationException("Cannot continue without secret masking", ex);
+                    }
+
+                    try
+                    {
+                        SetCulture(jobMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Warning($"Failed to set culture - continuing with default: {ex.Message}");
+                    }
 
                     // Start the job.
                     Trace.Info("Job preprocessing complete - starting JobRunner execution with detailed message logging");

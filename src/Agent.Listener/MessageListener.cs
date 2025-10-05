@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Common;
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -83,8 +84,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             string errorMessage = string.Empty;
             bool encounteringError = false;
+            int attempts = 0;
 
             _term.WriteLine(StringUtil.Loc("ConnectToServer"));
+            // Validate server URL early to fail fast on invalid configuration
+            if (string.IsNullOrEmpty(serverUrl) || !Uri.TryCreate(serverUrl, UriKind.Absolute, out var serverUri))
+            {
+                Trace.Error($"Invalid server URL: '{serverUrl}'");
+                return false;
+            }
             while (true)
             {
                 token.ThrowIfCancellationRequested();

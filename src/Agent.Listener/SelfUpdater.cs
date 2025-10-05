@@ -494,7 +494,7 @@ You can skip checksum validation for the agent package by setting the environmen
                 {
                     IOUtil.DeleteDirectory(existBackUp, token);
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException))
+                catch (Exception ex)
                 {
                     Trace.Error(ex);
                     Trace.Info($"Catch exception during delete backup folder {existBackUp}, ignore this error try delete the backup folder on next auto-update.");
@@ -522,7 +522,7 @@ You can skip checksum validation for the agent package by setting the environmen
                     {
                         IOUtil.DeleteDirectory(oldBinDir, token);
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex)
                     {
                         Trace.Error(ex);
                         Trace.Info($"Catch exception during delete backup folder {oldBinDir}, ignore this error try delete the backup folder on next auto-update.");
@@ -551,7 +551,7 @@ You can skip checksum validation for the agent package by setting the environmen
                     {
                         IOUtil.DeleteDirectory(oldExternalDir, token);
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex)
                     {
                         Trace.Error(ex);
                         Trace.Info($"Catch exception during delete backup folder {oldExternalDir}, ignore this error try delete the backup folder on next auto-update.");

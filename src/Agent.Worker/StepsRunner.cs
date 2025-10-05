@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         // Log the error
                         Trace.Info($"Async command failed during job initialization [Command:{command.Name}, JobId:{jobContext.Variables.System_JobId}, Error:{ex.Message}]");
+                        Trace.Info(ex.ToString());
                     }
                 }
                 Trace.Info($"Async command completion wait finished - {successfulCommandCount} commands processed");

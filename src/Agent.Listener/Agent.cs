@@ -183,6 +183,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     }
                                 }
                             }
+                            catch (ReflectionTypeLoadException rtlEx)
+                            {
+                                Trace.Error($"Failed to load types [Assembly: {Path.GetFileName(assemblyFile)}]");
+                                if (rtlEx.LoaderExceptions != null)
+                                {
+                                    foreach (var loaderException in rtlEx.LoaderExceptions)
+                                    {
+                                        if (loaderException != null)
+                                        {
+                                            Trace.Error($"Loader exception: {loaderException.GetType().Name}: {loaderException.Message}");
+                                        }
+                                    }
+                                }
+                                Trace.Error(rtlEx);
+                            }
                             catch (Exception ex)
                             {
                                 Trace.Error(ex);

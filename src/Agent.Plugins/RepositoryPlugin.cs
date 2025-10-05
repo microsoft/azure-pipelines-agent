@@ -82,6 +82,7 @@ namespace Agent.Plugins.Repository
                     catch (Exception ex)
                     {
                         executionContext.Debug($"Error setting the checkout option '{inputName}': {ex.Message}");
+                        executionContext.Debug(ex.ToString());
                     }
                 }
             }
@@ -261,6 +262,7 @@ namespace Agent.Plugins.Repository
                 catch (Exception ex)
                 {
                     executionContext.Output($"Unable to delete existing repository on required location. ex:{ex.GetType}");
+                    executionContext.Debug(ex.ToString());
                     throw;
                 }
             }

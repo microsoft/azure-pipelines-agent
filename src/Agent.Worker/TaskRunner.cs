@@ -113,9 +113,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 Trace.Info($"Task definition loading initiated - Task: '{Task.Reference.Name}@{Task.Reference.Version}', TaskId: '{Task.Reference.Id}', Stage: '{Stage}'");
                 // Load the task definition and choose the handler.
-                // TODO: Add a try catch here to give a better error message.
-                Definition definition = taskManager.Load(Task);
-                ArgUtil.NotNull(definition, nameof(definition));
+                Definition definition;
+                try
+                {
+                    definition = taskManager.Load(Task);
+                    ArgUtil.NotNull(definition, nameof(definition));
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Task definition loading failed - Task: '{Task.Reference.Name}@{Task.Reference.Version}', TaskId: '{Task.Reference.Id}', Stage: '{Stage}'");
+                    Trace.Error(ex);
+                    throw;
+                }
 
                 // Verify Signatures and Re-Extract Tasks if neccessary
                 await VerifyTask(taskManager, definition);

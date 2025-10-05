@@ -72,6 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartClient(string pipeNameInput, string pipeNameOutput)
         {
+            ArgUtil.NotNullOrEmpty(pipeNameInput, nameof(pipeNameInput));
+            ArgUtil.NotNullOrEmpty(pipeNameOutput, nameof(pipeNameOutput));
             _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
             _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
             _readStream = new StreamString(_inClient);
@@ -102,10 +104,41 @@ namespace Microsoft.VisualStudio.Services.Agent
         {
             if (disposing)
             {
-                _inServer?.Dispose();
-                _outServer?.Dispose();
-                _inClient?.Dispose();
-                _outClient?.Dispose();
+                try
+                {
+                    _inServer?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"[ProcessChannel] Error disposing inbound server pipe: {ex.Message}");
+                }
+
+                try
+                {
+                    _outServer?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"[ProcessChannel] Error disposing outbound server pipe: {ex.Message}");
+                }
+
+                try
+                {
+                    _inClient?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"[ProcessChannel] Error disposing inbound client pipe: {ex.Message}");
+                }
+
+                try
+                {
+                    _outClient?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"[ProcessChannel] Error disposing outbound client pipe: {ex.Message}");
+                }
             }
         }
     }

@@ -109,6 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"Unable to publish resource utilization telemetry data. Exception: {ex.Message}");
+                Trace.Warning(ex.ToString());
             }
         }
         #endregion

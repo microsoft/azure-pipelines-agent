@@ -181,6 +181,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     catch (Exception e)
                     {
                         trace.Verbose($"Custom Server Validation Callback Unsuccessful, SSL diagnostic data collection is disabled, due to issue:\n{e.Message}");
+                        trace.Verbose(e.ToString());
                         return false;
                     }
                     return true;
