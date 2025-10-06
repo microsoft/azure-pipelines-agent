@@ -157,8 +157,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Container, nameof(Container));
             ArgUtil.NotNullOrEmpty(Container.ContainerId, nameof(Container.ContainerId));
 
+            // Log container execution context
+            Trace.Info($"Container ID: {Container.ContainerId}");
+            Trace.Info($"Container image: {Container.ContainerImage}");
+            Trace.Info($"Working directory: {workingDirectory}");
+            Trace.Info($"Command: {fileName} {arguments}");
+
             var dockerManger = HostContext.GetService<IDockerCommandManager>();
             string containerEnginePath = dockerManger.DockerPath;
+            Trace.Info($"Container engine path: {containerEnginePath}");
+            if (Container.MountVolumes?.Count > 0)
+            {
+                Trace.Info($"Container mount volumes: {Container.MountVolumes.Count}");
+                foreach (var volume in Container.MountVolumes)
+                {
+                    Trace.Info($"  Volume: {volume.SourceVolumePath} -> {volume.TargetVolumePath} (ReadOnly: {volume.ReadOnly})");
+                }
+            }
 
             ContainerStandardInPayload payload = new ContainerStandardInPayload()
             {
@@ -200,6 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             string containerExecutionArgs = $"exec -i {userArgs} {workingDirectoryParam} {Container.ContainerId} {Container.ResultNodePath} {entryScript}";
+            Trace.Info($"Docker execution arguments: {containerExecutionArgs}");
 
             using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
             {
@@ -221,18 +237,99 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
                 HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");
-                return await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                                                         fileName: containerEnginePath,
-                                                         arguments: containerExecutionArgs,
-                                                         environment: null,
-                                                         requireExitCodeZero: requireExitCodeZero,
-                                                         outputEncoding: outputEncoding,
-                                                         killProcessOnCancel: killProcessOnCancel,
-                                                         redirectStandardIn: redirectStandardIn,
-                                                         inheritConsoleHandler: inheritConsoleHandler,
-                                                         continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
-                                                         cancellationToken: cancellationToken);
+                int exitCode = 0;
+                try
+                {
+                    using (Trace.EnteringWithDuration("DockerTaskExecution"))
+                    {
+                        exitCode = await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                                                     fileName: containerEnginePath,
+                                                                     arguments: containerExecutionArgs,
+                                                                     environment: null,
+                                                                     requireExitCodeZero: requireExitCodeZero,
+                                                                     outputEncoding: outputEncoding,
+                                                                     killProcessOnCancel: killProcessOnCancel,
+                                                                     redirectStandardIn: redirectStandardIn,
+                                                                     inheritConsoleHandler: inheritConsoleHandler,
+                                                                     continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
+                                                                     cancellationToken: cancellationToken);
+                    }
+                    
+                    return exitCode;
+                }
+                catch (ProcessExitCodeException pex)
+                {
+                    // Enhanced container failure logging for Task 2
+                    exitCode = pex.ExitCode;
+                    LogContainerTaskFailure(exitCode, pex, containerExecutionArgs);
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Container task was cancelled
+                    Trace.Info("Container task execution was cancelled - check for timeout or manual cancellation");
+                    Trace.Info($"Container context: {Container?.ContainerId ?? "Unknown"} ({Container?.ContainerImage ?? "Unknown"})");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // General container execution failure
+                    LogContainerTaskFailure(-1, ex, containerExecutionArgs);
+                    throw;
+                }
             }
+        }
+
+        /// <summary>
+        /// Task 2: Enhanced Task Handler Failure Logging
+        /// Provides container-specific error messages and exit code analysis
+        /// </summary>
+        private void LogContainerTaskFailure(int exitCode, Exception exception, string containerExecutionArgs)
+        {
+            try
+            {
+                // Log 1: Container context information
+                Trace.Error($"Container execution failed - Container: {Container?.ContainerId ?? "Unknown"} (Image: {Container?.ContainerImage ?? "Unknown"})");
+                
+                // Log 2: Failure details
+                Trace.Error($"Exit code: {exitCode}");
+                Trace.Error($"Exception: {exception.GetType().Name} - {exception.Message}");
+                
+                // Provide exit code analysis
+                var exitCodeGuidance = GetContainerExitCodeGuidance(exitCode);
+                if (!string.IsNullOrEmpty(exitCodeGuidance))
+                {
+                    Trace.Error($"Exit code guidance: {exitCodeGuidance}");
+                }
+                
+                // Log execution context
+                Trace.Error($"Failed docker command: {containerExecutionArgs}");
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Failed to log container failure details: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Provides human-readable guidance for container exit codes
+        /// </summary>
+        private string GetContainerExitCodeGuidance(int exitCode)
+        {
+            return exitCode switch
+            {
+                0 => "Success",
+                1 => "General error - Check task logs and container configuration",
+                125 => "Docker daemon error - Container failed to start, verify image and docker configuration",
+                126 => "Container command not executable - Check file permissions or command path",
+                127 => "Container command not found - Verify command exists in container PATH",
+                130 => "Process interrupted (SIGINT) - Task was cancelled",
+                137 => "Process killed (SIGKILL) - Possible out of memory or timeout",
+                139 => "Segmentation fault (SIGSEGV) - Application crashed",
+                143 => "Process terminated (SIGTERM) - Graceful shutdown",
+                _ when exitCode > 128 && exitCode < 256 => $"Process terminated by signal {exitCode - 128}",
+                _ => $"Maybe task-specific exit code {exitCode} - Check task documentation"
+            };
         }
 
         private class ContainerStandardInPayload
