@@ -578,8 +578,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     AgentSettings settings = _store.GetSettings();
                     var credentialManager = HostContext.GetService<ICredentialManager>();
 
+                    // Use command URL if provided, otherwise use stored URL
+                    string serverUrl = command.GetUrl(suppressPromptIfEmpty: true);
+                    if (string.IsNullOrEmpty(serverUrl))
+                    {
+                        serverUrl = settings.ServerUrl;
+                    }
+
                     // Get the credentials
-                    var credProvider = GetCredentialProvider(command, settings.ServerUrl);
+                    var credProvider = GetCredentialProvider(command, serverUrl);
                     Trace.Info("cred retrieved");
 
                     bool isEnvironmentVMResource = false;
@@ -602,12 +609,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
 
+                    // Temporarily update settings ServerUrl if command provided a different URL
+                    string originalServerUrl = settings.ServerUrl;
+                    settings.ServerUrl = serverUrl;
+
                     bool isHostedServer = await CheckIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
 
                     await agentProvider.TestConnectionAsync(settings, creds, isHostedServer, agentCertManager.SkipServerCertificateValidation);
 
                     TaskAgent agent = await agentProvider.GetAgentAsync(settings);
+
+                    // Restore original ServerUrl
+                    settings.ServerUrl = originalServerUrl;
                     if (agent == null)
                     {
                         _term.WriteLine(StringUtil.Loc("Skipping") + currentAction);
