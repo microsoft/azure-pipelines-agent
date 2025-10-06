@@ -54,6 +54,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         // get remote set-url --push <origin> <url>
         Task<int> GitRemoteSetPushUrl(IExecutionContext context, string repositoryPath, string remoteName, string remoteUrl);
 
+        // git remote prune <remote>
+        Task<int> GitRemotePrune(IExecutionContext context, string repositoryPath, string remoteName);
+
         // git submodule foreach --recursive "git clean -ffdx"
         Task<int> GitSubmoduleClean(IExecutionContext context, string repositoryPath);
 
@@ -295,6 +298,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             //define options for fetch
             string options = $"{tags} --prune {pruneTags} --progress --no-recurse-submodules {remoteName} {depth} {string.Join(" ", refSpec)}";
 
+            // When fetching with specific refspecs and tags enabled, git doesn't prune conflicting tag refs properly
+            // even with --prune-tags. Run git remote prune to clean up conflicting tag refs before fetch.
+            if (refSpec != null && refSpec.Count > 0 && fetchTags && !string.IsNullOrEmpty(pruneTags))
+            {
+                context.Debug("Running git remote prune before fetch to clean up conflicting tag refs.");
+                int pruneExitCode = await GitRemotePrune(context, repositoryPath, remoteName);
+                if (pruneExitCode != 0)
+                {
+                    context.Debug($"Git remote prune completed with exit code {pruneExitCode}. Continuing with fetch.");
+                }
+            }
+
             return await ExecuteGitCommandAsync(context, repositoryPath, "fetch", options, additionalCommandLine, cancellationToken);
         }
 
@@ -406,6 +421,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             context.Debug($"Set git push url to: {remoteUrl} for remote: {remoteName}.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "remote", StringUtil.Format($"set-url --push {remoteName} {remoteUrl}"));
+        }
+
+        // git remote prune <remote>
+        public async Task<int> GitRemotePrune(IExecutionContext context, string repositoryPath, string remoteName)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            context.Debug($"Prune remote tracking branches for remote: {remoteName}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "remote", StringUtil.Format($"prune {remoteName}"));
         }
 
         // git submodule foreach --recursive "git clean -ffdx"
