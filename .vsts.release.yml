@@ -72,6 +72,9 @@ variables:
 extends:
   template: /.azure-pipelines/pipeline.yml@self
   parameters:
+    sdl:
+      binskim:
+        preReleaseVersion: '4.3.1'
     branch: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.releaseBranch'] ]
     test: ${{ not(parameters.skipTests) }}
     sign: true

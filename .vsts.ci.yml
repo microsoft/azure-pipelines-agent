@@ -58,6 +58,9 @@ pr:
 extends:
   template: /.azure-pipelines/pipeline.yml@self
   parameters:
+    sdl:
+      binskim:
+        preReleaseVersion: '4.3.1'
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     testProxyAgent: ${{ parameters.testProxyAgent }}
