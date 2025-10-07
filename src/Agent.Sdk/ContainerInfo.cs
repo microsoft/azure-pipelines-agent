@@ -217,16 +217,33 @@ namespace Agent.Sdk
                     : StringComparison.Ordinal;
                 foreach (var mapping in _pathMappings)
                 {
+                    string retval = null;
+
+                    path = PlatformUtil.RunningOnWindows ? path.Replace("/", "\\") : path;
                     if (string.Equals(path, mapping.Key, comparison))
                     {
-                        return mapping.Value;
+                        retval = mapping.Value;
                     }
 
                     if (path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, comparison) ||
                         path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, comparison))
                     {
-                        return mapping.Value + path.Remove(0, mapping.Key.Length);
+                        retval = mapping.Value + path.Remove(0, mapping.Key.Length);
                     }
+
+                    if (retval != null)
+                    {
+                        if (ImageOS == PlatformUtil.OS.Windows)
+                        {
+                            retval = retval.Replace("/", "\\");
+                        }
+                        else
+                        {
+                            retval = retval.Replace("\\", "/");
+                        }
+                        return retval;
+                    }
+
                 }
             }
 
@@ -244,6 +261,7 @@ namespace Agent.Sdk
                 {
                     string retval = null;
 
+                    path = ImageOS == PlatformUtil.OS.Windows ? path.Replace("/", "\\") : path;
                     if (string.Equals(path, mapping.Value, comparison))
                     {
                         retval = mapping.Key;
