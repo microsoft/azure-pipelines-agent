@@ -259,7 +259,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 catch (ProcessExitCodeException pex)
                 {
-                    // Enhanced container failure logging for Task 2
                     exitCode = pex.ExitCode;
                     LogContainerTaskFailure(exitCode, pex, containerExecutionArgs);
                     throw;
@@ -302,7 +301,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     Trace.Error($"Exit code guidance: {exitCodeGuidance}");
                 }
                 
-                // Log execution context
                 Trace.Error($"Failed docker command: {containerExecutionArgs}");
             }
             catch (Exception ex)
@@ -319,7 +317,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return exitCode switch
             {
                 0 => "Success",
-                1 => "General error - Check task logs and container configuration",
                 125 => "Docker daemon error - Container failed to start, verify image and docker configuration",
                 126 => "Container command not executable - Check file permissions or command path",
                 127 => "Container command not found - Verify command exists in container PATH",
@@ -328,7 +325,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 139 => "Segmentation fault (SIGSEGV) - Application crashed",
                 143 => "Process terminated (SIGTERM) - Graceful shutdown",
                 _ when exitCode > 128 && exitCode < 256 => $"Process terminated by signal {exitCode - 128}",
-                _ => $"Maybe task-specific exit code {exitCode} - Check task documentation"
+                _ => $"Unknown infrastructure failure - exit code {exitCode}."
             };
         }
 
