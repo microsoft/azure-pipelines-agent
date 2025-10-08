@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const tl = require('azure-pipelines-task-lib/task');
 const util = require('./util');
-const got = require('got');
 
 const INTEGRATION_DIR = path.join(__dirname, '..', '_layout', 'integrations');
 const GIT = 'git';
@@ -121,6 +120,11 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     const pullRequest = { ...refs, title, description };
 
+    if (dryrun) {
+        console.log('Dry run: Skipping Azure DevOps API calls for PR creation');
+        return [-1, 'test']; // return without creating PR for test runs
+    }
+
     console.log('Getting Git API');
     const gitApi = await connection.getGitApi();
 
@@ -129,8 +133,6 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
 
     if (PR) {
         console.log('PR already exists');
-    } else if (dryrun) {
-        return [-1, 'test']; // return without creating PR for test runs
     } else {
         console.log('PR does not exist; creating PR');
         PR = await gitApi.createPullRequest(pullRequest, repo, project);
@@ -149,8 +151,9 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
  * @returns current sprint version
  */
 async function getCurrentSprint() {
-    const response = await got.get('https://whatsprintis.it/?json', { responseType: 'json' });
-    const sprint = response.body.sprint;
+    const response = await fetch('https://whatsprintis.it/?json');
+    const data = await response.json();
+    const sprint = data.sprint;
     if (!/^\d\d\d$/.test(sprint)) {
         throw new Error(`Sprint must be a three-digit number; received: ${sprint}`);
     }
