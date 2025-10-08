@@ -80,6 +80,8 @@ extends:
     featureFlags:
       autoBaseline: false
     sdl:
+      binskim:
+        preReleaseVersion: '4.3.1'
       # do not fail on CG
       componentgovernance:
         failOnAlert: false

@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("Category", "Worker")]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task Test_Base_Node10(bool writeToBlobstorageService)
+        public async Task Test_Base_Node20(bool writeToBlobstorageService)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 message.Steps.Clear();
                 // Add variable setting tasks
-                message.Steps.Add(CreateNode10ScriptTask("echo Hey!"));
+                message.Steps.Add(CreateScriptTask("echo Hey!"));
                 message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
 
                 // Act
@@ -81,9 +81,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // CmdLineV2 runs on powershell on windows
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    // Assert we used Node 10 from debug logs
+                    // Assert we used Node 20 from debug logs
                     var log = GetTimelineLogLines(steps[1]);
-                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node10")).Count());
+                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node20")).Count());
                 }
             }
             finally
