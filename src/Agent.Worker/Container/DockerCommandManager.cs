@@ -498,7 +498,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 retryCount++;
             }
 
-            context.Output($"Final exit code for {command}: {exitCode}");
+            context.Output(StringUtil.Loc("DockerCommandFinalExitCode", command, exitCode));
             return exitCode;
         }
 
