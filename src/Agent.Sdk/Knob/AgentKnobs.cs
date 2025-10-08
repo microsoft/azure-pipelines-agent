@@ -823,6 +823,14 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("InstallLegacyTfExe"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseLatestTfExe = new Knob(
+            nameof(UseLatestTfExe),
+            "If true, the agent will use the latest versions of TF, vstsom and vstshost instead of legacy versions",
+            new RuntimeKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new EnvironmentKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new PipelineFeatureSource("UseLatestTfExe"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseSparseCheckoutInCheckoutTask = new Knob(
             nameof(UseSparseCheckoutInCheckoutTask),
             "If true, agent will use sparse checkout in checkout task.",
