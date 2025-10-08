@@ -26,7 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         TfLatest,
         ServerOMLegacy,
         ServerOMLatest,
-        LegacyPSHostLegacy
+        LegacyPSHostLegacy,
+        LegacyPSHostLatest
     }
 
     public enum WellKnownConfigFile
@@ -320,6 +321,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ExternalsDirectory = "externals";
             public static readonly string LegacyPSHostDirectory = "vstshost";
             public static readonly string LegacyPSHostLegacyDirectory = "vstshost-legacy";
+            public static readonly string LegacyPSHostLatestDirectory = "vstshost-latest";
             public static readonly string ServerOMDirectory = "vstsom";
             public static readonly string ServerOMLegacyDirectory = "vstsom-legacy";
             public static readonly string ServerOMLatestDirectory = "vstsom-latest";
