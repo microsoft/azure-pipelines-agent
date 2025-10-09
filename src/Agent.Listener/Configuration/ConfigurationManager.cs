@@ -244,7 +244,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             while (true)
             {
                 agentSettings.AgentName = command.GetAgentName();
-                Trace.Info($"Agent registration attempt - Name: '{agentSettings.AgentName}', Pool: '{agentSettings.PoolName}' (ID: {agentSettings.PoolId}), ReplaceMode: {command.GetReplace()}");
+                Trace.Info($"Agent registration attempt - Name: '{agentSettings.AgentName}', Pool: '{agentSettings.PoolName}' (ID: {agentSettings.PoolId})");
 
                 // Get the system capabilities.
                 // TODO: Hook up to ctrl+c cancellation token.
