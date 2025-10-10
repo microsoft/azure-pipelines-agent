@@ -324,22 +324,37 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
-            _invoker.ErrorDataReceived += this.ErrorDataReceived;
-            _invoker.OutputDataReceived += this.OutputDataReceived;
-            return await _invoker.ExecuteAsync(
-                workingDirectory: workingDirectory,
-                fileName: fileName,
-                arguments: arguments,
-                environment: environment,
-                requireExitCodeZero: requireExitCodeZero,
-                outputEncoding: outputEncoding,
-                killProcessOnCancel: killProcessOnCancel,
-                redirectStandardIn: redirectStandardIn,
-                inheritConsoleHandler: inheritConsoleHandler,
-                keepStandardInOpen: keepStandardInOpen,
-                highPriorityProcess: highPriorityProcess,
-                continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
-                cancellationToken: cancellationToken);
+            // Debug: Log event forwarding setup
+            Trace.Info("MASKER DEBUG: Setting up event forwarding in ProcessInvokerWrapper");
+            
+            // Properly forward events to subscribers
+            _invoker.ErrorDataReceived += OnErrorDataReceived;
+            _invoker.OutputDataReceived += OnOutputDataReceived;
+            
+            try
+            {
+                return await _invoker.ExecuteAsync(
+                    workingDirectory: workingDirectory,
+                    fileName: fileName,
+                    arguments: arguments,
+                    environment: environment,
+                    requireExitCodeZero: requireExitCodeZero,
+                    outputEncoding: outputEncoding,
+                    killProcessOnCancel: killProcessOnCancel,
+                    redirectStandardIn: redirectStandardIn,
+                    inheritConsoleHandler: inheritConsoleHandler,
+                    keepStandardInOpen: keepStandardInOpen,
+                    highPriorityProcess: highPriorityProcess,
+                    continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
+                    cancellationToken: cancellationToken);
+            }
+            finally
+            {
+                // Clean up event handlers to prevent memory leaks
+                _invoker.ErrorDataReceived -= OnErrorDataReceived;
+                _invoker.OutputDataReceived -= OnOutputDataReceived;
+                Trace.Info("MASKER DEBUG: Cleaned up event handlers");
+            }
         }
 
         public void Dispose()
@@ -358,6 +373,18 @@ namespace Microsoft.VisualStudio.Services.Agent
                     _invoker = null;
                 }
             }
+        }
+        
+        private void OnErrorDataReceived(object sender, ProcessDataReceivedEventArgs args)
+        {
+            Trace.Verbose($"MASKER DEBUG: Forwarding ErrorDataReceived event: '{args.Data}'");
+            this.ErrorDataReceived?.Invoke(sender, args);
+        }
+        
+        private void OnOutputDataReceived(object sender, ProcessDataReceivedEventArgs args)
+        {
+            Trace.Verbose($"MASKER DEBUG: Forwarding OutputDataReceived event: '{args.Data}'");
+            this.OutputDataReceived?.Invoke(sender, args);
         }
     }
 }

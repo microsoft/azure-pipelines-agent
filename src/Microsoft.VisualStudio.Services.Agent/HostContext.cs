@@ -184,17 +184,37 @@ namespace Microsoft.VisualStudio.Services.Agent
             // 'PreciselyClassifiedSecurityKeys' regexes. This class of pattern
             // effectively admits no false positives and is strongly oriented on
             // detecting the latest Azure provider API key formats.
-            bool enableNewMaskerAndRegexes = AgentKnobs.EnableNewMaskerAndRegexes.GetValue(this).AsBoolean();
+            
+            // FORCE NEW MASKER FOR TESTING
+            bool enableNewMaskerAndRegexes = true; // Force to true for testing
+            
+            // DEBUG: Log the knob value for debugging
+            Console.WriteLine($"[DEBUG] FORCED EnableNewMaskerAndRegexes to: {enableNewMaskerAndRegexes}");
+            System.IO.File.AppendAllText("/tmp/masker_debug.log", $"[{DateTime.UtcNow}] FORCED EnableNewMaskerAndRegexes to: {enableNewMaskerAndRegexes}\n");
+            
+            // DEBUG: Log the knob value to verify it's being set correctly
+            if (_trace != null)
+            {
+                _trace.Info($"EnableNewMaskerAndRegexes knob value: {enableNewMaskerAndRegexes}");
+            }
 
 #pragma warning disable CA2000 // Dispose objects before losing scope. False positive: LoggedSecretMasker takes ownership.
             IRawSecretMasker rawSecretMasker;
             if (enableNewMaskerAndRegexes)
             {
                 rawSecretMasker = new OssSecretMasker(WellKnownRegexPatterns.PreciselyClassifiedSecurityKeys);
+                if (_trace != null)
+                {
+                    _trace.Info("Using NEW OssSecretMasker with enhanced regexes");
+                }
             }
             else
             {
                 rawSecretMasker = new LegacySecretMasker();
+                if (_trace != null)
+                {
+                    _trace.Info("Using LEGACY SecretMasker");
+                }
             }
             ILoggedSecretMasker secretMasker = LoggedSecretMasker.Create(rawSecretMasker);
 #pragma warning restore CA2000 // Dispose objects before losing scope.
