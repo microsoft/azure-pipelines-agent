@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Initialize our Azure Support (imports the module, sets up the Azure subscription)
-            string path = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+            string path = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
                 ? Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost-legacy")
                 : Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
 
@@ -241,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 try
                 {
-                    String vstsPSHostExeDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                    String vstsPSHostExeDirectory = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
                         ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
                         : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
 
@@ -447,7 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void AddProxySetting(IVstsAgentWebProxy agentProxy)
         {
-            string psHostDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+            string psHostDirectory = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
                 ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
                 : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
 
