@@ -293,6 +293,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task EnableVerboseLoggingViaPipelineVariable()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Set the pipeline variable to enable verbose trace
+                _message.Variables["VSTSAGENT_TRACE"] = "true";
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                var traceManager = hc.GetService<ITraceManager>();
+                Assert.NotNull(traceManager);
+                Assert.Equal(System.Diagnostics.SourceLevels.Verbose, traceManager.Switch.Level);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task UploadDiganosticLogIfEnvironmentVariableSet()
         {
             using (var _tokenSource = new CancellationTokenSource())

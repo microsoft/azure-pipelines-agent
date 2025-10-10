@@ -217,6 +217,9 @@ namespace Agent.Sdk.Knob
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",
+            // Allow enabling via pipeline variable/feature flag (DistributedTask.Agent.TraceVerbose)
+            new PipelineFeatureSource(nameof(TraceVerbose)),
+            new RuntimeKnobSource("VSTSAGENT_TRACE"),
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
@@ -857,5 +860,7 @@ namespace Agent.Sdk.Knob
             "If true, use structured enhanced logging format with timestamps, components, and operations",
             new EnvironmentKnobSource("AZP_USE_ENHANCED_LOGGING"),
             new BuiltInDefaultKnobSource("false"));
+
+        // ...existing code...
     }
 }

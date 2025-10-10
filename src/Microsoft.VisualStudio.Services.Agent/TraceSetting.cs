@@ -15,13 +15,24 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
 
-        public TraceSetting()
+        public TraceSetting(HostType hostType, IKnobValueContext knobContext = null)
         {
             DefaultTraceLevel = TraceLevel.Info;
 #if DEBUG
             DefaultTraceLevel = TraceLevel.Verbose;
 #endif            
-            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(_knobContext).AsString();
+            var contextToUse = knobContext ?? _knobContext;
+            string vstsAgentTrace = null;
+            try
+            {
+                vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(contextToUse).AsString();
+            }
+            catch (NotSupportedException)
+            {
+                // Some knob sources (like PipelineFeatureSource) aren't supported by all contexts
+                // (e.g., UtilKnobValueContext). In that case, ignore and fall back to defaults.
+                vstsAgentTrace = null;
+            }
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 DefaultTraceLevel = TraceLevel.Verbose;

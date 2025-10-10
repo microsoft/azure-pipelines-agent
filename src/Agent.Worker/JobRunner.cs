@@ -117,6 +117,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                     Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
 
+                    // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job
+                    try
+                    {
+                        bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
+                            || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+                        if (enableWorkerVerbose)
+                        {
+                            Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
+                            var traceManager = HostContext.GetService<ITraceManager>();
+                            if (traceManager?.Switch != null)
+                            {
+                                traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
+                            }
+                        }
+                    }
+                    catch (NotSupportedException)
+                    {
+                        // Some contexts may not support PipelineFeatureSource/RuntimeKnobSource, ignore and continue
+                    }
+
                     //Start Resource Diagnostics if enabled in the job message 
                     jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
 
@@ -425,8 +446,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     Trace.Info($"Job result after all job steps finish: {jobContext.Result ?? TaskResult.Succeeded}");
 
-                    if (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false)
-                    {
+                    // if (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false)
+                    // {
                         Trace.Info("Support log upload initiated - Diagnostic mode enabled, uploading support logs");
 
                         IDiagnosticLogManager diagnosticLogManager = HostContext.GetService<IDiagnosticLogManager>();
@@ -443,7 +464,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             Trace.Info("Error uploading support logs.");
                             Trace.Error(ex);
                         }
-                    }
+                    // }
 
                     Trace.Info("Completing the job execution context.");
                     return await CompleteJobAsync(jobServer, jobContext, message);
