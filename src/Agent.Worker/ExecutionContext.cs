@@ -62,6 +62,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void QueueAttachFile(string type, string name, string filePath);
         ITraceWriter GetTraceWriter();
 
+        // correlation context for enhanced tracing
+        void SetCorrelationStep(string stepId);
+        void ClearCorrelationStep();
+        void SetCorrelationTask(string taskId);
+        void ClearCorrelationTask();
+        string BuildCorrelationId();
+
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
@@ -92,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
+    public sealed class ExecutionContext : AgentService, IExecutionContext, ICorrelationContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
@@ -103,6 +110,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly HashSet<string> _outputvariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<TaskRestrictions> _restrictions = new List<TaskRestrictions>();
         private readonly string _buildLogsFolderName = "buildlogs";
+        private readonly AsyncLocal<string> _correlationStep = new AsyncLocal<string>();
+        private readonly AsyncLocal<string> _correlationTask = new AsyncLocal<string>();
         private IAgentLogPlugin _logPlugin;
         private IPagingLogger _logger;
         private IJobServerQueue _jobServerQueue;
@@ -200,6 +209,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
+
+            // Register this ExecutionContext for enhanced correlation
+            HostContext.CorrelationContextManager.SetCurrentExecutionContext(this);
         }
 
         public void CancelToken()
@@ -981,8 +993,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             PublishTelemetry(taskRunnerData, IsAgentTelemetry: true);
         }
 
+        // Correlation context methods for enhanced tracing
+        public void SetCorrelationStep(string stepId)
+        {
+            _correlationStep.Value = stepId;
+        }
+
+        public void ClearCorrelationStep()
+        {
+            _correlationStep.Value = null;
+        }
+
+        public void SetCorrelationTask(string taskId)
+        {
+            _correlationTask.Value = taskId;
+        }
+
+        public void ClearCorrelationTask()
+        {
+            _correlationTask.Value = null;
+        }
+
+        public string BuildCorrelationId()
+        {
+            var step = _correlationStep.Value;
+            var task = _correlationTask.Value;
+
+            if (string.IsNullOrEmpty(step))
+            {
+                return string.IsNullOrEmpty(task) ? string.Empty : $"TASK-{ShortenGuid(task)}";
+            }
+
+            return string.IsNullOrEmpty(task) ? $"STEP-{ShortenGuid(step)}" : $"STEP-{ShortenGuid(step)}|TASK-{ShortenGuid(task)}";
+        }
+
+        /// <summary>
+        /// Shorten a GUID to first 12 characters for more readable logs while maintaining uniqueness
+        /// </summary>
+        private static string ShortenGuid(string guid)
+        {
+            if (string.IsNullOrEmpty(guid))
+                return guid;
+            
+            // Use first 12 characters (first segment + part of second) for better uniqueness
+            // e.g., "60cf5508-70a7-..." becomes "60cf550870a7"
+            var parts = guid.Split('-');
+            if (parts.Length >= 2 && parts[0].Length >= 8 && parts[1].Length >= 4)
+            {
+                return parts[0] + parts[1].Substring(0, 4);
+            }
+            
+            // Fallback: remove hyphens and take first 12 chars
+            var cleaned = guid.Replace("-", "");
+            return cleaned.Length > 12 ? cleaned.Substring(0, 12) : cleaned;
+        }
+
         public void Dispose()
         {
+            // Clear the correlation context registration
+            HostContext.CorrelationContextManager.ClearCurrentExecutionContext();
+            
             _cancellationTokenSource?.Dispose();
             _forceCompleteCancellationTokenSource?.Dispose();
 

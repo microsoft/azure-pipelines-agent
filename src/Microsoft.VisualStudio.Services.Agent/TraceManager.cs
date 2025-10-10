@@ -25,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly TraceSetting _traceSetting;
         private readonly ILoggedSecretMasker _secretMasker;
         private readonly IKnobValueContext _knobValueContext;
+        private readonly ICorrelationContextManager _correlationContextManager;
 
         // Enhanced logging state (affects new and existing trace sources)
         private volatile bool _enhancedLoggingEnabled;
@@ -46,6 +47,16 @@ namespace Microsoft.VisualStudio.Services.Agent
             _traceSetting = traceSetting;
             _secretMasker = secretMasker;
             _knobValueContext = knobValueContext;
+
+            // Get correlation context manager from HostContext
+            if (knobValueContext is IHostContext hostContext)
+            {
+                _correlationContextManager = hostContext.CorrelationContextManager;
+            }
+            else
+            {
+                throw new ArgumentException("knobValueContext must be IHostContext to support correlation", nameof(knobValueContext));
+            }
 
             // Initialize from knob (which may be set via environment at process start)
             _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
@@ -115,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private Tracing CreateInnerTracing(string name, SourceSwitch sourceSwitch, bool enhanced)
         {
             return enhanced
-                ? new EnhancedTracing(name, _secretMasker, sourceSwitch, _hostTraceListener)
+                ? new EnhancedTracing(name, _secretMasker, _correlationContextManager, sourceSwitch, _hostTraceListener)
                 : new Tracing(name, _secretMasker, sourceSwitch, _hostTraceListener);
         }
 
@@ -142,6 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 var name = kvp.Key;
                 var proxy = kvp.Value;
                 var sourceSwitch = GetSourceSwitch(name);
+                
                 proxy.ReplaceInner(() => CreateInnerTracing(name, sourceSwitch, shouldUseEnhanced));
             }
         }
