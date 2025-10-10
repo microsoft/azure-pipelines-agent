@@ -446,21 +446,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     Trace.Info($"Job result after all job steps finish: {jobContext.Result ?? TaskResult.Succeeded}");
 
-                    Trace.Info("Support log upload initiated - Diagnostic mode enabled, uploading support logs");
-
-                    IDiagnosticLogManager diagnosticLogManager = HostContext.GetService<IDiagnosticLogManager>();
-
-                    try
+                    if (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false)
                     {
-                        await diagnosticLogManager.UploadDiagnosticLogsAsync(executionContext: jobContext, message: message, jobStartTimeUtc: jobStartTimeUtc);
+                        Trace.Info("Support log upload initiated - Diagnostic mode enabled, uploading support logs");
 
-                        Trace.Info("Support log upload completed - Diagnostic logs uploaded successfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but make sure we continue gracefully.
-                        Trace.Info("Error uploading support logs.");
-                        Trace.Error(ex);
+                        IDiagnosticLogManager diagnosticLogManager = HostContext.GetService<IDiagnosticLogManager>();
+
+                        try
+                        {
+                            await diagnosticLogManager.UploadDiagnosticLogsAsync(executionContext: jobContext, message: message, jobStartTimeUtc: jobStartTimeUtc);
+
+                            Trace.Info("Support log upload completed - Diagnostic logs uploaded successfully");
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the error but make sure we continue gracefully.
+                            Trace.Info("Error uploading support logs.");
+                            Trace.Error(ex);
+                        }
                     }
 
                     Trace.Info("Completing the job execution context.");
