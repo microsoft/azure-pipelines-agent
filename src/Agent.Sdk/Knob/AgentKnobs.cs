@@ -825,7 +825,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob UseLatestTfExe = new Knob(
             nameof(UseLatestTfExe),
-            "If true, the agent will use the latest versions of TF, vstsom and vstshost instead of legacy versions",
+            "If true, the agent will use the latest versions of TF, vstsom",
             new RuntimeKnobSource("AGENT_USE_LATEST_TF_EXE"),
             new EnvironmentKnobSource("AGENT_USE_LATEST_TF_EXE"),
             new PipelineFeatureSource("UseLatestTfExe"),

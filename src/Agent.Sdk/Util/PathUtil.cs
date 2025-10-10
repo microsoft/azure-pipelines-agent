@@ -51,5 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Update the PATH environment variable.
             Environment.SetEnvironmentVariable(PathVariable, path);
         }
+
+
     }
 }

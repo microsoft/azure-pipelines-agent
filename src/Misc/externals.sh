@@ -164,21 +164,7 @@ function acquireExternalTool() {
     fi
 }
 
-function copyFiles() {
-    local source_dir="$1"
-    local target_dir="$2"
-    local specific_file="$3"
-    
-    [[ "$PRECACHE" != "" ]] && return
-    [[ ! -d "$source_dir" ]] && return
-    [[ ! -d "$target_dir" ]] && return
-    
-    if [[ "$specific_file" != "" ]]; then
-        [[ -f "$source_dir/$specific_file" ]] && cp "$source_dir/$specific_file" "$target_dir/"
-    else
-        cp -r "$source_dir"/* "$target_dir/"
-    fi
-}
+
 
 echo "PACKAGE RUNTIME: $PACKAGERUNTIME"
 
@@ -192,7 +178,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
         acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
         acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
-        acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost-latest
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
@@ -217,10 +202,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
     
-    # Build-time copy operations
-    copyFiles "$LAYOUT_DIR/externals/vstsom" "$LAYOUT_DIR/externals/vstshost"
-    copyFiles "$LAYOUT_DIR/externals/vstsom-latest" "$LAYOUT_DIR/externals/vstshost-latest"
-    copyFiles "$LAYOUT_DIR/externals/vstsom" "$LAYOUT_DIR/externals/vstshost-latest" "$WEB_API_DLL"
+
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
@@ -232,7 +214,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
         acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
         acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
-        acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost-latest  # Custom package. Will the same work for Win ARM 64?
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
@@ -261,10 +242,7 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
     
-    # Build-time copy operations
-    copyFiles "$LAYOUT_DIR/externals/vstsom" "$LAYOUT_DIR/externals/vstshost"
-    copyFiles "$LAYOUT_DIR/externals/vstsom-latest" "$LAYOUT_DIR/externals/vstshost-latest"
-    copyFiles "$LAYOUT_DIR/externals/vstsom" "$LAYOUT_DIR/externals/vstshost-latest" "$WEB_API_DLL"
+
 else
     # Download external tools for Linux and OSX.
 

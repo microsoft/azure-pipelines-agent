@@ -39,18 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             get
             {
-                if (AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean())
-                {
-                    return HostContext.GetDirectory(WellKnownDirectory.TfLatest);
-                }
-                else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                {
-                    return HostContext.GetDirectory(WellKnownDirectory.TfLegacy);
-                }
-                else
-                {
-                    return HostContext.GetDirectory(WellKnownDirectory.Tf);
-                }
+                return VarUtil.GetTfPath(HostContext, ExecutionContext);
             }
         }
 

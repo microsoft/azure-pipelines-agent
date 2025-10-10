@@ -221,12 +221,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.LegacyPSHostLegacyDirectory);
                     break;
 
-                case WellKnownDirectory.LegacyPSHostLatest:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.LegacyPSHostLatestDirectory);
-                    break;
-
                 case WellKnownDirectory.Root:
                     path = new DirectoryInfo(GetDirectory(WellKnownDirectory.Bin)).Parent.FullName;
                     break;

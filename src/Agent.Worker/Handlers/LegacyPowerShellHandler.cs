@@ -82,19 +82,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Initialize our Azure Support (imports the module, sets up the Azure subscription)
-            string path;
-            if (AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean())
-            {
-                path = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLatest);
-            }
-            else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-            {
-                path = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
-            }
-            else
-            {
-                path = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
-            }
+            string path = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost-legacy")
+                : Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
 
             string azurePSM1 = Path.Combine(path, "Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure\\Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure.psm1");
 
@@ -220,19 +210,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Copy the OM binaries into the legacy host folder.
             ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
 
-            // Only copy for legacy case - UseLatestTfExe and default use pre-built directories
-            if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-            {
-                string sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
-                string targetDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
-                
-                IOUtil.CopyDirectory(
-                    source: sourceDirectory,
-                    target: targetDirectory,
-                    cancellationToken: ExecutionContext.CancellationToken);
-                    
-                Trace.Info("Finished copying files.");
-            }
+            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+
+            string targetDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+
+            IOUtil.CopyDirectory(
+                source: sourceDirectory,
+                target: targetDirectory,
+                cancellationToken: ExecutionContext.CancellationToken);
+            Trace.Info("Finished copying files.");
 
             // Add the legacy ps host environment variables.
             AddLegacyHostEnvironmentVariables(scriptFile: scriptFile, workingDirectory: workingDirectory);
@@ -253,19 +243,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 try
                 {
-                    String vstsPSHostExeDirectory;
-                    if (AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean())
-                    {
-                        vstsPSHostExeDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLatest);
-                    }
-                    else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                    {
-                        vstsPSHostExeDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
-                    }
-                    else
-                    {
-                        vstsPSHostExeDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
-                    }
+                    String vstsPSHostExeDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                        ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                        : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
 
                     String vstsPSHostExe = Path.Combine(vstsPSHostExeDirectory, "LegacyVSTSPowerShellHost.exe");
                     Int32 exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
@@ -469,19 +449,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void AddProxySetting(IVstsAgentWebProxy agentProxy)
         {
-            string psHostDirectory;
-            if (AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean())
-            {
-                psHostDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLatest);
-            }
-            else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-            {
-                psHostDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
-            }
-            else
-            {
-                psHostDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
-            }
+            string psHostDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
+                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
+                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
 
             string appConfig = Path.Combine(psHostDirectory, _appConfigFileName);
 

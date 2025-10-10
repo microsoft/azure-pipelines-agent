@@ -43,19 +43,8 @@ namespace Agent.Plugins.Repository
             get
             {
                 string agentHomeDirectory = ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value;
-                
-                if (AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean())
-                {
-                    return Path.Combine(agentHomeDirectory, "externals", "tf-latest");
-                }
-                else if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                {
-                    return Path.Combine(agentHomeDirectory, "externals", "tf-legacy");
-                }
-                else
-                {
-                    return Path.Combine(agentHomeDirectory, "externals", "tf");
-                }
+                string tfDirectoryName = VarUtil.GetTfDirectoryName(ExecutionContext);
+                return Path.Combine(agentHomeDirectory, "externals", tfDirectoryName);
             }
         }
 

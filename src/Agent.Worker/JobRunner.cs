@@ -195,20 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"Agent metadata populated [AgentId:{settings.AgentId}, AgentName:{settings.AgentName}, OS:{VarUtil.OS}, Architecture:{VarUtil.OSArchitecture}, SelfHosted:{!settings.IsMSHosted}, CloudId:{settings.AgentCloudId}, MachineName:{Environment.MachineName}]");
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        string serverOMDirectoryVariable;
-                        if (AgentKnobs.UseLatestTfExe.GetValue(jobContext).AsBoolean())
-                        {
-                            serverOMDirectoryVariable = HostContext.GetDirectory(WellKnownDirectory.ServerOMLatest);
-                        }
-                        else if (AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean())
-                        {
-                            serverOMDirectoryVariable = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
-                        }
-                        else
-                        {
-                            serverOMDirectoryVariable = HostContext.GetDirectory(WellKnownDirectory.ServerOM);
-                        }
-
+                        string serverOMDirectoryVariable = VarUtil.GetServerOMPath(HostContext, jobContext);
                         jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, serverOMDirectoryVariable, isFilePath: true);
                     }
                     if (!PlatformUtil.RunningOnWindows)
