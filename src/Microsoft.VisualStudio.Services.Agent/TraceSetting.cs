@@ -17,25 +17,34 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public TraceSetting(HostType hostType, IKnobValueContext knobContext = null)
         {
-            DefaultTraceLevel = TraceLevel.Info;
-#if DEBUG
-            DefaultTraceLevel = TraceLevel.Verbose;
-#endif            
-            var contextToUse = knobContext ?? _knobContext;
-            string vstsAgentTrace = null;
-            try
-            {
-                vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(contextToUse).AsString();
-            }
-            catch (NotSupportedException)
-            {
-                // Some knob sources (like PipelineFeatureSource) aren't supported by all contexts
-                // (e.g., UtilKnobValueContext). In that case, ignore and fall back to defaults.
-                vstsAgentTrace = null;
-            }
-            if (!string.IsNullOrEmpty(vstsAgentTrace))
+            if (hostType == HostType.Agent)
             {
                 DefaultTraceLevel = TraceLevel.Verbose;
+                return;
+            }
+
+            DefaultTraceLevel = TraceLevel.Info;
+
+#if DEBUG
+            DefaultTraceLevel = TraceLevel.Verbose;
+#endif
+
+            if (hostType == HostType.Worker)
+            {
+                var contextToUse = knobContext ?? _knobContext;
+                try
+                {
+                    bool vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(contextToUse).AsBoolean();
+                    if (vstsAgentTrace)
+                    {
+                        DefaultTraceLevel = TraceLevel.Verbose;
+                    }
+                }
+                catch (NotSupportedException)
+                {
+                    // Some knob sources (like RuntimeKnobSource) aren't supported by all contexts
+                    // (e.g., UtilKnobValueContext). In that case, ignore and fall back to defaults.
+                }
             }
         }
 
