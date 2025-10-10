@@ -29,7 +29,6 @@ NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.19.4"
 MINGIT_VERSION="2.50.1"
 LFS_VERSION="3.4.0"
-WEB_API_DLL="Microsoft.TeamFoundation.DistributedTask.WebApi.dll"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -164,8 +163,6 @@ function acquireExternalTool() {
     fi
 }
 
-
-
 echo "PACKAGE RUNTIME: $PACKAGERUNTIME"
 
 if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
@@ -201,8 +198,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
-    
-
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
@@ -241,8 +236,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     # Official distribution of Node contains Node 20 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
-    
-
 else
     # Download external tools for Linux and OSX.
 

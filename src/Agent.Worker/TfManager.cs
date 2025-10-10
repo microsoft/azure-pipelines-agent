@@ -1,7 +1,5 @@
 ﻿using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
-using Agent.Sdk.Knob;
-using Agent.Sdk;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -143,7 +141,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug($"{toolName} download directory has been cleaned up.");
             }
         }
-
-
     }
 }
