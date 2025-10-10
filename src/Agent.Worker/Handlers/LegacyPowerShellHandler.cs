@@ -208,21 +208,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Copy the OM binaries into the legacy host folder.
-            ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
+            if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
 
-            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+                string sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
+                string targetDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
 
-            string targetDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
-
-            IOUtil.CopyDirectory(
-                source: sourceDirectory,
-                target: targetDirectory,
-                cancellationToken: ExecutionContext.CancellationToken);
-            Trace.Info("Finished copying files.");
+                IOUtil.CopyDirectory(
+                    source: sourceDirectory,
+                    target: targetDirectory,
+                    cancellationToken: ExecutionContext.CancellationToken);
+                Trace.Info("Finished copying files.");
+            }
 
             // Add the legacy ps host environment variables.
             AddLegacyHostEnvironmentVariables(scriptFile: scriptFile, workingDirectory: workingDirectory);

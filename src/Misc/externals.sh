@@ -175,6 +175,9 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
         acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
         acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
+        
+        # Copy vstsom to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
@@ -209,6 +212,9 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
         acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
         acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
+        
+        # Copy vstsom to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases

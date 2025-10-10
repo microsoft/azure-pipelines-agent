@@ -113,5 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Assert.Equal("$/myProj", mapping.NormalizedServerPath);
             }
         }
+
+
     }
 }

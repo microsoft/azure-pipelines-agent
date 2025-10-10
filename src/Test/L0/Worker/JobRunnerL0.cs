@@ -438,5 +438,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Once());
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task ServerOMDirectoryVariableSetCorrectlyOnWindows()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+                
+                Assert.True(_jobEc.Variables.TryGetValue("Agent.ServerOMDirectory", out _),
+                           "ServerOM directory variable should be set on Windows platform");
+            }
+        }
     }
 }
