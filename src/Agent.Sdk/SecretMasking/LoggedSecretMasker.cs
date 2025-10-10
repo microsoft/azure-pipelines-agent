@@ -60,6 +60,21 @@ namespace Agent.Sdk.SecretMasking
             }
 
             _secretMasker.AddValue(value);
+            
+            // SHELL EXPANSION FIX: Handle shell metacharacters
+            if (ShellExpansionMasker.ContainsShellMetacharacters(value))
+            {
+                this.Trace($"SHELL EXPANSION: Detected shell metacharacters in secret from '{origin}', generating expansions");
+                var expansions = ShellExpansionMasker.GetPossibleExpansions(value, _trace);
+                
+                foreach (var expansion in expansions)
+                {
+                    _secretMasker.AddValue(expansion);
+                    this.Trace($"SHELL EXPANSION: Added expanded secret variation from '{origin}'");
+                }
+                
+                this.Trace($"SHELL EXPANSION: Added {expansions.Count} expanded variations for secret from '{origin}'");
+            }
         }
 
         /// <summary>
@@ -133,7 +148,10 @@ namespace Agent.Sdk.SecretMasking
 
         public string MaskSecrets(string input)
         {
-            return this._secretMasker.MaskSecrets(input);
+            this.Trace($"MASKER DEBUG: LoggedSecretMasker.MaskSecrets called with input: '{input}'");
+            var result = this._secretMasker.MaskSecrets(input);
+            this.Trace($"MASKER DEBUG: LoggedSecretMasker.MaskSecrets result: '{result}' (input == result: {input == result})");
+            return result;
         }
 
         public void Dispose()

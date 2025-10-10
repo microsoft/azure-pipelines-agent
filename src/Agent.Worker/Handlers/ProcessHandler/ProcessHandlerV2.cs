@@ -450,9 +450,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 } // if (_modifyEnvironment)
 
                 // The line is output from the process that was invoked.
+                ExecutionContext.Debug($"MASKER DEBUG: ProcessHandlerV2 received output line: '{line}'");
                 if (!CommandManager.TryProcessCommand(ExecutionContext, line))
                 {
+                    ExecutionContext.Debug($"MASKER DEBUG: About to call ExecutionContext.Output with line: '{line}'");
                     ExecutionContext.Output(line);
+                    ExecutionContext.Debug($"MASKER DEBUG: ExecutionContext.Output completed for line: '{line}'");
                 }
             }
         }
