@@ -117,7 +117,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 catch (Exception ex)
                 {
-                    Trace.Info($"Unable to determine whether the script file is rooted: {ex.Message}");
+                    Trace.Info("Unable to determine whether the script file is rooted - assuming relative path");
+                    Trace.Info(ex.ToString());
                 }
 
                 Trace.Info($"Script file is rooted: {isScriptFileRooted}");

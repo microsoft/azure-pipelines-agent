@@ -561,7 +561,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (Exception ex)
                 {
-                    Trace.Warning($"Unable to generate workspace ID: {ex.Message}");
+                    Trace.Warning("Unable to generate workspace ID");
+                    Trace.Warning(ex.ToString());
                 }
             }
 

@@ -36,12 +36,45 @@ namespace Agent.PluginHost
             // Set encoding to UTF8, process invoker will use UTF8 write to STDIN
             Console.InputEncoding = Encoding.UTF8;
             Console.OutputEncoding = Encoding.UTF8;
+
+            // Top-level fatal guard: catch anything thrown before/during plugin host execution
+            try
+            {
+                return MainAsync(args);
+            }
+            catch (Exception ex)
+            {
+                // If plugin host execution fails, write detailed error to stderr
+                Console.Error.WriteLine($"[FATAL PluginHost] Plugin host failed: {ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+                return 1;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= Console_CancelKeyPress;
+            }
+        }
+
+        private static int MainAsync(string[] args)
+        {
             try
             {
                 ArgUtil.NotNull(args, nameof(args));
-                ArgUtil.Equal(2, args.Length, nameof(args.Length));
+                if (args.Length != 2)
+                {
+                    Console.Error.WriteLine($"[PLUGIN HOST ERROR] Invalid argument count. Expected 2 arguments, got {args.Length}");
+                    Console.Error.WriteLine("[PLUGIN HOST ERROR] Usage: Agent.PluginHost.exe <pluginType> <assemblyQualifiedName>");
+                    Console.Error.WriteLine("[PLUGIN HOST ERROR] Plugin types: task, command, log");
+                    ArgUtil.Equal(2, args.Length, nameof(args.Length));
+                }
 
                 string pluginType = args[0];
+                if (string.IsNullOrEmpty(pluginType))
+                {
+                    Console.Error.WriteLine("[PLUGIN HOST ERROR] Plugin type cannot be null or empty");
+                    throw new ArgumentNullException(nameof(pluginType), "Plugin type cannot be null or empty");
+                }
+
                 if (string.Equals("task", pluginType, StringComparison.OrdinalIgnoreCase))
                 {
                     string assemblyQualifiedName = args[1];
@@ -76,12 +109,16 @@ namespace Agent.PluginHost
                     }
                     catch (AggregateException ex)
                     {
-                        ExceptionsUtil.HandleAggregateException((AggregateException)ex, executionContext.Error);
+                        ExceptionsUtil.HandleAggregateException(ex, executionContext.Error);
                     }
                     catch (Exception ex)
                     {
-                        executionContext.Error(ex.Message);
-                        executionContext.Debug(ex.StackTrace);
+                        executionContext.Error($"[TASK PLUGIN ERROR] {ex.GetType().Name}: {ex.Message}");
+                        executionContext.Debug($"[TASK PLUGIN ERROR] Stack trace: {ex.StackTrace}");
+                        if (ex.InnerException != null)
+                        {
+                            executionContext.Debug($"[TASK PLUGIN ERROR] Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                        }
                     }
                     finally
                     {
@@ -112,7 +149,12 @@ namespace Agent.PluginHost
                     catch (Exception ex)
                     {
                         // any exception throw from plugin will fail the command.
-                        executionContext.Error(ex.ToString());
+                        executionContext.Error($"[COMMAND PLUGIN ERROR] Command plugin failed: {ex.GetType().Name}: {ex.Message}");
+                        if (ex.InnerException != null)
+                        {
+                            executionContext.Error($"[COMMAND PLUGIN ERROR] Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                        }
+                        executionContext.Error($"[COMMAND PLUGIN ERROR] Full details: {ex.ToString()}");
                     }
                     finally
                     {
@@ -150,7 +192,8 @@ namespace Agent.PluginHost
                             catch (Exception ex)
                             {
                                 // any exception throw from plugin will get trace and ignore, error from plugins will not fail the job.
-                                Console.WriteLine($"Unable to load plugin '{pluginAssembly}': {ex}");
+                                Console.WriteLine($"[PLUGIN ERROR] Unable to load plugin '{pluginAssembly}': {ex.GetType().Name}: {ex.Message}");
+                                Console.WriteLine($"[PLUGIN ERROR] Plugin loading failed - continuing without this plugin");
                             }
                         }
                     }
@@ -186,18 +229,16 @@ namespace Agent.PluginHost
                 }
                 else
                 {
-                    throw new ArgumentOutOfRangeException(pluginType);
+                    Console.Error.WriteLine($"[PLUGIN HOST ERROR] Unknown plugin type: '{pluginType}'. Supported types: task, command, log");
+                    throw new ArgumentOutOfRangeException(nameof(pluginType), pluginType, $"Unknown plugin type: '{pluginType}'. Supported types: task, command, log");
                 }
             }
             catch (Exception ex)
             {
-                // infrastructure failure.
+                // Enhanced infrastructure failure reporting with context
+                Console.Error.WriteLine($"[FATAL PluginHost] Infrastructure failure in plugin host: {ex.Message}");
                 Console.Error.WriteLine(ex.ToString());
                 return 1;
-            }
-            finally
-            {
-                Console.CancelKeyPress -= Console_CancelKeyPress;
             }
         }
 

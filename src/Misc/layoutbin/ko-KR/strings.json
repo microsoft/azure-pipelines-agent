@@ -602,6 +602,7 @@
   "ServerTarpitUrl": "리소스 사용률 페이지 링크(전역 1시간 보기): {0}.",
   "ServerTarpitUrlScoped": "리소스 사용률 페이지 링크(파이프라인별 1시간 보기): {0}.",
   "ServerUrl": "서버 URL",
+  "ServerUrlInvalid": "잘못된 서버 URL입니다. 유효한 URL을 제공해 주세요 (예: https://dev.azure.com/myorganization 또는 https://myserver:8080/tfs).",
   "ServiceAlreadyExists": "서비스가 이미 존재합니다: {0}, 대체됩니다.",
   "ServiceConfigured": "서비스 {0}이(가) 성공적으로 구성되었습니다.",
   "ServiceDelayedStartOptionSet": "서비스 {0}이(가) 지연된 자동 시작으로 설정되었습니다.",

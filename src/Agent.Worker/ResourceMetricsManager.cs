@@ -108,7 +108,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             catch (Exception ex)
             {
-                Trace.Warning($"Unable to publish resource utilization telemetry data. Exception: {ex.Message}");
+                Trace.Warning("Unable to publish resource utilization telemetry data");
+                Trace.Warning(ex.ToString());
             }
         }
         #endregion
@@ -492,7 +493,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (Exception ex)
                 {
-                    Trace.Warning($"Unable to get disk info. Exception: {ex.Message}");
+                    Trace.Warning("Unable to get disk info");
+                    Trace.Warning(ex.ToString());
 
                     break;
                 }
@@ -529,7 +531,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (Exception ex)
                 {
-                    Trace.Warning($"Unable to get memory info. Exception: {ex.Message}");
+                    Trace.Warning("Unable to get memory info");
+                    Trace.Warning(ex.ToString());
 
                     break;
                 }
@@ -565,7 +568,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (Exception ex)
                 {
-                    Trace.Warning($"Unable to get CPU info. Exception: {ex.Message}");
+                    Trace.Warning("Unable to get CPU info");
+                    Trace.Warning(ex.ToString());
 
                     break;
                 }

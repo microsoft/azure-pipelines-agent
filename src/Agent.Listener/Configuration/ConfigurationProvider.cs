@@ -369,6 +369,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         azureSubscriptionId = string.Empty;
                     }
                 }
+                catch (HttpRequestException httpEx)
+                {
+                    azureSubscriptionId = string.Empty;
+                    Trace.Info($"HTTP error accessing Azure IMDS: {httpEx.Message}");
+                }
+                catch (TaskCanceledException tcEx) when (tcEx.InnerException is System.TimeoutException)
+                {
+                    azureSubscriptionId = string.Empty;
+                    Trace.Info($"Timeout accessing Azure IMDS (not running on Azure): {tcEx.Message}");
+                }
                 catch (SocketException ex)
                 {
                     azureSubscriptionId = string.Empty;
@@ -378,7 +388,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 {
                     // An exception will be thrown if the Agent Machine is a non-Azure VM.
                     azureSubscriptionId = string.Empty;
-                    Trace.Info($"GetAzureSubscriptionId ex: {ex.Message}");
+                    Trace.Warning("Failed to extract Azure subscription ID from IMDS - not running on Azure VM or IMDS unavailable");
+                    Trace.Warning(ex.ToString());
                 }
             }
 

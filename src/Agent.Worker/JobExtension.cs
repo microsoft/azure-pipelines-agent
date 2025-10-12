@@ -544,7 +544,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         PublishAgentShutdownTelemetry(jobContext, context);
-                        Trace.Error($"Caught Agent Shutdown exception from JobExtension Initialization: {ex.Message}");
+                        Trace.Error("Caught Agent Shutdown exception from JobExtension Initialization");
+                        Trace.Error(ex);
                         context.Error(ex);
                         context.Result = TaskResult.Failed;
                         throw;
@@ -655,8 +656,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
                                 catch (Exception ex)
                                 {
-                                    Trace.Warning($"Ignore exception during read process environment variables: {ex.Message}");
-                                    Trace.Verbose(ex.ToString());
+                                    Trace.Warning("Ignoring exception during read process environment variables");
+                                    Trace.Warning(ex.ToString());
                                 }
 
                                 if (string.Equals(lookupId, _processLookupId, StringComparison.OrdinalIgnoreCase))

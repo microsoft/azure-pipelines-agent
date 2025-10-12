@@ -43,17 +43,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set => _jobServerQueue = value;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1505:AvoidUnmaintainableCode", Justification = "Complexity is required for job orchestration; refactor would reduce clarity.")]
         public async Task<TaskResult> RunAsync(Pipelines.AgentJobRequestMessage message, CancellationToken jobRequestCancellationToken)
         {
-            using (Trace.EnteringWithDuration())
+            // Validate parameters.
+            Trace.Entering();
+            Trace.Info($"Job ID {message.JobId}");
+            try
             {
-                // Validate parameters.
-                Trace.Entering();
                 ArgUtil.NotNull(message, nameof(message));
                 ArgUtil.NotNull(message.Resources, nameof(message.Resources));
                 ArgUtil.NotNull(message.Variables, nameof(message.Variables));
                 ArgUtil.NotNull(message.Steps, nameof(message.Steps));
-                Trace.Entering();
+
+                if (message.JobId == Guid.Empty)
+                {
+                    Trace.Error("Job request message missing or invalid JobId (Guid.Empty).");
+                    return TaskResult.Failed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Error("Failed to validate job request message");
+                Trace.Error(ex);
+                return TaskResult.Failed;
+            }
 
                 DateTime jobStartTimeUtc = DateTime.UtcNow;
 
@@ -474,7 +488,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     await ShutdownQueue(throwOnFailure: false);
                     Trace.Info("Job server queue shutdown completed - all resources cleaned up successfully");
                 }
-            }
         }
 
         public void UpdateMetadata(JobMetadataMessage message)

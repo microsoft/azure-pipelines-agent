@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -250,7 +251,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
                 catch (Exception ex)
                 {
-                    Trace.Warning($"Failed to send immediate timeline record update: {ex.Message}. Falling back to queue mechanism.");
+                    Trace.Warning("Failed to send immediate timeline record update. Falling back to queue mechanism.");
+                    Trace.Warning(ex.ToString());
                     QueueTimelineRecordUpdate(timelineId, timelineRecord);
                 }
             }
@@ -379,6 +381,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                             catch (Exception ex)
                             {
                                 Trace.Info("Catch exception during append web console line, keep going since the process is best effort.");
+                                var status = (ex as VssServiceResponseException)?.HttpStatusCode;
+                                Trace.Warning($"[DROP] op=appendConsole stepRecordId={stepRecordId} status={(int?)status ?? 0} ({status?.ToString() ?? "n/a"}) err={ex.GetType().Name}: {ex.Message}");
                                 Trace.Error(ex);
                                 errorCount++;
                             }
@@ -443,6 +447,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                         catch (Exception ex)
                         {
                             Trace.Info("Catch exception during log or attachment file upload, keep going since the process is best effort.");
+                            var status = (ex as VssServiceResponseException)?.HttpStatusCode;
+                            Trace.Warning($"[DROP] op=uploadFile type={file.Type} name={file.Name} timelineRecordId={file.TimelineRecordId} status={(int?)status ?? 0} ({status?.ToString() ?? "n/a"}) err={ex.GetType().Name}: {ex.Message}");
                             Trace.Error(ex);
                             errorCount++;
 

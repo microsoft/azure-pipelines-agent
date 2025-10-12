@@ -97,7 +97,22 @@ namespace Agent.Plugins.Repository
             {
                 // A clean build has been requested
                 IOUtil.DeleteDirectory(rootPath, _cancellationToken);
-                Directory.CreateDirectory(rootPath);
+                try
+                {
+                    Directory.CreateDirectory(rootPath);
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    throw new InvalidOperationException($"Access denied creating repository directory '{rootPath}': {uaEx.Message}", uaEx);
+                }
+                catch (IOException ioEx)
+                {
+                    throw new InvalidOperationException($"I/O error creating repository directory '{rootPath}': {ioEx.Message}", ioEx);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Failed to create repository directory '{rootPath}': {ex.Message}", ex);
+                }
             }
 
             Dictionary<string, Uri> oldMappings = await GetOldMappings(rootPath);

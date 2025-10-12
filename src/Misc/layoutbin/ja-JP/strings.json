@@ -602,6 +602,7 @@
   "ServerTarpitUrl": "リソース使用率ページへのリンク (1 時間のグローバル ビュー): {0}。",
   "ServerTarpitUrlScoped": "リソース使用率ページへのリンク (パイプラインごとの 1 時間のビュー): {0}。",
   "ServerUrl": "サーバー URL",
+  "ServerUrlInvalid": "無効なサーバー URL。有効な URL を提供してください (例: https://dev.azure.com/myorganization または https://myserver:8080/tfs)。",
   "ServiceAlreadyExists": "サービスは既に存在します: {0}、置き換えられます",
   "ServiceConfigured": "サービス {0} が正常に構成されました",
   "ServiceDelayedStartOptionSet": "サービス {0} が正常に遅延自動開始に設定されました",

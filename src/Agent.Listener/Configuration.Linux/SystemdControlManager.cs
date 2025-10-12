@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -30,35 +29,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
         public void GenerateScripts(AgentSettings settings)
         {
-            try
-            {
-                string serviceName;
-                string serviceDisplayName;
-                CalculateServiceName(settings, _svcNamePattern, _svcDisplayPattern, out serviceName, out serviceDisplayName);
+            // Let exceptions bubble - command handler will catch
+            string serviceName;
+            string serviceDisplayName;
+            CalculateServiceName(settings, _svcNamePattern, _svcDisplayPattern, out serviceName, out serviceDisplayName);
 
-                string svcShPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), _shName);
+            string svcShPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Root), _shName);
 
-                string svcShContent = File.ReadAllText(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), _shTemplate));
-                var tokensToReplace = new Dictionary<string, string>
-                                          {
-                                              { "{{SvcDescription}}", serviceDisplayName },
-                                              { "{{SvcNameVar}}", serviceName }
-                                          };
+            string svcShContent = File.ReadAllText(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Bin), _shTemplate));
+            var tokensToReplace = new Dictionary<string, string>
+                                      {
+                                          { "{{SvcDescription}}", serviceDisplayName },
+                                          { "{{SvcNameVar}}", serviceName }
+                                      };
 
-                svcShContent = tokensToReplace.Aggregate(
-                    svcShContent,
-                    (current, item) => current.Replace(item.Key, item.Value));
+            svcShContent = tokensToReplace.Aggregate(
+                svcShContent,
+                (current, item) => current.Replace(item.Key, item.Value));
 
-                File.WriteAllText(svcShPath, svcShContent, new UTF8Encoding(false));
+            File.WriteAllText(svcShPath, svcShContent, new UTF8Encoding(false));
 
-                var unixUtil = HostContext.CreateService<IUnixUtil>();
-                unixUtil.ChmodAsync("755", svcShPath).GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                Trace.Error(ex);
-                throw;
-            }
+            var unixUtil = HostContext.CreateService<IUnixUtil>();
+            unixUtil.ChmodAsync("755", svcShPath).GetAwaiter().GetResult();
         }
     }
 }

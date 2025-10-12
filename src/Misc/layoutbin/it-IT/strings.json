@@ -602,6 +602,7 @@
   "ServerTarpitUrl": "Collegamento alla pagina di utilizzo delle risorse (visualizzazione globale di 1 ora):{0}.",
   "ServerTarpitUrlScoped": "Collegamento alla pagina di utilizzo delle risorse (visualizzazione di 1 ora per pipeline): {0}.",
   "ServerUrl": "URL server",
+  "ServerUrlInvalid": "URL server non valido. Fornire un URL valido (ad esempio, https://dev.azure.com/myorganization o https://myserver:8080/tfs).",
   "ServiceAlreadyExists": "Il servizio esiste già: {0}, verrà sostituito",
   "ServiceConfigured": "Configurazione del servizio {0} completata",
   "ServiceDelayedStartOptionSet": "Il servizio {0} è stato impostato per l'avvio automatico ritardato",

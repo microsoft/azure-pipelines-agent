@@ -72,20 +72,36 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void StartClient(string pipeNameInput, string pipeNameOutput)
         {
-            _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
-            _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
-            _readStream = new StreamString(_inClient);
-            _writeStream = new StreamString(_outClient);
+            try
+            {
+                _inClient = new AnonymousPipeClientStream(PipeDirection.In, pipeNameInput);
+                _outClient = new AnonymousPipeClientStream(PipeDirection.Out, pipeNameOutput);
+                _readStream = new StreamString(_inClient);
+                _writeStream = new StreamString(_outClient);
+            }
+            catch
+            {
+                // Cleanup on any failure, then let exception bubble
+                try { _inClient?.Dispose(); } catch { }
+                try { _outClient?.Dispose(); } catch { }
+                _inClient = null;
+                _outClient = null;
+                _readStream = null;
+                _writeStream = null;
+                throw;
+            }
         }
 
         public async Task SendAsync(MessageType messageType, string body, CancellationToken cancellationToken)
         {
+            // Let exceptions bubble - boundary handler will catch
             await _writeStream.WriteInt32Async((int)messageType, cancellationToken);
-            await _writeStream.WriteStringAsync(body, cancellationToken);
+            await _writeStream.WriteStringAsync(body ?? string.Empty, cancellationToken);
         }
 
         public async Task<WorkerMessage> ReceiveAsync(CancellationToken cancellationToken)
         {
+            // Let exceptions bubble - boundary handler will catch
             WorkerMessage result = new WorkerMessage(MessageType.NotInitialized, string.Empty);
             result.MessageType = (MessageType)await _readStream.ReadInt32Async(cancellationToken);
             result.Body = await _readStream.ReadStringAsync(cancellationToken);

@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
@@ -63,10 +64,27 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
             catch (Exception ex)
             {
-                Trace.Warning($"Failed to set console output encoding to '{terminalEncoding.WebName}': {ex.Message}");
-                Trace.Verbose(ex.ToString());
+                Trace.Warning($"Failed to set console output encoding to '{terminalEncoding.WebName}'");
+                Trace.Warning(ex.ToString());
             }
 
+            try
+            {
+                Console.OutputEncoding = terminalEncoding;
+                Console.InputEncoding = terminalEncoding;
+            }
+            catch (IOException ioEx) when (ioEx.Message.Contains("handle is invalid"))
+            {
+                // In test environments or when console is not available (e.g., service mode),
+                // console encoding cannot be set. This is not a critical failure.
+                Trace.Info($"Console encoding could not be set - console handle not available: {ioEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Other encoding-related exceptions should be logged but not fail initialization
+                Trace.Warning($"Failed to set console encoding to {terminalEncoding.EncodingName}");
+                Trace.Warning(ex.ToString());
+            }
         }
 
         private void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)

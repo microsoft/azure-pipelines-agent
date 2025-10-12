@@ -602,6 +602,7 @@
   "ServerTarpitUrl": "連結至 [資源使用率] 頁面 (顯示全域 1 小時): {0}。",
   "ServerTarpitUrlScoped": "連結至 [資源使用率] 頁面 (依管線顯示 1 小時): {0}。",
   "ServerUrl": "伺服器 URL",
+  "ServerUrlInvalid": "伺服器 URL 無效。請提供有效的 URL（例如：https://dev.azure.com/myorganization 或 https://myserver:8080/tfs）。",
   "ServiceAlreadyExists": "服務已經存在: {0}，它將被取代",
   "ServiceConfigured": "已成功設定服務 {0}",
   "ServiceDelayedStartOptionSet": "服務 {0} 已成功設定為延遲自動啟動",

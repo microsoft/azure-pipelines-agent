@@ -1192,7 +1192,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (Exception ex)
             {
-                Trace.Warning($"Failed to send flush logs request to worker: {ex.Message}");
+                Trace.Warning("Failed to send flush logs request to worker");
+                Trace.Warning(ex.ToString());
             }
 
             // Now wait for the additional 1 minute log flushing period

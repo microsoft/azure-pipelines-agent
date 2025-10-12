@@ -27,9 +27,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 AppContext.SetSwitch("System.Net.Http.UseSocketsHttpHandler", false);
             }
 
-            using (HostContext context = new HostContext(HostType.Agent))
-            {  
-                return MainAsync(context, args).GetAwaiter().GetResult();
+            // Top-level fatal guard: catch anything thrown before/around HostContext init
+            try
+            {
+                using (HostContext context = new HostContext(HostType.Agent))
+                {
+                    try
+                    {
+                        return MainAsync(context, args).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Ensure we emit a single fatal line with version + full stack, then return retryable
+                        var trace = context.GetTrace("AgentProcess");
+                        trace.Error($"[FATAL Startup] Agent v{BuildConstants.AgentPackage.Version} failed: {ex.Message} {ex}");
+                        return Constants.Agent.ReturnCode.RetryableError;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // If HostContext creation fails, we may not have tracing; write to stderr directly
+                Console.Error.WriteLine($"[FATAL Startup] Agent v{BuildConstants.AgentPackage.Version} failed: {ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+                return Constants.Agent.ReturnCode.RetryableError;
             }
         }
 
@@ -68,6 +89,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
                     trace.Error(StringUtil.Format($"Directory permission validation failed - insufficient permissions - {0}", e.Message));
+                    trace.Error($"[Permissions] Validation failed for directory '{agentDirectory}'. The agent requires read/write/execute permissions.");
+                    trace.Error(e);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
@@ -186,8 +209,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (Exception e)
             {
+                // Final guard within async path
                 terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                trace.Error("Unhandled exception during agent startup - initialization failed");
+                trace.Error($"[FATAL Startup] Agent v{BuildConstants.AgentPackage.Version} failed: {e.Message}");
                 trace.Error(e);
                 return Constants.Agent.ReturnCode.RetryableError;
             }

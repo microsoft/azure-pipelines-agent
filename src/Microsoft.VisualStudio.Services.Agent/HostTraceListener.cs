@@ -14,13 +14,13 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         public bool DisableConsoleReporting { get; set; }
         private const string _logFileNamingPattern = "{0}_{1:yyyyMMdd-HHmmss}-utc.log";
-        private string _logFileDirectory;
-        private string _logFilePrefix;
-        private bool _enablePageLog = false;
-        private bool _enableLogRetention = false;
+        private readonly string _logFileDirectory;
+        private readonly string _logFilePrefix;
+        private readonly bool _enablePageLog = false;
+        private readonly bool _enableLogRetention = false;
         private int _currentPageSize;
-        private int _pageSizeLimit;
-        private int _retentionDays;
+        private readonly int _pageSizeLimit;
+        private readonly int _retentionDays;
         private bool _diagErrorDetected = false;
         private string _logFilePath;
         private bool _disposed = false;
@@ -33,7 +33,17 @@ namespace Microsoft.VisualStudio.Services.Agent
             _logFileDirectory = logFileDirectory;
             _logFilePrefix = logFilePrefix;
 
-            Directory.CreateDirectory(_logFileDirectory);
+            try
+            {
+                Directory.CreateDirectory(_logFileDirectory);
+            }
+            catch (Exception ex)
+            {
+                // Log to console if tracing not yet established
+                Console.Error.WriteLine($"[IO ERROR] action=mkdir dir={_logFileDirectory} msg={ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+                throw;
+            }
 
             if (pageSizeLimit > 0)
             {
@@ -59,6 +69,29 @@ namespace Microsoft.VisualStudio.Services.Agent
             Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath));
             // Use StreamWriter constructor that handles FileStream internally
             Writer = new StreamWriter(_logFilePath, append: false, Encoding.UTF8, bufferSize: 4096);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath));
+            }
+            catch (Exception ex)
+            {
+                // Log to console if tracing not yet established
+                Console.Error.WriteLine($"[IO ERROR] action=mkdir dir={Path.GetDirectoryName(_logFilePath)} msg={ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+                throw;
+            }
+
+            try
+            {
+                Stream logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
+                Writer = new StreamWriter(logStream);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[IO ERROR] action=createFile path={_logFilePath} msg={ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+                throw;
+            }
         }
 
         // Copied and modified slightly from .Net Core source code. Modification was required to make it compile.
@@ -128,6 +161,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // Altered from the original .Net Core implementation.
         private void WriteHeader(string source, TraceEventType eventType, int id)
         {
+            _ = id; // suppress unused parameter analyzer without changing signature
             string type = null;
             switch (eventType)
             {
@@ -202,31 +236,24 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             string fileName = StringUtil.Format(_logFileNamingPattern, _logFilePrefix, DateTime.UtcNow);
             _logFilePath = Path.Combine(_logFileDirectory, fileName);
-            
-            // Use StreamWriter constructor that handles FileStream internally
-            // This eliminates the dual resource management issue
-            if (File.Exists(_logFilePath))
+            try
             {
-                return new StreamWriter(_logFilePath, append: true, Encoding.UTF8, bufferSize: 4096);
+                Stream logStream;
+                if (File.Exists(_logFilePath))
+                {
+                    logStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 4096);
+                }
+                else
+                {
+                    logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
+                }
+                return new StreamWriter(logStream);
             }
-            else
+            catch (Exception ex)
             {
-                return new StreamWriter(_logFilePath, append: false, Encoding.UTF8, bufferSize: 4096);
+                try { Console.Error.WriteLine($"[IO ERROR] action=createPageLog path={_logFilePath} msg={ex.Message}"); } catch { }
+                throw;
             }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (!_disposed && disposing)
-            {
-                _disposed = true;
-                
-                // Safely dispose the current writer if it exists
-                // No exception handling needed - we control the state
-                Writer?.Dispose();
-                Writer = null;
-            }
-            base.Dispose(disposing);
         }
     }
 }
