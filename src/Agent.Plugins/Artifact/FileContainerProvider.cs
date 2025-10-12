@@ -139,17 +139,11 @@ namespace Agent.Plugins
                 {
                     Directory.CreateDirectory(rootPath);
                 }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    throw new InvalidOperationException($"Access denied creating directory '{rootPath}': {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    throw new InvalidOperationException($"I/O error creating directory '{rootPath}': {ioEx.Message}", ioEx);
-                }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to create directory '{rootPath}': {ex.Message}", ex);
+                    tracer.Error($"Failed to create directory '{rootPath}'");
+                    tracer.Error(ex.ToString());
+                    throw;
                 }
             }
 
@@ -161,17 +155,11 @@ namespace Agent.Plugins
                 {
                     Directory.CreateDirectory(targetPath);
                 }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    throw new InvalidOperationException($"Access denied creating directory '{targetPath}': {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    throw new InvalidOperationException($"I/O error creating directory '{targetPath}': {ioEx.Message}", ioEx);
-                }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to create directory '{targetPath}': {ex.Message}", ex);
+                    tracer.Error($"Failed to create directory '{targetPath}'");
+                    tracer.Error(ex.ToString());
+                    throw;
                 }
             });
 
@@ -236,17 +224,11 @@ namespace Agent.Plugins
                     {
                         Directory.CreateDirectory(directory);
                     }
-                    catch (UnauthorizedAccessException uaEx)
-                    {
-                        throw new InvalidOperationException($"Access denied creating directory '{directory}': {uaEx.Message}", uaEx);
-                    }
-                    catch (IOException ioEx)
-                    {
-                        throw new InvalidOperationException($"I/O error creating directory '{directory}': {ioEx.Message}", ioEx);
-                    }
                     catch (Exception ex)
                     {
-                        throw new InvalidOperationException($"Failed to create directory '{directory}': {ex.Message}", ex);
+                        tracer.Error($"Failed to create directory '{directory}'");
+                        tracer.Error(ex.ToString());
+                        throw;
                     }
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                         async () =>
@@ -537,17 +519,11 @@ namespace Agent.Plugins
                 {
                     Directory.CreateDirectory(targetDirectory);
                 }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    throw new InvalidOperationException($"Access denied creating target directory '{targetDirectory}': {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    throw new InvalidOperationException($"I/O error creating target directory '{targetDirectory}': {ioEx.Message}", ioEx);
-                }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to create target directory '{targetDirectory}': {ex.Message}", ex);
+                    tracer.Error($"Failed to create target directory '{targetDirectory}'");
+                    tracer.Error(ex.ToString());
+                    throw;
                 }
                 MoveDirectory(extractedTarsTempPath, targetDirectory);
             }
@@ -564,17 +540,11 @@ namespace Agent.Plugins
             {
                 Directory.CreateDirectory(extractedFilesDir);
             }
-            catch (UnauthorizedAccessException uaEx)
-            {
-                throw new InvalidOperationException($"Access denied creating extraction directory '{extractedFilesDir}': {uaEx.Message}", uaEx);
-            }
-            catch (IOException ioEx)
-            {
-                throw new InvalidOperationException($"I/O error creating extraction directory '{extractedFilesDir}': {ioEx.Message}", ioEx);
-            }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to create extraction directory '{extractedFilesDir}': {ex.Message}", ex);
+                tracer.Error($"Failed to create extraction directory '{extractedFilesDir}'");
+                tracer.Error(ex.ToString());
+                throw;
             }
             var extractionProcessInfo = new ProcessStartInfo("tar")
             {

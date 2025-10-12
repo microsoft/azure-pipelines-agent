@@ -101,17 +101,11 @@ namespace Agent.Plugins.Repository
                 {
                     Directory.CreateDirectory(rootPath);
                 }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    throw new InvalidOperationException($"Access denied creating repository directory '{rootPath}': {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    throw new InvalidOperationException($"I/O error creating repository directory '{rootPath}': {ioEx.Message}", ioEx);
-                }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to create repository directory '{rootPath}': {ex.Message}", ex);
+                    _context.Error($"Failed to create repository directory '{rootPath}'");
+                    _context.Error(ex.ToString());
+                    throw;
                 }
             }
 

@@ -59,26 +59,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Type type = Type.GetType(pluginTypeName, throwOnError: true);
                     taskPlugin = Activator.CreateInstance(type) as IAgentTaskPlugin;
                 }
-                catch (TypeLoadException tle)
-                {
-                    Trace.Error($"Failed to load plugin type '{pluginTypeName}': {tle.Message}");
-                    Trace.Error(tle);
-                    continue; // Skip this plugin but continue loading others
-                }
-                catch (BadImageFormatException bife)
-                {
-                    Trace.Error($"Invalid assembly format for plugin '{pluginTypeName}': {bife.Message}");
-                    Trace.Error(bife);
-                    continue; // Skip this plugin but continue loading others
-                }
                 catch (ReflectionTypeLoadException rtle)
                 {
-                    Trace.Error($"Failed to load types from plugin assembly '{pluginTypeName}': {rtle.Message}");
+                    // Special: Extract LoaderExceptions for detailed assembly loading diagnostics
+                    Trace.Error($"Failed to load types from plugin assembly '{pluginTypeName}'");
                     if (rtle.LoaderExceptions != null)
                     {
                         foreach (var loaderEx in rtle.LoaderExceptions)
                         {
-                            Trace.Error($"Loader exception: {loaderEx?.Message}");
+                            if (loaderEx != null)
+                            {
+                                Trace.Error(loaderEx);
+                            }
                         }
                     }
                     Trace.Error(rtle);
@@ -86,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (Exception ex)
                 {
-                    Trace.Error($"Unexpected error loading plugin '{pluginTypeName}': {ex.Message}");
+                    Trace.Error($"Failed to load plugin '{pluginTypeName}'");
                     Trace.Error(ex);
                     continue; // Skip this plugin but continue loading others
                 }

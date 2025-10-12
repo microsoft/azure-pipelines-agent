@@ -69,16 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             // lazy creation on write
             if (_pageWriter == null)
             {
-                try
-                {
-                    Create();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error(ex);
-                    // If we cannot create a page, drop the write to avoid crashing the agent.
-                    return;
-                }
+                Create();
             }
 
             if (message.Contains(groupStartTag, StringComparison.OrdinalIgnoreCase))
@@ -94,15 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             } 
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
-            try
-            {
-                _pageWriter.WriteLine(line);
-            }
-            catch (Exception ex)
-            {
-                Trace.Error(ex);
-                return; // best effort logging
-            }
+            _pageWriter.WriteLine(line);
 
             _totalLines++;
             if (line.IndexOf('\n') != -1)
@@ -119,14 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _byteCount += System.Text.Encoding.UTF8.GetByteCount(line);
             if (_byteCount >= PageSize)
             {
-                try
-                {
-                    NewPage();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error(ex);
-                }
+                NewPage();
             }
         }
 
@@ -164,9 +140,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     _pageWriter.Flush();
                 }
-                catch (ObjectDisposedException ex)
+                catch (ObjectDisposedException)
                 {
-                    Trace.Info($"PagingLogger: StreamWriter already disposed during Flush(). TimelineId: {_timelineId}, RecordId: {_timelineRecordId}, Exception: {ex.Message}");
+                    // StreamWriter was already disposed - this is safe to ignore
+                    // Can happen during shutdown or cleanup scenarios
                 }
                 catch (IOException)
                 {
@@ -175,14 +152,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // Safe to ignore as we're disposing anyway
                 }
                 
-                try
-                {
-                    _pageWriter.Dispose();
-                }
-                catch (ObjectDisposedException ex)
-                {
-                    Trace.Info($"PagingLogger: StreamWriter already disposed during Dispose(). TimelineId: {_timelineId}, RecordId: {_timelineRecordId}, Exception: {ex.Message}");
-                }
+                _pageWriter.Dispose();
                 _pageWriter = null;
                 
                 _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);

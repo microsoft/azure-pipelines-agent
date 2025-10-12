@@ -79,63 +79,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (OperationCanceledException) when (executionContext.CancellationToken.IsCancellationRequested)
                 {
-                    Trace.Info($"Git download has been cancelled.");
+                    // Expected cancellation (Rule 5)
+                    Trace.Info("Git download cancelled by user");
                     throw;
-                }
-                catch (HttpRequestException httpEx)
-                {
-                    retryCount++;
-                    Trace.Info($"Git download failed due to HTTP error (attempt {retryCount}): {httpEx.Message}");
-                    Trace.Error(httpEx);
-
-                    if (retryCount >= retryLimit)
-                    {
-                        throw new InvalidOperationException($"Failed to download Git after {retryLimit} attempts due to HTTP errors", httpEx);
-                    }
-                }
-                catch (TaskCanceledException tcEx) when (tcEx.InnerException is System.TimeoutException)
-                {
-                    retryCount++;
-                    Trace.Info($"Git download timed out (attempt {retryCount}): {tcEx.Message}");
-                    Trace.Error(tcEx);
-
-                    if (retryCount >= retryLimit)
-                    {
-                        throw new InvalidOperationException($"Git download timed out after {retryLimit} attempts", tcEx);
-                    }
                 }
                 catch (UnauthorizedAccessException uaEx)
                 {
-                    Trace.Error($"Access denied writing Git executable to '{downloadGitPath}': {uaEx.Message}");
-                    throw new InvalidOperationException($"Cannot write Git executable - check file permissions: {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    retryCount++;
-                    Trace.Info($"Git download I/O error (attempt {retryCount}): {ioEx.Message}");
-                    Trace.Error(ioEx);
-
-                    if (retryCount >= retryLimit)
-                    {
-                        throw new InvalidOperationException($"Failed to download Git after {retryLimit} attempts due to I/O errors", ioEx);
-                    }
+                    // Don't retry - permission issue won't fix itself
+                    Trace.Error($"Access denied writing Git executable to '{downloadGitPath}'");
+                    Trace.Error(uaEx);
+                    throw;
                 }
                 catch (Exception ex)
                 {
+                    // Retry logic for transient errors (network, I/O, timeouts, etc.)
                     retryCount++;
-                    Trace.Info("Failed to download Git");
+                    Trace.Info($"Git download failed (attempt {retryCount})");
                     Trace.Error(ex);
 
-                    if (retryCount > retryLimit)
+                    if (retryCount >= retryLimit)
                     {
-                        Trace.Info($"Retry limit to download Git has been reached.");
-                        break;
+                        Trace.Error($"Failed to download Git after {retryLimit} attempts");
+                        throw;
                     }
-                    else
-                    {
-                        Trace.Info("Retry Git download in 10 seconds.");
-                        await Task.Delay(retryDelay, executionContext.CancellationToken);
-                    }
+
+                    Trace.Info($"Retry Git download in {retryDelay / 1000} seconds");
+                    await Task.Delay(retryDelay, executionContext.CancellationToken);
                 }
             }
 

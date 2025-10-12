@@ -333,17 +333,11 @@ namespace Agent.Plugins
                 {
                     Directory.CreateDirectory(path);
                 }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    throw new InvalidOperationException($"Access denied creating directory '{path}': {uaEx.Message}", uaEx);
-                }
-                catch (IOException ioEx)
-                {
-                    throw new InvalidOperationException($"I/O error creating directory '{path}': {ioEx.Message}", ioEx);
-                }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to create directory '{path}': {ex.Message}", ex);
+                    tracer.Error($"Failed to create directory '{path}'");
+                    tracer.Error(ex.ToString());
+                    throw;
                 }
             }
         }

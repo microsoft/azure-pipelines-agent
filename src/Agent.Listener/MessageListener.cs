@@ -141,7 +141,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         _term.WriteError(StringUtil.Loc("QueueConError", DateTime.UtcNow, ex.Message, _sessionCreationRetryInterval.TotalSeconds));
                         encounteringError = true;
-                        Trace.Warning($"[RETRY CreateSession] host={new Uri(serverUrl).Host} attempt={(attempts + 1)} nextDelay={_sessionCreationRetryInterval.TotalSeconds}s");
                     }
 
                     Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _sessionCreationRetryInterval.TotalSeconds));
@@ -242,7 +241,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             //print error only on the first consecutive error
                             _term.WriteError(StringUtil.Loc("QueueConError", DateTime.UtcNow, ex.Message));
                             encounteringError = true;
-                            Trace.Warning($"[RETRY PLAN] GetNextMessage host={new Uri(_settings.ServerUrl).Host} window1=15-30s window2=30-60s threshold=5");
                         }
 
                         // re-create VssConnection before next retry
@@ -302,8 +300,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    var host = _settings != null && !string.IsNullOrEmpty(_settings.ServerUrl) ? new Uri(_settings.ServerUrl).Host : "";
-                    Trace.Verbose($"[KeepAlive] Unable to send keepalive op=GetAgentMessage host={host} msg={ex.Message}");
+                    Trace.Verbose("Unable to sent GetAgentMessage to keep alive", ex.Message);
                 }
 
                 await HostContext.Delay(TimeSpan.FromSeconds(30), token);

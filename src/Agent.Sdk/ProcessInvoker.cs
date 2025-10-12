@@ -7,9 +7,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
@@ -294,27 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             // Start the process.
             _stopWatch = Stopwatch.StartNew();
-            try
-            {
-                _proc.Start();
-            }
-            catch (System.ComponentModel.Win32Exception ex)
-            {
-                int envOverrides = environment?.Count ?? 0;
-                Trace.Info($"[RunTask] Failed to start process (Win32). file='{fileName}' args='{arguments}' workdir='{workingDirectory}' envOverrides={envOverrides} nativeError={ex.NativeErrorCode}. msg={ex.Message}");
-                throw;
-            }
-            catch (OperationCanceledException ocex)
-            {
-                Trace.Info($"[RunTask] Start canceled for file='{fileName}' args='{arguments}'. msg={ocex.Message}");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                int envOverrides = environment?.Count ?? 0;
-                Trace.Info($"[RunTask] Failed to start process. file='{fileName}' args='{arguments}' workdir='{workingDirectory}' envOverrides={envOverrides}. msg={ex.Message}");
-                throw;
-            }
+            _proc.Start();
 
             // Decrease invoked process priority, in platform specifc way, relative to parent
             if (!highPriorityProcess)
@@ -342,169 +324,72 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 else
                 {
-                    try
-                    {
-                        // Close the input stream. This is done to prevent commands from blocking the build waiting for input from the user.
-                        _proc.StandardInput.Close();
-                    }
-                    catch (ObjectDisposedException odex)
-                    {
-                        Trace.Info($"[STDIN] StandardInput already disposed when attempting to close. msg={odex.Message}");
-                    }
-                    catch (IOException ioex)
-                    {
-                        Trace.Info($"[STDIN] IOException while closing StandardInput. msg={ioex.Message}");
-                    }
+                    // Close the input stream. This is done to prevent commands from blocking the build waiting for input from the user.
+                    _proc.StandardInput.Close();
                 }
             }
 
             AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
             using (var registration = cancellationToken.Register(async () =>
             {
-                try
-                {
-                    await CancelAndKillProcessTree(killProcessOnCancel);
-                }
-                catch (Exception ex)
-                {
-                    // Best-effort cancellation path should never crash caller
-                    Trace.Info($"[Cancel] Exception during CancelAndKillProcessTree. msg={ex.Message}");
-                }
-                finally
-                {
-                    // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
-                    afterCancelKillProcessTreeAttemptSignal.Set();
-                }
+                await CancelAndKillProcessTree(killProcessOnCancel);
+
+                // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
+                afterCancelKillProcessTreeAttemptSignal.Set();
             }))
             {
                 Trace.Info($"Process started with process id {_proc?.Id ?? -1}, waiting for process exit.");
 
                 while (true)
                 {
-                    try
+                    Task outputSignal = _outputProcessEvent.WaitAsync();
+                    Task[] tasks;
+
+                    if (continueAfterCancelProcessTreeKillAttempt)
                     {
-                        Task outputSignal = _outputProcessEvent.WaitAsync();
-                        Task[] tasks;
-
-                        if (continueAfterCancelProcessTreeKillAttempt)
-                        {
-                            tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
-                        }
-                        else
-                        {
-                            tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task };
-                        }
-
-                        var signaled = await Task.WhenAny(tasks);
-
-                        if (signaled == outputSignal)
-                        {
-                            try
-                            {
-                                ProcessOutput();
-                            }
-                            catch (Exception procEx)
-                            {
-                                // Log but don't fail on output processing errors
-                                Trace.Info($"[ProcessOutput] Error processing output: {procEx.Message}");
-                            }
-                        }
-                        else
-                        {
-                            _stopWatch.Stop();
-                            break;
-                        }
+                        tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task, afterCancelKillProcessTreeAttemptSignal.WaitAsync() };
                     }
-                    catch (InvalidOperationException ioEx) when (ioEx.Message.Contains("process") || ioEx.Message.Contains("disposed"))
+                    else
                     {
-                        // Process may have been disposed or accessed after exit
-                        Trace.Info($"[ProcessMonitor] Process access error: {ioEx.Message}");
+                        tasks = new Task[] { outputSignal, _processExitedCompletionSource.Task };
+                    }
+
+                    var signaled = await Task.WhenAny(tasks);
+
+                    if (signaled == outputSignal)
+                    {
+                        ProcessOutput();
+                    }
+                    else
+                    {
                         _stopWatch.Stop();
                         break;
-                    }
-                    catch (Exception monitorEx)
-                    {
-                        // Log unexpected monitoring errors but continue
-                        Trace.Info($"[ProcessMonitor] Unexpected error in process monitoring: {monitorEx.Message}");
-
-                        // If we can't monitor the process, we should exit the loop
-                        try
-                        {
-                            if (_proc.HasExited)
-                            {
-                                _stopWatch.Stop();
-                                break;
-                            }
-                        }
-                        catch
-                        {
-                            // If we can't even check process state, break out
-                            Trace.Info("[ProcessMonitor] Cannot determine process state, ending monitoring");
-                            _stopWatch.Stop();
-                            break;
-                        }
                     }
                 }
 
                 // Just in case there was some pending output when the process shut down go ahead and check the
                 // data buffers one last time before returning
-                try
-                {
-                    ProcessOutput();
-                }
-                catch (Exception outputEx)
-                {
-                    Trace.Info($"[FinalOutput] Error processing final output: {outputEx.Message}");
-                }
+                ProcessOutput();
 
-                try
+                if (_proc.HasExited)
                 {
-                    if (_proc.HasExited)
-                    {
-                        Trace.Info($"Finished process {_proc.Id} with exit code {_proc.ExitCode}, and elapsed time {_stopWatch.Elapsed}.");
-                    }
-                    else
-                    {
-                        Trace.Info($"Process _proc.HasExited={_proc.HasExited}, {_proc.Id},  and elapsed time {_stopWatch.Elapsed}.");
-                    }
+                    Trace.Info($"Finished process {_proc?.Id ?? -1} with exit code {_proc?.ExitCode ?? -1}, and elapsed time {_stopWatch.Elapsed}.");
                 }
-                catch (InvalidOperationException ioEx)
+                else
                 {
-                    // Process may have been disposed
-                    Trace.Info($"[ProcessInfo] Cannot access process information: {ioEx.Message}");
-                }
-                catch (Exception processInfoEx)
-                {
-                    Trace.Info($"[ProcessInfo] Error getting process information: {processInfoEx.Message}");
+                    Trace.Info($"Process _proc.HasExited={_proc?.HasExited ?? false}, Process ID={_proc?.Id ?? -1},  and elapsed time {_stopWatch.Elapsed}.");
                 }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Wait for process to finish and get exit code with exception handling
-            int exitCode;
-            try
+            // Wait for process to finish.
+            if (_proc.ExitCode != 0 && requireExitCodeZero)
             {
-                exitCode = _proc.ExitCode;
-            }
-            catch (InvalidOperationException ioEx)
-            {
-                Trace.Info($"[ExitCode] Cannot access exit code, process may not have started properly: {ioEx.Message}");
-                // Return non-zero exit code to indicate failure
-                return -1;
-            }
-            catch (Exception exitEx)
-            {
-                Trace.Info($"[ExitCode] Unexpected error getting exit code: {exitEx.Message}");
-                return -1;
+                throw new ProcessExitCodeException(exitCode: _proc.ExitCode, fileName: fileName, arguments: arguments);
             }
 
-            if (exitCode != 0 && requireExitCodeZero)
-            {
-                throw new ProcessExitCodeException(exitCode: exitCode, fileName: fileName, arguments: arguments);
-            }
-
-            return exitCode;
+            return _proc.ExitCode;
         }
 
         public void Dispose()
@@ -709,25 +594,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             if (PlatformUtil.RunningOnWindows)
             {
-                try
-                {
-                    WindowsKillProcessTree();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"[WARN TimeoutKill] Failed to kill process tree on Windows. pid={_proc?.Id} msg={ex.Message}");
-                }
+                WindowsKillProcessTree();
             }
             else
             {
-                try
-                {
-                    NixKillProcessTree();
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"[WARN TimeoutKill] Failed to kill process tree on *nix. pid={_proc?.Id} msg={ex.Message}");
-                }
+                NixKillProcessTree();
             }
         }
 

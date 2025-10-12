@@ -89,7 +89,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
                     trace.Error(StringUtil.Format($"Directory permission validation failed - insufficient permissions - {0}", e.Message));
-                    trace.Error($"[Permissions] Validation failed for directory '{agentDirectory}'. The agent requires read/write/execute permissions.");
                     trace.Error(e);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
@@ -211,7 +210,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 // Final guard within async path
                 terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
-                trace.Error($"[FATAL Startup] Agent v{BuildConstants.AgentPackage.Version} failed: {e.Message}");
+                trace.Error("Unhandled exception during agent startup - initialization failed");
                 trace.Error(e);
                 return Constants.Agent.ReturnCode.RetryableError;
             }

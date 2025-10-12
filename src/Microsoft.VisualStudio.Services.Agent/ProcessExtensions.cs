@@ -44,16 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             Dictionary<string, string> env = new Dictionary<string, string>();
             string envFile = $"/proc/{process.Id}/environ";
             trace.Info($"Read env from {envFile}");
-            string envContent = string.Empty;
-            try
-            {
-                envContent = File.ReadAllText(envFile);
-            }
-            catch (Exception ex)
-            {
-                trace.Error(ex);
-                return null;
-            }
+            string envContent = File.ReadAllText(envFile);
             if (!string.IsNullOrEmpty(envContent))
             {
                 // on linux, environment variables are seprated by '\0'
@@ -117,20 +108,11 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 };
 
-                int exitCode = -1;
-                try
-                {
-                    exitCode = p.ExecuteAsync(workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Root),
-                                                        fileName: "ps",
-                                                        arguments: $"e -p {process.Id} -o command",
-                                                        environment: null,
-                                                        cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    trace.Error(ex);
-                    return null;
-                }
+                int exitCode = p.ExecuteAsync(workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Root),
+                                                fileName: "ps",
+                                                arguments: $"e -p {process.Id} -o command",
+                                                environment: null,
+                                                cancellationToken: CancellationToken.None).GetAwaiter().GetResult();
                 if (exitCode == 0)
                 {
                     trace.Info($"Successfully dump environment variables for {process.Id}");
