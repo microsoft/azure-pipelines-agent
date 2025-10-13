@@ -705,7 +705,7 @@ namespace Agent.Sdk.Knob
             nameof(EnableNewMaskerAndRegexes),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
             new EnvironmentKnobSource("AZP_ENABLE_NEW_MASKER_AND_REGEXES"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob EnableTimeoutLogFlushing = new Knob(
             nameof(EnableTimeoutLogFlushing),
