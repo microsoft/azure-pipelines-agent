@@ -324,9 +324,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool continueAfterCancelProcessTreeKillAttempt,
             CancellationToken cancellationToken)
         {
-            // Debug: Log event forwarding setup
-            Trace.Info("MASKER DEBUG: Setting up event forwarding in ProcessInvokerWrapper");
-            
             // Properly forward events to subscribers
             _invoker.ErrorDataReceived += OnErrorDataReceived;
             _invoker.OutputDataReceived += OnOutputDataReceived;
@@ -353,7 +350,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // Clean up event handlers to prevent memory leaks
                 _invoker.ErrorDataReceived -= OnErrorDataReceived;
                 _invoker.OutputDataReceived -= OnOutputDataReceived;
-                Trace.Info("MASKER DEBUG: Cleaned up event handlers");
             }
         }
 
@@ -377,13 +373,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         
         private void OnErrorDataReceived(object sender, ProcessDataReceivedEventArgs args)
         {
-            Trace.Verbose($"MASKER DEBUG: Forwarding ErrorDataReceived event: '{args.Data}'");
             this.ErrorDataReceived?.Invoke(sender, args);
         }
         
         private void OnOutputDataReceived(object sender, ProcessDataReceivedEventArgs args)
         {
-            Trace.Verbose($"MASKER DEBUG: Forwarding OutputDataReceived event: '{args.Data}'");
             this.OutputDataReceived?.Invoke(sender, args);
         }
     }
