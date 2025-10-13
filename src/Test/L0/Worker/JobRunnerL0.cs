@@ -442,6 +442,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "darwin")]
         public async Task ServerOMDirectoryVariableSetCorrectlyOnWindows()
         {
             using (var _tokenSource = new CancellationTokenSource())
