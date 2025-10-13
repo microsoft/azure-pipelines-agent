@@ -44,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         event EventHandler Unloading;
         void ShutdownAgent(ShutdownReason reason);
         void WritePerfCounter(string counter);
+        void EnableHttpTrace();
         ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
         // Added for flush logs support
         CancellationToken WorkerShutdownForTimeout { get; }
@@ -146,16 +147,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
-            // Enable Http trace
-            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
+            // Enable Http trace - check environment variable directly during initialization
+            // (RuntimeKnobSource not available during HostContext initialization)
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE")) && 
+                StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE")))
             {
-                _trace.Warning("*****************************************************************************************");
-                _trace.Warning("**                                                                                     **");
-                _trace.Warning("** Http trace is enabled, all your http traffic will be dumped into agent diag log.    **");
-                _trace.Warning("** DO NOT share the log in public place! The trace may contains secrets in plain text. **");
-                _trace.Warning("**                                                                                     **");
-                _trace.Warning("*****************************************************************************************");
-
+                PrintHttpTraceWarning();
                 _httpTrace = GetTrace("HttpTrace");
                 _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
             }
@@ -625,6 +622,31 @@ namespace Microsoft.VisualStudio.Services.Agent
                     }
                 }
             }
+        }
+
+        private void PrintHttpTraceWarning()
+        {
+            _trace.Warning("*****************************************************************************************");
+            _trace.Warning("**                                                                                     **");
+            _trace.Warning("** Http trace is enabled, all your http traffic will be dumped into agent diag log.    **");
+            _trace.Warning("** DO NOT share the log in public place! The trace may contains secrets in plain text. **");
+            _trace.Warning("**                                                                                     **");
+            _trace.Warning("*****************************************************************************************");
+        }
+
+        public void EnableHttpTrace()
+        {
+            if (_httpTrace != null && _diagListenerSubscription != null)
+            {
+                _trace.Info("HTTP trace is already enabled");
+                return;
+            }
+            PrintHttpTraceWarning();
+
+            _httpTrace = GetTrace("HttpTrace");
+            _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
+             
+            _trace.Info("HTTP trace enabled dynamically via pipeline variable");
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)

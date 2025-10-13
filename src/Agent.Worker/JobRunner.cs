@@ -132,6 +132,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
                             }
                         }
+
+                        // Dynamic HTTP trace: allow pipeline variables to enable HTTP tracing for this job
+                        bool enableHttpTrace = AgentKnobs.HttpTrace.GetValue(jobContext).AsBoolean()
+                            || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+                        if (enableHttpTrace)
+                        {
+                            Trace.Info("HTTP trace enabled via pipeline variable");
+                            HostContext.EnableHttpTrace();
+                        }
                     }
                     catch (NotSupportedException ex)
                     {
