@@ -117,25 +117,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                     Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
 
-                    // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job
-                    try
-                    {
-                        bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
-                            || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+                    // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job            
+                    bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
+                        || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
 
-                        if (enableWorkerVerbose)
-                        {
-                            Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
-                            var traceManager = HostContext.GetService<ITraceManager>();
-                            if (traceManager?.Switch != null)
-                            {
-                                traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
-                            }
-                        }
-                    }
-                    catch (NotSupportedException ex)
+                    if (enableWorkerVerbose)
                     {
-                        Trace.Warning($"Pipeline/runtime knob evaluation not supported in this context: {ex.Message}");
+                        Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
+                        var traceManager = HostContext.GetService<ITraceManager>();
+                        if (traceManager?.Switch != null)
+                        {
+                            traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
+                        }
                     }
 
                     //Start Resource Diagnostics if enabled in the job message 
