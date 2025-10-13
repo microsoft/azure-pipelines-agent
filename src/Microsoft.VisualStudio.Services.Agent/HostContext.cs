@@ -149,12 +149,19 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Enable Http trace - check environment variable directly during initialization
             // (RuntimeKnobSource not available during HostContext initialization)
-            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE")) && 
-                StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE")))
+            string httpTraceEnvVar = Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE");
+            _trace.Info($"HTTP Trace Environment Variable: '{httpTraceEnvVar}'");
+            
+            if (!string.IsNullOrEmpty(httpTraceEnvVar) && StringUtil.ConvertToBoolean(httpTraceEnvVar))
             {
+                _trace.Info("Enabling HTTP trace via environment variable");
                 PrintHttpTraceWarning();
                 _httpTrace = GetTrace("HttpTrace");
                 _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
+            }
+            else
+            {
+                _trace.Info("HTTP trace not enabled - environment variable not set or false");
             }
 
             // Enable perf counter trace
