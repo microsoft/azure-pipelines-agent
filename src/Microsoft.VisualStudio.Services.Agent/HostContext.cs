@@ -184,7 +184,6 @@ namespace Microsoft.VisualStudio.Services.Agent
             // 'PreciselyClassifiedSecurityKeys' regexes. This class of pattern
             // effectively admits no false positives and is strongly oriented on
             // detecting the latest Azure provider API key formats.
-            
             bool enableNewMaskerAndRegexes = AgentKnobs.EnableNewMaskerAndRegexes.GetValue(this).AsBoolean();
 
 #pragma warning disable CA2000 // Dispose objects before losing scope. False positive: LoggedSecretMasker takes ownership.

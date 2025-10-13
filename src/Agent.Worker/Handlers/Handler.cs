@@ -235,7 +235,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
-            Environment[key] = value;
+
+            Environment[key] = value ?? string.Empty;
 
             if (PlatformUtil.RunningOnWindows && Environment[key].Length > _windowsEnvironmentVariableMaximumSize)
             {
@@ -388,7 +389,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             publishTelemetryCmd.Initialize(HostContext);
             publishTelemetryCmd.ProcessCommand(ExecutionContext, cmd);
         }
-
-
     }
 }
