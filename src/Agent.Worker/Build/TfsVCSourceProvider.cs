@@ -89,8 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             if (PlatformUtil.RunningOnWindows)
             {
                 // Set TFVC_BUILDAGENT_POLICYPATH
-                string vstsomPath = VarUtil.GetServerOMPath(HostContext, executionContext);
-
+                string vstsomPath = VarUtil.GetVstsomDirectoryPath(HostContext, executionContext);
                 string policyDllPath = Path.Combine(vstsomPath, "Microsoft.TeamFoundation.VersionControl.Controls.dll");
                 ArgUtil.File(policyDllPath, nameof(policyDllPath));
                 const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";

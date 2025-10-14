@@ -261,6 +261,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.TfLatestDirectory);
                     break;
 
+                case WellKnownDirectory.TfArchiveLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfArchiveLatestDirectory);
+                    break;
+
+                case WellKnownDirectory.VstsomTfCommon:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.VstsomTfCommonDirectory);
+                    break;
+
                 case WellKnownDirectory.Tee:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),

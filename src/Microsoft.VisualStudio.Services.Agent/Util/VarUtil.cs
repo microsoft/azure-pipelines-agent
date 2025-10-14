@@ -6,6 +6,7 @@ using Agent.Sdk.Knob;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -217,19 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return false;
         }
 
-        public static string GetServerOMPath(IHostContext hostContext, IKnobValueContext context)
-        {
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
-            ArgUtil.NotNull(context, nameof(context));
-            
-            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
-                ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLatest)
-                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
-                    ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                    : hostContext.GetDirectory(WellKnownDirectory.ServerOM);
-        }
-
-        public static string GetTfPath(IHostContext hostContext, IKnobValueContext context)
+        public static string GetTfExecutablePath(IHostContext hostContext, IKnobValueContext context)
         {
             ArgUtil.NotNull(hostContext, nameof(hostContext));
             ArgUtil.NotNull(context, nameof(context));
@@ -238,18 +227,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 ? hostContext.GetDirectory(WellKnownDirectory.TfLatest)
                 : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
                     ? hostContext.GetDirectory(WellKnownDirectory.TfLegacy)
-                    : hostContext.GetDirectory(WellKnownDirectory.Tf);
+                    : hostContext.GetDirectory(WellKnownDirectory.ServerOM);
         }
 
-        public static string GetTfDirectoryName(IKnobValueContext context)
+        public static string GetVstsomDirectoryPath(IHostContext hostContext, IKnobValueContext context)
         {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
             ArgUtil.NotNull(context, nameof(context));
             
-            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
-                ? "tf-latest"
-                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
-                    ? "tf-legacy"
-                    : "tf";
+            return !AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
+                ? hostContext.GetDirectory(WellKnownDirectory.ServerOM)
+                : hostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
         }
     }
 }

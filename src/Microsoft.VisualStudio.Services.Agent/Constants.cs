@@ -25,7 +25,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         TfLegacy,
         TfLatest,
         ServerOMLegacy,
-        ServerOMLatest,
         LegacyPSHostLegacy
     }
 
@@ -322,12 +321,11 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string LegacyPSHostLegacyDirectory = "vstshost-legacy";
             public static readonly string ServerOMDirectory = "vstsom";
             public static readonly string ServerOMLegacyDirectory = "vstsom-legacy";
-            public static readonly string ServerOMLatestDirectory = "vstsom-latest";
             public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
             public static readonly string TfDirectory = "tf";
             public static readonly string TfLegacyDirectory = "tf-legacy";
-            public static readonly string TfLatestDirectory = "tf-latest";
+            public static readonly string TfLatestDirectory = "vstsom-archives/tf-17";
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";

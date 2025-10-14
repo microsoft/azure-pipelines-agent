@@ -66,19 +66,5 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             Assert.Equal(knobValueContextType, parameters[1].ParameterType);
         }
 
-        [Fact]
-        public void VarUtil_HasGetTfDirectoryNameMethod()
-        {
-            // Verify the method exists and can be called
-            var knobValueContextType = typeof(IKnobValueContext);
-            var method = typeof(VarUtil).GetMethod("GetTfDirectoryName");
-            
-            Assert.NotNull(method);
-            Assert.Equal(typeof(string), method.ReturnType);
-            
-            var parameters = method.GetParameters();
-            Assert.Equal(1, parameters.Length);
-            Assert.Equal(knobValueContextType, parameters[0].ParameterType);
-        }
     }
 }
