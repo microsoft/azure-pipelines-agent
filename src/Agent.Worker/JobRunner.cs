@@ -117,36 +117,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                     Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
 
-                    // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job
-                    try
-                    {
-                        bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
-                            || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
-
-                        if (enableWorkerVerbose)
-                        {
-                            Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
-                            var traceManager = HostContext.GetService<ITraceManager>();
-                            if (traceManager?.Switch != null)
-                            {
-                                traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
-                            }
-                        }
-
-                        // Dynamic HTTP trace: allow pipeline variables to enable HTTP tracing for this job
-                        bool enableHttpTrace = AgentKnobs.HttpTrace.GetValue(jobContext).AsBoolean()
-                            || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
-
-                        if (enableHttpTrace)
-                        {
-                            Trace.Info("HTTP trace enabled via pipeline variable");
-                            HostContext.EnableHttpTrace();
-                        }
-                    }
-                    catch (NotSupportedException ex)
-                    {
-                        Trace.Warning($"Pipeline/runtime knob evaluation not supported in this context: {ex.Message}");
-                    }
+                    EvaluateHttpTraceKnob(jobContext);
+                    EvaluateTraceVerboseKnob(jobContext);
 
                     //Start Resource Diagnostics if enabled in the job message 
                     jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
@@ -504,6 +476,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobConnection?.Dispose();
                     await ShutdownQueue(throwOnFailure: false);
                     Trace.Info("Job server queue shutdown completed - all resources cleaned up successfully");
+                }
+            }
+        }
+
+        private void EvaluateHttpTraceKnob(IExecutionContext jobContext)
+        {
+            // Dynamic HTTP trace: allow pipeline variables to enable HTTP tracing for this job
+            bool enableHttpTrace = AgentKnobs.HttpTrace.GetValue(jobContext).AsBoolean()
+                || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+            if (enableHttpTrace)
+            {
+                Trace.Info("HTTP trace enabled via pipeline variable");
+                HostContext.EnableHttpTrace();
+            }
+        }
+
+        private void EvaluateTraceVerboseKnob(IExecutionContext jobContext)
+        {
+            // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job            
+            bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
+                || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+            if (enableWorkerVerbose)
+            {
+                Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
+                var traceManager = HostContext.GetService<ITraceManager>();
+                if (traceManager?.Switch != null)
+                {
+                    traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
                 }
             }
         }
