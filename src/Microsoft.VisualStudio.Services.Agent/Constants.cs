@@ -68,6 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Guid AdvancedSecurityCodeqlAutobuild = new Guid("a63ec2fb-3600-494f-a460-963e3f5f6928");
             public static readonly Guid AdvancedSecurityCodeqlInit = new Guid("a34f8529-3300-494f-a460-963e3f5f6928");
             public static readonly Guid AdvancedSecurityDependencyScanning = new Guid("f97aace4-962a-441b-9141-b842d806b9c7");
+            public static readonly Guid AdvancedSecurityDependencyScanningPPE = new Guid("0c6cb28c-0e98-48b9-8a61-c1bb4905532a");
 
             // advancedsecurity.iac-tasks
             public static readonly Guid TemplateAnalyzerSarif = new Guid("2ff4011a-8c38-46ae-9654-29d7d45ce875");
@@ -90,6 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlAutobuild,
             MicrosoftExtensionTaskIds.AdvancedSecurityCodeqlInit,
             MicrosoftExtensionTaskIds.AdvancedSecurityDependencyScanning,
+            MicrosoftExtensionTaskIds.AdvancedSecurityDependencyScanningPPE,
             MicrosoftExtensionTaskIds.TemplateAnalyzerSarif,
             MicrosoftExtensionTaskIds.TerrascanSarif,
             MicrosoftExtensionTaskIds.TrivySarif
