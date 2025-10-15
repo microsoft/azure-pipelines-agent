@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -214,6 +215,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             val = null;
             trace.Verbose($"Get '{name}' (not found)");
             return false;
+        }
+
+        public static string GetServerOMPath(IHostContext hostContext, IKnobValueContext context)
+        {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+            ArgUtil.NotNull(context, nameof(context));
+            
+            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
+                ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLatest)
+                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
+                    ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
+                    : hostContext.GetDirectory(WellKnownDirectory.ServerOM);
+        }
+
+        public static string GetTfPath(IHostContext hostContext, IKnobValueContext context)
+        {
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+            ArgUtil.NotNull(context, nameof(context));
+            
+            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
+                ? hostContext.GetDirectory(WellKnownDirectory.TfLatest)
+                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
+                    ? hostContext.GetDirectory(WellKnownDirectory.TfLegacy)
+                    : hostContext.GetDirectory(WellKnownDirectory.Tf);
+        }
+
+        public static string GetTfDirectoryName(IKnobValueContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            
+            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
+                ? "tf-latest"
+                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
+                    ? "tf-legacy"
+                    : "tf";
         }
     }
 }

@@ -462,7 +462,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // Store proc reference locally to prevent race conditions with Dispose()
             Process proc = _proc;
             ArgUtil.NotNull(proc, nameof(_proc));
-            
+
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);
