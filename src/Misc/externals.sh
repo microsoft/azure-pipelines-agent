@@ -163,11 +163,6 @@ function acquireExternalTool() {
     fi
 }
 
-function acquireVstsomArchives() {
-    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom-archives/tf-16 # default tf version
-    acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-archives/tf-17
-}
-
 echo "PACKAGE RUNTIME: $PACKAGERUNTIME"
 
 if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
@@ -184,10 +179,11 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
-    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
     if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
-        # Copy vstsom to vstshost for default PowerShell handler behavior
-        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
@@ -204,9 +200,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
-    
-    # Download vstsom archives
-    acquireVstsomArchives
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
@@ -222,10 +215,11 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/win-arm${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm${BIT}/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
-    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
+    acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
     if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
-        # Copy vstsom to vstshost for default PowerShell handler behavior
-        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
@@ -246,9 +240,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     # Official distribution of Node contains Node 20 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
-    
-    # Download vstsom archives
-    acquireVstsomArchives
 else
     # Download external tools for Linux and OSX.
 
