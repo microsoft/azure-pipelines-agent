@@ -221,7 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     else
                     {
                         node24ResultsInGlibCErrorHost = await CheckIfNode24ResultsInGlibCError();
-                        // ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost); // Add this method
+                        ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost); // Add this method
                         supportsNode24 = !node24ResultsInGlibCErrorHost;
                     }
                 }
