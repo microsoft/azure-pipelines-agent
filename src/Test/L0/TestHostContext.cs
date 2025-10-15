@@ -239,6 +239,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.ServerOMLegacyDirectory);
                     break;
 
+                case WellKnownDirectory.ServerOMLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.ServerOMLatestDirectory);
+                    break;
+
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
@@ -249,6 +255,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfLegacyDirectory);
+                    break;
+
+                case WellKnownDirectory.TfLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfLatestDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:
