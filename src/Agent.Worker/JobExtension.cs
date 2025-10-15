@@ -552,6 +552,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         Trace.Error($"Caught cancellation exception from JobExtension Initialization: {ex}");
+                        Trace.Error(ex);
                         context.Error(ex);
                         context.Result = TaskResult.Canceled;
                         throw;
