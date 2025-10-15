@@ -35,9 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        private string TfPath => AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-            ? HostContext.GetDirectory(WellKnownDirectory.TfLegacy)
-            : HostContext.GetDirectory(WellKnownDirectory.Tf);
+        private string TfPath => VarUtil.GetTfPath(HostContext, ExecutionContext);
 
         public override string FilePath => Path.Combine(TfPath, "tf.exe");
 
