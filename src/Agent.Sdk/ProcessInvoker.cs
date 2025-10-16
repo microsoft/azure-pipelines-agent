@@ -510,7 +510,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
-            Trace.Info("Process exited");
+            Trace.Info("Exited process");
             if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
