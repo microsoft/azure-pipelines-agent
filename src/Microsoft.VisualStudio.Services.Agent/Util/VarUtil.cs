@@ -234,8 +234,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
             
             return !useLatest && useLegacy
-                ? Path.Combine(externalsPath, Constants.Path.ServerOMDirectory)
-                : Path.Combine(externalsPath, Constants.Path.ServerOMLegacyDirectory);
+                ? Path.Combine(externalsPath, Constants.Path.ServerOMLegacyDirectory)
+                : Path.Combine(externalsPath, Constants.Path.ServerOMDirectory);
         }
 
         public static string GetLegacyPowerShellHostDirectoryPath(IKnobValueContext context)
