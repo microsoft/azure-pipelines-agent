@@ -29,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private Guid _timelineId;
         private Guid _timelineRecordId;
         private string _pageId;
+        private FileStream _pageData;
         private StreamWriter _pageWriter;
         private int _byteCount;
         private int _pageCount;
@@ -108,12 +109,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void End()
         {
-            // Prevent multiple disposal attempts - only call EndPage if writer still exists
-            // This is important because both End() and Dispose() can be called during cleanup
-            if (_pageWriter != null)
-            {
-                EndPage();
-            }
+            EndPage();
         }
 
         private void Create()
@@ -126,35 +122,21 @@ namespace Microsoft.VisualStudio.Services.Agent
             EndPage();
             _byteCount = 0;
             _dataFileName = Path.Combine(_pagesFolder, $"{_pageId}_{++_pageCount}.log");
-            // Create StreamWriter directly with file path - it will handle the FileStream internally
-            _pageWriter = new StreamWriter(_dataFileName, append: false, System.Text.Encoding.UTF8);
+            _pageData = new FileStream(_dataFileName, FileMode.CreateNew);
+            _pageWriter = new StreamWriter(_pageData, System.Text.Encoding.UTF8);
         }
 
         private void EndPage()
         {
             if (_pageWriter != null)
             {
-                // StreamWriter manages the underlying file handle across all platforms
-                // This avoids platform-specific disposal timing issues (like "Bad file descriptor" on macOS)
-                try
-                {
-                    _pageWriter.Flush();
-                }
-                catch (ObjectDisposedException)
-                {
-                    // StreamWriter was already disposed - this is safe to ignore
-                    // Can happen during shutdown or cleanup scenarios
-                }
-                catch (IOException)
-                {
-                    // File handle may be invalid (e.g., "Bad file descriptor" on POSIX systems)
-                    // This can happen if the underlying file was closed externally
-                    // Safe to ignore as we're disposing anyway
-                }
-
+                _pageWriter.Flush();
+                _pageData.Flush();
+                //The StreamWriter object calls Dispose() on the provided Stream object when StreamWriter.Dispose is called.
                 _pageWriter.Dispose();
                 _pageWriter = null;
-
+                _pageData.Dispose();
+                _pageData = null;
                 _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
             }
         }
@@ -166,10 +148,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         protected virtual void Dispose(bool disposing)
         {
-            if (disposing && _pageWriter != null)
+            if (disposing)
             {
-                // Only call EndPage if we haven't already disposed the writer
-                // This prevents double-disposal which causes "Bad file descriptor" on macOS/Linux
                 EndPage();
             }
         }
