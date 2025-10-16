@@ -79,25 +79,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 catch (OperationCanceledException) when (executionContext.CancellationToken.IsCancellationRequested)
                 {
-                    Trace.Info($"Git download has been cancelled.");
+                    Trace.Info("Git download cancelled by user");
+                    throw;
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    Trace.Error($"Access denied writing Git executable to '{downloadGitPath}'");
+                    Trace.Error(uaEx);
                     throw;
                 }
                 catch (Exception ex)
                 {
                     retryCount++;
-                    Trace.Info("Failed to download Git");
+                    Trace.Info($"Git download failed (attempt {retryCount})");
                     Trace.Error(ex);
 
-                    if (retryCount > retryLimit)
+                    if (retryCount >= retryLimit)
                     {
-                        Trace.Info($"Retry limit to download Git has been reached.");
-                        break;
+                        Trace.Error($"Failed to download Git after {retryLimit} attempts");
+                        throw;
                     }
-                    else
-                    {
-                        Trace.Info("Retry Git download in 10 seconds.");
-                        await Task.Delay(retryDelay, executionContext.CancellationToken);
-                    }
+
+                    Trace.Info($"Retry Git download in {retryDelay / 1000} seconds");
+                    await Task.Delay(retryDelay, executionContext.CancellationToken);
                 }
             }
 

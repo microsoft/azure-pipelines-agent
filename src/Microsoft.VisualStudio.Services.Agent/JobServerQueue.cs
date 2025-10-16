@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -251,6 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 catch (Exception ex)
                 {
                     Trace.Warning($"Failed to send immediate timeline record update: {ex.Message}. Falling back to queue mechanism.");
+                    Trace.Warning(ex.ToString());
                     QueueTimelineRecordUpdate(timelineId, timelineRecord);
                 }
             }

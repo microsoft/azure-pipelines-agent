@@ -77,6 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         // Log the error
                         Trace.Info($"Async command failed during job initialization [Command:{command.Name}, JobId:{jobContext.Variables.System_JobId}, Error:{ex.Message}]");
+                        Trace.Info(ex.ToString());
                     }
                 }
                 Trace.Info($"Async command completion wait finished - {successfulCommandCount} commands processed");
@@ -359,6 +360,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     !jobCancellationToken.IsCancellationRequested)
                 {
                     Trace.Error($"Caught timeout exception from step: Step: {step.DisplayName}, Exception: {ex.Message}, ConfiguredTimeout:{step.Timeout?.TotalMinutes ?? 0}min");
+                    Trace.Error(ex);
                     step.ExecutionContext.Error(StringUtil.Loc("StepTimedOut"));
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
@@ -367,6 +369,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     PublishTelemetry(step.ExecutionContext, TaskResult.Failed.ToString(), "122");
                     Trace.Error($"Caught Agent Shutdown exception from step: Step:'{step.DisplayName}', ShutdownReason:{HostContext.AgentShutdownReason}, Exception: {ex.Message}");
+                    Trace.Error(ex);
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Failed;
                 }
@@ -374,6 +377,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     // Log the exception and cancel the step.
                     Trace.Error($"Caught cancellation exception from step: Step:{step.DisplayName}, CancellationSource:JobLevel, JobCancelled:{jobCancellationToken.IsCancellationRequested}");
+                    Trace.Error(ex);
                     step.ExecutionContext.Error(ex);
                     step.ExecutionContext.Result = TaskResult.Canceled;
                 }
@@ -525,6 +529,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             catch (Exception ex)
             {
                 Trace.Warning($"'chcp 65001' failed with exception {ex.Message}");
+                Trace.Warning(ex.ToString());
             }
         }
 

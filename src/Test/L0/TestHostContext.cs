@@ -90,6 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
             _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
             _traceManager = new TraceManager(traceListener, _secretMasker, this);
+            // Make the trace manager available via GetService in tests
+            SetSingleton<ITraceManager>(_traceManager);
             _trace = GetTrace(nameof(TestHostContext));
             _secretMasker.SetTrace(_trace);
 
@@ -259,18 +261,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfLatestDirectory);
-                    break;
-
-                case WellKnownDirectory.TfArchiveLatest:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.TfArchiveLatestDirectory);
-                    break;
-
-                case WellKnownDirectory.VstsomTfCommon:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.VstsomTfCommonDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:

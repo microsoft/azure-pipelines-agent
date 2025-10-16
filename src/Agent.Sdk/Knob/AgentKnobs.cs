@@ -217,6 +217,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",
+            new RuntimeKnobSource("VSTSAGENT_TRACE"),
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 

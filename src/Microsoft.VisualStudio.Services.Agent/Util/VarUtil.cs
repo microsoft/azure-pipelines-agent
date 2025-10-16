@@ -247,6 +247,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 : Path.Combine(externalsPath, Constants.Path.LegacyPSHostDirectory);
         }
 
+
+
         private static (bool useLatest, bool useLegacy, string externalsPath) GetKnobsAndExternalsPath(IKnobValueContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
