@@ -20,7 +20,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     [ServiceLocator(Default = typeof(NodeHandler))]
     public interface INodeHandler : IHandler
     {
-        // Data can be of these four types: NodeHandlerData, Node10HandlerData, Node16HandlerData and Node20_1HandlerData
+        // Data can be of these five types: NodeHandlerData, Node10HandlerData, Node16HandlerData, Node20_1HandlerData and Node24HandlerData
         BaseNodeHandlerData Data { get; set; }
     }
 
@@ -191,6 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else
             {
                 bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
                 bool node20ResultsInGlibCErrorHost = false;
                 bool node24ResultsInGlibCErrorHost = false;
 
@@ -202,27 +203,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         if (supportsNode20.HasValue)
                         {
-                            node20ResultsInGlibCErrorHost = supportsNode20.Value;
+                            node20ResultsInGlibCErrorHost = !supportsNode20.Value;
                         }
                         else
                         {
                             node20ResultsInGlibCErrorHost = await CheckIfNode20ResultsInGlibCError();
                             ExecutionContext.EmitHostNode20FallbackTelemetry(node20ResultsInGlibCErrorHost);
-                            supportsNode20 = node20ResultsInGlibCErrorHost;
+                            supportsNode20 = !node20ResultsInGlibCErrorHost;
                         }
                     }
 
                     // Node24 glibc check (independent of Node20 knob)
-                    // TODO: Consider adding UseNode24InUnsupportedSystem knob if needed
-                    if (supportsNode24.HasValue)
+                    if (!useNode24InUnsupportedSystem)
                     {
-                        node24ResultsInGlibCErrorHost = !supportsNode24.Value;
-                    }
-                    else
-                    {
-                        node24ResultsInGlibCErrorHost = await CheckIfNode24ResultsInGlibCError();
-                        ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost); // Add this method
-                        supportsNode24 = !node24ResultsInGlibCErrorHost;
+                        if (supportsNode24.HasValue)
+                        {
+                            node24ResultsInGlibCErrorHost = !supportsNode24.Value;
+                        }
+                        else
+                        {
+                            node24ResultsInGlibCErrorHost = await CheckIfNode24ResultsInGlibCError();
+                            ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost); // Add this method
+                            supportsNode24 = !node24ResultsInGlibCErrorHost;
+                        }
                     }
                 }
 
@@ -233,7 +236,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 else
                 {
-                    file = GetNodeLocation(container.NeedsNode16Redirect, false, inContainer: true);
+                    file = GetNodeLocation(container.NeedsNode16Redirect, container.NeedsNode20Redirect, inContainer: true);
                 }
 
                 ExecutionContext.Debug("Using node path: " + file);
