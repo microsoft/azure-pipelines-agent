@@ -195,10 +195,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 bool node20ResultsInGlibCErrorHost = false;
                 bool node24ResultsInGlibCErrorHost = false;
 
-                // Separate glibc checks for each Node version
                 if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
                 {
-                    // Node20 glibc check (controlled by its specific knob)
                     if (!useNode20InUnsupportedSystem)
                     {
                         if (supportsNode20.HasValue)
@@ -212,8 +210,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             supportsNode20 = !node20ResultsInGlibCErrorHost;
                         }
                     }
-
-                    // Node24 glibc check (independent of Node20 knob)
                     if (!useNode24InUnsupportedSystem)
                     {
                         if (supportsNode24.HasValue)
@@ -273,7 +269,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     }
                 }
             }
-            
 
             try
             {
@@ -522,8 +517,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-
-        // Add Node20 fallback warning method
         private void Node20FallbackWarning(bool inContainer)
         {
             if (inContainer)

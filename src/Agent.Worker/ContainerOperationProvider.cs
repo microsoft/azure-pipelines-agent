@@ -957,7 +957,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
                         bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(executionContext).AsBoolean(); // NEW knob
 
-                        // NEW: Node24 glibc detection (BEFORE Node20)
                         if (!useNode24InUnsupportedSystem)
                         {
                             var node24 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
@@ -999,10 +998,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        // Store the successful Node version path for later use
                         if (!container.NeedsNode20Redirect)
                         {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}")); // Node24 works
+                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
                         }
                         else if (!container.NeedsNode16Redirect)
                         {
