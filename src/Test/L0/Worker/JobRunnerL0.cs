@@ -293,6 +293,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task EnableVerboseLoggingViaPipelineVariable()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Set the pipeline variable to enable verbose trace
+                _message.Variables["VSTSAGENT_TRACE"] = "true";
+
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+
+                var traceManager = hc.GetService<ITraceManager>();
+                Assert.NotNull(traceManager);
+                Assert.Equal(System.Diagnostics.SourceLevels.Verbose, traceManager.Switch.Level);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task UploadDiganosticLogIfEnvironmentVariableSet()
         {
             using (var _tokenSource = new CancellationTokenSource())
@@ -436,6 +455,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 _jobRunner.JobServerQueue = hc.GetService<IJobServerQueue>();
                 _jobRunner.UpdateMetadata(new JobMetadataMessage(It.IsAny<Guid>(), It.IsAny<Int32>()));
                 _jobServerQueue.Verify(x => x.UpdateWebConsoleLineRate(It.IsAny<Int32>()), Times.Once());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "darwin")]
+        public async Task ServerOMDirectoryVariableSetCorrectlyOnWindows()
+        {
+            using (var _tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                await _jobRunner.RunAsync(_message, _tokenSource.Token);
+                
+                Assert.True(_jobEc.Variables.TryGetValue("Agent.ServerOMDirectory", out _),
+                           "ServerOM directory variable should be set on Windows platform");
             }
         }
     }

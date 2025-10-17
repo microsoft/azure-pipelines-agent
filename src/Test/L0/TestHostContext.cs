@@ -90,6 +90,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
             _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
             _traceManager = new TraceManager(traceListener, _secretMasker, this);
+            // Make the trace manager available via GetService in tests
+            SetSingleton<ITraceManager>(_traceManager);
             _trace = GetTrace(nameof(TestHostContext));
             _secretMasker.SetTrace(_trace);
 
@@ -237,6 +239,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         Constants.Path.ServerOMLegacyDirectory);
                     break;
 
+                case WellKnownDirectory.ServerOMLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.ServerOMLatestDirectory);
+                    break;
+
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
@@ -247,6 +255,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfLegacyDirectory);
+                    break;
+
+                case WellKnownDirectory.TfLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfLatestDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:
@@ -472,6 +486,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public void WritePerfCounter(string counter)
         {
+        }
+
+        public void EnableHttpTrace()
+        {
+            // Test implementation - just trace that it was called
+            _trace?.Info("EnableHttpTrace() called in test context");
         }
 
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)

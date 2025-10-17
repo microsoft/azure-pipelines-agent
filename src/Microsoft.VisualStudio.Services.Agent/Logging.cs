@@ -75,14 +75,14 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (message.Contains(groupStartTag, StringComparison.OrdinalIgnoreCase))
             {
                 _groupOpened = true;
-            } 
+            }
             if (_groupOpened && message.Contains(groupEndTag, StringComparison.OrdinalIgnoreCase))
             {
                 // Ignore group end tag only if group was opened, otherwise it is a normal message 
                 // because in web console ##[endgroup] becomes empty line without ##[group] tag
                 _groupOpened = false;
                 _totalLines--;
-            } 
+            }
 
             string line = $"{DateTime.UtcNow.ToString("O")} {message}";
             _pageWriter.WriteLine(line);
@@ -151,10 +151,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                     // This can happen if the underlying file was closed externally
                     // Safe to ignore as we're disposing anyway
                 }
-                
+
                 _pageWriter.Dispose();
                 _pageWriter = null;
-                
+
                 _jobServerQueue.QueueFileUpload(_timelineId, _timelineRecordId, "DistributedTask.Core.Log", "CustomToolLog", _dataFileName, true);
             }
         }

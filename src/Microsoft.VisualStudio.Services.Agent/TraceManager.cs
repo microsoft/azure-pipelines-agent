@@ -31,7 +31,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly object _switchLock = new();
 
         public TraceManager(HostTraceListener traceListener, ILoggedSecretMasker secretMasker, IKnobValueContext knobValueContext)
-            : this(traceListener, new TraceSetting(), secretMasker, knobValueContext)
+            : this(traceListener, new TraceSetting(HostType.Undefined, knobValueContext), secretMasker, knobValueContext)
+        {
+        }
+
+        public TraceManager(HostTraceListener traceListener, ILoggedSecretMasker secretMasker, IKnobValueContext knobValueContext, HostType hostType)
+            : this(traceListener, new TraceSetting(hostType, knobValueContext), secretMasker, knobValueContext)
         {
         }
 
