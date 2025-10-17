@@ -44,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         ContainerInfo Container { get; set; }
         string PrependPath { get; set; }
+        bool EnableDockerExecDiagnostics { get; set; }
     }
 
     [ServiceLocator(Default = typeof(DefaultStepHost))]
@@ -102,6 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         public ContainerInfo Container { get; set; }
         public string PrependPath { get; set; }
+        public bool EnableDockerExecDiagnostics { get; set; }
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
 
@@ -240,9 +242,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 catch (Exception ex)
                 {
-                    // Collect comprehensive diagnostics when docker exec fails
-                    HostContext.GetTrace(nameof(ContainerStepHost)).Info("=== DIAGNOSTICS: Exception caught, running diagnostics ===");
-                    await CollectDockerExecFailureDiagnostics(ex, containerEnginePath, containerExecutionArgs, Container.ContainerId);
+                    // Check if docker exec diagnostics feature is enabled
+                    // Value is set by the Handler from ExecutionContext
+                    if (EnableDockerExecDiagnostics)
+                    {
+                        // Collect comprehensive diagnostics when docker exec fails
+                        HostContext.GetTrace(nameof(ContainerStepHost)).Info("=== DIAGNOSTICS: Exception caught, running diagnostics ===");
+                        await CollectDockerExecFailureDiagnostics(ex, containerEnginePath, containerExecutionArgs, Container.ContainerId);
+                    }
                     throw; // Re-throw the original exception
                 }
                 return exitCode;
