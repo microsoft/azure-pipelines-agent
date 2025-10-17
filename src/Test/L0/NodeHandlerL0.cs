@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeVersion = "node10"; // version 6 does not exist on Alpine
                 }
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     nodeVersion,
                     "bin",
@@ -88,7 +88,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     _ => throw new Exception("Invalid node version"),
                 };
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     nodeVersion,
                     "bin",
@@ -117,7 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                     nodeHandler.Data = new Node10HandlerData();
 
-                    string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                    string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                     string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                         "node10",
                         "bin",
@@ -151,7 +151,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "node10",
                     "bin",
@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "node10",
                     "bin",
@@ -222,7 +222,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "node16",
                     "bin",
@@ -261,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false));
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false));
             }
         }
 
@@ -290,7 +290,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false));
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false));
             }
         }
 
@@ -323,7 +323,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "nextAvailableNode1",
                     "bin",
@@ -362,7 +362,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false);
+                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
                     "nextAvailableNode2",
                     "bin",
@@ -401,7 +401,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
                 nodeHandler.Data = new Node10HandlerData();
 
-                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, inContainer: false));
+                Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false));
             }
         }
 
