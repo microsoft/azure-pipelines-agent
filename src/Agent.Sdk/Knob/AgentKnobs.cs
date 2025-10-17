@@ -324,6 +324,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob HttpTrace = new Knob(
             nameof(HttpTrace),
             "Enable http trace if true",
+            new RuntimeKnobSource("VSTS_AGENT_HTTPTRACE"),
             new EnvironmentKnobSource("VSTS_AGENT_HTTPTRACE"),
             new BuiltInDefaultKnobSource("false"));
 
