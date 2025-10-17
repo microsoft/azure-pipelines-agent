@@ -488,6 +488,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
         }
 
+        public void EnableHttpTrace()
+        {
+            // Test implementation - just trace that it was called
+            _trace?.Info("EnableHttpTrace() called in test context");
+        }
+
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
         {
             // Return null for unknown variables to allow knob fallback to other sources
