@@ -23,7 +23,6 @@ namespace Microsoft.VisualStudio.Services.Agent
         private int _retentionDays;
         private bool _diagErrorDetected = false;
         private string _logFilePath;
-        private bool _disposed = false;
 
         public HostTraceListener(string logFileDirectory, string logFilePrefix, int pageSizeLimit, int retentionDays)
             : base()
@@ -57,8 +56,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotNullOrEmpty(logFile, nameof(logFile));
             _logFilePath = logFile;
             Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath));
-            // Use StreamWriter constructor that handles FileStream internally
-            Writer = new StreamWriter(_logFilePath, append: false, Encoding.UTF8, bufferSize: 4096);
+            Stream logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
+            Writer = new StreamWriter(logStream);
         }
 
         // Copied and modified slightly from .Net Core source code. Modification was required to make it compile.
@@ -91,17 +90,14 @@ namespace Microsoft.VisualStudio.Services.Agent
                 if (_currentPageSize > _pageSizeLimit)
                 {
                     Flush();
-                    if (Writer != null && !_disposed)
+                    if (Writer != null)
                     {
                         Writer.Dispose();
                         Writer = null;
                     }
 
-                    if (!_disposed)
-                    {
-                        Writer = CreatePageLogWriter();
-                        _currentPageSize = 0;
-                    }
+                    Writer = CreatePageLogWriter();
+                    _currentPageSize = 0;
                 }
             }
 
@@ -202,31 +198,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             string fileName = StringUtil.Format(_logFileNamingPattern, _logFilePrefix, DateTime.UtcNow);
             _logFilePath = Path.Combine(_logFileDirectory, fileName);
-            
-            // Use StreamWriter constructor that handles FileStream internally
-            // This eliminates the dual resource management issue
+            Stream logStream;
             if (File.Exists(_logFilePath))
             {
-                return new StreamWriter(_logFilePath, append: true, Encoding.UTF8, bufferSize: 4096);
+                logStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.Read, bufferSize: 4096);
             }
             else
             {
-                return new StreamWriter(_logFilePath, append: false, Encoding.UTF8, bufferSize: 4096);
+                logStream = new FileStream(_logFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize: 4096);
             }
-        }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (!_disposed && disposing)
-            {
-                _disposed = true;
-                
-                // Safely dispose the current writer if it exists
-                // No exception handling needed - we control the state
-                Writer?.Dispose();
-                Writer = null;
-            }
-            base.Dispose(disposing);
+            return new StreamWriter(logStream);
         }
     }
 }

@@ -8,7 +8,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -22,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         private readonly Mock<IExecutionContext> _ec;
         private readonly Mock<IConfigurationStore> _configurationStore;
         private readonly Mock<IJobServerQueue> _jobServerQueue;
-        private readonly Mock<IHostContext> _hostContext;
 
         public DockerCommandManagerL0()
         {
@@ -30,29 +28,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             _ec = new Mock<IExecutionContext>();
             _configurationStore = new Mock<IConfigurationStore>();
             _jobServerQueue = new Mock<IJobServerQueue>();
-            _hostContext = new Mock<IHostContext>();
-            
-            // Setup basic host context functionality
-            _hostContext.Setup(x => x.GetTrace(It.IsAny<string>())).Returns((Tracing)null);
             
             // Setup basic configuration store mocks
             _configurationStore.Setup(x => x.IsConfigured()).Returns(true);
             _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings());
-        }
-
-        private bool IsDockerAvailable()
-        {
-            // Check if Docker is available
-            try
-            {
-                WhichUtil.Which("docker", true);
-                return true;
-            }
-            catch (FileNotFoundException)
-            {
-                // Docker not available
-                return false;
-            }
         }
 
         private DockerCommandManager CreateDockerCommandManager()
@@ -131,7 +110,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryFalse_UsesStandardRetryLogic()
         {
-            if (!IsDockerAvailable()) return;
             // Arrange
             var containerId = "test-container-id";
             var exitCode = 0;
@@ -187,8 +165,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_ContainerAlreadyRunning_ReturnsSuccess()
         {
-            if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
 
@@ -245,8 +221,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_StartSucceedsFirstAttempt_ReturnsSuccess()
         {
-            if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
 
@@ -294,8 +268,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_AllRetriesFail_ReturnsFailure()
         {
-            if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
 
@@ -355,7 +327,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_NoRetriesEnabled_FailsImmediately()
         {
-            if (!IsDockerAvailable()) return;
             // Arrange
             var containerId = "test-container-id";
 
@@ -415,8 +386,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("SkipOn", "darwin")]
         public async Task DockerStart_WithCheckBeforeRetryTrue_RetriesWithBackoff()
         {
-            if (!IsDockerAvailable()) return;
-            
             // Arrange
             var containerId = "test-container-id";
 
