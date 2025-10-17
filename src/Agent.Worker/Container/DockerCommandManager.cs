@@ -270,16 +270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
             if (!String.IsNullOrEmpty(driver))
             {
-                if (networkDrivers.Contains(driver))
-                {
-                    options += $" --driver {driver}";
-                }
-                else
-                {
-                    string warningMessage = $"Specified '{driver}' driver not found!";
-                    Trace.Warning(warningMessage);
-                    context.Warning(warningMessage);
-                }
+                options += $" --driver {driver}";
             }
             else if (usingWindowsContainers && networkDrivers.Contains("nat"))
             {
