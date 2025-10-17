@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         CancellationToken AgentShutdownToken { get; }
         ShutdownReason AgentShutdownReason { get; }
         ILoggedSecretMasker SecretMasker { get; }
+        ICorrelationContextManager CorrelationContextManager { get; }
         ProductInfoHeaderValue UserAgent { get; }
         string GetDirectory(WellKnownDirectory directory);
         string GetDiagDirectory(HostType hostType = HostType.Undefined);
@@ -75,6 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
         protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
         private ILoggedSecretMasker _secretMasker;
+        private ICorrelationContextManager _correlationContextManager;
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
         private CancellationTokenSource _workerShutdownForTimeout = new CancellationTokenSource();
@@ -95,6 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
+        public ICorrelationContextManager CorrelationContextManager => _correlationContextManager;
         public ProductInfoHeaderValue UserAgent => _userAgent;
 
         public HostContext(HostType hostType, string logFile = null)
@@ -110,6 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _loadContext.Unloading += LoadContext_Unloading;
 
             _secretMasker = CreateSecretMasker();
+            _correlationContextManager = new CorrelationContextManager();
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -700,6 +704,9 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _httpTrace = null;
                 _secretMasker?.Dispose();
                 _secretMasker = null;
+
+                _correlationContextManager?.Dispose();
+                _correlationContextManager = null;
 
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;
