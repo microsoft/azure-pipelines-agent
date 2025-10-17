@@ -230,6 +230,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",
+            new RuntimeKnobSource("VSTSAGENT_TRACE"),
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
@@ -336,6 +337,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob HttpTrace = new Knob(
             nameof(HttpTrace),
             "Enable http trace if true",
+            new RuntimeKnobSource("VSTS_AGENT_HTTPTRACE"),
             new EnvironmentKnobSource("VSTS_AGENT_HTTPTRACE"),
             new BuiltInDefaultKnobSource("false"));
 
@@ -840,6 +842,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_INSTALL_LEGACY_TF_EXE"),
             new EnvironmentKnobSource("AGENT_INSTALL_LEGACY_TF_EXE"),
             new PipelineFeatureSource("InstallLegacyTfExe"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseLatestTfExe = new Knob(
+            nameof(UseLatestTfExe),
+            "If true, the agent will use the latest versions of TF, vstsom",
+            new RuntimeKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new EnvironmentKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new PipelineFeatureSource("UseLatestTfExe"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseSparseCheckoutInCheckoutTask = new Knob(

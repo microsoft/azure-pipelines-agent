@@ -2,6 +2,9 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
+using Moq;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
@@ -26,6 +29,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             var result = VarUtil.ConvertToEnvVariableFormat(input, preserveCase);
 
             Assert.Equal(expected, result);
+        }
+
+
+        [Fact]
+        public void VarUtil_HasGetServerOMPathMethod()
+        {
+            // Verify the method exists and can be called
+            var hostContextType = typeof(IHostContext);
+            var knobValueContextType = typeof(IKnobValueContext);
+            var method = typeof(VarUtil).GetMethod("GetServerOMPath");
+            
+            Assert.NotNull(method);
+            Assert.Equal(typeof(string), method.ReturnType);
+            
+            var parameters = method.GetParameters();
+            Assert.Equal(2, parameters.Length);
+            Assert.Equal(hostContextType, parameters[0].ParameterType);
+            Assert.Equal(knobValueContextType, parameters[1].ParameterType);
+        }
+
+        [Fact] 
+        public void VarUtil_HasGetTfPathMethod()
+        {
+            // Verify the method exists and can be called
+            var hostContextType = typeof(IHostContext);
+            var knobValueContextType = typeof(IKnobValueContext);
+            var method = typeof(VarUtil).GetMethod("GetTfPath");
+            
+            Assert.NotNull(method);
+            Assert.Equal(typeof(string), method.ReturnType);
+            
+            var parameters = method.GetParameters();
+            Assert.Equal(2, parameters.Length);
+            Assert.Equal(hostContextType, parameters[0].ParameterType);
+            Assert.Equal(knobValueContextType, parameters[1].ParameterType);
+        }
+
+        [Fact]
+        public void VarUtil_HasGetTfDirectoryNameMethod()
+        {
+            // Verify the method exists and can be called
+            var knobValueContextType = typeof(IKnobValueContext);
+            var method = typeof(VarUtil).GetMethod("GetTfDirectoryName");
+            
+            Assert.NotNull(method);
+            Assert.Equal(typeof(string), method.ReturnType);
+            
+            var parameters = method.GetParameters();
+            Assert.Equal(1, parameters.Length);
+            Assert.Equal(knobValueContextType, parameters[0].ParameterType);
         }
     }
 }
