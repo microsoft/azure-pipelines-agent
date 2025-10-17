@@ -460,6 +460,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1505:Avoid unmaintainable code", Justification = "Complex container startup logic with multiple fallback paths")]
         private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
