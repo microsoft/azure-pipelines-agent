@@ -27,6 +27,7 @@ NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.19.4"
+NODE24_VERSION="24.10.0"
 MINGIT_VERSION="2.50.1"
 LFS_VERSION="3.4.0"
 
@@ -201,6 +202,8 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
@@ -242,6 +245,10 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     # Official distribution of Node contains Node 20 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+
+    # Official distribution of Node contains Node 24 for Windows ARM
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
 else
     # Download external tools for Linux and OSX.
 
@@ -258,6 +265,7 @@ else
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
     elif [[ "$PACKAGERUNTIME" == "linux-musl-arm64" ]]; then
         ARCH="linux-arm64-musl"
 
@@ -267,6 +275,7 @@ else
 
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24/bin fix_nested_dir false node_alpine_arm64
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
@@ -285,6 +294,7 @@ else
         fi
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
     fi
     # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
     # they are installed along with node, but agent does not use them
@@ -305,6 +315,11 @@ else
     rm "$LAYOUT_DIR/externals/node20_1/bin/npm"
     rm "$LAYOUT_DIR/externals/node20_1/bin/npx"
     rm "$LAYOUT_DIR/externals/node20_1/bin/corepack"
+
+    rm -rf "$LAYOUT_DIR/externals/node24/lib"
+    rm "$LAYOUT_DIR/externals/node24/bin/npm"
+    rm "$LAYOUT_DIR/externals/node24/bin/npx"
+    rm "$LAYOUT_DIR/externals/node24/bin/corepack"
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
