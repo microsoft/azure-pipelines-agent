@@ -117,6 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                     Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
 
+                    EvaluateHttpTraceKnob(jobContext);
                     EvaluateTraceVerboseKnob(jobContext);
 
                     //Start Resource Diagnostics if enabled in the job message 
@@ -473,6 +474,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     await ShutdownQueue(throwOnFailure: false);
                     Trace.Info("Job server queue shutdown completed - all resources cleaned up successfully");
                 }
+            }
+        }
+
+        private void EvaluateHttpTraceKnob(IExecutionContext jobContext)
+        {
+            // Dynamic HTTP trace: allow pipeline variables to enable HTTP tracing for this job
+            bool enableHttpTrace = AgentKnobs.HttpTrace.GetValue(jobContext).AsBoolean()
+                || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+            if (enableHttpTrace)
+            {
+                Trace.Info("HTTP trace enabled via pipeline variable");
+                HostContext.EnableHttpTrace();
             }
         }
 
