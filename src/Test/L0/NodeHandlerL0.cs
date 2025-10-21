@@ -64,6 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData("node10")]
         [InlineData("node16")]
         [InlineData("node20_1")]
+        [InlineData("node24")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
@@ -85,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     "node10" => new Node10HandlerData(),
                     "node16" => new Node16HandlerData(),
                     "node20_1" => new Node20_1HandlerData(),
+                    "node24" => new Node24HandlerData(),
                     _ => throw new Exception("Invalid node version"),
                 };
 
@@ -471,6 +473,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);
         }
     }
 }
