@@ -639,7 +639,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         foreach (string logLine in containerLogs)
                         {
-                            if (logLine.Contains(labelContainerStartupUsingNode24)) // NEW
+                            if (logLine.Contains(labelContainerStartupUsingNode24))
                             {
                                 executionContext.Debug("Using Node 24 for container startup.");
                                 containerStartupCompleted = true;
@@ -955,7 +955,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (PlatformUtil.RunningOnLinux)
                     {
                         bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
-                        bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(executionContext).AsBoolean(); // NEW knob
+                        bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(executionContext).AsBoolean();
 
                         if (!useNode24InUnsupportedSystem)
                         {
