@@ -338,7 +338,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 afterCancelKillProcessTreeAttemptSignal.Set();
             }))
             {
-                Trace.Info($"Process started with process id {_proc?.Id ?? -1}, waiting for process exit.");
+                Trace.Info($"Process started, waiting for process exit.");
 
                 while (true)
                 {
@@ -373,11 +373,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                 if (_proc.HasExited)
                 {
-                    Trace.Info($"Finished process {_proc?.Id ?? -1} with exit code {_proc?.ExitCode ?? -1}, and elapsed time {_stopWatch.Elapsed}.");
+                    Trace.Info($"Finished process and elapsed time {_stopWatch.Elapsed}.");
                 }
                 else
                 {
-                    Trace.Info($"Process _proc.HasExited={_proc?.HasExited ?? false}, Process ID={_proc?.Id ?? -1},  and elapsed time {_stopWatch.Elapsed}.");
+                    Trace.Info($"Process has not exited, elapsed time {_stopWatch.Elapsed}.");
                 }
             }
 
@@ -460,15 +460,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             bool gracefulShoutdown = TryUseGracefulShutdown && !killProcessOnCancel;
 
             // Store proc reference locally to prevent race conditions with Dispose()
-            Process proc = _proc;
-            ArgUtil.NotNull(proc, nameof(_proc));
+            ArgUtil.NotNull(_proc, nameof(_proc));
 
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);
                 if (sigint_succeed)
                 {
-                    Trace.Info($"Process {proc.Id} cancelled successfully through Ctrl+C/SIGINT.");
+                    Trace.Info($"Process cancelled successfully through Ctrl+C/SIGINT.");
                     return;
                 }
 
@@ -480,12 +479,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 bool sigterm_succeed = await SendSIGTERM(SigtermTimeout);
                 if (sigterm_succeed)
                 {
-                    Trace.Info($"Process {proc.Id} terminate successfully through Ctrl+Break/SIGTERM.");
+                    Trace.Info($"Process terminated successfully through Ctrl+Break/SIGTERM.");
                     return;
                 }
             }
 
-            Trace.Info($"[{proc.Id}] Kill entire process tree with root {proc.Id} since both cancel and terminate signal has been ignored by the target process.");
+            Trace.Info($"Kill entire process tree since both cancel and terminate signal has been ignored by the target process.");
             KillProcessTree();
         }
 
@@ -511,7 +510,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
         private void ProcessExitedHandler(object sender, EventArgs e)
         {
-            Trace.Info($"Exited process {_proc?.Id ?? -1} with exit code {_proc?.ExitCode ?? -1}");
+            Trace.Info("Exited process");
             if ((_proc.StartInfo.RedirectStandardError || _proc.StartInfo.RedirectStandardOutput) && _asyncStreamReaderCount != 0)
             {
                 _waitingOnStreams = true;
@@ -548,7 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info($"[{_proc?.Id ?? -1}] STDOUT/STDERR stream read finished.");
+                Trace.Info($"STDOUT/STDERR stream read finished.");
 
                 if (Interlocked.Decrement(ref _asyncStreamReaderCount) == 0 && _waitingOnStreams)
                 {
@@ -578,7 +577,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
                             if (!keepStandardInOpen)
                             {
-                                Trace.Info($"[{_proc?.Id ?? -1}] Close STDIN after the first redirect finished.");
+                                Trace.Info($"Close STDIN after the first redirect finished.");
                                 standardIn.Close();
                                 break;
                             }
@@ -586,7 +585,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                     }
                 }
 
-                Trace.Info($"[{_proc?.Id ?? -1}] STDIN stream write finished.");
+                Trace.Info($"STDIN stream write finished.");
             });
         }
 
@@ -606,7 +605,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             if (PlatformUtil.HostOS != PlatformUtil.OS.Linux)
             {
-                Trace.Info($"[{process.Id}] OOM score adjustment is Linux-only.");
+                Trace.Info($"OOM score adjustment is Linux-only.");
                 return;
             }
 
@@ -621,7 +620,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 }
                 else
                 {
-                    Trace.Info($"[{process.Id}] Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
+                    Trace.Info($"Invalid PIPELINE_JOB_OOMSCOREADJ ({userOomScoreAdj}). Valid range is -1000:1000. Using default 500.");
                 }
             }
             // Values (up to 1000) make the process more likely to be killed under OOM scenario,
