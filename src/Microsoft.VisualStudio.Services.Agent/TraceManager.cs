@@ -52,14 +52,18 @@ namespace Microsoft.VisualStudio.Services.Agent
             if (knobValueContext is IHostContext hostContext)
             {
                 _correlationContextManager = hostContext.CorrelationContextManager;
+                // Initialize from knob (which may be set via environment at process start)
+                // Only check knob if we have IHostContext
+                _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
             }
             else
             {
-                throw new ArgumentException("knobValueContext must be IHostContext to support correlation", nameof(knobValueContext));
+                // Log warning and use no-op implementation for backward compatibility
+                // Enhanced logging correlation will be unavailable but won't break agent
+                System.Diagnostics.Trace.WriteLine("Warning: knobValueContext is not IHostContext. Enhanced logging correlation will be unavailable.");
+                _correlationContextManager = new NoOpCorrelationContextManager();
+                _enhancedLoggingEnabled = false; // Disable enhanced logging when context is not available
             }
-
-            // Initialize from knob (which may be set via environment at process start)
-            _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
 
             Switch = new SourceSwitch("VSTSAgentSwitch")
             {
@@ -112,6 +116,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Dispose the HostTraceListener to prevent "Bad file descriptor" errors on POSIX systems
             _hostTraceListener?.Dispose();
+            
+            // Dispose correlation context manager to clean up AsyncLocal resources
+            _correlationContextManager?.Dispose();
         }
 
         private ITracingProxy CreateTracingProxy(string name)

@@ -68,4 +68,33 @@ namespace Microsoft.VisualStudio.Services.Agent
             _currentExecutionContext.Value = null;
         }
     }
+
+    /// <summary>
+    /// No-op implementation of ICorrelationContextManager for backward compatibility.
+    /// Used when IHostContext is not available but correlation functionality is requested.
+    /// This prevents breaking existing code while gracefully disabling enhanced logging correlation.
+    /// </summary>
+    internal sealed class NoOpCorrelationContextManager : ICorrelationContextManager
+    {
+        public void SetCurrentExecutionContext(ICorrelationContext executionContext)
+        {
+            // No-op: Do nothing when correlation context is not supported
+        }
+
+        public void ClearCurrentExecutionContext()
+        {
+            // No-op: Do nothing when correlation context is not supported
+        }
+
+        public string BuildCorrelationId()
+        {
+            // Return empty string when correlation is not available
+            return string.Empty;
+        }
+
+        public void Dispose()
+        {
+            // No-op: Nothing to dispose
+        }
+    }
 }

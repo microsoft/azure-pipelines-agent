@@ -100,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Listener")]
-        public void Listener_TraceManager_ThrowsIfNotHostContext()
+        public void Listener_TraceManager_GracefullyHandlesNonHostContext()
         {
             // Arrange
             string logPath = Path.Combine(Path.GetTempPath(), $"listener_throw_{Guid.NewGuid():N}.log");
@@ -114,13 +114,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             
             try
             {
-                // Act & Assert
-                var exception = Assert.Throws<ArgumentException>(() =>
-                {
-                    new TraceManager(listener, masker, notHostContext);
-                });
+                // Act - should NOT throw, but instead use NoOpCorrelationContextManager
+                // This tests the graceful fallback behavior requested by code review
+                var traceManager = new TraceManager(listener, masker, notHostContext);
                 
-                Assert.Contains("knobValueContext must be IHostContext", exception.Message);
+                // Assert - TraceManager should be created successfully with NoOp correlation manager
+                Assert.NotNull(traceManager);
+                
+                // Enhanced logging will be disabled, but agent won't crash
+                // This is the "default behaviour" requested in PR review comment
             }
             finally
             {

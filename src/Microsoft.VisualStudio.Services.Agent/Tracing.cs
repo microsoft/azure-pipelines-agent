@@ -7,7 +7,6 @@ using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Agent.Sdk;
 using Agent.Sdk.SecretMasking;
 

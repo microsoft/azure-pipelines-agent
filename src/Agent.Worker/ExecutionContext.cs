@@ -1035,12 +1035,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (string.IsNullOrEmpty(guid))
                 return guid;
             
-            // Use first 12 characters (first segment + part of second) for better uniqueness
-            // e.g., "60cf5508-70a7-..." becomes "60cf550870a7"
+            // Use first 12 characters total: 8 from first segment + 4 from second segment
+            // This ensures consistent output length regardless of input length
+            // e.g., "verylongstring-1234..." becomes "verylong1234" (12 chars)
+            // e.g., "60cf5508-70a7-..." becomes "60cf550870a7" (12 chars)
             var parts = guid.Split('-');
             if (parts.Length >= 2 && parts[0].Length >= 8 && parts[1].Length >= 4)
             {
-                return parts[0] + parts[1].Substring(0, 4);
+                return parts[0].Substring(0, 8) + parts[1].Substring(0, 4);
             }
             
             // Fallback: remove hyphens and take first 12 chars
