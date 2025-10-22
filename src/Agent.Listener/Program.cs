@@ -68,6 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     terminal.WriteError(StringUtil.Loc("ErrorOccurred", e.Message));
                     trace.Error(StringUtil.Format($"Directory permission validation failed - insufficient permissions - {0}", e.Message));
+                    trace.Error(e);
                     return Constants.Agent.ReturnCode.TerminatedError;
                 }
 
