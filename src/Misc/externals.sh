@@ -6,6 +6,7 @@ L1_MODE=$4
 
 INCLUDE_NODE6=${INCLUDE_NODE6:-true}
 INCLUDE_NODE10=${INCLUDE_NODE10:-true}
+INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
@@ -180,6 +181,9 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         # Copy vstsom to vstshost for default PowerShell handler behavior
         cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
+    if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
+        INCLUDE_NODE24=false
+    fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
@@ -202,8 +206,10 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    if [[ "$INCLUDE_NODE24" == "true" ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
     acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
+    fi
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
