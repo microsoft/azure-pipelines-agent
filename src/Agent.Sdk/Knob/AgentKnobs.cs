@@ -633,6 +633,7 @@ namespace Agent.Sdk.Knob
             "If true, timeline record updates will be sent immediately to the server instead of being queued",
             new RuntimeKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
             new EnvironmentKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
+            new PipelineFeatureSource("EnableImmediateTimelineRecordUpdates"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableResourceMonitorDebugOutput = new Knob(
