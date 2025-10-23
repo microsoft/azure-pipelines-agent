@@ -1014,18 +1014,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 // This test verifies that different ExecutionContext instances
                 // don't interfere with each other's correlation values
-                
+
                 using (var ec1 = new Agent.Worker.ExecutionContext())
                 using (var ec2 = new Agent.Worker.ExecutionContext())
                 {
                     // Arrange
                     ec1.Initialize(hc);
                     ec2.Initialize(hc);
-                    
+
                     // Act
                     ec1.SetCorrelationStep("step1");
                     ec2.SetCorrelationStep("step2");
-                    
+
                     var result1 = ec1.BuildCorrelationId();
                     var result2 = ec2.BuildCorrelationId();
 
@@ -1037,17 +1037,153 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        private JobRequestMessage CreateJobRequestMessage()
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Start_KnobEnabled_CallsUpdateStateOnServer()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "true";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act.
+                ec.Start();
+
+                // Assert: Knob is true, so should go to if statement (UpdateStateOnServer)
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Start_KnobDisabled_CallsQueueTimelineRecordUpdate()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "false";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act.
+                ec.Start();
+
+                // Assert: Knob is false, so should go to else statement (QueueTimelineRecordUpdate)
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateChild_KnobEnabled_CallsUpdateStateOnServer()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "true";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger for both parent and child contexts
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);  // First registration for parent
+                hc.EnqueueInstance(pagingLogger.Object);  // Second registration for child
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act: Create child which triggers InitializeTimelineRecord
+                var childEc = ec.CreateChild(Guid.NewGuid(), "test task", "testTask");
+
+                // Assert: Knob is true, so should go to if statement (UpdateStateOnServer)
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateChild_KnobDisabled_CallsQueueTimelineRecordUpdate()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "false";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger for both parent and child contexts
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);  // First registration for parent
+                hc.EnqueueInstance(pagingLogger.Object);  // Second registration for child
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act: Create child which triggers InitializeTimelineRecord
+                var childEc = ec.CreateChild(Guid.NewGuid(), "test task", "testTask");
+
+                // Assert: Knob is false, so should go to else statement (QueueTimelineRecordUpdate)
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        private Pipelines.AgentJobRequestMessage CreateJobRequestMessage()
         {
             TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
             TimelineReference timeline = new TimelineReference();
             JobEnvironment environment = new JobEnvironment();
             environment.SystemConnection = new ServiceEndpoint();
-            environment.Variables["v1"] = "v1";
             List<TaskInstance> tasks = new List<TaskInstance>();
             Guid JobId = Guid.NewGuid();
             string jobName = "some job name";
-            return new AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, environment, tasks);
+
+            return new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, null, 
+                new Dictionary<string, string>(), new Dictionary<string, VariableValue>(), new List<MaskHint>(), 
+                new Pipelines.JobResources(), new Pipelines.WorkspaceOptions(), new List<Pipelines.JobStep>());
         }
     }
 }
