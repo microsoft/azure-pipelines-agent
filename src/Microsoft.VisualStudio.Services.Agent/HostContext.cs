@@ -261,12 +261,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                         Constants.Path.ServerOMLegacyDirectory);
                     break;
 
-                case WellKnownDirectory.ServerOMLatest:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Externals),
-                        Constants.Path.ServerOMLatestDirectory);
-                    break;
-
                 case WellKnownDirectory.Tf:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),

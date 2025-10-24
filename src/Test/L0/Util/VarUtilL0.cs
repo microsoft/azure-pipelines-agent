@@ -39,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [InlineData("true", "false", "tf-latest")]     // UseLatest only → TfLatestDirectory  
         [InlineData("false", "true", "tf-legacy")]     // UseLegacy only → TfLegacyDirectory
         [InlineData("true", "true", "tf-latest")]      // Both true → TfLatestDirectory (latest wins)
-        public void TestGetTfExecutablePath(string useLatest, string useLegacy, string expectedDirectory)
+        public void TestGetTfDirectoryPath(string useLatest, string useLegacy, string expectedDirectory)
         {
             // Arrange
             using (TestHostContext hc = new TestHostContext(this))
@@ -50,8 +50,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Environment.SetEnvironmentVariable("AGENT_USE_LATEST_TF_EXE", useLatest);
                     Environment.SetEnvironmentVariable("AGENT_INSTALL_LEGACY_TF_EXE", useLegacy);
 
+                    // Create a mock IKnobValueContext that returns the Agent.HomeDirectory
+                    var mockContext = new Mock<IKnobValueContext>();
+                    mockContext.Setup(x => x.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory))
+                              .Returns(hc.GetDirectory(WellKnownDirectory.Root));
+                    mockContext.Setup(x => x.GetScopedEnvironment())
+                              .Returns(new SystemEnvironment());
+
                     // Act
-                    var result = VarUtil.GetTfExecutablePath(hc);
+                    var result = VarUtil.GetTfDirectoryPath(mockContext.Object);
 
                     // Assert
                     Assert.NotNull(result);
@@ -86,50 +93,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 
         [Theory]
         [Trait("Level", "L0")]
-        [InlineData("false", "false", "tf")]           // Default: both false → ServerOMDirectory (tf)
-        [InlineData("true", "false", "tf")]            // UseLatest only → ServerOMDirectory (tf) 
-        [InlineData("false", "true", "vstsom-legacy")] // UseLegacy only → ServerOMLegacyDirectory
-        [InlineData("true", "true", "tf")]             // Both true → ServerOMDirectory (tf)
-        public void TestGetServerOMDirectoryPath(string useLatest, string useLegacy, string expectedDirectory)
-        {
-            // Arrange
-            using (TestHostContext hc = new TestHostContext(this))
-            {
-                try
-                {
-                    // Set environment variables based on test parameters
-                    Environment.SetEnvironmentVariable("AGENT_USE_LATEST_TF_EXE", useLatest);
-                    Environment.SetEnvironmentVariable("AGENT_INSTALL_LEGACY_TF_EXE", useLegacy);
-
-                    // Act
-                    var result = VarUtil.GetServerOMDirectoryPath(hc);
-
-                    // Assert
-                    Assert.NotNull(result);
-                    Assert.Contains("externals", result);
-                    Assert.Contains(expectedDirectory, result);
-                    
-                    // Ensure we don't get unexpected directories
-                    if (expectedDirectory == "tf")
-                    {
-                        Assert.DoesNotContain("vstsom-legacy", result);
-                    }
-                    else if (expectedDirectory == "vstsom-legacy")
-                    {
-                        Assert.DoesNotContain("\\tf\\", result);  // Ensure it's not the base tf directory
-                    }
-                }
-                finally
-                {
-                    // Clean up environment variables
-                    Environment.SetEnvironmentVariable("AGENT_USE_LATEST_TF_EXE", null);
-                    Environment.SetEnvironmentVariable("AGENT_INSTALL_LEGACY_TF_EXE", null);
-                }
-            }
-        }
-
-        [Theory]
-        [Trait("Level", "L0")]
         [InlineData("false", "false", "vstshost")]        // Default: both false → LegacyPSHostDirectory (vstshost)
         [InlineData("true", "false", "vstshost")]         // UseLatest only → LegacyPSHostDirectory (vstshost)
         [InlineData("false", "true", "vstshost-legacy")]  // UseLegacy only → LegacyPSHostLegacyDirectory
@@ -145,8 +108,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Environment.SetEnvironmentVariable("AGENT_USE_LATEST_TF_EXE", useLatest);
                     Environment.SetEnvironmentVariable("AGENT_INSTALL_LEGACY_TF_EXE", useLegacy);
 
+                    // Create a mock IKnobValueContext that returns the Agent.HomeDirectory
+                    var mockContext = new Mock<IKnobValueContext>();
+                    mockContext.Setup(x => x.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory))
+                              .Returns(hc.GetDirectory(WellKnownDirectory.Root));
+                    mockContext.Setup(x => x.GetScopedEnvironment())
+                              .Returns(new SystemEnvironment());
+
                     // Act
-                    var result = VarUtil.GetLegacyPowerShellHostDirectoryPath(hc);
+                    var result = VarUtil.GetLegacyPowerShellHostDirectoryPath(mockContext.Object);
 
                     // Assert
                     Assert.NotNull(result);
@@ -189,13 +159,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     Environment.SetEnvironmentVariable("AGENT_USE_LATEST_TF_EXE", useLatest);
                     Environment.SetEnvironmentVariable("AGENT_INSTALL_LEGACY_TF_EXE", useLegacy);
 
+                    // Create a mock IKnobValueContext that returns the Agent.HomeDirectory
+                    var mockContext = new Mock<IKnobValueContext>();
+                    mockContext.Setup(x => x.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory))
+                              .Returns(hc.GetDirectory(WellKnownDirectory.Root));
+                    mockContext.Setup(x => x.GetScopedEnvironment())
+                              .Returns(new SystemEnvironment());
+
                     // Use reflection to access the private method
                     var method = typeof(VarUtil).GetMethod("GetKnobsAndExternalsPath", 
                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
                     Assert.NotNull(method);
 
-                    // Act
-                    var result = method.Invoke(null, new object[] { hc });
+                    // Act - use the mock context instead of TestHostContext
+                    var result = method.Invoke(null, new object[] { mockContext.Object });
                     
                     // Use reflection to access the tuple properties (useLatest, useLegacy, externalsPath)
                     var resultType = result.GetType();

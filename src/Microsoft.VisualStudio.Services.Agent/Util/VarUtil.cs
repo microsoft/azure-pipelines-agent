@@ -218,7 +218,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return false;
         }
 
-        public static string GetTfExecutablePath(IKnobValueContext context)
+        public static string GetTfDirectoryPath(IKnobValueContext context)
         {
             var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
             
@@ -227,15 +227,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 : useLegacy
                     ? Path.Combine(externalsPath, Constants.Path.TfLegacyDirectory)
                     : Path.Combine(externalsPath, Constants.Path.ServerOMDirectory);
-        }
-
-        public static string GetServerOMDirectoryPath(IKnobValueContext context)
-        {
-            var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
-            
-            return !useLatest && useLegacy
-                ? Path.Combine(externalsPath, Constants.Path.ServerOMLegacyDirectory)
-                : Path.Combine(externalsPath, Constants.Path.ServerOMDirectory);
         }
 
         public static string GetLegacyPowerShellHostDirectoryPath(IKnobValueContext context)
@@ -256,10 +247,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             bool useLatest = AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean();
             bool useLegacy = AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean();
             
-            // Build externals path manually since we can't access Variables here
-            string binDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            string agentRoot = Path.GetDirectoryName(binDirectory);
-            string externalsPath = Path.Combine(agentRoot, "externals");
+            string agentHomeDirectory = context.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory);
+            string externalsPath = Path.Combine(agentHomeDirectory, Constants.Path.ExternalsDirectory);
             
             return (useLatest, useLegacy, externalsPath);
         }

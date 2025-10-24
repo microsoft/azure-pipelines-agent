@@ -38,7 +38,7 @@ namespace Agent.Plugins.Repository
 
         public static readonly int RetriesOnFailure = 3;
 
-        private string TfPath => VarUtil.GetTfExecutablePath(ExecutionContext);
+        private string TfPath => VarUtil.GetTfDirectoryPath(ExecutionContext);
 
         public string FilePath => Path.Combine(TfPath, "tf.exe");
 
