@@ -205,7 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         }
                         else
                         {
-                            node20ResultsInGlibCErrorHost = await CheckIfNode20ResultsInGlibCError();
+                            node20ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node20_1Folder);
                             ExecutionContext.EmitHostNode20FallbackTelemetry(node20ResultsInGlibCErrorHost);
                             supportsNode20 = !node20ResultsInGlibCErrorHost;
                         }
@@ -218,8 +218,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         }
                         else
                         {
-                            node24ResultsInGlibCErrorHost = await CheckIfNode24ResultsInGlibCError();
-                            ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost); // Add this method
+                            node24ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node24Folder);
+                            ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost);
                             supportsNode24 = !node24ResultsInGlibCErrorHost;
                         }
                     }
@@ -317,22 +317,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        private async Task<bool> CheckIfNode20ResultsInGlibCError()
+        private async Task<bool> CheckIfNodeResultsInGlibCError(string nodeFolder)
         {
-            var node20 = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}");
-            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node20, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
-            var node20ResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);
+            var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
+            var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);
 
-            return node20ResultsInGlibCError;
+            return nodeResultsInGlibCError;
         }
-        private async Task<bool> CheckIfNode24ResultsInGlibCError()
+
+        private string GetNodeFolderWithFallback(string preferredNodeFolder, bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            var node24 = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}");
-            List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, node24, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
-            var node24ResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);
+            switch (preferredNodeFolder)
+            {
+                case var folder when folder == NodeHandler.Node24Folder:
+                    if (node24ResultsInGlibCError)
+                    {
+                        // Fallback to Node20, then Node16 if Node20 also fails
+                        if (node20ResultsInGlibCError)
+                        {
+                            NodeFallbackWarning("20", "16", inContainer);
+                            return NodeHandler.Node16Folder;
+                        }
+                        else
+                        {
+                            NodeFallbackWarning("24", "20", inContainer);
+                            return NodeHandler.Node20_1Folder;
+                        }
+                    }
+                    return NodeHandler.Node24Folder;
 
-            return node24ResultsInGlibCError;
+                case var folder when folder == NodeHandler.Node20_1Folder:
+                    if (node20ResultsInGlibCError)
+                    {
+                        NodeFallbackWarning("20", "16", inContainer);
+                        return NodeHandler.Node16Folder;
+                    }
+                    return NodeHandler.Node20_1Folder;
+
+                default:
+                    return preferredNodeFolder;
+            }
         }
+
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
@@ -350,39 +377,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (taskHasNode24Data)
             {
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
-
-                if (node24ResultsInGlibCError)
-                {
-                    // Fallback to Node20, then Node16 if Node20 also fails
-                    if (node20ResultsInGlibCError)
-                    {
-                        nodeFolder = NodeHandler.Node16Folder;
-                        Node16FallbackWarning(inContainer);
-                    }
-                    else
-                    {
-                        nodeFolder = NodeHandler.Node20_1Folder;
-                        Node20FallbackWarning(inContainer);
-                    }
-                }
-                else
-                {
-                    nodeFolder = NodeHandler.Node24Folder;
-                }
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (taskHasNode20_1Data)
             {
                 Trace.Info($"Task.json has node20_1 handler data: {taskHasNode20_1Data} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-
-                if (node20ResultsInGlibCError)
-                {
-                    nodeFolder = NodeHandler.Node16Folder;
-                    Node16FallbackWarning(inContainer);
-                }
-                else
-                {
-                    nodeFolder = NodeHandler.Node20_1Folder;
-                }
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (taskHasNode16Data)
             {
@@ -403,42 +403,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (useNode24)
             {
                 Trace.Info($"Found UseNode24 knob, using node24 for node tasks: {useNode24}");
-
-                if (node24ResultsInGlibCError)
-                {
-                    // Fallback to Node20, then Node16 if Node20 also fails
-                    if (node20ResultsInGlibCError)
-                    {
-                        nodeFolder = NodeHandler.Node16Folder;
-                        Node16FallbackWarning(inContainer);
-                    }
-                    else
-                    {
-                        nodeFolder = NodeHandler.Node20_1Folder;
-                        Node20FallbackWarning(inContainer);
-                    }
-                }
-                else
-                {
-                    nodeFolder = NodeHandler.Node24Folder;
-                }
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
-            if (useNode20_1)
+            else if (useNode20_1)
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-
-                if (node20ResultsInGlibCError)
-                {
-                    nodeFolder = NodeHandler.Node16Folder;
-                    Node16FallbackWarning(inContainer);
-                }
-                else
-                {
-                    nodeFolder = NodeHandler.Node20_1Folder;
-                }
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
 
-            if (useNode10)
+            else if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = NodeHandler.node10Folder;
@@ -501,34 +474,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void Node16FallbackWarning(bool inContainer)
+        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer)
         {
-            if (inContainer)
-            {
-                ExecutionContext.Warning($"The container operating system doesn't support Node20. Using Node16 instead. " +
-                                "Please upgrade the operating system of the container to remain compatible with future updates of tasks: " +
-                                "https://github.com/nodesource/distributions");
-            }
-            else
-            {
-                ExecutionContext.Warning($"The agent operating system doesn't support Node20. Using Node16 instead. " +
-                            "Please upgrade the operating system of the agent to remain compatible with future updates of tasks: " +
+            string systemType = inContainer ? "container" : "agent";
+            ExecutionContext.Warning($"The {systemType} operating system doesn't support Node{fromVersion}. Using Node{toVersion} instead. " +
+                            $"Please upgrade the operating system of the {systemType} to remain compatible with future updates of tasks: " +
                             "https://github.com/nodesource/distributions");
-            }
-        }
-
-        private void Node20FallbackWarning(bool inContainer)
-        {
-            if (inContainer)
-            {
-                ExecutionContext.Warning($"The container operating system doesn't support Node24. Using Node20 instead. " +
-                                "Please upgrade the operating system of the container to remain compatible with future updates of tasks.");
-            }
-            else
-            {
-                ExecutionContext.Warning($"The agent operating system doesn't support Node24. Using Node20 instead. " +
-                            "Please upgrade the operating system of the agent to remain compatible with future updates of tasks.");
-            }
         }
 
 

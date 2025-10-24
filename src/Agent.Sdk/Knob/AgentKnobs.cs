@@ -203,12 +203,14 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseNode24 = new Knob(
             nameof(UseNode24),
             "Forces the agent to use Node 24 handler for all Node-based tasks",
+            new PipelineFeatureSource("UseNode24"),
             new RuntimeKnobSource("AGENT_USE_NODE24"),
             new EnvironmentKnobSource("AGENT_USE_NODE24"),
             new BuiltInDefaultKnobSource("false"));
         public static readonly Knob UseNode24InUnsupportedSystem = new Knob(
             nameof(UseNode24InUnsupportedSystem),
             "Forces the agent to use Node 24 handler for all Node-based tasks, even if it's in an unsupported system",
+            new PipelineFeatureSource("UseNode24InUnsupportedSystem"),
             new RuntimeKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
             new EnvironmentKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
             new BuiltInDefaultKnobSource("false"));
@@ -720,8 +722,8 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseNode20ToStartContainer = new Knob(
             nameof(UseNode20ToStartContainer),
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
-            new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new PipelineFeatureSource("UseNode20ToStartContainer"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
         public static readonly Knob UseNode24ToStartContainer = new Knob(
             nameof(UseNode24ToStartContainer),
