@@ -287,8 +287,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.StartTime = DateTime.UtcNow;
             _record.State = TimelineRecordState.InProgress;
 
-            //update the state immediately on server
-            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            if (AgentKnobs.EnableImmediateTimelineRecordUpdates.GetValue(this).AsBoolean())
+            {
+                //update the state immediately on server
+                _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            }
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
@@ -834,8 +841,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.WorkerName = configuration.GetSettings().AgentName;
             _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
-            //update the state immediately on server
-            _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            if (AgentKnobs.EnableImmediateTimelineRecordUpdates.GetValue(this).AsBoolean())
+            {
+                //update the state immediately on server
+                _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            }
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
         }
 
         private void JobServerQueueThrottling_EventReceived(object sender, ThrottlingEventArgs data)
