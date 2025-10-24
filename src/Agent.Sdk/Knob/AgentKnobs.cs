@@ -725,6 +725,7 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UseNode20ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseNode24ToStartContainer = new Knob(
             nameof(UseNode24ToStartContainer),
             "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
