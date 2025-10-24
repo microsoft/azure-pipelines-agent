@@ -208,7 +208,7 @@ namespace Agent.Plugins.PipelineArtifact
                 bool pipelineTriggeringBool;
                 if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
-                    context.Debug("TrigerringPipeline: true");
+                    context.Debug("TriggeringPipeline: true");
                     string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
                     string triggeringPipeline = null;
                     if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
@@ -219,7 +219,7 @@ namespace Agent.Plugins.PipelineArtifact
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                            context.Debug($"TriggeringPipeline: {triggeringPipeline}");
                         }
                     }
                     else
@@ -229,7 +229,7 @@ namespace Agent.Plugins.PipelineArtifact
                         if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
                         {
                             triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                            context.Debug($"TriggeringPipeline: {triggeringPipeline}");
                         }
                     }
 
@@ -237,7 +237,7 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         pipelineId = int.Parse(triggeringPipeline);
                     }
-                    context.Debug($"PipelineId from trigerringBuild: {pipelineId}");
+                    context.Debug($"PipelineId from triggeringBuild: {pipelineId}");
                 }
 
                 if (pipelineId == 0)
@@ -263,7 +263,7 @@ namespace Agent.Plugins.PipelineArtifact
                     {
                         throw new InvalidOperationException("Unreachable code!");
                     }
-                    context.Debug($"PipelineId from non-trigerringBuild: {pipelineId}");
+                    context.Debug($"PipelineId from non-triggeringBuild: {pipelineId}");
                 }
 
                 OutputBuildInfo(context, pipelineId);
