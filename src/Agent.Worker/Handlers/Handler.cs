@@ -285,6 +285,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     prepend.Add(ExecutionContext.TranslatePathForStepTarget(path));
                 }
                 containerStepHost.PrependPath = string.Join(Path.PathSeparator.ToString(), prepend.Reverse<string>());
+                // Set docker exec diagnostics feature flag from ExecutionContext
+                containerStepHost.EnableDockerExecDiagnostics = AgentKnobs.EnableDockerExecDiagnostics.GetValue(ExecutionContext).AsBoolean();
             }
             else
             {

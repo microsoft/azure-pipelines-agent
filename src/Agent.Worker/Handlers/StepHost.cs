@@ -43,6 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         ContainerInfo Container { get; set; }
         string PrependPath { get; set; }
+        bool EnableDockerExecDiagnostics { get; set; }
     }
 
     [ServiceLocator(Default = typeof(DefaultStepHost))]
@@ -101,6 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     {
         public ContainerInfo Container { get; set; }
         public string PrependPath { get; set; }
+        public bool EnableDockerExecDiagnostics { get; set; }
         public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
         public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
 
@@ -221,20 +223,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 var payloadJson = JsonUtility.ToString(payload);
                 redirectStandardIn.Enqueue(payloadJson);
                 HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");
-                return await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                                                         fileName: containerEnginePath,
-                                                         arguments: containerExecutionArgs,
-                                                         environment: null,
-                                                         requireExitCodeZero: requireExitCodeZero,
-                                                         outputEncoding: outputEncoding,
-                                                         killProcessOnCancel: killProcessOnCancel,
-                                                         redirectStandardIn: redirectStandardIn,
-                                                         inheritConsoleHandler: inheritConsoleHandler,
-                                                         continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
-                                                         cancellationToken: cancellationToken);
+                
+                int exitCode = 0;
+                try
+                {
+                    exitCode = await processInvoker.ExecuteAsync(workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                                             fileName: containerEnginePath,
+                                                             arguments: containerExecutionArgs,
+                                                             environment: null,
+                                                             requireExitCodeZero: requireExitCodeZero,
+                                                             outputEncoding: outputEncoding,
+                                                             killProcessOnCancel: killProcessOnCancel,
+                                                             redirectStandardIn: redirectStandardIn,
+                                                             inheritConsoleHandler: inheritConsoleHandler,
+                                                             continueAfterCancelProcessTreeKillAttempt: continueAfterCancelProcessTreeKillAttempt,
+                                                             cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log the exception
+                    var trace = HostContext.GetTrace(nameof(ContainerStepHost));
+                    trace.Error($"Docker exec failed: {ex.GetType().Name}: {ex.Message}");
+                    
+                    // Check if docker exec diagnostics feature is enabled
+                    // Value is set by the Handler from ExecutionContext
+                    if (EnableDockerExecDiagnostics)
+                    {
+                        // Collect comprehensive diagnostics when docker exec fails
+                        trace.Info("Docker exec diagnostics enabled, collecting diagnostics");
+                        var diagnosticsManager = HostContext.GetService<Container.IContainerDiagnosticsManager>();
+                        await diagnosticsManager.CollectDockerExecFailureDiagnosticsAsync(ex, containerEnginePath, containerExecutionArgs, Container.ContainerId);
+                    }
+                    else
+                    {
+                        trace.Info("Docker exec diagnostics disabled, skipping diagnostic collection");
+                    }
+                    throw; // Re-throw the original exception
+                }
+                return exitCode;
             }
         }
-
+        
         private class ContainerStandardInPayload
         {
             [JsonProperty("handler")]
