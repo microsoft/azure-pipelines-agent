@@ -241,14 +241,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 catch (Exception ex)
                 {
+                    // Log the exception
+                    var trace = HostContext.GetTrace(nameof(ContainerStepHost));
+                    trace.Error($"Docker exec failed: {ex.GetType().Name}: {ex.Message}");
+                    
                     // Check if docker exec diagnostics feature is enabled
                     // Value is set by the Handler from ExecutionContext
                     if (EnableDockerExecDiagnostics)
                     {
                         // Collect comprehensive diagnostics when docker exec fails
-                        HostContext.GetTrace(nameof(ContainerStepHost)).Info("=== DIAGNOSTICS: Exception caught, running diagnostics ===");
+                        trace.Info("Docker exec diagnostics enabled, collecting diagnostics");
                         var diagnosticsManager = HostContext.GetService<Container.IContainerDiagnosticsManager>();
                         await diagnosticsManager.CollectDockerExecFailureDiagnosticsAsync(ex, containerEnginePath, containerExecutionArgs, Container.ContainerId);
+                    }
+                    else
+                    {
+                        trace.Info("Docker exec diagnostics disabled, skipping diagnostic collection");
                     }
                     throw; // Re-throw the original exception
                 }

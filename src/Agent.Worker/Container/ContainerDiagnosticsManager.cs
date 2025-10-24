@@ -42,7 +42,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     trace.Error("Docker exec failure diagnostics started");
                     trace.Error($"Exception: {originalException.GetType().Name}: {originalException.Message}");
                     trace.Error($"Failed command: {dockerPath} {dockerArgs}");
-                    trace.Info($"Container ID: {containerId}");
 
                     // Extract exit code from exception
                     int? exitCode = null;
@@ -52,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                         trace.Error($"Exit code: {exitCode}");
                     }
 
-                    // Collect system information
+                    trace.Info($"Container ID: {containerId}");
                     trace.Info("Collecting system information");
                     await CollectBasicSystemInfo(trace);
 
@@ -133,7 +132,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
                 // Basic memory info
                 var process = System.Diagnostics.Process.GetCurrentProcess();
-                trace.Info($"Agent Memory Usage: {process.WorkingSet64 / 1024 / 1024} MB");
+                if (process != null)
+                {
+                    trace.Info($"Agent Memory Usage: {process.WorkingSet64 / 1024 / 1024} MB");
+                }
 
                 if (PlatformUtil.RunningOnWindows)
                 {
