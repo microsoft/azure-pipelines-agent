@@ -96,6 +96,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <returns></returns>
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
+        void EmitHostNode24FallbackTelemetry(bool node24ResultsInGlibCErrorHost);
         void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
@@ -132,6 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private FileStream _buildLogsData;
         private StreamWriter _buildLogsWriter;
         private bool emittedHostNode20FallbackTelemetry = false;
+        private bool emittedHostNode24FallbackTelemetry = false;
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
@@ -971,6 +973,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         });
 
                 emittedHostNode20FallbackTelemetry = true;
+            }
+        }
+        public void EmitHostNode24FallbackTelemetry(bool node24ResultsInGlibCErrorHost)
+        {
+            if (!emittedHostNode24FallbackTelemetry)
+            {
+                PublishTelemetry(new Dictionary<string, string>
+                        {
+                            {  "HostNode24to20Fallback", node24ResultsInGlibCErrorHost.ToString() }
+                        });
+
+                emittedHostNode24FallbackTelemetry = true;
             }
         }
 
