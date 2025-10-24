@@ -1,3 +1,22 @@
+## Features
+ - Update Threat Model Documentation and Diagrams for Azure DevOps Agent and Tasks (SDL Compliance) (#5338)
+ - Optimize libssl installation: fallback to .deb only if needed (#5339)
+ - Update Exception handling (#5292)
+ - Pipeline Variable Support for VSTSAGENT_TRACE Knob (#5345)
+ - Pipeline Variable Support for VSTS_AGENT_HTTPTRACE Knob (#5347)
+ - Updating knobs order in Http Trace knob (#5355)
+ - Reverting process invoker logs (#5354)
+ - Added correlation id (#5289)
+
+## Bugs
+ -  Upgrade BinSkim to v4.3.1 (#5341)
+ - TFVC auth issues fix on Win11 | Add TF version 17 (#5342)
+
+## Misc
+ - Add libicu76 dependency support for Debian 13 (#5337)
+ - Remove test for signed task (#5333)
+ - Adding knob for enabling direct update of the timeline records to the… (#5358)
+
 
 ## Agent Downloads
 
