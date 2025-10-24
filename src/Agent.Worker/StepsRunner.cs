@@ -85,212 +85,227 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 foreach (IStep step in steps)
                 {
                     Trace.Info($"Processing step {stepIndex + 1}/{steps.Count}: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
-                    ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
-                    ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
-                    ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
-                    stepIndex++;
+                    
+                    // Set correlation step context - will be cleared in finally block to guarantee cleanup
+                    jobContext.SetCorrelationStep(step.ExecutionContext.Id.ToString());
 
-                    Trace.Info($"ExecutionContext startup initiated for step: '{step.DisplayName}'");
-                    // Start.
-                    step.ExecutionContext.Start();
-                    var taskStep = step as ITaskRunner;
-                    if (taskStep != null)
-                    {
-                        HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
-                        Trace.Info($"Task step initiated [TaskName:{taskStep.Task.Reference.Name}, TaskId:{taskStep.Task.Reference.Id}, Version:{taskStep.Task.Reference.Version}, Stage:{taskStep.Stage}]");
-                    }
-                    else
-                    {
-                        Trace.Info($"Non-task step {step.DisplayName} started [StepType:{step.GetType().Name}, Timeout:{step.Timeout?.TotalMinutes ?? 0}min]");
-                    }
-
-                    // Change the current job context to the step context.
-                    var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                    resourceDiagnosticManager.SetContext(step.ExecutionContext);
-
-                    // Variable expansion.
-                    step.ExecutionContext.SetStepTarget(step.Target);
-                    List<string> expansionWarnings;
-                    step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
-                    expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
-                    Trace.Info($"Variable expansion completed [Step:'{step.DisplayName}', Warnings:{expansionWarnings?.Count ?? 0}, Target:{step.Target?.GetType()?.Name ?? "None"}]");
-
-                    var expressionManager = HostContext.GetService<IExpressionManager>();
                     try
                     {
-                        ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
-                                                                         // Register job cancellation call back only if job cancellation token not been fire before each step run
-                        if (!jobContext.CancellationToken.IsCancellationRequested)
-                        {
-                            Trace.Info($"Job cancellation registration setup [Step:'{step.DisplayName}', JobCancellationRequested:False, RegistrationActive:True]");
-                            // Test the condition again. The job was canceled after the condition was originally evaluated.
-                            jobCancelRegister = jobContext.CancellationToken.Register(() =>
-                            {
-                                Trace.Info($"Job cancellation callback triggered [Step:'{step.DisplayName}', AgentShutdown:{HostContext.AgentShutdownToken.IsCancellationRequested}]");
-                                // mark job as cancelled
-                                jobContext.Result = TaskResult.Canceled;
-                                jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                        Trace.Info($"Processing step: DisplayName='{step.DisplayName}', ContinueOnError={step.ContinueOnError}, Enabled={step.Enabled}");
+                        ArgUtil.Equal(true, step.Enabled, nameof(step.Enabled));
+                        ArgUtil.NotNull(step.ExecutionContext, nameof(step.ExecutionContext));
+                        ArgUtil.NotNull(step.ExecutionContext.Variables, nameof(step.ExecutionContext.Variables));
+                        stepIndex++;
 
-                                step.ExecutionContext.Debug($"Re-evaluate condition on job cancellation for step: '{step.DisplayName}'.");
-                                ConditionResult conditionReTestResult;
-                                if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                        Trace.Info($"ExecutionContext startup initiated for step: '{step.DisplayName}'");
+                        // Start.
+                        step.ExecutionContext.Start();
+                        var taskStep = step as ITaskRunner;
+                        if (taskStep != null)
+                        {
+                            HostContext.WritePerfCounter($"TaskStart_{taskStep.Task.Reference.Name}_{stepIndex}");
+                            Trace.Info($"Task step initiated [TaskName:{taskStep.Task.Reference.Name}, TaskId:{taskStep.Task.Reference.Id}, Version:{taskStep.Task.Reference.Version}, Stage:{taskStep.Stage}]");
+                        }
+                        else
+                        {
+                            Trace.Info($"Non-task step {step.DisplayName} started [StepType:{step.GetType().Name}, Timeout:{step.Timeout?.TotalMinutes ?? 0}min]");
+                        }
+
+                        // Change the current job context to the step context.
+                        var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
+                        resourceDiagnosticManager.SetContext(step.ExecutionContext);
+
+                        // Variable expansion.
+                        step.ExecutionContext.SetStepTarget(step.Target);
+                        List<string> expansionWarnings;
+                        step.ExecutionContext.Variables.RecalculateExpanded(out expansionWarnings);
+                        expansionWarnings?.ForEach(x => step.ExecutionContext.Warning(x));
+                        Trace.Info($"Variable expansion completed [Step:'{step.DisplayName}', Warnings:{expansionWarnings?.Count ?? 0}, Target:{step.Target?.GetType()?.Name ?? "None"}]");
+
+                        var expressionManager = HostContext.GetService<IExpressionManager>();
+                        try
+                        {
+                            ArgUtil.NotNull(jobContext, nameof(jobContext)); // I am not sure why this is needed, but static analysis flagged all uses of jobContext below this point
+                                                                            // Register job cancellation call back only if job cancellation token not been fire before each step run
+                            if (!jobContext.CancellationToken.IsCancellationRequested)
+                            {
+                                Trace.Info($"Job cancellation registration setup [Step:'{step.DisplayName}', JobCancellationRequested:False, RegistrationActive:True]");
+                                // Test the condition again. The job was canceled after the condition was originally evaluated.
+                                jobCancelRegister = jobContext.CancellationToken.Register(() =>
                                 {
-                                    if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
-                                    {
-                                        PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "120");
-                                        jobContext.Result = TaskResult.Failed;
-                                        jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                                        Trace.Info($"Agent shutdown failure applied [Step:'{step.DisplayName}', FailJobEnabled:True, JobResult:Failed]");
-                                    }
-                                    step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
-                                    conditionReTestResult = false;
-                                    Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:AgentShutdown]");
-                                }
-                                else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
-                                    HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
-                                {
+                                    Trace.Info($"Job cancellation callback triggered [Step:'{step.DisplayName}', AgentShutdown:{HostContext.AgentShutdownToken.IsCancellationRequested}]");
+                                    // Mark job as cancelled
                                     jobContext.Result = TaskResult.Canceled;
                                     jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                                    conditionReTestResult = false;
-                                    Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:WorkerTimeout]");
-                                }
-                                else
-                                {
-                                    try
-                                    {
-                                        Trace.Info($"Condition re-evaluation initiated [Step:'{step.DisplayName}', Expression:'{step.Condition}', HostTracingOnly:True]");
-                                        conditionReTestResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition, hostTracingOnly: true);
-                                        Trace.Info($"Condition re-evaluation completed [Step:'{step.DisplayName}', Result:{conditionReTestResult.Value}]");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        // Cancel the step since we get exception while re-evaluate step condition.
-                                        Trace.Info("Caught exception from expression when re-test condition on job cancellation.");
-                                        step.ExecutionContext.Error(ex);
-                                        conditionReTestResult = false;
-                                    }
-                                }
 
-                                if (!conditionReTestResult.Value)
-                                {
-                                    // Cancel the step.
-                                    Trace.Info($"Cancel current running step: {step.DisplayName}");
-                                    step.ExecutionContext.Error(StringUtil.Loc("StepCancelled"));
-                                    step.ExecutionContext.CancelToken();
-                                }
-                            });
-                        }
-                        else if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
-                                HostContext.AgentShutdownToken.IsCancellationRequested)
-                        {
-                            if (jobContext.Result != TaskResult.Failed)
-                            {
-                                // mark job as failed
-                                PublishTelemetry(jobContext, jobContext.Result.ToString(), "121");
-                                jobContext.Result = TaskResult.Failed;
-                                jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                    step.ExecutionContext.Debug($"Re-evaluate condition on job cancellation for step: '{step.DisplayName}'.");
+                                    ConditionResult conditionReTestResult;
+                                    if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                                    {
+                                        if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean())
+                                        {
+                                            PublishTelemetry(jobContext, TaskResult.Failed.ToString(), "120");
+                                            jobContext.Result = TaskResult.Failed;
+                                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                            Trace.Info($"Agent shutdown failure applied [Step:'{step.DisplayName}', FailJobEnabled:True, JobResult:Failed]");
+                                        }
+                                        step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
+                                        conditionReTestResult = false;
+                                        Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:AgentShutdown]");
+                                    }
+                                    else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
+                                        HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
+                                    {
+                                        jobContext.Result = TaskResult.Canceled;
+                                        jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                        conditionReTestResult = false;
+                                        Trace.Info($"Condition re-evaluation skipped [Step:'{step.DisplayName}', Reason:WorkerTimeout]");
+                                    }
+                                    else
+                                    {
+                                        try
+                                        {
+                                            Trace.Info($"Condition re-evaluation initiated [Step:'{step.DisplayName}', Expression:'{step.Condition}', HostTracingOnly:True]");
+                                            conditionReTestResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition, hostTracingOnly: true);
+                                            Trace.Info($"Condition re-evaluation completed [Step:'{step.DisplayName}', Result:{conditionReTestResult.Value}]");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            // Cancel the step since we get exception while re-evaluate step condition.
+                                            Trace.Info("Caught exception from expression when re-test condition on job cancellation.");
+                                            step.ExecutionContext.Error(ex);
+                                            conditionReTestResult = false;
+                                        }
+                                    }
+
+                                    if (!conditionReTestResult.Value)
+                                    {
+                                        // Cancel the step.
+                                        Trace.Info($"Cancel current running step: {step.DisplayName}");
+                                        step.ExecutionContext.Error(StringUtil.Loc("StepCancelled"));
+                                        step.ExecutionContext.CancelToken();
+                                    }
+                                });
                             }
-                        }
-                        else
-                        {
-                            if (jobContext.Result != TaskResult.Canceled)
+                            else if (AgentKnobs.FailJobWhenAgentDies.GetValue(jobContext).AsBoolean() &&
+                                    HostContext.AgentShutdownToken.IsCancellationRequested)
                             {
-                                // mark job as cancelled
+                                if (jobContext.Result != TaskResult.Failed)
+                                {
+                                    // mark job as failed
+                                    PublishTelemetry(jobContext, jobContext.Result.ToString(), "121");
+                                    jobContext.Result = TaskResult.Failed;
+                                    jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                }
+                            }
+                            else
+                            {
+                                if (jobContext.Result != TaskResult.Canceled)
+                                {
+                                    // mark job as cancelled
+                                    jobContext.Result = TaskResult.Canceled;
+                                    jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                                }
+                            }
+
+                            // Evaluate condition.
+                            step.ExecutionContext.Debug($"Evaluating condition for step: '{step.DisplayName}'");
+                            Exception conditionEvaluateError = null;
+                            ConditionResult conditionResult;
+                            if (HostContext.AgentShutdownToken.IsCancellationRequested)
+                            {
+                                step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
+                                conditionResult = false;
+                                Trace.Info($"Condition evaluation skipped due to agent shutdown: '{step.DisplayName}'");
+                            }
+                            else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
+                                HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
+                            {
                                 jobContext.Result = TaskResult.Canceled;
                                 jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                            }
-                        }
-
-                        // Evaluate condition.
-                        step.ExecutionContext.Debug($"Evaluating condition for step: '{step.DisplayName}'");
-                        Exception conditionEvaluateError = null;
-                        ConditionResult conditionResult;
-                        if (HostContext.AgentShutdownToken.IsCancellationRequested)
-                        {
-                            step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
-                            conditionResult = false;
-                            Trace.Info($"Condition evaluation skipped due to agent shutdown: '{step.DisplayName}'");
-                        }
-                        else if (AgentKnobs.EnableTimeoutLogFlushing.GetValue(step.ExecutionContext).AsBoolean() && 
-                            HostContext.WorkerShutdownForTimeout.IsCancellationRequested)
-                        {
-                            jobContext.Result = TaskResult.Canceled;
-                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                            conditionResult = false;
-                            Trace.Info($"Condition evaluation skipped due to worker timeout: '{step.DisplayName}'");
-                        }
-                        else
-                        {
-                            try
-                            {
-                                conditionResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition);
-                                Trace.Info($"Condition evaluation completed - Result: {conditionResult.Value}, Step: '{step.DisplayName}'");
-                            }
-                            catch (Exception ex)
-                            {
-                                Trace.Info("Caught exception from expression.");
-                                Trace.Error(ex);
                                 conditionResult = false;
-                                conditionEvaluateError = ex;
+                                Trace.Info($"Condition evaluation skipped due to worker timeout: '{step.DisplayName}'");
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    conditionResult = expressionManager.Evaluate(step.ExecutionContext, step.Condition);
+                                    Trace.Info($"Condition evaluation completed - Result: {conditionResult.Value}, Step: '{step.DisplayName}'");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Trace.Info("Caught exception from expression.");
+                                    Trace.Error(ex);
+                                    conditionResult = false;
+                                    conditionEvaluateError = ex;
+                                }
+                            }
+
+                            // no evaluate error but condition is false
+                            if (!conditionResult.Value && conditionEvaluateError == null)
+                            {
+                                // Condition == false
+                                string skipStepMessage = "Skipping step due to condition evaluation.";
+                                Trace.Info(skipStepMessage + $"[Step: '{step.DisplayName}', Reason:ConditionFalse, Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
+                                step.ExecutionContext.Output($"{skipStepMessage}\n{conditionResult.Trace}");
+                                step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: skipStepMessage);
+                                continue;
+                            }
+
+                            if (conditionEvaluateError != null)
+                            {
+                                // fail the step since there is an evaluate error.
+                                Trace.Error($"Condition evaluation failure context [Step:'{step.DisplayName}', Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
+                                step.ExecutionContext.Error(conditionEvaluateError);
+                                step.ExecutionContext.Complete(TaskResult.Failed);
+                            }
+                            else
+                            {
+                                Trace.Info($"RunStepAsync execution initiated for step: '{step.DisplayName}'");
+                                // Run the step with worker timeout integration.
+                                await RunStepWithTimeoutAsync(step, jobContext.CancellationToken);
+                                Trace.Info($"RunStepAsync execution completed for step: '{step.DisplayName}' - Result: {step.ExecutionContext.Result}");
+                            }
+                        }
+                        finally
+                        {
+                            Trace.Info($"Step cancellation registration cleanup [Step:'{step.DisplayName}', RegistrationActive:{jobCancelRegister != null}]");
+                            if (jobCancelRegister != null)
+                            {
+                                jobCancelRegister?.Dispose();
+                                jobCancelRegister = null;
                             }
                         }
 
-                        // no evaluate error but condition is false
-                        if (!conditionResult.Value && conditionEvaluateError == null)
+                        // Update the job result.
+                        if (step.ExecutionContext.Result == TaskResult.SucceededWithIssues ||
+                            step.ExecutionContext.Result == TaskResult.Failed)
                         {
-                            // Condition == false
-                            string skipStepMessage = "Skipping step due to condition evaluation.";
-                            Trace.Info(skipStepMessage + $"[Step: '{step.DisplayName}', Reason:ConditionFalse, Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
-                            step.ExecutionContext.Output($"{skipStepMessage}\n{conditionResult.Trace}");
-                            step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: skipStepMessage);
-                            continue;
-                        }
-
-                        if (conditionEvaluateError != null)
-                        {
-                            // fail the step since there is an evaluate error.
-                            Trace.Error($"Condition evaluation failure context [Step:'{step.DisplayName}', Expression:'{step.Condition}', StepIndex:{stepIndex}/{steps.Count}]");
-                            step.ExecutionContext.Error(conditionEvaluateError);
-                            step.ExecutionContext.Complete(TaskResult.Failed);
+                            Trace.Info($"Update job result with current step result - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, PreviousJobResult: {jobContext.Result}");
+                            jobContext.Result = TaskResultUtil.MergeTaskResults(jobContext.Result, step.ExecutionContext.Result.Value);
+                            jobContext.Variables.Agent_JobStatus = jobContext.Result;
+                            Trace.Info($"Job result after merge: {jobContext.Result}");
                         }
                         else
                         {
-                            Trace.Info($"RunStepAsync execution initiated for step: '{step.DisplayName}'");
-                            // Run the step with worker timeout integration.
-                            await RunStepWithTimeoutAsync(step, jobContext.CancellationToken);
-                            Trace.Info($"RunStepAsync execution completed for step: '{step.DisplayName}' - Result: {step.ExecutionContext.Result}");
+                            Trace.Info($"Job result unchanged - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, JobResultKept:{jobContext.Result}");
                         }
+
+                        if (taskStep != null)
+                        {
+                            HostContext.WritePerfCounter($"TaskCompleted_{taskStep.Task.Reference.Name}_{stepIndex}");
+                            Trace.Info($"Task step completion - TaskName:{taskStep.Task.Reference.Name}, StepIndex:{stepIndex}/{steps.Count}, Result: {step.ExecutionContext.Result}, TaskStage:{taskStep.Stage}");
+                        }
+
+                        Trace.Info($"Current state: job state = '{jobContext.Result}'");
                     }
                     finally
                     {
-                        Trace.Info($"Step cancellation registration cleanup [Step:'{step.DisplayName}', RegistrationActive:{jobCancelRegister != null}]");
-                        if (jobCancelRegister != null)
-                        {
-                            jobCancelRegister?.Dispose();
-                            jobCancelRegister = null;
-                        }
+                        // Always clear correlation step context, even if an exception occurred
+                        // This prevents context leakage and ensures proper cleanup
+                        jobContext.ClearCorrelationStep();
                     }
-
-                    // Update the job result.
-                    if (step.ExecutionContext.Result == TaskResult.SucceededWithIssues ||
-                        step.ExecutionContext.Result == TaskResult.Failed)
-                    {
-                        Trace.Info($"Update job result with current step result - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, PreviousJobResult: {jobContext.Result}");
-                        jobContext.Result = TaskResultUtil.MergeTaskResults(jobContext.Result, step.ExecutionContext.Result.Value);
-                        jobContext.Variables.Agent_JobStatus = jobContext.Result;
-                        Trace.Info($"Job result after merge: {jobContext.Result}");
-                    }
-                    else
-                    {
-                        Trace.Info($"Job result unchanged - Step: '{step.DisplayName}', StepResult: {step.ExecutionContext.Result}, JobResultKept:{jobContext.Result}");
-                    }
-
-                    if (taskStep != null)
-                    {
-                        HostContext.WritePerfCounter($"TaskCompleted_{taskStep.Task.Reference.Name}_{stepIndex}");
-                        Trace.Info($"Task step completion - TaskName:{taskStep.Task.Reference.Name}, StepIndex:{stepIndex}/{steps.Count}, Result: {step.ExecutionContext.Result}, TaskStage:{taskStep.Stage}");
-                    }
-
                 }
                 Trace.Info($"Step iteration loop completed - All {steps.Count} steps processed, Final job result: {jobContext.Result}");
             }
@@ -479,7 +494,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                if (step.ExecutionContext.Variables.Retain_Default_Encoding != true && Console.InputEncoding.CodePage != 65001)
+                if (!step.ExecutionContext.Variables.Retain_Default_Encoding && Console.InputEncoding.CodePage != 65001)
                 {
                     using var pi = HostContext.CreateService<IProcessInvoker>();
 

@@ -628,6 +628,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableImmediateTimelineRecordUpdates = new Knob(
+            nameof(EnableImmediateTimelineRecordUpdates),
+            "If true, timeline record updates will be sent immediately to the server instead of being queued",
+            new PipelineFeatureSource("EnableImmediateTimelineRecordUpdates"),
+            new RuntimeKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
+            new EnvironmentKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob EnableResourceMonitorDebugOutput = new Knob(
             nameof(EnableResourceMonitorDebugOutput),
             "If true, the agent will show the resource monitor output for debug runs",
