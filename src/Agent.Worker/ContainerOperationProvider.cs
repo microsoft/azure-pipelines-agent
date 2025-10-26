@@ -177,10 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
                 CancellationToken cancellationToken = executionContext.CancellationToken;
-                var timestamp = DateTime.UtcNow;
-                
                 executionContext.Debug("Retrieving AAD token using MSI authentication");
-                trace.Info($"Starting MSI authentication at {timestamp:u}");
 
                 // Check environment variable for debugging
                 var envVar = Environment.GetEnvironmentVariable("DEBUG_MSI_LOGIN_INFO");
@@ -240,10 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
                 CancellationToken cancellationToken = executionContext.CancellationToken;
-                var timestamp = DateTime.UtcNow;
-                
                 executionContext.Debug("Retrieving AAD token using Workload Identity Federation");
-                trace.Info($"Starting WIF authentication at {timestamp:u}");
 
                 try
                 {
@@ -336,11 +330,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
                 CancellationToken cancellationToken = executionContext.CancellationToken;
-                var timestamp = DateTime.UtcNow;
                 Uri url = new Uri(registryServer + "/oauth2/exchange");
-                
                 executionContext.Debug("Converting AAD token to ACR refresh token");
-                trace.Info($"Starting ACR token exchange at {timestamp:u}");
+                
                 trace.Info($"ACR OAuth2 exchange endpoint: {url}");
                 trace.Info($"Login server: {loginServer}, Tenant: {tenantId}");
                 const int retryLimit = 5;
