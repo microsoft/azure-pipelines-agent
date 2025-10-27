@@ -25,6 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly TraceSetting _traceSetting;
         private readonly ILoggedSecretMasker _secretMasker;
         private readonly IKnobValueContext _knobValueContext;
+        private readonly ICorrelationContextManager _correlationContextManager;
 
         // Enhanced logging state (affects new and existing trace sources)
         private volatile bool _enhancedLoggingEnabled;
@@ -52,8 +53,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             _secretMasker = secretMasker;
             _knobValueContext = knobValueContext;
 
-            // Initialize from knob (which may be set via environment at process start)
-            _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
+            // Get correlation context manager from HostContext
+            if (knobValueContext is IHostContext hostContext)
+            {
+                _correlationContextManager = hostContext.CorrelationContextManager;
+                // Initialize from knob (which may be set via environment at process start)
+                // Only check knob if we have IHostContext
+                _enhancedLoggingEnabled = AgentKnobs.UseEnhancedLogging.GetValue(_knobValueContext).AsBoolean();
+            }
+            else
+            {
+                // Log warning and use no-op implementation for backward compatibility
+                // Enhanced logging correlation will be unavailable but won't break agent
+                System.Diagnostics.Trace.WriteLine("Warning: knobValueContext is not IHostContext. Enhanced logging correlation will be unavailable.");
+                _correlationContextManager = new NoOpCorrelationContextManager();
+                _enhancedLoggingEnabled = false; // Disable enhanced logging when context is not available
+            }
 
             Switch = new SourceSwitch("VSTSAgentSwitch")
             {
@@ -106,6 +121,9 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Dispose the HostTraceListener to prevent "Bad file descriptor" errors on POSIX systems
             _hostTraceListener?.Dispose();
+            
+            // Dispose correlation context manager to clean up AsyncLocal resources
+            _correlationContextManager?.Dispose();
         }
 
         private ITracingProxy CreateTracingProxy(string name)
@@ -120,7 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private Tracing CreateInnerTracing(string name, SourceSwitch sourceSwitch, bool enhanced)
         {
             return enhanced
-                ? new EnhancedTracing(name, _secretMasker, sourceSwitch, _hostTraceListener)
+                ? new EnhancedTracing(name, _secretMasker, _correlationContextManager, sourceSwitch, _hostTraceListener)
                 : new Tracing(name, _secretMasker, sourceSwitch, _hostTraceListener);
         }
 
@@ -147,6 +165,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 var name = kvp.Key;
                 var proxy = kvp.Value;
                 var sourceSwitch = GetSourceSwitch(name);
+                
                 proxy.ReplaceInner(() => CreateInnerTracing(name, sourceSwitch, shouldUseEnhanced));
             }
         }
