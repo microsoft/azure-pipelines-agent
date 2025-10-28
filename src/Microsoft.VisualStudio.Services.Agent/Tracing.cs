@@ -16,7 +16,6 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         private readonly ILoggedSecretMasker _secretMasker;
         private readonly TraceSource _traceSource;
-        protected string _componentName;
 
         public Tracing(string name, ILoggedSecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
         {
@@ -104,7 +103,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             _traceSource.TraceEvent(
                 eventType: eventType,
                 id: 0,
-                message: _secretMasker.MaskSecrets(message));
+                message: _secretMasker.MaskSecrets(message)
+            );
         }
 
         protected virtual void Dispose(bool disposing)

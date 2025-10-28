@@ -117,6 +117,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobContext.Section(StringUtil.Loc("StepStarting", message.JobDisplayName));
                     Trace.Info($"ExecutionContext initialized successfully. [JobName: {message.JobDisplayName}]");
 
+                    EvaluateHttpTraceKnob(jobContext);
+                    EvaluateTraceVerboseKnob(jobContext);
+
                     //Start Resource Diagnostics if enabled in the job message 
                     jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
 
@@ -195,10 +198,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"Agent metadata populated [AgentId:{settings.AgentId}, AgentName:{settings.AgentName}, OS:{VarUtil.OS}, Architecture:{VarUtil.OSArchitecture}, SelfHosted:{!settings.IsMSHosted}, CloudId:{settings.AgentCloudId}, MachineName:{Environment.MachineName}]");
                     if (PlatformUtil.RunningOnWindows)
                     {
-                        string serverOMDirectoryVariable = AgentKnobs.InstallLegacyTfExe.GetValue(jobContext).AsBoolean()
-                            ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                            : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
-
+                        string serverOMDirectoryVariable = VarUtil.GetServerOMPath(HostContext, jobContext);
                         jobContext.SetVariable(Constants.Variables.Agent.ServerOMDirectory, serverOMDirectoryVariable, isFilePath: true);
                     }
                     if (!PlatformUtil.RunningOnWindows)
@@ -473,6 +473,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     jobConnection?.Dispose();
                     await ShutdownQueue(throwOnFailure: false);
                     Trace.Info("Job server queue shutdown completed - all resources cleaned up successfully");
+                }
+            }
+        }
+
+        private void EvaluateHttpTraceKnob(IExecutionContext jobContext)
+        {
+            // Dynamic HTTP trace: allow pipeline variables to enable HTTP tracing for this job
+            bool enableHttpTrace = AgentKnobs.HttpTrace.GetValue(jobContext).AsBoolean()
+                || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+            if (enableHttpTrace)
+            {
+                Trace.Info("HTTP trace enabled via pipeline variable");
+                HostContext.EnableHttpTrace();
+            }
+        }
+
+        private void EvaluateTraceVerboseKnob(IExecutionContext jobContext)
+        {
+            // Dynamic worker verbose logging: allow pipeline variables or worker knob to enable verbose logging for this job            
+            bool enableWorkerVerbose = AgentKnobs.TraceVerbose.GetValue(jobContext).AsBoolean()
+                || (jobContext.Variables.GetBoolean(Constants.Variables.Agent.Diagnostic) ?? false);
+
+            if (enableWorkerVerbose)
+            {
+                Trace.Info("Worker verbose logging enabled via pipeline variable or worker knob");
+                var traceManager = HostContext.GetService<ITraceManager>();
+                if (traceManager?.Switch != null)
+                {
+                    traceManager.Switch.Level = System.Diagnostics.SourceLevels.Verbose;
                 }
             }
         }
