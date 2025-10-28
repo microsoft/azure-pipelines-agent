@@ -1,3 +1,13 @@
+## Features
+ - Unify TF and VSTSOM Directory Structure (#5348)
+ - Revert "Unify TF and VSTSOM Directory Structure (#5348)" (#5365)
+
+## Bugs
+ - Fixed verbose logging in plugin via using agent plugin context (#5364)
+
+## Misc
+
+
 
 ## Agent Downloads
 
