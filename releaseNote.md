@@ -1,4 +1,13 @@
 ## Features
+ - Unify TF and VSTSOM Directory Structure (#5348)
+
+## Bugs
+
+
+## Misc
+
+
+## Features
  - Update Threat Model Documentation and Diagrams for Azure DevOps Agent and Tasks (SDL Compliance) (#5338)
  - Optimize libssl installation: fallback to .deb only if needed (#5339)
  - Update Exception handling (#5292)
