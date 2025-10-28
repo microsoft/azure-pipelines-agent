@@ -163,7 +163,7 @@ namespace Agent.Sdk
 #if DEBUG
             Debug(message);
 #else
-            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(UtilKnobValueContext.Instance()).AsString();
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
