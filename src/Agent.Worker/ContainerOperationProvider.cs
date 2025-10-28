@@ -350,7 +350,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         new KeyValuePair<string, string>("tenant", tenantId),
                         new KeyValuePair<string, string>("access_token", AADToken)
                     };
-
                     using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
                     string AcrPassword = string.Empty;
                     int retryCount = 0;
@@ -358,38 +357,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     int timeToWait = 0;
                     do
                     {
-                        trace.Info($"ACR token exchange attempt {retryCount + 1}/{retryLimit + 1}");
+                        executionContext.Debug("Attempting to convert AAD token to an ACR token");
 
                         var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
-                        trace.Info($"ACR OAuth2 response status: {response.StatusCode}");
+                        executionContext.Debug($"Status Code: {response.StatusCode}");
 
                         if (response.StatusCode == HttpStatusCode.OK)
                         {
+                            executionContext.Debug("Successfully converted AAD token to an ACR token");
                             string result = await response.Content.ReadAsStringAsync();
-
-                            try
-                            {
-                                Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
-                                if (list != null && list.ContainsKey("refresh_token"))
-                                {
-                                    AcrPassword = list["refresh_token"];
-                                    trace.Info("ACR refresh token successfully extracted from response");
-                                }
-                                else
-                                {
-                                    executionContext.Error("ACR token exchange response missing refresh_token field");
-                                    trace.Error("ACR OAuth2 exchange returned OK but response is missing refresh_token field");
-                                }
-                            }
-                            catch (JsonException ex)
-                            {
-                                executionContext.Error($"Failed to parse ACR token exchange response JSON: {ex.Message}");
-                                trace.Error($"ACR OAuth2 exchange returned invalid JSON: {ex.GetType().Name}");
-                            }
+                            Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+                            AcrPassword = list["refresh_token"];
                         }
                         else if (response.StatusCode == HttpStatusCode.TooManyRequests)
                         {
-                            trace.Warning($"Rate limited by ACR OAuth2 endpoint, retry {retryCount + 1}/{retryLimit}");
+                            executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
 
                             timeElapsed = 2000 + timeToWait * 2;
                             retryCount++;
@@ -501,7 +483,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                         else
                         {
-                            executionContext.Warning("ACR login server not found in endpoint parameters");
+                            trace.Info("ACR login server not found in endpoint parameters");
                         }
 
                         registryServer = $"https://{loginServer}";
@@ -517,7 +499,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                             // Documentation says to pass username through this way
                             username = Guid.Empty.ToString("D");
-
                             string AADToken = await GetMSIAccessToken(executionContext);
                             password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                         }
@@ -530,7 +511,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             trace.Info($"Tenant ID: {tenantId ?? "not specified"}");
 
                             username = Guid.Empty.ToString("D");
-
                             string AADToken = await GetAccessTokenUsingWorkloadIdentityFederation(executionContext, registryEndpoint);
                             password = await GetAcrPasswordFromAADToken(executionContext, AADToken, tenantId, registryServer, loginServer);
                         }
@@ -563,21 +543,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     int loginExitCode = await _dockerManger.DockerLogin(
                         executionContext,
                         registryServer,
-                        username,   
+                        username,
                         password);
 
                     if (loginExitCode != 0)
                     {
                         throw new InvalidOperationException($"Docker login fail with exit code {loginExitCode}");
                     }
-                    
                     executionContext.Debug($"Successfully authenticated to container registry");
                 }
 
                 try
                 {
                     var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
-                    
+
                     if (!container.SkipContainerImagePull)
                     {
                         executionContext.Output($"Pulling container image: {container.ContainerImage}");
@@ -822,18 +801,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
 
-                try
-                {
-                    container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
-                    ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
-
-                    trace.Info($"Container created successfully. ID: {container.ContainerId.Substring(0, 12)}");
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Error($"Failed to create container from image {container.ContainerImage}");
-                    throw new InvalidOperationException($"Failed to create container from image {container.ContainerImage}: {ex.Message}", ex);
-                }
+                container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
+                ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
 
                 if (container.IsJobContainer)
                 {
