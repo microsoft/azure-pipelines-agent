@@ -23,7 +23,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             _dockerManager = new Mock<IDockerCommandManager>();
             _processInvoker = new Mock<IProcessInvoker>();
             
-            // Setup default behavior for docker inspect to return success
             _processInvoker.Setup(x => x.ExecuteAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -90,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 var containerId = $"container{exitCode}";
                 var exception = new ProcessExitCodeException(exitCode, "docker", dockerArgs);
 
-                // Act & Assert - Should not throw regardless of exit code ({description})
+                // Act & Assert - Should not throw regardless of exit code
                 await diagnosticsManager.CollectDockerExecFailureDiagnosticsAsync(
                     exception,
                     dockerPath,
@@ -313,6 +312,101 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                     It.IsAny<System.Text.Encoding>(),
                     It.IsAny<CancellationToken>()),
                     Times.AtLeastOnce());
+            }
+        }
+
+        // Scenario-based tests verifying diagnostics are collected for specific failure modes
+
+        [Theory]
+        [InlineData(137, "node script.js", "OOM killed (SIGKILL)")]
+        [InlineData(127, "node --version", "Command not found")]
+        [InlineData(126, "bash -c 'cat /secure/file'", "Permission denied")]
+        [InlineData(1, "failing-command", "Generic docker exec failure")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        public async Task WhenDockerExecFails_DiagnosticsCollectedForScenario(int exitCode, string command, string scenario)
+        {
+            if (!IsDockerAvailable()) return;
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange
+                var diagnosticsManager = new ContainerDiagnosticsManager();
+                diagnosticsManager.Initialize(hc);
+                
+                var dockerPath = "docker";
+                var dockerArgs = $"exec -i testcontainer {command}";
+                var containerId = "testcontainer";
+                var exception = new ProcessExitCodeException(exitCode, "docker", dockerArgs);
+
+                // Act
+                await diagnosticsManager.CollectDockerExecFailureDiagnosticsAsync(
+                    exception,
+                    dockerPath,
+                    dockerArgs,
+                    containerId);
+
+                // Assert - Verify diagnostic commands were called for scenario
+                _processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.Is<string>(args => args.Contains("inspect")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.AtLeastOnce(),
+                    $"Should inspect container for scenario: {scenario}");
+
+                _processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.Is<string>(args => args.Contains("logs")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.AtLeastOnce(),
+                    $"Should collect container logs for scenario: {scenario}");
+
+                _processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.Is<string>(args => args.Contains("version")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.AtLeastOnce(),
+                    $"Should verify Docker daemon health for scenario: {scenario}");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        public async Task WhenCancellationRequested_DiagnosticsHandledGracefully()
+        {
+            if (!IsDockerAvailable()) return;
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange
+                var diagnosticsManager = new ContainerDiagnosticsManager();
+                diagnosticsManager.Initialize(hc);
+                
+                var dockerPath = "docker";
+                var dockerArgs = "exec -i cancelcontainer long-running-command";
+                var containerId = "cancelcontainer";
+                var exception = new OperationCanceledException("Pipeline execution was canceled");
+
+                await diagnosticsManager.CollectDockerExecFailureDiagnosticsAsync(
+                    exception,
+                    dockerPath,
+                    dockerArgs,
+                    containerId);
             }
         }
     }

@@ -58,12 +58,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     // Run diagnostics (this collects container state internally)
                     await RunDiagnostics(exitCode, dockerManager, containerId, dockerArgs);
 
-                    trace.Error("Docker exec failure diagnostics completed");
+                    trace.Info("Docker exec failure diagnostics completed");
                 }
             }
             catch (Exception diagEx)
             {
-                trace.Error($"Diagnostic collection failed: {diagEx.GetType().Name}: {diagEx.Message}");
+                trace.Error($"Diagnostic collection failed: {diagEx.ToString()}");
             }
         }
 
@@ -115,7 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
             catch (Exception ex)
             {
-                trace.Info($"Diagnostic collection failed: {ex.Message}");
+                trace.Error($"Diagnostic collection failed: {ex.ToString()}");
             }
         }
 
@@ -129,13 +129,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 trace.Info($"Platform: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
                 trace.Info($"Architecture: {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}");
                 trace.Info($"Process Architecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
-
-                // Basic memory info
-                var process = System.Diagnostics.Process.GetCurrentProcess();
-                if (process != null)
-                {
-                    trace.Info($"Agent Memory Usage: {process.WorkingSet64 / 1024 / 1024} MB");
-                }
 
                 if (PlatformUtil.RunningOnWindows)
                 {
