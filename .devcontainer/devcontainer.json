@@ -1,0 +1,32 @@
+{
+	"name": " Codespace",
+	"image": "mcr.microsoft.com/vscode/devcontainers/dotnet:0.201.9-5.0",
+	"settings": {
+		"workbench.colorTheme": "Default Dark+",
+		"terminal.integrated.defaultProfile.linux": "pwsh"
+	},
+	"extensions": [
+		// VS Code specific
+		"coenraads.bracket-pair-colorizer",
+		"vscode-icons-team.vscode-icons",
+		"editorconfig.editorconfig",
+		// GitHub specific
+		"eamodio.gitlens",
+		"cschleiden.vscode-github-actions",
+		"redhat.vscode-yaml",
+		"bierner.markdown-preview-github-styles",
+		"ban.spellright",
+		// .NET specific
+		"ms-dotnettools.csharp",
+		"VisualStudioExptTeam.vscodeintellicode",
+		"ms-vscode.powershell",
+		"jmrog.vscode-nuget-package-manager",
+		// JS/TS specific
+		"dbaeumer.vscode-eslint",
+		"ms-vscode.vscode-typescript-next",
+		"ecmel.vscode-html-css",
+	],
+	"postCreateCommand": "src/dev.sh layout && src/dev.sh build"
+}
+
+// Built with ❤ by [Pipeline Foundation](https://pipeline.foundation)
