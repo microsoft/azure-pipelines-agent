@@ -142,10 +142,14 @@ jobs:
       filePath: .azure-pipelines/scripts/switch-branch.sh
     env:
       TARGET_BRANCH: $(CheckoutBranch)
-    condition: |
+    condition: >
       and(
-        eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-        ne(variables.CheckoutBranch, '')
+        or(
+          eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+          startsWith(variables['Build.SourceBranch'], 'refs/heads/releases/')
+        ),
+        ne(variables.CheckoutBranch, ''),
+        ne(variables['Build.SourceBranch'], format('refs/heads/{0}', variables.CheckoutBranch))
       )
 
   # 1ES images used on the ARM pool doesn't contain unzip tool, so we need to install it before starting the build
