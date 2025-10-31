@@ -184,47 +184,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 bool isDebugMode = envVar == "1";
                 trace.Info($"MSI debug mode: {isDebugMode}");
 
-                try
-                {
-                    // Future: Set this client id. This is the MSI client ID.
-                    ChainedTokenCredential credential = isDebugMode
-                        ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
-                        : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
-                    
-                    AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
-                    "https://management.core.windows.net/"
-                }), cancellationToken);
+                // Future: Set this client id. This is the MSI client ID.
+                ChainedTokenCredential credential = isDebugMode
+                    ? new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null), new VisualStudioCredential(), new AzureCliCredential())
+                    : new ChainedTokenCredential(new ManagedIdentityCredential(clientId: null));
+                
+                AccessToken accessToken = await credential.GetTokenAsync(new TokenRequestContext(new[] {
+                "https://management.core.windows.net/"
+            }), cancellationToken);
 
-                    executionContext.Debug("Successfully retrieved AAD token using MSI authentication");
-                    return accessToken.Token.ToString();
-                }
-                catch (AuthenticationFailedException ex)
-                {
-                    executionContext.Error($"MSI authentication failed: {ex.Message}");
-                    if (isDebugMode)
-                    {
-                        trace.Error("Debug mode authentication failure - check ManagedIdentity, VisualStudio, and AzureCLI configurations");
-                        trace.Error("Verify that at least one authentication method is properly configured");
-                    }
-                    else
-                    {
-                        trace.Error("Production MSI authentication failure - verify Managed Identity is enabled and properly configured");
-                        trace.Error("Check that the system/user-assigned managed identity has appropriate permissions");
-                    }
-                    trace.Error($"Exception type: {ex.GetType().Name}");
-                    throw;
-                }
-                catch (OperationCanceledException)
-                {
-                    trace.Warning("MSI token retrieval was cancelled due to timeout or cancellation request");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Error($"Unexpected error during MSI token retrieval: {ex.Message}");
-                    trace.Error($"Exception type: {ex.GetType().Name}");
-                    throw;
-                }
+                executionContext.Debug("Successfully retrieved AAD token using MSI authentication");
+                return accessToken.Token.ToString();
             }
         }
 
@@ -239,88 +209,68 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 CancellationToken cancellationToken = executionContext.CancellationToken;
                 executionContext.Debug("Retrieving AAD token using Workload Identity Federation");
 
-                try
+                var tenantId = string.Empty;
+                if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
                 {
-                    var tenantId = string.Empty;
-                    if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_tenantId, out tenantId) ?? false)
+                    trace.Error($"Failed to read required parameter: {c_tenantId}");
+                    throw new InvalidOperationException($"Could not read {c_tenantId}");
+                }
+                trace.Info($"Tenant ID: {tenantId}");
+
+                var clientId = string.Empty;
+                if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_clientId, out clientId) ?? false)
+                {
+                    trace.Error($"Failed to read required parameter: {c_clientId}");
+                    throw new InvalidOperationException($"Could not read {c_clientId}");
+                }
+                trace.Info($"Client ID: {clientId}");
+
+                var resourceId = string.Empty;
+                if (!registryEndpoint.Data?.TryGetValue(c_activeDirectoryServiceEndpointResourceId, out resourceId) ?? false)
+                {
+                    trace.Error($"Failed to read required parameter: {c_activeDirectoryServiceEndpointResourceId}");
+                    throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
+                }
+                trace.Info($"Resource ID: {resourceId}");
+
+                trace.Info("Building MSAL ConfidentialClientApplication");
+                var app = ConfidentialClientApplicationBuilder.Create(clientId)
+                    .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
+                    .WithClientAssertion(async (AssertionRequestOptions options) =>
                     {
-                        trace.Error($"Failed to read required parameter: {c_tenantId}");
-                        throw new InvalidOperationException($"Could not read {c_tenantId}");
-                    }
-                    trace.Info($"Tenant ID: {tenantId}");
+                        trace.Info("Creating OIDC token for client assertion");
+                        var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
+                        ArgUtil.NotNull(systemConnection, nameof(systemConnection));
 
-                    var clientId = string.Empty;
-                    if (!registryEndpoint.Authorization?.Parameters?.TryGetValue(c_clientId, out clientId) ?? false)
-                    {
-                        trace.Error($"Failed to read required parameter: {c_clientId}");
-                        throw new InvalidOperationException($"Could not read {c_clientId}");
-                    }
-                    trace.Info($"Client ID: {clientId}");
+                        VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
+                        var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
+                        trace.Info($"Collection URI: {collectionUri}");
 
-                    var resourceId = string.Empty;
-                    if (!registryEndpoint.Data?.TryGetValue(c_activeDirectoryServiceEndpointResourceId, out resourceId) ?? false)
-                    {
-                        trace.Error($"Failed to read required parameter: {c_activeDirectoryServiceEndpointResourceId}");
-                        throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
-                    }
-                    trace.Info($"Resource ID: {resourceId}");
+                        using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
+                        TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
-                    trace.Info("Building MSAL ConfidentialClientApplication");
-                    var app = ConfidentialClientApplicationBuilder.Create(clientId)
-                        .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
-                        .WithClientAssertion(async (AssertionRequestOptions options) =>
-                        {
-                            trace.Info("Creating OIDC token for client assertion");
-                            var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
-                            ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+                        var idToken = await taskClient.CreateOidcTokenAsync(
+                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
+                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                        planId: new Guid(executionContext.Variables.System_PlanId),
+                        jobId: new Guid(executionContext.Variables.System_JobId),
+                            serviceConnectionId: registryEndpoint.Id,
+                            claims: null,
+                            cancellationToken: cancellationToken
+                        );
 
-                            VssCredentials vssCredentials = VssUtil.GetVssCredential(systemConnection);
-                            var collectionUri = new Uri(executionContext.Variables.System_CollectionUrl);
-                            trace.Info($"Collection URI: {collectionUri}");
+                        trace.Info("OIDC token created successfully");
+                        return idToken.OidcToken;
+                    })
+                    .Build();
 
-                            using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
-                            TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
+                trace.Info($"Acquiring access token for resource scope: {resourceId}/.default");
+                var authenticationResult = await app.AcquireTokenForClient(new string[] { $"{resourceId}/.default" }).ExecuteAsync(cancellationToken);
 
-                            var idToken = await taskClient.CreateOidcTokenAsync(
-                            scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
-                            hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
-                            planId: new Guid(executionContext.Variables.System_PlanId),
-                            jobId: new Guid(executionContext.Variables.System_JobId),
-                                serviceConnectionId: registryEndpoint.Id,
-                                claims: null,
-                                cancellationToken: cancellationToken
-                            );
+                executionContext.Debug("Successfully retrieved AAD token using Workload Identity Federation");
+                trace.Info($"Token expires at: {authenticationResult.ExpiresOn:yyyy-MM-dd HH:mm:ss} UTC");
 
-                            trace.Info("OIDC token created successfully");
-                            return idToken.OidcToken;
-                        })
-                        .Build();
-
-                    trace.Info($"Acquiring access token for resource scope: {resourceId}/.default");
-                    var authenticationResult = await app.AcquireTokenForClient(new string[] { $"{resourceId}/.default" }).ExecuteAsync(cancellationToken);
-
-                    executionContext.Debug("Successfully retrieved AAD token using Workload Identity Federation");
-                    trace.Info($"Token expires at: {authenticationResult.ExpiresOn:yyyy-MM-dd HH:mm:ss} UTC");
-
-                    return authenticationResult.AccessToken;
-                }
-                catch (OperationCanceledException)
-                {
-                    trace.Warning("Workload Identity Federation token acquisition was cancelled");
-                    throw;
-                }
-                catch (AuthenticationFailedException ex)
-                {
-                    executionContext.Error($"Workload Identity Federation authentication failed: {ex.Message}");
-                    trace.Error($"Exception type: {ex.GetType().Name}");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Error($"Unexpected error during Workload Identity Federation token acquisition: {ex.Message}");
-                    trace.Error($"Exception type: {ex.GetType().Name}");
-                    throw;
-                }
+                return authenticationResult.AccessToken;
             }
         }
 
@@ -337,81 +287,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 trace.Info($"Login server: {loginServer}, Tenant: {tenantId}");
                 const int retryLimit = 5;
 
-                try
+                using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
+                using HttpClient httpClient = new HttpClient(httpClientHandler);
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
+
+                List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
                 {
-                    using HttpClientHandler httpClientHandler = HostContext.CreateHttpClientHandler();
-                    using HttpClient httpClient = new HttpClient(httpClientHandler);
-                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Content-Type", "application/x-www-form-urlencoded");
+                    new KeyValuePair<string, string>("grant_type", "access_token"),
+                    new KeyValuePair<string, string>("service", loginServer),
+                    new KeyValuePair<string, string>("tenant", tenantId),
+                    new KeyValuePair<string, string>("access_token", AADToken)
+                };
+                using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
+                string AcrPassword = string.Empty;
+                int retryCount = 0;
+                int timeElapsed = 0;
+                int timeToWait = 0;
+                do
+                {
+                    executionContext.Debug("Attempting to convert AAD token to an ACR token");
 
-                    List<KeyValuePair<string, string>> keyValuePairs = new List<KeyValuePair<string, string>>
+                    var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
+                    executionContext.Debug($"Status Code: {response.StatusCode}");
+
+                    if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        new KeyValuePair<string, string>("grant_type", "access_token"),
-                        new KeyValuePair<string, string>("service", loginServer),
-                        new KeyValuePair<string, string>("tenant", tenantId),
-                        new KeyValuePair<string, string>("access_token", AADToken)
-                    };
-                    using FormUrlEncodedContent formUrlEncodedContent = new FormUrlEncodedContent(keyValuePairs);
-                    string AcrPassword = string.Empty;
-                    int retryCount = 0;
-                    int timeElapsed = 0;
-                    int timeToWait = 0;
-                    do
+                        executionContext.Debug("Successfully converted AAD token to an ACR token");
+                        string result = await response.Content.ReadAsStringAsync();
+                        Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+                        AcrPassword = list["refresh_token"];
+                    }
+                    else if (response.StatusCode == HttpStatusCode.TooManyRequests)
                     {
-                        executionContext.Debug("Attempting to convert AAD token to an ACR token");
+                        executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
 
-                        var response = await httpClient.PostAsync(url, formUrlEncodedContent, cancellationToken).ConfigureAwait(false);
-                        executionContext.Debug($"Status Code: {response.StatusCode}");
-
-                        if (response.StatusCode == HttpStatusCode.OK)
-                        {
-                            executionContext.Debug("Successfully converted AAD token to an ACR token");
-                            string result = await response.Content.ReadAsStringAsync();
-                            Dictionary<string, string> list = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
-                            AcrPassword = list["refresh_token"];
-                        }
-                        else if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                        {
-                            executionContext.Debug("Too many requests were made to get an ACR token. Retrying...");
-
-                            timeElapsed = 2000 + timeToWait * 2;
-                            retryCount++;
-                            await Task.Delay(timeToWait);
-                            timeToWait = timeElapsed;
-                        }
-                        else
-                        {
-                            throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
-                        }
-
-                    } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
-
-                    if (string.IsNullOrEmpty(AcrPassword))
+                        timeElapsed = 2000 + timeToWait * 2;
+                        retryCount++;
+                        await Task.Delay(timeToWait);
+                        timeToWait = timeElapsed;
+                    }
+                    else
                     {
-                        throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
+                        throw new NotSupportedException("Could not fetch access token for ACR. Please configure Managed Service Identity (MSI) for Azure Container Registry with the appropriate permissions - https://docs.microsoft.com/en-us/azure/app-service/tutorial-custom-container?pivots=container-linux#configure-app-service-to-deploy-the-image-from-the-registry.");
                     }
 
-                    // Mark retrieved password as secret
-                    executionContext.Debug("Successfully converted AAD token to ACR refresh token");
-                    HostContext.SecretMasker.AddValue(AcrPassword, origin: "AcrPassword");
+                } while (retryCount < retryLimit && string.IsNullOrEmpty(AcrPassword));
 
-                    return AcrPassword;
-                }
-                catch (OperationCanceledException)
+                if (string.IsNullOrEmpty(AcrPassword))
                 {
-                    trace.Warning("ACR token exchange was cancelled");
-                    throw;
+                    throw new NotSupportedException("Could not acquire ACR token from given AAD token. Please check that the necessary access is provided and try again.");
                 }
-                catch (HttpRequestException ex)
-                {
-                    executionContext.Error($"HTTP request failed during ACR token exchange: {ex.Message}");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Error($"Unexpected error during ACR token exchange: {ex.Message}");
-                    trace.Error($"Exception type: {ex.GetType().Name}");
-                    throw;
-                }
+
+                // Mark retrieved password as secret
+                executionContext.Debug("Successfully converted AAD token to ACR refresh token");
+                HostContext.SecretMasker.AddValue(AcrPassword, origin: "AcrPassword");
+
+                return AcrPassword;
             }
         }
 
