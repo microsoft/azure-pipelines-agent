@@ -142,9 +142,12 @@ jobs:
       filePath: .azure-pipelines/scripts/switch-branch.sh
     env:
       TARGET_BRANCH: $(CheckoutBranch)
-    condition: |
+    condition: >
       and(
-        eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+        or(
+          eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+          startsWith(variables['Build.SourceBranch'], 'refs/heads/releases/')
+        ),
         ne(variables.CheckoutBranch, '')
       )
 
