@@ -49,7 +49,7 @@ if [[ "$(uname)" == "Linux" ]]; then
     # Check for missing dependencies
     ldd ./bin/libcoreclr.so | grep "not found"
     if [ $? -eq 0 ]; then
-        echo "Dependencies is missing for .NET Core 6.0"
+        echo "Dependencies are missing for .NET Core 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
