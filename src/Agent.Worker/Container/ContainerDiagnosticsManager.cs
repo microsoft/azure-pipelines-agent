@@ -32,38 +32,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             string dockerArgs,
             string containerId)
         {
-            var trace = HostContext.GetTrace(nameof(ContainerDiagnosticsManager));
             var dockerManager = HostContext.GetService<IDockerCommandManager>();
 
             try
             {
-                using (trace.EnteringWithDuration())
+                using (Trace.EnteringWithDuration())
                 {
-                    trace.Error("Docker exec failure diagnostics started");
-                    trace.Error($"Exception: {originalException.GetType().Name}: {originalException.Message}");
-                    trace.Error($"Failed command: {dockerPath} {dockerArgs}");
+                    Trace.Error("Docker exec failure diagnostics started");
+                    Trace.Error($"Exception: {originalException.GetType().Name}: {originalException.Message}");
+                    Trace.Error($"Failed command: {dockerPath} {dockerArgs}");
 
                     // Extract exit code from exception
                     int? exitCode = null;
                     if (originalException is ProcessExitCodeException processEx)
                     {
                         exitCode = processEx.ExitCode;
-                        trace.Error($"Exit code: {exitCode}");
+                        Trace.Error($"Exit code: {exitCode}");
                     }
 
-                    trace.Info($"Container ID: {containerId}");
-                    trace.Info("Collecting system information");
-                    await CollectBasicSystemInfo(trace);
+                    Trace.Info($"Container ID: {containerId}");
+                    Trace.Info("Collecting system information");
+                    await CollectBasicSystemInfo(Trace);
 
                     // Run diagnostics (this collects container state internally)
                     await RunDiagnostics(exitCode, dockerManager, containerId, dockerArgs);
 
-                    trace.Info("Docker exec failure diagnostics completed");
+                    Trace.Info("Docker exec failure diagnostics completed");
                 }
             }
             catch (Exception diagEx)
             {
-                trace.Error($"Diagnostic collection failed: {diagEx.ToString()}");
+                Trace.Error($"Diagnostic collection failed: {diagEx.ToString()}");
             }
         }
 
@@ -72,50 +71,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         /// </summary>
         private async Task RunDiagnostics(int? exitCode, IDockerCommandManager dockerManager, string containerId, string dockerArgs)
         {
-            var trace = HostContext.GetTrace(nameof(ContainerDiagnosticsManager));
-
             try
             {
-                using (trace.EnteringWithDuration())
+                using (Trace.EnteringWithDuration())
                 {
-                    trace.Info("Starting diagnostic evidence collection");
-                    trace.Error($"Docker exec failed with exit code: {exitCode?.ToString() ?? "null"}");
-                    trace.Error($"Failed command: docker {dockerArgs}");
+                    Trace.Info("Starting diagnostic evidence collection");
+                    Trace.Error($"Docker exec failed with exit code: {exitCode?.ToString() ?? "null"}");
+                    Trace.Error($"Failed command: docker {dockerArgs}");
 
-                    trace.Info("Phase 1: Collecting diagnostic evidence");
+                    Trace.Info("Phase 1: Collecting diagnostic evidence");
 
-                    trace.Info("Checking container state and lifecycle");
-                    var containerState = await GetContainerState(dockerManager, containerId, trace);
+                    Trace.Info("Checking container state and lifecycle");
+                    var containerState = await GetContainerState(dockerManager, containerId, Trace);
 
                     // Get containerOS from the collected state
                     string containerOS = containerState?.OS ?? "linux";
 
-                    trace.Info("Checking resource constraints and OOM status");
-                    var resourceState = await GetResourceState(dockerManager, containerId, trace);
+                    Trace.Info("Checking resource constraints and OOM status");
+                    var resourceState = await GetResourceState(dockerManager, containerId, Trace);
 
-                    trace.Info("Retrieving container logs from time of failure");
-                    await GetContainerLogs(dockerManager, containerId, trace, resourceState);
+                    Trace.Info("Retrieving container logs from time of failure");
+                    await GetContainerLogs(dockerManager, containerId, Trace, resourceState);
 
-                    trace.Info("Checking Docker daemon health");
-                    await DiagnoseDockerDaemon(dockerManager, trace);
+                    Trace.Info("Checking Docker daemon health");
+                    await DiagnoseDockerDaemon(dockerManager, Trace);
 
                     if (containerState != null && containerState.IsRunning)
                     {
-                        trace.Info("Checking command and environment availability");
-                        await DiagnoseCommandIssues(dockerManager, containerId, trace, containerOS);
+                        Trace.Info("Checking command and environment availability");
+                        await DiagnoseCommandIssues(dockerManager, containerId, Trace, containerOS);
                     }
                     else
                     {
-                        trace.Info("Skipping command availability check because container is not running");
+                        Trace.Info("Skipping command availability check because container is not running");
                     }
 
-                    trace.Info("Phase 2: Analyzing evidence to determine root cause");
-                    AnalyzeAndReportRootCause(exitCode, containerState, resourceState, containerOS, dockerArgs, trace);
+                    Trace.Info("Phase 2: Analyzing evidence to determine root cause");
+                    AnalyzeAndReportRootCause(exitCode, containerState, resourceState, containerOS, dockerArgs, Trace);
                 }
             }
             catch (Exception ex)
             {
-                trace.Error($"Diagnostic collection failed: {ex.ToString()}");
+                Trace.Error($"Diagnostic collection failed: {ex.ToString()}");
             }
         }
 
@@ -205,6 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                         output.Add($"ERROR: {e.Data}");
                 };
 
+                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var exitCode = await processInvoker.ExecuteAsync(
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: command,
@@ -212,7 +210,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     environment: null,
                     requireExitCodeZero: false,
                     outputEncoding: null,
-                    cancellationToken: CancellationToken.None);
+                    cancellationToken: timeoutTokenSource.Token);
 
                 trace.Info($"{description}: Exit Code {exitCode}");
                 foreach (var line in output.Take(maxLines))
@@ -256,6 +254,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 };
 
                 // Get comprehensive container state in one call
+                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var exitCode = await processInvoker.ExecuteAsync(
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: dockerManager.DockerPath,
@@ -263,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     environment: null,
                     requireExitCodeZero: false,
                     outputEncoding: null,
-                    cancellationToken: CancellationToken.None);
+                    cancellationToken: timeoutTokenSource.Token);
 
                 if (exitCode == 0 && output.Count > 0)
                 {
@@ -340,6 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 };
 
                 // Check OOM, memory limits, and logging configuration
+                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var exitCode = await processInvoker.ExecuteAsync(
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: dockerManager.DockerPath,
@@ -347,7 +347,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     environment: null,
                     requireExitCodeZero: false,
                     outputEncoding: null,
-                    cancellationToken: CancellationToken.None);
+                    cancellationToken: timeoutTokenSource.Token);
 
                 if (exitCode == 0 && output.Count > 0)
                 {
@@ -420,6 +420,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                         trace.Info($"Docker logs stderr: {e.Data}");
                 };
 
+                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var exitCode = await processInvoker.ExecuteAsync(
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: dockerManager.DockerPath,
@@ -427,7 +428,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     environment: null,
                     requireExitCodeZero: false,
                     outputEncoding: null,
-                    cancellationToken: CancellationToken.None);
+                    cancellationToken: timeoutTokenSource.Token);
 
                 if (hasLogs)
                 {
