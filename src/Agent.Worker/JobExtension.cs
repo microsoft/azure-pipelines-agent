@@ -58,6 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // download all required tasks.
         // make sure all task's condition inputs are valid.
         // build up three list of steps for jobrunner. (pre-job, job, post-job)
+#pragma warning disable CA1505
         public async Task<List<IStep>> InitializeJob(IExecutionContext jobContext, Pipelines.AgentJobRequestMessage message)
         {
             Trace.Entering();
@@ -313,7 +314,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (context.Containers.Count > 0 || context.SidecarContainers.Count > 0)
                     {
-                        var containerProvider = HostContext.GetService<IContainerOperationProvider>();
+                        // Get container provider - uses enhanced version if feature flag is enabled
+                        IContainerOperationProvider containerProvider;
+                        if (AgentKnobs.EnableEnhancedContainerDiagnostics.GetValue(context).AsBoolean())
+                        {
+                            // Create and initialize enhanced provider manually since it's not registered with ServiceLocator
+                            var enhancedProvider = new ContainerOperationProviderEnhanced();
+                            enhancedProvider.Initialize(HostContext);
+                            containerProvider = enhancedProvider;
+                        }
+                        else
+                        {
+                            containerProvider = HostContext.GetService<IContainerOperationProvider>();
+                        }
+                        
                         var containers = new List<ContainerInfo>();
                         containers.AddRange(context.Containers);
                         containers.AddRange(context.SidecarContainers);
