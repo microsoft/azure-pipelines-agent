@@ -293,40 +293,31 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
         const baseRelease = findBaseRelease(metadata, allReleases.data);
         console.log(`Base Release: ${baseRelease.tag_name} (published ${baseRelease.published_at})`);
         
-        // Step 4: Determine target branch
+        // Step 4: Determine target branch (the new release branch to create)
         const targetBranch = getTargetBranch(metadata, opt.options.branch);
         console.log(`Target Branch: ${targetBranch}`);
-        console.log(`Comparison: ${baseRelease.tag_name}...${targetBranch}\n`);
         
-        // Step 5: Validate prerequisites
+        // Step 5: Determine source branch/commit (where commits come from)
+        // Always compare against current branch/commit, not the target branch
+        let sourceBranch = cp.execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+        if (!sourceBranch) {
+            // Detached HEAD state (CI) - use current commit SHA
+            sourceBranch = cp.execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+            console.log(`Source: Current commit ${sourceBranch}`);
+        } else {
+            console.log(`Source: Current branch ${sourceBranch}`);
+        }
+        console.log(`Comparison: ${baseRelease.tag_name}...${sourceBranch}\n`);
+        
+        // Step 6: Validate prerequisites
         await validateReleasePrerequisites(metadata, targetBranch);
         
-        // Step 6: Compare commits
-        // For new branches that don't exist yet, compare against current commit/branch
-        let comparisonHead = targetBranch;
-        if (targetBranch !== 'master') {
-            try {
-                await octokit.repos.getBranch({ owner: OWNER, repo: REPO, branch: targetBranch });
-            } catch (e) {
-                // Target branch doesn't exist, use current commit or branch for comparison
-                // In detached HEAD state (CI), use HEAD; otherwise use current branch name
-                let currentRef = cp.execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
-                if (!currentRef) {
-                    // Detached HEAD state - use current commit SHA
-                    currentRef = cp.execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
-                    console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current commit '${currentRef}'`);
-                } else {
-                    console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current branch '${currentRef}'`);
-                }
-                comparisonHead = currentRef;
-            }
-        }
-        
+        // Step 7: Compare commits from base release to current branch/commit
         const comparison = await octokit.repos.compareCommits({
             owner: OWNER,
             repo: REPO,
             base: baseRelease.tag_name,
-            head: comparisonHead,
+            head: sourceBranch,
         });
         
         console.log(`Found ${comparison.data.commits.length} commits`);
