@@ -302,11 +302,24 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
         await validateReleasePrerequisites(metadata, targetBranch);
         
         // Step 6: Compare commits
+        // For new branches that don't exist yet, compare against current branch
+        let comparisonHead = targetBranch;
+        if (targetBranch !== 'master') {
+            try {
+                await octokit.repos.getBranch({ owner: OWNER, repo: REPO, branch: targetBranch });
+            } catch (e) {
+                // Target branch doesn't exist, use current branch for comparison
+                const currentBranch = cp.execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+                console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current branch '${currentBranch}'`);
+                comparisonHead = currentBranch;
+            }
+        }
+        
         const comparison = await octokit.repos.compareCommits({
             owner: OWNER,
             repo: REPO,
             base: baseRelease.tag_name,
-            head: targetBranch,
+            head: comparisonHead,
         });
         
         console.log(`Found ${comparison.data.commits.length} commits`);
