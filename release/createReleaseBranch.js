@@ -14,6 +14,132 @@ const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 const octokit = new Octokit({}); // only read-only operations, no need to auth
 
+/**
+ * Parses version tag into components
+ * @param {string} tag - Version tag (e.g., "v4.265.2")
+ * @returns {object} Parsed version components
+ */
+function parseVersion(tag) {
+    const match = tag.match(/v(\d+)\.(\d+)\.(\d+)/);
+    if (!match) {
+        throw new Error(`Invalid version tag format: ${tag}`);
+    }
+    return {
+        major: parseInt(match[1]),
+        sprint: parseInt(match[2]),
+        patch: parseInt(match[3])
+    };
+}
+
+/**
+ * Determines release type based on version pattern
+ * @param {string} version - Version string (e.g., "4.265.0" or "4.265.2")
+ * @returns {object} Release metadata
+ */
+function getReleaseMetadata(version) {
+    const parts = version.split('.');
+    const major = parts[0];
+    const sprint = parts[1];
+    const patch = parseInt(parts[2]);
+    
+    const isSprintRelease = patch === 0;
+    
+    return {
+        type: isSprintRelease ? 'SPRINT_RELEASE' : 'MID_SPRINT_RELEASE',
+        major: major,
+        sprint: sprint,
+        patch: patch,
+        version: version,
+        
+        // For sprint release: releases/4.265.0
+        // For mid-sprint: releases/4.265.2
+        targetBranch: `releases/${version}`,
+        
+        // For sprint release: v4. (find latest in major version)
+        // For mid-sprint: v4.265.0 (the sprint base)
+        baseTagPattern: isSprintRelease 
+            ? `v${major}.` 
+            : `v${major}.${sprint}.0`,
+        
+        isSprintRelease: isSprintRelease
+    };
+}
+
+/**
+ * Finds the most recent release before the current version
+ * Algorithm: Look in current sprint first, then fall back to previous sprints
+ */
+function findBaseRelease(metadata, allReleases) {
+    const publishedReleases = allReleases.filter(r => !r.draft);
+    const majorPrefix = `v${metadata.major}.`;
+    
+    // Get all releases in same major version, sorted by sprint DESC then patch DESC
+    const candidates = publishedReleases
+        .filter(r => r.tag_name.startsWith(majorPrefix))
+        .map(r => ({ release: r, version: parseVersion(r.tag_name) }))
+        .filter(r => 
+            r.version.sprint < parseInt(metadata.sprint) ||
+            (r.version.sprint === parseInt(metadata.sprint) && r.version.patch < metadata.patch)
+        )
+        .sort((a, b) => {
+            if (a.version.sprint !== b.version.sprint) {
+                return b.version.sprint - a.version.sprint;
+            }
+            return b.version.patch - a.version.patch;
+        });
+    
+    if (candidates.length === 0) {
+        throw new Error(`No previous release found for ${metadata.version} in major version ${metadata.major}.`);
+    }
+    
+    const base = candidates[0];
+    console.log(`Base release: ${base.release.tag_name} (published ${base.release.published_at})`);
+    return base.release;
+}
+
+/**
+ * Determines which branch to compare against
+ */
+function getTargetBranch(metadata, optionBranch) {
+    if (optionBranch && optionBranch !== 'master') {
+        return optionBranch;
+    }
+    return metadata.isSprintRelease ? 'master' : `releases/${metadata.version}`;
+}
+
+/**
+ * Validates prerequisites for the release
+ */
+async function validateReleasePrerequisites(metadata, targetBranch) {
+    const errors = [];
+    
+    // Check 1: Target branch exists (except master)
+    if (targetBranch !== 'master') {
+        try {
+            await octokit.repos.getBranch({ owner: OWNER, repo: REPO, branch: targetBranch });
+        } catch (e) {
+            errors.push(`Target branch '${targetBranch}' does not exist.`);
+        }
+    }
+    
+    // Check 2: Version doesn't already exist
+    try {
+        await octokit.repos.getReleaseByTag({ owner: OWNER, repo: REPO, tag: `v${metadata.version}` });
+        errors.push(`Release v${metadata.version} already exists!`);
+    } catch (e) {
+        // Good - release doesn't exist
+    }
+    
+    if (errors.length > 0) {
+        console.error('\n=== Validation Errors ===');
+        errors.forEach(err => console.error(`❌ ${err}`));
+        console.error('');
+        process.exit(-1);
+    }
+    
+    console.log('✅ All prerequisites validated\n');
+}
+
 const graphqlWithFetch = graphql.defaults({ // Create a reusable GraphQL instance with fetch
     request: {
         fetch,
@@ -27,13 +153,23 @@ process.env.EDITOR = process.env.EDITOR === undefined ? 'code --wait' : process.
 
 var opt = require('node-getopt').create([
     ['', 'dryrun', 'Dry run only, do not actually commit new release'],
-    ['', 'derivedFrom=version', 'Used to get PRs merged since this release was created', 'lastMinorRelease'],
-    ['', 'branch=branch', 'Branch to select PRs merged into', 'master'],
+    ['', 'derivedFrom=version', 'DEPRECATED: Release type is auto-detected. Use "lastMinorRelease" for default behavior', 'lastMinorRelease'],
+    ['', 'branch=branch', 'Branch to select PRs merged into (auto-detected: master for sprint, releases/x.y.z for mid-sprint)', 'master'],
     ['', 'targetCommitId=commit', 'Fetch PRs merged since this commit', ''],
     ['h', 'help', 'Display this help'],
 ])
     .setHelp(
         'Usage: node createReleaseBranch.js [OPTION] <version>\n' +
+        '\n' +
+        'Creates a release branch and generates release notes.\n' +
+        '\n' +
+        'Release Types (auto-detected from version):\n' +
+        '  Sprint Release (x.y.0):     Monthly release from master\n' +
+        '  Mid-Sprint Release (x.y.z): Urgent release from release branch (z > 0)\n' +
+        '\n' +
+        'Examples:\n' +
+        '  node createReleaseBranch.js 4.265.0              # Sprint release from master\n' +
+        '  node createReleaseBranch.js 4.265.2              # Mid-sprint release from releases/4.265.2\n' +
         '\n' +
         '[[OPTIONS]]\n'
     )
@@ -88,6 +224,12 @@ function filterCommitsUpToTarget(commitList) {
 }
 
 async function fetchPRsForSHAsGraphQL(commitSHAs) {
+    
+    // Handle empty commits array
+    if (!commitSHAs || commitSHAs.length === 0) {
+        console.log('No commits to process');
+        return [];
+    }
 
     var queryParts = commitSHAs.map((sha, index) => `
     commit${index + 1}: object(expression: "${sha}") { ... on Commit { associatedPullRequests(first: 1) { 
@@ -131,50 +273,64 @@ async function fetchPRsForSHAsGraphQL(commitSHAs) {
 }
 
 async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callback) {
+    console.log(`\n=== Release Analysis for ${newRelease} ===`);
+    
+    // Step 1: Detect release type
+    const metadata = getReleaseMetadata(newRelease);
+    console.log(`Release Type: ${metadata.type}`);
+    console.log(`Version: ${metadata.major}.${metadata.sprint}.${metadata.patch}`);
+    
     try {
-        var latestReleases = await octokit.repos.listReleases({
+        // Step 2: Fetch all releases
+        const allReleases = await octokit.repos.listReleases({
             owner: OWNER,
             repo: REPO
-        })
-
-        var filteredReleases = latestReleases.data.filter(release => !release.draft); // consider only pre-releases and published releases
-
-        var releaseTagPrefix = 'v' + newRelease.split('.')[0];
-        console.log(`Getting latest release starting with ${releaseTagPrefix}`);
-
-        var latestReleaseInfo = filteredReleases.find(release => release.tag_name.toLowerCase().startsWith(releaseTagPrefix.toLowerCase()));
-        console.log(`Previous release tag with ${latestReleaseInfo.tag_name} and published date is: ${latestReleaseInfo.published_at}`)
-
-        try {
-            var comparison = await octokit.repos.compareCommits({
-                owner: OWNER,
-                repo: REPO,
-                base: latestReleaseInfo.tag_name,
-                head: 'master',
-            });
-
-            var commitSHAs = comparison.data.commits.map(commit => commit.sha);
-            var filteredCommits = filterCommitsUpToTarget(commitSHAs);
-
-            try {
-
-                var allPRs = await fetchPRsForSHAsGraphQL(filteredCommits);
-                editReleaseNotesFile({ items: allPRs });
-            } catch (e) {
-                console.log(e);
-                console.log(`Error: Problem in fetching PRs using commit SHA. Aborting.`);
-                process.exit(-1);
+        });
+        
+        // Step 3: Find base release
+        const baseRelease = findBaseRelease(metadata, allReleases.data);
+        console.log(`Base Release: ${baseRelease.tag_name} (published ${baseRelease.published_at})`);
+        
+        // Step 4: Determine target branch
+        const targetBranch = getTargetBranch(metadata, opt.options.branch);
+        console.log(`Target Branch: ${targetBranch}`);
+        console.log(`Comparison: ${baseRelease.tag_name}...${targetBranch}\n`);
+        
+        // Step 5: Validate prerequisites
+        await validateReleasePrerequisites(metadata, targetBranch);
+        
+        // Step 6: Compare commits
+        const comparison = await octokit.repos.compareCommits({
+            owner: OWNER,
+            repo: REPO,
+            base: baseRelease.tag_name,
+            head: targetBranch,
+        });
+        
+        console.log(`Found ${comparison.data.commits.length} commits`);
+        
+        // Step 7: Filter commits (existing logic)
+        const commitSHAs = comparison.data.commits.map(commit => commit.sha);
+        const filteredCommits = filterCommitsUpToTarget(commitSHAs);
+        
+        if (filteredCommits.length === 0) {
+            console.log(`Warning: No commits found between ${baseRelease.tag_name} and ${targetBranch}`);
+            console.log(`This might indicate:`);
+            if (metadata.isSprintRelease) {
+                console.log(`  - No new PRs merged to master since last sprint`);
+            } else {
+                console.log(`  - No commits cherry-picked to ${targetBranch}`);
+                console.log(`  - Branch ${targetBranch} might not exist or is identical to ${baseRelease.tag_name}`);
             }
-
-        } catch (e) {
-            console.log(e);
-            console.log(`Error: Cannot find commits changes. Aborting.`);
-            process.exit(-1);
         }
-    }
-    catch (e) {
+        
+        // Step 8: Fetch PRs and generate release notes (existing logic)
+        const allPRs = await fetchPRsForSHAsGraphQL(filteredCommits);
+        editReleaseNotesFile({ items: allPRs });
+        
+    } catch (e) {
         console.log(e);
-        console.log(`Error: Cannot find releases. Aborting.`);
+        console.log(`Error: Cannot process release. Aborting.`);
         process.exit(-1);
     }
 }
@@ -182,6 +338,15 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
 
 async function fetchPRsSinceLastReleaseAndEditReleaseNotes(newRelease, callback) {
     var derivedFrom = opt.options.derivedFrom;
+    
+    // Add deprecation warning
+    if (derivedFrom && derivedFrom !== 'lastMinorRelease') {
+        console.log(`⚠️  WARNING: --derivedFrom=${derivedFrom} is deprecated and will be ignored.`);
+        console.log(`   Release type is now auto-detected from version number.`);
+        console.log(`   - Sprint releases (x.y.0) compare from master`);
+        console.log(`   - Mid-sprint releases (x.y.z) compare from release branch\n`);
+    }
+    
     console.log("Derived from %o", derivedFrom);
 
     try {
