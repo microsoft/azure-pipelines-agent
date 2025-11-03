@@ -302,16 +302,23 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
         await validateReleasePrerequisites(metadata, targetBranch);
         
         // Step 6: Compare commits
-        // For new branches that don't exist yet, compare against current branch
+        // For new branches that don't exist yet, compare against current commit/branch
         let comparisonHead = targetBranch;
         if (targetBranch !== 'master') {
             try {
                 await octokit.repos.getBranch({ owner: OWNER, repo: REPO, branch: targetBranch });
             } catch (e) {
-                // Target branch doesn't exist, use current branch for comparison
-                const currentBranch = cp.execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
-                console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current branch '${currentBranch}'`);
-                comparisonHead = currentBranch;
+                // Target branch doesn't exist, use current commit or branch for comparison
+                // In detached HEAD state (CI), use HEAD; otherwise use current branch name
+                let currentRef = cp.execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+                if (!currentRef) {
+                    // Detached HEAD state - use current commit SHA
+                    currentRef = cp.execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+                    console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current commit '${currentRef}'`);
+                } else {
+                    console.log(`Target branch '${targetBranch}' doesn't exist yet, comparing against current branch '${currentRef}'`);
+                }
+                comparisonHead = currentRef;
             }
         }
         
