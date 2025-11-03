@@ -114,11 +114,13 @@ async function validateReleasePrerequisites(metadata, targetBranch) {
     const errors = [];
     
     // Check 1: Target branch exists (except master)
+    // Note: For new releases, the branch will be created later, so we only warn if it doesn't exist
     if (targetBranch !== 'master') {
         try {
             await octokit.repos.getBranch({ owner: OWNER, repo: REPO, branch: targetBranch });
+            console.log(`ℹ️  Target branch '${targetBranch}' already exists`);
         } catch (e) {
-            errors.push(`Target branch '${targetBranch}' does not exist.`);
+            console.log(`ℹ️  Target branch '${targetBranch}' will be created`);
         }
     }
     
