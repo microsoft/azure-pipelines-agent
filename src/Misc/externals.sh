@@ -173,11 +173,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         BIT="64"
         acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
-        acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
-        acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
-        
-        # Copy vstsom to vstshost for default PowerShell handler behavior
-        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
@@ -186,6 +181,10 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
     acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
+    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
+    fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
@@ -210,11 +209,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
 
         # acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy # Unavailable for Win ARM 64 - https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10?tabs=dnf#download-the-azcopy-portable-binary
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
-        acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
-        acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" vstsom-latest
-        
-        # Copy vstsom to vstshost for default PowerShell handler behavior
-        cp -r "$LAYOUT_DIR/externals/vstsom/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
@@ -223,6 +217,10 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
     acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
+    if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
+    fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
