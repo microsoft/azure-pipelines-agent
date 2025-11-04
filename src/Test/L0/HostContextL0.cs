@@ -334,20 +334,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
-        public void GetDirectory_ResolvesNewServerOMLatestDirectory()
-        {
-            using (var _hc = Setup())
-            {
-                var serverOMLatestPath = _hc.GetDirectory(WellKnownDirectory.ServerOMLatest);
-                var externalsPath = _hc.GetDirectory(WellKnownDirectory.Externals);
-                var expected = Path.Combine(externalsPath, "vstsom-latest");
-                
-                Assert.Equal(expected, serverOMLatestPath);
-            }
-        }
+
 
         public HostContext Setup([CallerMemberName] string testName = "")
         {

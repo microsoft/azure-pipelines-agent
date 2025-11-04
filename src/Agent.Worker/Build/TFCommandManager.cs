@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         protected override string Switch => "/";
 
-        private string TfPath => VarUtil.GetTfPath(HostContext, ExecutionContext);
+        private string TfPath => VarUtil.GetTfDirectoryPath(ExecutionContext);
 
         public override string FilePath => Path.Combine(TfPath, "tf.exe");
 
