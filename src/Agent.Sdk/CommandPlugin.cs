@@ -28,7 +28,7 @@ namespace Agent.Sdk
         Task ProcessCommandAsync(AgentCommandPluginExecutionContext executionContext, CancellationToken token);
     }
 
-    public class AgentCommandPluginExecutionContext : ITraceWriter
+    public class AgentCommandPluginExecutionContext : ITraceWriter, IKnobValueContext
     {
         private VssConnection _connection;
         private readonly object _stdoutLock = new object();
@@ -69,7 +69,7 @@ namespace Agent.Sdk
 #if DEBUG
             Debug(message);
 #else
-            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(UtilKnobValueContext.Instance()).AsString();
+            string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
@@ -211,6 +211,16 @@ namespace Agent.Sdk
             {
                 return null;
             }
+        }
+
+        string IKnobValueContext.GetVariableValueOrDefault(string variableName)
+        {
+            return Variables.GetValueOrDefault(variableName)?.Value;
+        }
+
+        IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
+        {
+            return new SystemEnvironment();
         }
     }
 }
