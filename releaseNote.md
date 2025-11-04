@@ -1,5 +1,5 @@
 ## Features
- - Unify TF and VSTSOM Directory Structure (#5348)
+ - Unify TF and VSTSOM  Directory Structure (#5348)
 
 ## Bugs
 
