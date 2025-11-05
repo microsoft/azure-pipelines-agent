@@ -109,6 +109,15 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";AgentCdnAccessFailWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Action Required: Azure Pipelines Agent cannot reach the new CDN URL. Allowlist 'download.agent.dev.azure.com' now to prevent pipeline failures. Details: https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[需要動作：Azure Pipelines 代理程式無法觸達新的 CDN URL。允許清單 'download.agent.dev.azure.com' 現在可防止管線失敗。詳細資料：https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";AgentDoesNotSupportContainerFeatureRhel6" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Agent does not support the container feature on Red Hat Enterprise Linux 6 or CentOS 6.]]></Val>
@@ -5052,6 +5061,15 @@
           <Val><![CDATA[The maximum allowed number of attempts is {0} but got {1}. Retry attempts count will be decreased to {0}.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
             <Val><![CDATA[允許的嘗試次數上限為 {0} 但結果為 {1}。請重試將嘗試次數將減少為 {0}。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";RetryingReplaceAgent" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Retrying to replace agent (attempt {0} of {1}). Waiting {2} seconds before next attempt...]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[重試取代代理程式 (嘗試 {0} / {1})。在下次嘗試前等待 {2} 秒...]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />

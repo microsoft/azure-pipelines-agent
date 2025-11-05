@@ -109,6 +109,15 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";AgentCdnAccessFailWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Action Required: Azure Pipelines Agent cannot reach the new CDN URL. Allowlist 'download.agent.dev.azure.com' now to prevent pipeline failures. Details: https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Требуется действие: агенту Azure Pipelines не удается получить доступ к новому URL-адресу CDN. Добавьте "download.agent.dev.azure.com" в список разрешений, чтобы предотвратить сбои в работе конвейера. Сведения: https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";AgentDoesNotSupportContainerFeatureRhel6" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Agent does not support the container feature on Red Hat Enterprise Linux 6 or CentOS 6.]]></Val>
@@ -871,8 +880,8 @@
       <Item ItemId=";CommandLineHelp_Common[11]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
-          <Tgt Cat="Text" Stat="Update" Orig="New">
-            <Val><![CDATA[                                   имя в формате: домен\имя_пользователя или имя_пользователя@домен.com]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --userName <имя_пользователя>             Используется с --auth negotiate или --auth alt. Укажите имя пользователя Windows]]></Val>
           </Tgt>
           <Prev Cat="Text">
             <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
@@ -895,8 +904,8 @@
       <Item ItemId=";CommandLineHelp_Common[13]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
-          <Tgt Cat="Text" Stat="Update" Orig="New">
-            <Val><![CDATA[ --unattended                      Автоматическая конфигурация. Без отображения запроса. Все ответы должны быть]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --password <пароль>             Используется с --auth negotiate или --auth alt.]]></Val>
           </Tgt>
           <Prev Cat="Text">
             <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
@@ -5052,6 +5061,15 @@
           <Val><![CDATA[The maximum allowed number of attempts is {0} but got {1}. Retry attempts count will be decreased to {0}.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
             <Val><![CDATA[Максимально допустимое количество попыток равно{0}, но имело{1}. Количество повторных попыток будет уменьшено до {0}.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";RetryingReplaceAgent" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Retrying to replace agent (attempt {0} of {1}). Waiting {2} seconds before next attempt...]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Попытка заменить агента (попытка {0} из {1}). Подождите {2} с перед следующей попыткой...]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />
