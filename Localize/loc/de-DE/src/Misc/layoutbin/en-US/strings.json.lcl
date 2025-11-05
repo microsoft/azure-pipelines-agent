@@ -858,68 +858,101 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[10]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --userName <userName>             Wird mit „--auth negotiate“ oder „--auth alt“ verwendet. Geben Sie den Windows-Benutzer an.]]></Val>
+            <Val><![CDATA[ --token <token>                   Wird mit --auth pat verwendet. Persönliches Zugriffstoken.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[11]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   Name im Format: Domäne\Benutzername oder userName@domain.com]]></Val>
+            <Val><![CDATA[ --userName <userName>             Wird mit „--auth negotiate“ oder „--auth alt“ verwendet. Geben Sie den Windows-Benutzer an.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[12]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --password <password>             Wird mit „--auth negotiate“ oder „--auth alt“ verwendet.]]></Val>
+            <Val><![CDATA[                                   Name im Format: Domäne\Benutzername oder userName@domain.com]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[13]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --unattended                      Unbeaufsichtigte Konfiguration. Sie erhalten keine Eingabeaufforderung. Alle Antworten müssen]]></Val>
+            <Val><![CDATA[ --password <password>             Wird mit „--auth negotiate“ oder „--auth alt“ verwendet.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[14]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   an die Befehlszeile übergeben.]]></Val>
+            <Val><![CDATA[ --unattended                      Unbeaufsichtigte Konfiguration. Sie erhalten keine Eingabeaufforderung. Alle Antworten müssen]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[15]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --version                         Gibt die Agent-Version aus]]></Val>
+            <Val><![CDATA[                                   an die Befehlszeile übergeben.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[16]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --commit                          Gibt den Agent-Commit aus]]></Val>
+            <Val><![CDATA[ --version                         Gibt die Agent-Version aus]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[17]" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --commit                          Gibt den Agent-Commit aus]]></Val>
+          </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --help                            Prints the help]]></Val>
+          </Prev>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";CommandLineHelp_Common[18]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --help                            Prints the help]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
@@ -1002,10 +1035,13 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[9]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          <Val><![CDATA[                                    sp         (Service Principal)]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --token <token>                   Wird mit --auth pat verwendet. Persönliches Zugriffstoken.]]></Val>
+            <Val><![CDATA[                                    sp (Dienstprinzipal)]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>

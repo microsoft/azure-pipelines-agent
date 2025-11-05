@@ -858,68 +858,101 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[10]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --userName <userName>            與 --auth 協商或 --auth alt 搭配使用。指定 Windows 使用者]]></Val>
+            <Val><![CDATA[ --token <token>                   與 --auth pat. 搭配使用。個人存取權杖。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[11]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          <Val><![CDATA[ --userName <userName>             Used with --auth negotiate or --auth alt. Specify the Windows user]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   名稱的格式: domain\userName or userName@domain.com]]></Val>
+            <Val><![CDATA[ --userName <userName>            與 --auth 協商或 --auth alt 搭配使用。指定 Windows 使用者]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[12]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          <Val><![CDATA[                                   name in the format: domain\userName or userName@domain.com]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --password <password>             與 --auth 協商或 --auth alt 搭配使用。]]></Val>
+            <Val><![CDATA[                                   名稱的格式: domain\userName 或 userName@domain.com]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[13]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          <Val><![CDATA[ --password <password>             Used with --auth negotiate or --auth alt.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --unattended                        自動設定。將不會提示您。所有答案都必須]]></Val>
+            <Val><![CDATA[ --password <password>             與 --auth 協商或 --auth alt 搭配使用。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[14]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          <Val><![CDATA[ --unattended                      Unattended configuration. You will not be prompted. All answers must]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[                                   提供給命令列。]]></Val>
+            <Val><![CDATA[ --unattended                        自動設定。將不會提示您。所有答案都必須]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[                                   be supplied to the command line.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[15]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          <Val><![CDATA[                                   be supplied to the command line.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --version                         列印代理程式版本]]></Val>
+            <Val><![CDATA[                                   提供給命令列。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --version                         Prints the agent version]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[16]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Val><![CDATA[ --version                         Prints the agent version]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --commit                        列印代理程式認可]]></Val>
+            <Val><![CDATA[ --version                         列印代理程式版本]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";CommandLineHelp_Common[17]" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[ --commit                          Prints the agent commit]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ --commit                        列印代理程式認可]]></Val>
+          </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --help                            Prints the help]]></Val>
+          </Prev>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";CommandLineHelp_Common[18]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[ --help                            Prints the help]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
@@ -1002,10 +1035,13 @@
       </Item>
       <Item ItemId=";CommandLineHelp_Common[9]" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          <Val><![CDATA[                                    sp         (Service Principal)]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ --token <token>                   與 --auth pat. 搭配使用。個人存取權杖。]]></Val>
+            <Val><![CDATA[sp (服務主體)]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[ --token <token>                   Used with --auth pat. Personal access token.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
