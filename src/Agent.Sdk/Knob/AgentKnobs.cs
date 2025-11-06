@@ -904,6 +904,12 @@ namespace Agent.Sdk.Knob
             "When enabled, uses ContainerOperationProviderEnhanced with detailed tracing and duration logging for container operations",
             new PipelineFeatureSource("EnableEnhancedContainerDiagnostics"),
             new EnvironmentKnobSource("AGENT_ENABLE_ENHANCED_CONTAINER_LOGGING"),
+        // Docker Diagnostics
+        public static readonly Knob EnableDockerExecDiagnostics = new Knob(
+            nameof(EnableDockerExecDiagnostics),
+            "If true, collect and report comprehensive diagnostics when docker exec commands fail, including container state, resource limits, logs, and platform-specific analysis.",
+            new PipelineFeatureSource("EnableDockerExecDiagnostics"),
+            new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
     }
 }
