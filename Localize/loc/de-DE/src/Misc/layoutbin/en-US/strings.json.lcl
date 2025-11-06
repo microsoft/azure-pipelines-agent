@@ -109,6 +109,15 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";AgentCdnAccessFailWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Action Required: Azure Pipelines Agent cannot reach the new CDN URL. Allowlist 'download.agent.dev.azure.com' now to prevent pipeline failures. Details: https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Aktion erforderlich: Der Azure Pipelines-Agent kann die neue CDN-URL nicht erreichen. Setzen Sie jetzt „download.agent.dev.azure.com“ auf die Positivliste, um Pipelinefehler zu vermeiden. Details: https://devblogs.microsoft.com/devops/cdn-domain-url-change-for-agents-in-pipelines/]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";AgentDoesNotSupportContainerFeatureRhel6" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Agent does not support the container feature on Red Hat Enterprise Linux 6 or CentOS 6.]]></Val>
@@ -5052,6 +5061,15 @@
           <Val><![CDATA[The maximum allowed number of attempts is {0} but got {1}. Retry attempts count will be decreased to {0}.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
             <Val><![CDATA[Die maximal zulässige Anzahl von Versuchen ist {0}. Es gab jedoch {1} Versuche. Die Anzahl der Wiederholungsversuche wird auf {0}verringert.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";RetryingReplaceAgent" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Retrying to replace agent (attempt {0} of {1}). Waiting {2} seconds before next attempt...]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Es wird erneut versucht, den Agenten zu ersetzen (Versuch {0} von {1}). Warten Sie {2} Sekunden vor dem nächsten Versuch …]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />
