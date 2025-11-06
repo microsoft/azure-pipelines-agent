@@ -38,15 +38,7 @@ namespace Agent.Plugins.Repository
 
         public static readonly int RetriesOnFailure = 3;
 
-        private string TfPath
-        {
-            get
-            {
-                string agentHomeDirectory = ExecutionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value;
-                string tfDirectoryName = VarUtil.GetTfDirectoryName(ExecutionContext);
-                return Path.Combine(agentHomeDirectory, "externals", tfDirectoryName);
-            }
-        }
+        private string TfPath => VarUtil.GetTfDirectoryPath(ExecutionContext);
 
         public string FilePath => Path.Combine(TfPath, "tf.exe");
 
