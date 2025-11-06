@@ -105,10 +105,10 @@ stages:
       env:
         TEAMS_WEBHOOK: $(MSTeamsUri)
       displayName: 'Send MS Teams notification about PR opened'
-      condition: and(succeeded(), eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule'))
+      condition: and(succeeded(), or(and(eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule')), eq(variables['build.reason'], 'Manual')))
 
     - powershell: .\send-notifications.ps1 -IsPRCreated $false -RepoName "Agent"
       env:
         TEAMS_WEBHOOK: $(MSTeamsUri)
       displayName: 'Send MS Teams notification about error'
-      condition: and(failed(), eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule'))
+      condition: and(succeeded(), or(and(eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule')), eq(variables['build.reason'], 'Manual')))
