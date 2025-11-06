@@ -58,6 +58,7 @@ stages:
         gitHubPatVariable: '$(GitHubPAT)'
         isAutoCompletePrSelected: true
         gitHubPrMergeMethod: 'squash'
+        isDeletePrSourceBranchSelected: false
       env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
