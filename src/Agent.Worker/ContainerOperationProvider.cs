@@ -460,6 +460,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1505:Avoid unmaintainable code", Justification = "Complex container startup logic with multiple fallback paths")]
         private async Task StartContainerAsync(IExecutionContext executionContext, ContainerInfo container)
         {
             Trace.Entering();
@@ -526,8 +527,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useAgentNode = false;
 
+            string labelContainerStartupUsingNode24 = "container-startup-using-node-24";
             string labelContainerStartupUsingNode20 = "container-startup-using-node-20";
             string labelContainerStartupUsingNode16 = "container-startup-using-node-16";
             string labelContainerStartupFailed = "container-startup-failed";
@@ -540,6 +543,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string nodeContainerPath = containerNodePath(NodeHandler.NodeFolder);
             string node16ContainerPath = containerNodePath(NodeHandler.Node16Folder);
             string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
+            string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
 
             if (container.IsJobContainer)
             {
@@ -573,7 +577,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 else
                 {
                     useAgentNode = true;
-                    string sleepCommand = useNode20ToStartContainer ? $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'" : nodeSetInterval(nodeContainerPath);
+                    string sleepCommand;
+
+                    if (useNode24ToStartContainer)
+                    {
+                        sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                    }
+                    else if (useNode20ToStartContainer)
+                    {
+                        sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                    }
+                    else
+                    {
+                        sleepCommand = nodeSetInterval(nodeContainerPath);
+                    }
                     container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
                     container.ResultNodePath = nodeContainerPath;
                 }
@@ -609,7 +626,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                 }
-                else if (useAgentNode && useNode20ToStartContainer)
+                else if (useAgentNode && (useNode20ToStartContainer || useNode24ToStartContainer))
                 {
                     bool containerStartupCompleted = false;
                     int containerStartupTimeoutInMilliseconds = 10000;
@@ -622,7 +639,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         foreach (string logLine in containerLogs)
                         {
-                            if (logLine.Contains(labelContainerStartupUsingNode20))
+                            if (logLine.Contains(labelContainerStartupUsingNode24))
+                            {
+                                executionContext.Debug("Using Node 24 for container startup.");
+                                containerStartupCompleted = true;
+                                container.ResultNodePath = node24ContainerPath;
+                                break;
+                            }
+                            else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
                                 executionContext.Debug("Using Node 20 for container startup.");
                                 containerStartupCompleted = true;
@@ -931,8 +955,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (PlatformUtil.RunningOnLinux)
                     {
                         bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
+                        bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(executionContext).AsBoolean();
 
-                        if (!useNode20InUnsupportedSystem)
+                        if (!useNode24InUnsupportedSystem)
+                        {
+                            var node24 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                            string node24TestCmd = $"bash -c \"{node24} -v\"";
+                            List<string> node24VersionOutput = await DockerExec(executionContext, container.ContainerId, node24TestCmd, noExceptionOnError: true);
+
+                            container.NeedsNode20Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, node24VersionOutput, out string node24InfoLine);
+
+                            if (container.NeedsNode20Redirect)
+                            {
+                                PublishTelemetry(
+                                    executionContext,
+                                    new Dictionary<string, string>
+                                    {
+                                        { "ContainerNode24to20Fallback", container.NeedsNode20Redirect.ToString() }
+                                    }
+                                );
+                            }
+                        }
+                        else if (!useNode20InUnsupportedSystem)
                         {
                             var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
 
@@ -951,6 +996,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
                                 );
                             }
+                        }
+
+                        if (!container.NeedsNode20Redirect)
+                        {
+                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                        }
+                        else if (!container.NeedsNode16Redirect)
+                        {
+                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                        }
+                        else
+                        {
+                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
                         }
 
                     }

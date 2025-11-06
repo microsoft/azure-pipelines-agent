@@ -82,9 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Initialize our Azure Support (imports the module, sets up the Azure subscription)
-            string path = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                ? Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost-legacy")
-                : Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
+            string path = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
             string azurePSM1 = Path.Combine(path, "Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure\\Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure.psm1");
 
@@ -241,9 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 try
                 {
-                    String vstsPSHostExeDirectory = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                        ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                        : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+                    String vstsPSHostExeDirectory = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
                     String vstsPSHostExe = Path.Combine(vstsPSHostExeDirectory, "LegacyVSTSPowerShellHost.exe");
                     Int32 exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
@@ -447,9 +443,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void AddProxySetting(IVstsAgentWebProxy agentProxy)
         {
-            string psHostDirectory = (!AgentKnobs.UseLatestTfExe.GetValue(ExecutionContext).AsBoolean() && AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
-                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+            string psHostDirectory = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
             string appConfig = Path.Combine(psHostDirectory, _appConfigFileName);
 
