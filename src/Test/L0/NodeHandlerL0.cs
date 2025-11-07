@@ -71,31 +71,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             ResetNodeKnobs();
 
-            // Use a unique test name per data row to avoid sharing the same trace file across parallel runs
-            using (TestHostContext thc = CreateTestHostContext($"{nameof(UseNewNodeForNewNodeHandler)}_{nodeVersion}"))
+            // For node24, set the required knob
+            if (nodeVersion == "node24")
             {
-                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
-                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
+            }
 
-                NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
-
-                nodeHandler.Initialize(thc);
-                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
-                nodeHandler.Data = nodeVersion switch
+            try
+            {
+                // Use a unique test name per data row to avoid sharing the same trace file across parallel runs
+                using (TestHostContext thc = CreateTestHostContext($"{nameof(UseNewNodeForNewNodeHandler)}_{nodeVersion}"))
                 {
-                    "node10" => new Node10HandlerData(),
-                    "node16" => new Node16HandlerData(),
-                    "node20_1" => new Node20_1HandlerData(),
-                    "node24" => new Node24HandlerData(),
-                    _ => throw new Exception("Invalid node version"),
-                };
+                    thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                    thc.SetSingleton(new ExtensionManager() as IExtensionManager);
 
-                string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
-                string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    nodeVersion,
-                    "bin",
-                    $"node{IOUtil.ExeExtension}");
-                Assert.Equal(expectedLocation, actualLocation);
+                    NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
+
+                    nodeHandler.Initialize(thc);
+                    nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
+                    nodeHandler.Data = nodeVersion switch
+                    {
+                        "node10" => new Node10HandlerData(),
+                        "node16" => new Node16HandlerData(),
+                        "node20_1" => new Node20_1HandlerData(),
+                        "node24" => new Node24HandlerData(),
+                        _ => throw new Exception("Invalid node version"),
+                    };
+
+                    string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
+                    string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                        nodeVersion,
+                        "bin",
+                        $"node{IOUtil.ExeExtension}");
+                    Assert.Equal(expectedLocation, actualLocation);
+                }
+            }
+            finally
+            {
+                if (nodeVersion == "node24")
+                {
+                    Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+                }
             }
         }
 

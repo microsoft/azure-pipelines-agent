@@ -210,6 +210,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             supportsNode20 = !node20ResultsInGlibCErrorHost;
                         }
                     }
+                    
                     if (!useNode24InUnsupportedSystem)
                     {
                         if (supportsNode24.HasValue)
@@ -374,7 +375,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.NodeFolder;
-            if (taskHasNode24Data)
+            if (taskHasNode24Data && useNode24)
             {
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
@@ -400,12 +401,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = NodeHandler.node10Folder;
             }
 
-            if (useNode24)
-            {
-                Trace.Info($"Found UseNode24 knob, using node24 for node tasks: {useNode24}");
-                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-            }
-            else if (useNode20_1)
+            if (useNode20_1)
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
