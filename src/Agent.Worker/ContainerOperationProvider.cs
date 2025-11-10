@@ -977,7 +977,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 );
                             }
                         }
-                        else if (!useNode20InUnsupportedSystem)
+                        
+                        if (!useNode20InUnsupportedSystem && (useNode24InUnsupportedSystem || container.NeedsNode20Redirect))
                         {
                             var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
 

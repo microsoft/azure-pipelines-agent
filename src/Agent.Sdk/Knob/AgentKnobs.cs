@@ -898,5 +898,20 @@ namespace Agent.Sdk.Knob
             "If true, use structured enhanced logging format with timestamps, components, and operations",
             new EnvironmentKnobSource("AZP_USE_ENHANCED_LOGGING"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableEnhancedContainerDiagnostics = new Knob(
+            nameof(EnableEnhancedContainerDiagnostics),
+            "When enabled, uses ContainerOperationProviderEnhanced with detailed tracing and duration logging for container operations",
+            new PipelineFeatureSource("EnableEnhancedContainerDiagnostics"),
+            new EnvironmentKnobSource("AGENT_ENABLE_ENHANCED_CONTAINER_LOGGING"),
+            new BuiltInDefaultKnobSource("false"));
+
+
+        public static readonly Knob EnableDockerExecDiagnostics = new Knob(
+            nameof(EnableDockerExecDiagnostics),
+            "If true, collect and report comprehensive diagnostics when docker exec commands fail, including container state, resource limits, logs, and platform-specific analysis.",
+            new PipelineFeatureSource("EnableDockerExecDiagnostics"),
+            new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
