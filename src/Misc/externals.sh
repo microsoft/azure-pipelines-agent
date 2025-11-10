@@ -6,7 +6,6 @@ L1_MODE=$4
 
 INCLUDE_NODE6=${INCLUDE_NODE6:-true}
 INCLUDE_NODE10=${INCLUDE_NODE10:-true}
-INCLUDE_NODE20=${INCLUDE_NODE20:-true}
 INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
