@@ -686,17 +686,504 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return hc;
         }
 
-        private JobRequestMessage CreateJobRequestMessage()
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithStepOnly_ReturnsShortenedStepId()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string stepId = "60cf5508-70a7-5ba0-b727-5dd7f6763eb4";
+                
+                // Act
+                ec.SetCorrelationStep(stepId);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Debug: Print actual values
+                System.Console.WriteLine($"Actual correlation ID: '{correlationId}'");
+                System.Console.WriteLine($"Actual length: {correlationId.Length}");
+
+                // Assert
+                Assert.Equal("STEP-60cf550870a7", correlationId);
+                Assert.Equal(17, correlationId.Length); // "STEP-" (5) + 12 characters = 17
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithTaskOnly_ReturnsShortenedTaskId()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string taskId = "6d15af64-176c-496d-b583-fd2ae21d4df4";
+                
+                // Act
+                ec.SetCorrelationTask(taskId);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal("TASK-6d15af64176c", correlationId);
+                Assert.Equal(17, correlationId.Length); // "TASK-" (5) + 12 characters = 17
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithStepAndTask_ReturnsCombinedShortenedIds()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string stepId = "60cf5508-70a7-5ba0-b727-5dd7f6763eb4";
+                string taskId = "6d15af64-176c-496d-b583-fd2ae21d4df4";
+                
+                // Act
+                ec.SetCorrelationStep(stepId);
+                ec.SetCorrelationTask(taskId);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal("STEP-60cf550870a7|TASK-6d15af64176c", correlationId);
+                Assert.Equal(35, correlationId.Length); // "STEP-" (5) + 12 + "|TASK-" (6) + 12 = 35
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithNoCorrelation_ReturnsEmpty()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                
+                // Act
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal(string.Empty, correlationId);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithShortGuid_ReturnsFullString()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string shortStepId = "abc123def";
+                
+                // Act
+                ec.SetCorrelationStep(shortStepId);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal("STEP-abc123def", correlationId);
+                Assert.Equal(14, correlationId.Length); // "STEP-" + 9 characters
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithHyphenatedGuid_RemovesHyphensAndShortens()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string stepId = "550e8400-e29b-41d4-a716-446655440000";
+                
+                // Act
+                ec.SetCorrelationStep(stepId);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal("STEP-550e8400e29b", correlationId);
+                Assert.True(correlationId.StartsWith("STEP-"));
+                Assert.DoesNotContain("-", correlationId.Substring(5)); // No hyphens in the GUID part
+                Assert.Equal(17, correlationId.Length); // "STEP-" (5) + 12 = 17
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CorrelationContext_ClearMethods_ResetCorrectly()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                ec.SetCorrelationStep("step123");
+                ec.SetCorrelationTask("task456");
+                
+                // Act & Assert - Clear step only
+                ec.ClearCorrelationStep();
+                var correlationWithTaskOnly = ec.BuildCorrelationId();
+                Assert.Equal("TASK-task456", correlationWithTaskOnly);
+
+                // Act & Assert - Clear task
+                ec.ClearCorrelationTask();
+                var correlationEmpty = ec.BuildCorrelationId();
+                Assert.Equal(string.Empty, correlationEmpty);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithNullValues_HandlesGracefully()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                
+                // Act - Set null values (should be handled by the method)
+                ec.SetCorrelationStep(null);
+                ec.SetCorrelationTask(null);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal(string.Empty, correlationId);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithEmptyStrings_HandlesGracefully()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                
+                // Act - Set empty strings
+                ec.SetCorrelationStep(string.Empty);
+                ec.SetCorrelationTask(string.Empty);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert
+                Assert.Equal(string.Empty, correlationId);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithWhitespaceStrings_HandlesGracefully()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                
+                // Act - Set whitespace strings
+                ec.SetCorrelationStep("   ");
+                ec.SetCorrelationTask("\t\n");
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert - Whitespace should be preserved in this implementation
+                Assert.Equal("STEP-   |TASK-\t\n", correlationId);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithMixedCaseGuid_NormalizesProperly()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                string mixedCaseGuid = "60CF5508-70a7-5BA0-b727-5dd7f6763eb4";
+                
+                // Act
+                ec.SetCorrelationStep(mixedCaseGuid);
+                var correlationId = ec.BuildCorrelationId();
+
+                // Assert - Should handle mixed case and remove hyphens
+                Assert.Equal("STEP-60CF550870a7", correlationId);
+                Assert.Equal(17, correlationId.Length); // "STEP-" (5) + 12 = 17
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_WithVariousFormats_ShorteningBehavior()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                
+                // Test different input formats
+                var testCases = new[]
+                {
+                    ("60cf5508-70a7-5ba0-b727-5dd7f6763eb4", "STEP-60cf550870a7"), // Standard GUID with hyphens
+                    ("60cf550870a75ba0b7275dd7f6763eb4", "STEP-60cf550870a7"),     // GUID without hyphens
+                    ("60CF5508-70A7", "STEP-60CF550870A7"),                      // Short string, no shortening
+                    ("abc", "STEP-abc"),                                           // Very short string
+                    ("1234567890abcdef1234567890abcdef", "STEP-1234567890ab"),    // 32-char hex string
+                };
+
+                foreach (var (input, expected) in testCases)
+                {
+                    // Act
+                    ec.SetCorrelationStep(input);
+                    var result = ec.BuildCorrelationId();
+
+                    // Assert
+                    Assert.Equal(expected, result);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_UniquenessProperty_DifferentInputsProduceDifferentOutputs()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                // Arrange
+                ec.Initialize(hc);
+                var uniqueGuids = new[]
+                {
+                    "60cf5508-70a7-5ba0-b727-5dd7f6763eb4",
+                    "70cf5508-70a7-5ba0-b727-5dd7f6763eb4", // First char different
+                    "6ba7b810-9dad-11d1-80b4-00c04fd430c8", // Completely different first 12 chars
+                    "12345678-1234-5678-9abc-123456789abc", // Different pattern
+                };
+
+                var resultSet = new HashSet<string>();
+
+                // Act & Assert
+                foreach (var guid in uniqueGuids)
+                {
+                    ec.SetCorrelationStep(guid);
+                    var result = ec.BuildCorrelationId();
+                    
+                    // Each result should be unique (note: GUIDs that differ only after char 12 will have same shortened result)
+                    Assert.True(resultSet.Add(result), $"Duplicate result for GUID {guid}: {result}. This is expected if GUIDs differ only after position 12.");
+                    
+                    // Result should be properly formatted
+                    Assert.StartsWith("STEP-", result);
+                    Assert.Equal(17, result.Length); // "STEP-" (5) + 12 chars = 17
+                }
+
+                // All results should be different (for our carefully chosen test data)
+                Assert.Equal(uniqueGuids.Length, resultSet.Count);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void BuildCorrelationId_ThreadSafety_AsyncLocalIsolation()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // This test verifies that different ExecutionContext instances
+                // don't interfere with each other's correlation values
+
+                using (var ec1 = new Agent.Worker.ExecutionContext())
+                using (var ec2 = new Agent.Worker.ExecutionContext())
+                {
+                    // Arrange
+                    ec1.Initialize(hc);
+                    ec2.Initialize(hc);
+
+                    // Act
+                    ec1.SetCorrelationStep("step1");
+                    ec2.SetCorrelationStep("step2");
+
+                    var result1 = ec1.BuildCorrelationId();
+                    var result2 = ec2.BuildCorrelationId();
+
+                    // Assert
+                    Assert.Equal("STEP-step1", result1);
+                    Assert.Equal("STEP-step2", result2);
+                    Assert.NotEqual(result1, result2);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Start_KnobEnabled_CallsUpdateStateOnServer()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "true";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act.
+                ec.Start();
+
+                // Assert: Knob is true, so should go to if statement (UpdateStateOnServer)
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Start_KnobDisabled_CallsQueueTimelineRecordUpdate()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "false";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger.
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act.
+                ec.Start();
+
+                // Assert: Knob is false, so should go to else statement (QueueTimelineRecordUpdate)
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateChild_KnobEnabled_CallsUpdateStateOnServer()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "true";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger for both parent and child contexts
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);  // First registration for parent
+                hc.EnqueueInstance(pagingLogger.Object);  // Second registration for child
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act: Create child which triggers InitializeTimelineRecord
+                var childEc = ec.CreateChild(Guid.NewGuid(), "test task", "testTask");
+
+                // Assert: Knob is true, so should go to if statement (UpdateStateOnServer)
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateChild_KnobDisabled_CallsQueueTimelineRecordUpdate()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"] = "false";
+
+                // Arrange: Setup the job server queue mock.
+                var jobServerQueue = new Mock<IJobServerQueue>();
+                jobServerQueue.Setup(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+                jobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+
+                // Arrange: Setup the paging logger for both parent and child contexts
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);  // First registration for parent
+                hc.EnqueueInstance(pagingLogger.Object);  // Second registration for child
+                hc.SetSingleton(jobServerQueue.Object);
+
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                // Act: Create child which triggers InitializeTimelineRecord
+                var childEc = ec.CreateChild(Guid.NewGuid(), "test task", "testTask");
+
+                // Assert: Knob is false, so should go to else statement (QueueTimelineRecordUpdate)
+                jobServerQueue.Verify(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.AtLeast(1));
+                jobServerQueue.Verify(x => x.UpdateStateOnServer(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()), Times.Never);
+            }
+        }
+
+        private Pipelines.AgentJobRequestMessage CreateJobRequestMessage()
         {
             TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
             TimelineReference timeline = new TimelineReference();
             JobEnvironment environment = new JobEnvironment();
             environment.SystemConnection = new ServiceEndpoint();
-            environment.Variables["v1"] = "v1";
             List<TaskInstance> tasks = new List<TaskInstance>();
             Guid JobId = Guid.NewGuid();
             string jobName = "some job name";
-            return new AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, environment, tasks);
+
+            return new Pipelines.AgentJobRequestMessage(plan, timeline, JobId, jobName, jobName, null, 
+                new Dictionary<string, string>(), new Dictionary<string, VariableValue>(), new List<MaskHint>(), 
+                new Pipelines.JobResources(), new Pipelines.WorkspaceOptions(), new List<Pipelines.JobStep>());
         }
     }
 }

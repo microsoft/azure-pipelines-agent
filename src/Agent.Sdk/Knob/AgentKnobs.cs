@@ -200,6 +200,22 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNode24 = new Knob(
+            nameof(UseNode24),
+            "Forces the agent to use Node 24 handler for all Node-based tasks",
+            new PipelineFeatureSource("UseNode24"),
+            new RuntimeKnobSource("AGENT_USE_NODE24"),
+            new EnvironmentKnobSource("AGENT_USE_NODE24"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode24InUnsupportedSystem = new Knob(
+            nameof(UseNode24InUnsupportedSystem),
+            "Forces the agent to use Node 24 handler for all Node-based tasks, even if it's in an unsupported system",
+            new PipelineFeatureSource("UseNode24InUnsupportedSystem"),
+            new RuntimeKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
+            new EnvironmentKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FetchByCommitForFullClone = new Knob(
             nameof(FetchByCommitForFullClone),
             "If true, allow fetch by commit when doing a full clone (depth=0).",
@@ -217,6 +233,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob TraceVerbose = new Knob(
             nameof(TraceVerbose),
             "If set to anything, trace level will be verbose",
+            new RuntimeKnobSource("VSTSAGENT_TRACE"),
             new EnvironmentKnobSource("VSTSAGENT_TRACE"),
             new BuiltInDefaultKnobSource(string.Empty));
 
@@ -323,6 +340,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob HttpTrace = new Knob(
             nameof(HttpTrace),
             "Enable http trace if true",
+            new RuntimeKnobSource("VSTS_AGENT_HTTPTRACE"),
             new EnvironmentKnobSource("VSTS_AGENT_HTTPTRACE"),
             new BuiltInDefaultKnobSource("false"));
 
@@ -626,6 +644,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_DRAIN_QUEUES_AFTER_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableImmediateTimelineRecordUpdates = new Knob(
+            nameof(EnableImmediateTimelineRecordUpdates),
+            "If true, timeline record updates will be sent immediately to the server instead of being queued",
+            new PipelineFeatureSource("EnableImmediateTimelineRecordUpdates"),
+            new RuntimeKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
+            new EnvironmentKnobSource("AGENT_ENABLE_IMMEDIATE_TIMELINE_RECORD_UPDATES"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob EnableResourceMonitorDebugOutput = new Knob(
             nameof(EnableResourceMonitorDebugOutput),
             "If true, the agent will show the resource monitor output for debug runs",
@@ -697,8 +723,15 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseNode20ToStartContainer = new Knob(
             nameof(UseNode20ToStartContainer),
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
-            new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new PipelineFeatureSource("UseNode20ToStartContainer"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNode24ToStartContainer = new Knob(
+            nameof(UseNode24ToStartContainer),
+            "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
+            new PipelineFeatureSource("UseNode24ToStartContainer"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
@@ -823,6 +856,14 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("InstallLegacyTfExe"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseLatestTfExe = new Knob(
+            nameof(UseLatestTfExe),
+            "If true, the agent will use the latest versions of TF, vstsom",
+            new RuntimeKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new EnvironmentKnobSource("AGENT_USE_LATEST_TF_EXE"),
+            new PipelineFeatureSource("UseLatestTfExe"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseSparseCheckoutInCheckoutTask = new Knob(
             nameof(UseSparseCheckoutInCheckoutTask),
             "If true, agent will use sparse checkout in checkout task.",
@@ -856,6 +897,21 @@ namespace Agent.Sdk.Knob
             nameof(UseEnhancedLogging),
             "If true, use structured enhanced logging format with timestamps, components, and operations",
             new EnvironmentKnobSource("AZP_USE_ENHANCED_LOGGING"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableEnhancedContainerDiagnostics = new Knob(
+            nameof(EnableEnhancedContainerDiagnostics),
+            "When enabled, uses ContainerOperationProviderEnhanced with detailed tracing and duration logging for container operations",
+            new PipelineFeatureSource("EnableEnhancedContainerDiagnostics"),
+            new EnvironmentKnobSource("AGENT_ENABLE_ENHANCED_CONTAINER_LOGGING"),
+            new BuiltInDefaultKnobSource("false"));
+
+
+        public static readonly Knob EnableDockerExecDiagnostics = new Knob(
+            nameof(EnableDockerExecDiagnostics),
+            "If true, collect and report comprehensive diagnostics when docker exec commands fail, including container state, resource limits, logs, and platform-specific analysis.",
+            new PipelineFeatureSource("EnableDockerExecDiagnostics"),
+            new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

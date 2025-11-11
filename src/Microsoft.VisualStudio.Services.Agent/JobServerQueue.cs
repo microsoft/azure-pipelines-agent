@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -251,6 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 catch (Exception ex)
                 {
                     Trace.Warning($"Failed to send immediate timeline record update: {ex.Message}. Falling back to queue mechanism.");
+                    Trace.Warning(ex.ToString());
                     QueueTimelineRecordUpdate(timelineId, timelineRecord);
                 }
             }
@@ -268,7 +270,8 @@ namespace Microsoft.VisualStudio.Services.Agent
             ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
             var jobtimelinerecord = new List<TimelineRecord> { timelineRecord.Clone() };
             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, timelineId, jobtimelinerecord, CancellationToken.None);
-            Trace.Info($"Job timeline record {timelineRecord.Id} sent successfully to server");
+            string stateValue = timelineRecord.State?.ToString() ?? "Unknown";
+            Trace.Info($"Job timeline record {timelineRecord.Id} (state: {stateValue}) sent successfully to server");
         }
 
         public void ReportThrottling(TimeSpan delay, DateTime expiration)
