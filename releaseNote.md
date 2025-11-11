@@ -1,3 +1,15 @@
+## Features
+ - Reapply "Unify TF and VSTSOM Directory Structure (#5348)" (#5365) (#5372)
+ - minor fixes in Node24 container support (#5373)
+ - Disabled Node24 download for linux-armv7l (#5393)
+
+## Bugs
+
+
+## Misc
+ - Users/surajitshil 03/node 24 upgrade clean (#5361)
+ - Replacing 'm' with 'M' in the path for Create PRs step in vsts release pipeline (#5394)
+
 
 ## Agent Downloads
 
