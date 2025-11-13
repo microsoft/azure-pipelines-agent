@@ -368,6 +368,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
             bool useNode24 = AgentKnobs.UseNode24.GetValue(ExecutionContext).AsBoolean();
+            bool UseNode24withHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
             bool taskHasNode20_1Data = Data is Node20_1HandlerData;
@@ -375,7 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
             string nodeFolder = NodeHandler.NodeFolder;
-            if (taskHasNode24Data && useNode24)
+            if (taskHasNode24Data && UseNode24withHandlerData)
             {
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
@@ -401,12 +402,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = NodeHandler.node10Folder;
             }
 
-            if (useNode20_1)
+            if (useNode24)
+            {
+                Trace.Info($"Found UseNode24 knob, using node24 for node tasks: {useNode24}");
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+            }
+            else if (useNode20_1)
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
-
             else if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
