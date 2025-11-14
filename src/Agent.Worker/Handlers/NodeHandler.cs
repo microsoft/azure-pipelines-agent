@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public sealed class NodeHandler : Handler, INodeHandler
     {
         private readonly INodeHandlerHelper nodeHandlerHelper;
-        private const string node10Folder = "node10";
+        private const string Node10Folder = "node10";
         internal const string NodeFolder = "node";
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private static readonly string nodeLTS = Node16Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
-        private string[] possibleNodeFolders = { NodeFolder, node10Folder, Node16Folder, Node20_1Folder, Node24Folder };
+        private string[] possibleNodeFolders = { NodeFolder, Node10Folder, Node16Folder, Node20_1Folder, Node24Folder };
         private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static string[] _extensionsNode6 ={
             "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
@@ -369,13 +369,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
             bool useNode24 = AgentKnobs.UseNode24.GetValue(ExecutionContext).AsBoolean();
             bool UseNode24withHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(ExecutionContext).AsBoolean();
+            bool taskHasNode6Data = Data is NodeHandlerData;
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
             bool taskHasNode20_1Data = Data is Node20_1HandlerData;
             bool taskHasNode24Data = Data is Node24HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
-            string nodeFolder = NodeHandler.NodeFolder;
+            string nodeFolder = NodeHandler.Node20_1Folder;
             if (taskHasNode24Data && UseNode24withHandlerData)
             {
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
@@ -394,12 +395,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (taskHasNode10Data)
             {
                 Trace.Info($"Task.json has node10 handler data: {taskHasNode10Data}");
-                nodeFolder = NodeHandler.node10Folder;
+                nodeFolder = NodeHandler.Node10Folder;
+            }
+            else if (taskHasNode6Data)
+            {
+                Trace.Info($"Task.json has node6 handler data: {taskHasNode6Data}");
+                nodeFolder = NodeHandler.NodeFolder;
+            }
+            else if (UseNode20InUnsupportedSystem)
+            {
+                Trace.Info($"Found UseNode20InUnsupportedSystem knob, using node20_1 for node tasks: {UseNode20InUnsupportedSystem} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (PlatformUtil.RunningOnAlpine)
             {
                 Trace.Info($"Detected Alpine, using node10 instead of node (6)");
-                nodeFolder = NodeHandler.node10Folder;
+                nodeFolder = NodeHandler.Node10Folder;
             }
 
             if (useNode24)
@@ -415,10 +426,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (useNode10)
             {
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
-                nodeFolder = NodeHandler.node10Folder;
+                nodeFolder = NodeHandler.Node10Folder;
             }
-            if (nodeFolder == NodeHandler.NodeFolder &&
-                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean() == true)
+            // Warn for deprecated node versions
+            if ((nodeFolder == NodeHandler.NodeFolder || nodeFolder == NodeHandler.Node10Folder || nodeFolder == NodeHandler.Node16Folder) &&
+                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
             {
                 ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
             }
