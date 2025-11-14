@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // For node24, set the required knob
             if (nodeVersion == "node24")
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", "true");
             }
 
             try
@@ -112,32 +112,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             {
                 if (nodeVersion == "node24")
                 {
-                    Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+                    Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
                 }
             }
         }
 
         //test the AGENT_USE_NODE24_WITH_HANDLER_DATA knob
         [Theory]
+        [InlineData("node")]
         [InlineData("node10")]
         [InlineData("node16")]
         [InlineData("node20_1")]
         [InlineData("node24")]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNewNodeForNewNodeHandlerWithHandlerDataKnob(string nodeVersion)
+        public void ForceUseNode24Knob(string nodeVersion)
         {
             ResetNodeKnobs();
 
-            if (nodeVersion == "node24")
-            {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", "true");
-            }
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
 
             try
             {
                 // Use a unique test name per data row to avoid sharing the same trace file across parallel runs
-                using (TestHostContext thc = CreateTestHostContext($"{nameof(UseNewNodeForNewNodeHandlerWithHandlerDataKnob)}_{nodeVersion}"))
+                using (TestHostContext thc = CreateTestHostContext($"{nameof(ForceUseNode24Knob)}_{nodeVersion}"))
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
@@ -148,6 +146,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                     nodeHandler.Data = nodeVersion switch
                     {
+                        "node" => new NodeHandlerData(),
                         "node10" => new Node10HandlerData(),
                         "node16" => new Node16HandlerData(),
                         "node20_1" => new Node20_1HandlerData(),
@@ -157,7 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                     string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                        nodeVersion,
+                        "node24",
                         "bin",
                         $"node{IOUtil.ExeExtension}");
                     Assert.Equal(expectedLocation, actualLocation);
@@ -165,10 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             finally
             {
-                if (nodeVersion == "node24")
-                {
-                    Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
-                }
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
             }
         }
 
