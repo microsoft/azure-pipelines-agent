@@ -376,6 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool taskHasNode24Data = Data is Node24HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
+            //using Node20_1 as default node version
             string nodeFolder = NodeHandler.Node20_1Folder;
             if (taskHasNode24Data && UseNode24withHandlerData)
             {
