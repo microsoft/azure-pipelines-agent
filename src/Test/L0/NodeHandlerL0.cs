@@ -61,6 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
+        [InlineData("node")]
         [InlineData("node10")]
         [InlineData("node16")]
         [InlineData("node20_1")]
@@ -91,6 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                     nodeHandler.Data = nodeVersion switch
                     {
+                        "node" => new NodeHandlerData(),
                         "node10" => new Node10HandlerData(),
                         "node16" => new Node16HandlerData(),
                         "node20_1" => new Node20_1HandlerData(),
