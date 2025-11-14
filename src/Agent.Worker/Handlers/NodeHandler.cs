@@ -402,11 +402,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Task.json has node6 handler data: {taskHasNode6Data}");
                 nodeFolder = NodeHandler.NodeFolder;
             }
-            else if (UseNode20InUnsupportedSystem)
-            {
-                Trace.Info($"Found UseNode20InUnsupportedSystem knob, using node20_1 for node tasks: {UseNode20InUnsupportedSystem} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-            }
             else if (PlatformUtil.RunningOnAlpine)
             {
                 Trace.Info($"Detected Alpine, using node10 instead of node (6)");
