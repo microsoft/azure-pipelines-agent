@@ -215,6 +215,7 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
             new EnvironmentKnobSource("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"),
             new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseNode24withHandlerData = new Knob(
             nameof(UseNode24withHandlerData),
             "Forces the agent to use Node 24 handler if the task has handler data for it",
