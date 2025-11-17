@@ -87,7 +87,7 @@ $keyName14 = 'Software\Microsoft\VisualStudio\14.0'
 $keyName15 = 'Software\Microsoft\VisualStudio\15.0'
 $keyName16 = 'Software\Microsoft\VisualStudio\16.0'
 $keyName17 = 'Software\Microsoft\VisualStudio\17.0'
-$keyName17 = 'Software\Microsoft\VisualStudio\18.0'
+$keyName18 = 'Software\Microsoft\VisualStudio\18.0'
 
 # Add the capabilities.
 $latestVS = $null
