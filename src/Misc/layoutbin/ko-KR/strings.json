@@ -277,6 +277,7 @@
   "DirExpireLimit": "디렉터리 만료 제한: {0}일.",
   "DiscoverBuildDir": "{0}일 이상 사용되지 않은 오래된 빌드 디렉터리를 검색합니다.",
   "DiscoverReleaseDir": "{0}일 이상 사용되지 않은 오래된 릴리스 디렉터리를 검색합니다.",
+  "DockerCommandFinalExitCode": "{0}에 대한 최종 종료 코드: {1}",
   "DownloadAgent": "{0} 에이전트 다운로드 중",
   "DownloadArtifactFinished": "아티팩트 다운로드가 완료되었습니다.",
   "DownloadArtifacts": "아티팩트 다운로드",

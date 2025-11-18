@@ -277,6 +277,7 @@
   "DirExpireLimit": "ディレクトリの有効期限: {0}日。",
   "DiscoverBuildDir": "{0} 日以上使用されていない古いビルド ディレクトリを検出します。",
   "DiscoverReleaseDir": "{0} 日以上使用されていない古いリリース ディレクトリを検出します。",
+  "DockerCommandFinalExitCode": "{0} の最終終了コード: {1}",
   "DownloadAgent": "{0} エージェントをダウンロードしています",
   "DownloadArtifactFinished": "成果物のダウンロードが完了しました。",
   "DownloadArtifacts": "成果物のダウンロード",

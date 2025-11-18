@@ -277,6 +277,7 @@
   "DirExpireLimit": "Ablauflimit des Verzeichnisses: {0} Tage.",
   "DiscoverBuildDir": "Veraltete Buildverzeichnisse ermitteln, die nicht mehr als {0} Tage verwendet wurden.",
   "DiscoverReleaseDir": "Ermitteln Sie veraltete Releaseverzeichnisse, die seit mehr als {0} Tagen nicht mehr verwendet wurden.",
+  "DockerCommandFinalExitCode": "Endgültiger Exitcode für {0}: {1}",
   "DownloadAgent": "{0}-Agent wird heruntergeladen.",
   "DownloadArtifactFinished": "Das Herunterladen des Artefakts wurde abgeschlossen.",
   "DownloadArtifacts": "Artefakte herunterladen",

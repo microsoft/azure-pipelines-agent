@@ -277,6 +277,7 @@
   "DirExpireLimit": "目录过期限制: {0} 天。",
   "DiscoverBuildDir": "发现超过 {0} 天未使用的过时生成目录。",
   "DiscoverReleaseDir": "发现超过 {{0}} 天未使用的过时发布目录。",
+  "DockerCommandFinalExitCode": "{0} 的最终退出代码: {1}",
   "DownloadAgent": "正在下载 {0} 代理",
   "DownloadArtifactFinished": "下载项目已完成。",
   "DownloadArtifacts": "下载项目",
