@@ -277,6 +277,7 @@
   "DirExpireLimit": "目錄到期限制: {0} 天。",
   "DiscoverBuildDir": "探索超過 {0} 天未曾使用的過時組建目錄。",
   "DiscoverReleaseDir": "探索超過 {0} 天未曾使用的過時版本目錄。",
+  "DockerCommandFinalExitCode": "{0} 的最終結束代碼: {1}",
   "DownloadAgent": "正在下載 {0} 代理程式",
   "DownloadArtifactFinished": "成品已下載完成。",
   "DownloadArtifacts": "下載成品",

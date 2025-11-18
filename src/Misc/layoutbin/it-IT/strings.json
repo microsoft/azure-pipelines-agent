@@ -277,6 +277,7 @@
   "DirExpireLimit": "Limite di scadenza della directory: {0} giorni.",
   "DiscoverBuildDir": "Rileva le directory di compilazione non aggiornate che non sono state usate per più di {0} giorni.",
   "DiscoverReleaseDir": "Rileva le directory di versione non aggiornate che non sono state usate per più di {0} giorni.",
+  "DockerCommandFinalExitCode": "Codice di uscita finale per {0}: {1}",
   "DownloadAgent": "Download dell'agente {0}",
   "DownloadArtifactFinished": "Il download dell'artefatto è stato completato.",
   "DownloadArtifacts": "Scarica artefatti",
