@@ -40,23 +40,69 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
-function get_net_version() {
+function get_net_install_spec() {
     local dotnet_versions="
-        net6.0-sdk=6.0.424
-        net6.0-runtime=6.0.32
+        net6.0-sdk=version:6.0.424
+        net6.0-runtime=version:6.0.32
 
-        net8.0-sdk=8.0.401
-        net8.0-runtime=8.0.8
+        net8.0-sdk=version:8.0.416
+        net8.0-runtime=version:8.0.22
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNET_SDK_VERSION=$(get_net_version "net8.0-sdk")
-DOTNET_RUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
+function parse_net_install_spec() {
+    local spec="$1"
+    local kind="${spec%%:*}"
+    local value="${spec#*:}"
 
-if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
+    if [[ -z "$spec" || -z "$kind" || -z "$value" || "$kind" == "$value" ]]; then
+        failed "Incorrect dotnet install spec: $spec"
+    fi
+
+    echo "${kind}|${value}"
+}
+
+function describe_net_install_spec() {
+    local kind="$1"
+    local value="$2"
+
+    if [[ "$kind" == "version" ]]; then
+        echo "$value"
+    else
+        echo "latest ${value}.x"
+    fi
+}
+
+DOTNET_SDK_SPEC=$(get_net_install_spec "net8.0-sdk")
+DOTNET_RUNTIME_SPEC=$(get_net_install_spec "${TARGET_FRAMEWORK}-runtime")
+
+if [[ ($DOTNET_SDK_SPEC == "") || ($DOTNET_RUNTIME_SPEC == "") ]]; then
     failed "Incorrect target framework is specified"
+fi
+
+IFS="|" read -r DOTNET_SDK_KIND DOTNET_SDK_VALUE <<< "$(parse_net_install_spec "$DOTNET_SDK_SPEC")"
+IFS="|" read -r DOTNET_RUNTIME_KIND DOTNET_RUNTIME_VALUE <<< "$(parse_net_install_spec "$DOTNET_RUNTIME_SPEC")"
+
+DOTNET_SDK_DISPLAY=$(describe_net_install_spec "$DOTNET_SDK_KIND" "$DOTNET_SDK_VALUE")
+DOTNET_RUNTIME_DISPLAY=$(describe_net_install_spec "$DOTNET_RUNTIME_KIND" "$DOTNET_RUNTIME_VALUE")
+
+DOTNET_SDK_INSTALL_ARGS=(--version "$DOTNET_SDK_VALUE")
+DOTNET_SDK_PWSH_FLAG="Version"
+if [[ "$DOTNET_SDK_KIND" == "channel" ]]; then
+    DOTNET_SDK_INSTALL_ARGS=(--channel "$DOTNET_SDK_VALUE")
+    DOTNET_SDK_PWSH_FLAG="Channel"
+fi
+
+DOTNET_RUNTIME_INSTALL_ARGS=(--version "$DOTNET_RUNTIME_VALUE")
+DOTNET_RUNTIME_PWSH_FLAG="Version"
+if [[ "$DOTNET_RUNTIME_KIND" == "channel" ]]; then
+    DOTNET_RUNTIME_INSTALL_ARGS=(--channel "$DOTNET_RUNTIME_VALUE")
+    DOTNET_RUNTIME_PWSH_FLAG="Channel"
+    DOTNET_RUNTIME_VERSION=""
+else
+    DOTNET_RUNTIME_VERSION="$DOTNET_RUNTIME_VALUE"
 fi
 
 DOTNET_DIR="${REPO_ROOT}/_dotnetsdk"
@@ -84,7 +130,7 @@ restore_dotnet_install_script() {
 }
 
 function restore_sdk_and_runtime() {
-    heading "Install .NET SDK ${DOTNET_SDK_VERSION} and Runtime ${DOTNET_RUNTIME_VERSION}"
+    heading "Install .NET SDK ${DOTNET_SDK_DISPLAY} and Runtime ${DOTNET_RUNTIME_DISPLAY}"
 
     if [[ "${CURRENT_PLATFORM}" == "windows" ]]; then
         echo "Convert ${DOTNET_DIR} to Windows style path"
@@ -99,17 +145,99 @@ function restore_sdk_and_runtime() {
         fi
 
         printf "\nInstalling SDK...\n"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Version ${DOTNET_SDK_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -${DOTNET_SDK_PWSH_FLAG} ${DOTNET_SDK_VALUE} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture}  -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
 
         printf "\nInstalling Runtime...\n"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -Version ${DOTNET_RUNTIME_VERSION} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture} -SkipNonVersionedFiles -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& \"${DOTNET_INSTALL_SCRIPT_PATH}\" -Runtime dotnet -${DOTNET_RUNTIME_PWSH_FLAG} ${DOTNET_RUNTIME_VALUE} -InstallDir \"${dotnet_windows_dir}\" -Architecture ${architecture} -SkipNonVersionedFiles -NoPath; exit \$LastExitCode;" || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
     else
         printf "\nInstalling SDK...\n"
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" "${DOTNET_SDK_INSTALL_ARGS[@]}" --install-dir "${DOTNET_DIR}" --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (SDK)"
 
         printf "\nInstalling Runtime...\n"
-        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --skip-non-versioned-files --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+        bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet "${DOTNET_RUNTIME_INSTALL_ARGS[@]}" --install-dir "${DOTNET_DIR}" --skip-non-versioned-files --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
     fi
+
+    resolve_runtime_version_from_install
+    
+    # Check for newer versions and warn if available
+    check_for_newer_dotnet_versions
+}
+
+function resolve_runtime_version_from_install() {
+    if [[ -n "$DOTNET_RUNTIME_VERSION" ]]; then
+        return
+    fi
+
+    local shared_dir="${DOTNET_DIR}/shared/Microsoft.NETCore.App"
+    local prefix_regex="${DOTNET_RUNTIME_VALUE//./\\.}\\."
+
+    if [[ ! -d "$shared_dir" ]]; then
+        failed "Runtime install directory not found at ${shared_dir}"
+    fi
+
+    # Use a bash 3.2 compatible approach instead of mapfile
+    local installed_runtimes_str
+    installed_runtimes_str=$(ls -1 "$shared_dir" 2>/dev/null | grep -E "^${prefix_regex}" || true)
+
+    if [[ -z "$installed_runtimes_str" ]]; then
+        failed "Unable to locate installed runtime matching ${DOTNET_RUNTIME_VALUE}.x"
+    fi
+
+    DOTNET_RUNTIME_VERSION=$(echo "$installed_runtimes_str" | sort -t '.' -k1,1n -k2,2n -k3,3n -k4,4n | tail -n 1)
+
+    if [[ -z "$DOTNET_RUNTIME_VERSION" ]]; then
+        failed "Unable to resolve installed runtime version for ${DOTNET_RUNTIME_VALUE}.x"
+    fi
+}
+
+function check_for_newer_dotnet_versions() {
+    heading "Checking for newer .NET versions"
+    
+    # Check for newer SDK versions in 8.0 channel
+    if [[ "$DOTNET_SDK_KIND" == "version" && "$DOTNET_SDK_VALUE" =~ ^8\. ]]; then
+        echo "Checking for newer .NET 8.0 SDK versions..."
+        local temp_dir=$(mktemp -d)
+        local latest_sdk_version
+        
+        # Get latest SDK version from the channel using the install script
+        latest_sdk_version=$(bash "${DOTNET_INSTALL_SCRIPT_PATH}" --channel 8.0 --install-dir "$temp_dir" --no-path --dry-run 2>&1 | grep "Repeatable invocation" | grep -o -- "--version \"[0-9.]*\"" | grep -o "[0-9.]*" | head -1)
+        
+        if [[ -n "$latest_sdk_version" && "$latest_sdk_version" != "$DOTNET_SDK_VALUE" ]]; then
+            # Simple version comparison: compare as strings
+            if printf '%s\n%s\n' "$DOTNET_SDK_VALUE" "$latest_sdk_version" | sort -V | head -1 | grep -q "^$DOTNET_SDK_VALUE\$"; then
+                if [[ "$latest_sdk_version" != "$DOTNET_SDK_VALUE" ]]; then
+                    echo "⚠️  WARNING: Newer .NET 8.0 SDK version available: $latest_sdk_version (currently using $DOTNET_SDK_VALUE)" >&2
+                    echo "   Consider updating net8.0-sdk in dev.sh to version:$latest_sdk_version" >&2
+                fi
+            fi
+        fi
+        
+        rm -rf "$temp_dir" 2>/dev/null || true
+    fi
+    
+    # Check for newer Runtime versions in 8.0 channel
+    if [[ "$DOTNET_RUNTIME_KIND" == "version" && "$DOTNET_RUNTIME_VALUE" =~ ^8\. ]]; then
+        echo "Checking for newer .NET 8.0 Runtime versions..."
+        local temp_dir=$(mktemp -d)
+        local latest_runtime_version
+        
+        # Get latest runtime version from the channel using the install script
+        latest_runtime_version=$(bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --channel 8.0 --install-dir "$temp_dir" --no-path --dry-run 2>&1 | grep "Repeatable invocation" | grep -o -- "--version \"[0-9.]*\"" | grep -o "[0-9.]*" | head -1)
+        
+        if [[ -n "$latest_runtime_version" && "$latest_runtime_version" != "$DOTNET_RUNTIME_VALUE" ]]; then
+            # Simple version comparison: compare as strings
+            if printf '%s\n%s\n' "$DOTNET_RUNTIME_VALUE" "$latest_runtime_version" | sort -V | head -1 | grep -q "^$DOTNET_RUNTIME_VALUE\$"; then
+                if [[ "$latest_runtime_version" != "$DOTNET_RUNTIME_VALUE" ]]; then
+                    echo "⚠️  WARNING: Newer .NET 8.0 Runtime version available: $latest_runtime_version (currently using $DOTNET_RUNTIME_VALUE)" >&2
+                    echo "   Consider updating net8.0-runtime in dev.sh to version:$latest_runtime_version" >&2
+                fi
+            fi
+        fi
+        
+        rm -rf "$temp_dir" 2>/dev/null || true
+    fi
+    
+    echo "Version check completed."
 }
 
 function detect_platform_and_runtime_id() {
