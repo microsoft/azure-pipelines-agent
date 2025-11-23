@@ -471,5 +471,59 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                     It.IsAny<CancellationToken>()), Times.Exactly(3));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        public async Task DockerVersion_SetsEnvironmentVariablesWithBuildxNoDefaultAttestations()
+        {
+            if (!IsDockerAvailable()) return;
+
+            // Arrange
+            bool environmentChecked = false;
+            using (var hc = new TestHostContext(this))
+            {
+                var dockerManager = CreateDockerCommandManager();
+                hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
+                hc.SetSingleton<IJobServerQueue>(_jobServerQueue.Object);
+                dockerManager.Initialize(hc);
+
+                hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
+                hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
+
+                // Setup environment variables using helper method
+                SetupEnvironmentVariables("true", "false");
+
+                // Mock ExecuteAsync and verify environment contains BUILDX_NO_DEFAULT_ATTESTATIONS
+                _processInvoker.Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.Is<string>(args => args.Contains("version")),
+                    It.Is<IDictionary<string, string>>(env => 
+                        env != null && 
+                        env.ContainsKey("BUILDX_NO_DEFAULT_ATTESTATIONS") && 
+                        env["BUILDX_NO_DEFAULT_ATTESTATIONS"] == "1"),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                    .Callback<string, string, string, IDictionary<string, string>, bool, System.Text.Encoding, CancellationToken>(
+                        (workDir, fileName, args, env, requireZero, encoding, token) =>
+                        {
+                            environmentChecked = true;
+                            _processInvoker.Raise(x => x.OutputDataReceived += null,
+                                _processInvoker.Object,
+                                new ProcessDataReceivedEventArgs("1.43"));
+                        })
+                    .ReturnsAsync(0);
+
+                // Act
+                var result = await dockerManager.DockerVersion(_ec.Object);
+
+                // Assert
+                Assert.True(environmentChecked, "Environment variables should have been checked");
+                Assert.NotNull(result);
+            }
+        }
     }
 }
