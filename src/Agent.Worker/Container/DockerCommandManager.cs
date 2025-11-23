@@ -55,6 +55,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             DockerInstanceLabel = IOUtil.GetPathHash(hostContext.GetDirectory(WellKnownDirectory.Root)).Substring(0, 6);
         }
 
+        private IDictionary<string, string> GetDockerEnvironmentVariables()
+        {
+            var env = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
+            // Disable BuildKit default attestations (provenance and SBOM) to prevent
+            // creation of image indexes with unknown OS/architecture layers
+            env["BUILDX_NO_DEFAULT_ATTESTATIONS"] = "1";
+            return env;
+        }
+
         public async Task<DockerVersion> DockerVersion(IExecutionContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -354,7 +363,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                             workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                             fileName: DockerPath,
                             arguments: arg,
-                            environment: null,
+                            environment: GetDockerEnvironmentVariables(),
                             requireExitCodeZero: false,
                             outputEncoding: null,
                             cancellationToken: CancellationToken.None);
@@ -429,7 +438,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                     fileName: DockerPath,
                     arguments: arg,
-                    environment: null,
+                    environment: GetDockerEnvironmentVariables(),
                     requireExitCodeZero: false,
                     outputEncoding: null,
                     killProcessOnCancel: false,
@@ -466,7 +475,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                             workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                             fileName: DockerPath,
                             arguments: arg,
-                            environment: null,
+                            environment: GetDockerEnvironmentVariables(),
                             requireExitCodeZero: true,
                             outputEncoding: null,
                             cancellationToken: CancellationToken.None);
