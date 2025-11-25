@@ -618,7 +618,8 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                if (File.Exists(Path.Combine(targetPath, ".autoManagedVhd")))
+                if (File.Exists(Path.Combine(targetPath, ".autoManagedVhd"))
+                    && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
                 {
                     // The existing working directory comes from an auto-managed VHD and is a full, 
                     // non-shallow clone of the repository. Some pipelines enable shallow fetch, but 
