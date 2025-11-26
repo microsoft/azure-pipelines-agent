@@ -640,7 +640,7 @@ namespace Agent.Plugins.Repository
                     //   fetchDepth = 0  → perform a standard "sync" fetch
                     clean = false;
                     fetchDepth = 0;
-                    executionContext.Debug($"Detected an auto-managed VHD at {targetPath}. Setting clean to false and fetchDepth to 0.");
+                    executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false and fetchDepth to 0.");
                 }
 
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
