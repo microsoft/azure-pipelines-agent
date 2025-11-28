@@ -1,3 +1,13 @@
+## Features
+ - Add Visual Studio 2026 (version 18.0) support to capability detection (#5406)
+
+## Bugs
+
+
+## Misc
+ - Localization update (#5401)
+ - Updating Agent to latest .net8 patch and making changes to keep .net updated.  (#5399)
+
 
 ## Agent Downloads
 
