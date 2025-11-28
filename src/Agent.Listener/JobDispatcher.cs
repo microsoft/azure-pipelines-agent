@@ -641,8 +641,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     await renewJobRequest;
 
                                     Trace.Info($"Job request completion initiated - Completing job request for job: {message.JobId}");
-                                    // complete job request
-                                    await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+                                    
+                                    // Check if enhanced crash handling is enabled via agent knob
+                                    bool enhancedworkercrashhandlingenabled = AgentKnobs.EnhancedWorkerCrashHandling.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+                                    Trace.Info($"Enhanced worker crash handling enabled: {enhancedworkercrashhandlingenabled}");
+                                    
+                                    if (enhancedworkercrashhandlingenabled)
+                                    {
+                                        // ENHANCED CRASH HANDLING: Apply forced completion for Plan v8+ worker crashes in normal completion path
+                                        bool isPlanV8PlusNormal = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
+                                        bool isWorkerCrash = !TaskResultUtil.IsValidReturnCode(returnCode);
+                                        bool notifyServerOfWorkerCrash = isPlanV8PlusNormal && isWorkerCrash;
+                                        
+                                        Trace.Info($"Enhanced crash handling enabled - Normal completion crash analysis [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, IsPlanV8Plus:{isPlanV8PlusNormal}, IsWorkerCrash:{isWorkerCrash}, ExitCode:{returnCode}, NeedsForcedCompletion:{notifyServerOfWorkerCrash}]");
+                                        
+                                        if (notifyServerOfWorkerCrash)
+                                        {
+                                            // Force completion for Plan v8+ worker crashes to ensure server notification
+                                            Trace.Warning($"Forced completion for Plan v8+ worker crash [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}, ForceCompletion:True]");
+                                            await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo, forceCompletion: true);
+                                            Trace.Info("Forced completion executed successfully for worker crash");
+                                        }
+                                        else
+                                        {
+                                            // Standard completion for Plan v7 or normal Plan v8+ scenarios
+                                            Trace.Info($"Standard completion for normal scenario [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}, ForceCompletion:False]");
+                                            await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo, forceCompletion: false);
+                                            Trace.Info("Standard completion executed successfully");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Original simple completion logic
+                                        Trace.Info($"Using original completion logic [JobId:{message.JobId}, EnhancedHandling:Disabled]");
+                                        await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+                                    }
+                                    
                                     Trace.Info("Job request completion completed");
 
                                     // print out unhandled exception happened in worker after we complete job request.
@@ -916,14 +950,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         // TODO: We need send detailInfo back to DT in order to add an issue for the job
-        private async Task CompleteJobRequestAsync(int poolId, Pipelines.AgentJobRequestMessage message, Guid lockToken, TaskResult result, string detailInfo = null)
+        private async Task CompleteJobRequestAsync(int poolId, Pipelines.AgentJobRequestMessage message, Guid lockToken, TaskResult result, string detailInfo = null, bool forceCompletion = false)
         {
             Trace.Entering();
+            Trace.Info($"Job completion request initiated [JobId:{message.JobId}, PoolId:{poolId}, Result:{result}, ForceCompletion:{forceCompletion}, HasDetailInfo:{!string.IsNullOrEmpty(detailInfo)}]");
 
-            if (PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
+            // Check if enhanced crash handling is enabled via agent knob
+            bool enhancedworkercrashhandlingenabled = AgentKnobs.EnhancedWorkerCrashHandling.GetValue(UtilKnobValueContext.Instance()).AsBoolean();
+            
+            if (enhancedworkercrashhandlingenabled)
             {
-                Trace.Verbose($"Skip FinishAgentRequest call from Listener because Plan version is {message.Plan.Version}");
-                return;
+                // ENHANCED COMPLETION LOGIC
+                // Skip listener completion for Plan v8+ UNLESS it's a forced completion due to worker crash/timeout
+                bool isPlanV8Plus = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
+                if (isPlanV8Plus && !forceCompletion)
+                {
+                    Trace.Info($"Enhanced logic - Skipping completion for Plan v8+ [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, Reason:WorkerHandlesCompletion, ForceCompletion:False]");
+                    return;
+                }
+            }
+            else
+            {
+                // ORIGINAL SIMPLE LOGIC
+                if (PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent))
+                {
+                    Trace.Verbose($"Previous logic - Skip FinishAgentRequest call from Listener because Plan version is {message.Plan.Version}");
+                    return;
+                }
             }
 
             var agentServer = HostContext.GetService<IAgentServer>();
