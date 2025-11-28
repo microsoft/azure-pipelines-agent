@@ -673,7 +673,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     else
                                     {
                                         // Original simple completion logic
-                                        Trace.Info($"Using original completion logic [JobId:{message.JobId}, EnhancedHandling:Disabled]");
+                                        Trace.Info($"Using previous completion logic [JobId:{message.JobId}, EnhancedHandling:Disabled]");
                                         await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
                                     }
                                     
@@ -961,7 +961,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (enhancedworkercrashhandlingenabled)
             {
                 // ENHANCED COMPLETION LOGIC
-                // Skip listener completion for Plan v8+ UNLESS it's a forced completion due to worker crash/timeout
+                // Skip listener completion for Plan v8+ UNLESS it's a forced completion due to worker crash
                 bool isPlanV8Plus = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
                 if (isPlanV8Plus && !forceCompletion)
                 {
