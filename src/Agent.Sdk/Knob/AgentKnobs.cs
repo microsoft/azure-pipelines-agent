@@ -231,6 +231,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_FETCHBYCOMMITFORFULLCLONE"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob DisableAutoManagedVhdShallowOverride = new Knob(
+            nameof(DisableAutoManagedVhdShallowOverride),
+            "If true, the agent will NOT override shallow-fetch settings when an AutoManagedVHD full clone is detected.",
+            new RuntimeKnobSource("VSTS.DisableAutoManagedVhdShallowOverride"),
+            new EnvironmentKnobSource("VSTS_DISABLEAUTOMANAGEDVHD_SHALLOW_OVERRIDE"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
