@@ -618,7 +618,7 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                string agentWorkFolder = Environment.GetEnvironmentVariable("AGENT_WORKFOLDER");
+                string agentWorkFolder = executionContext.Variables.GetValueOrDefault("agent.workfolder")?.Value;
                 if (!string.IsNullOrEmpty(agentWorkFolder)
                     && File.Exists(Path.Combine(agentWorkFolder, ".autoManagedVhd"))
                     && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
