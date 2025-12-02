@@ -618,12 +618,13 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                if (Directory.GetParent(targetPath) is DirectoryInfo parent
-                    && File.Exists(Path.Combine(parent.FullName, ".autoManagedVhd"))
+                string agentWorkFolder = Environment.GetEnvironmentVariable("AGENT_WORKFOLDER");
+                if (!string.IsNullOrEmpty(agentWorkFolder)
+                    && File.Exists(Path.Combine(agentWorkFolder, ".autoManagedVhd"))
                     && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
                 {
                     // The existing working directory comes from an AutoManagedVHD (indicated by the
-                    // .autoManagedVhd marker file placed in the parent directory of the sources).
+                    // .autoManagedVhd marker file placed in the agent work folder).
                     // An AutoManagedVHD always contains a full, non-shallow clone of the repository.
                     // Some pipelines enable shallow fetch parameters (e.g., fetchDepth > 0). However,
                     // Git cannot convert an existing full clone into a shallow one in-place.
