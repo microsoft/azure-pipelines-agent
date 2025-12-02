@@ -618,12 +618,15 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                if (File.Exists(Path.Combine(targetPath, ".autoManagedVhd"))
+                if (Directory.GetParent(targetPath) is DirectoryInfo parent
+                    && File.Exists(Path.Combine(parent.FullName, ".autoManagedVhd"))
                     && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
                 {
-                    // The existing working directory comes from an auto-managed VHD and is a full, 
-                    // non-shallow clone of the repository. Some pipelines enable shallow fetch, but 
-                    // Git cannot convert an existing full clone into a shallow one in-place. 
+                    // The existing working directory comes from an AutoManagedVHD (indicated by the
+                    // .autoManagedVhd marker file placed in the parent directory of the sources).
+                    // An AutoManagedVHD always contains a full, non-shallow clone of the repository.
+                    // Some pipelines enable shallow fetch parameters (e.g., fetchDepth > 0). However,
+                    // Git cannot convert an existing full clone into a shallow one in-place.
                     //
                     // Technical reason:
                     //   A full clone already has complete commit history and object reachability. 
