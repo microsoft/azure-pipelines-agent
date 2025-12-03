@@ -6,6 +6,7 @@ using System.IO;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -23,21 +24,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             if (useNode20Globally)
             {
                 context.ExecutionContext.Debug("[Node20Strategy] AGENT_USE_NODE20_1=true → Global override");
-                return CanUseNodeVersion(context, eolPolicyEnabled);
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Global Node20 enabled");
             }
             
             // RULE 2: Handler data check
             if (hasNode20Handler)
             {
                 context.ExecutionContext.Debug("[Node20Strategy] Node20_1HandlerData → Handle with glibc validation");
-                return CanUseNodeVersion(context, eolPolicyEnabled);
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Node20 handler");
             }
             
             // RULE 3: EOL policy upgrade (only for EOL handlers)
             if (eolPolicyEnabled)
             {
                 context.ExecutionContext.Debug("[Node20Strategy] EOL policy enabled + EOL handler → Try upgrade");
-                return CanUseNodeVersion(context, eolPolicyEnabled);
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "EOL policy upgrade");
             }
             
             // RULE 4: Cannot handle
@@ -45,77 +46,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return false;
         }
 
-        private bool CanUseNodeVersion(UnifiedNodeContext context, bool eolPolicyEnabled)
+        /// <summary>
+        /// Determine the actual node version to use and set context properties.
+        /// This is the single place where node version decision happens.
+        /// </summary>
+        private bool DetermineNodeVersionAndSetContext(UnifiedNodeContext context, bool eolPolicyEnabled, string baseReason)
         {
-            // If Node20 works, we're good
+            // Start with Node20
             if (!context.Node20HasGlibcError)
+            {
+                // Node20 works fine
+                context.SelectedNodeVersion = "node20_1";
+                context.SelectionReason = baseReason;
+                context.SelectionWarning = null;
                 return true;
+            }
 
             // Node20 has glibc error - would need Node16 (EOL)
             if (eolPolicyEnabled)
             {
                 context.ExecutionContext.Debug("[Node20Strategy] Would need Node16 but EOL policy enabled → Throw exception");
-                throw new NotSupportedException("would fallback to Node16 (EOL) but EOL policy is enabled");
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLFallbackBlocked", "Node20", "Node16"));
             }
 
-            return true; // EOL policy disabled, allow Node16 fallback
+            // EOL policy disabled, allow Node16 fallback
+            string systemType = context.IsContainer ? "container" : "agent";
+            context.SelectedNodeVersion = "node16";
+            context.SelectionReason = $"{baseReason} → Node20 glibc error → Node16 fallback";
+            context.SelectionWarning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16");
+            return true;
         }
 
         /// <summary>
-        /// Gets the Node20 path with glibc fallback.
-        /// ⭐ Simple path building - ALL validation already done in CanHandle ⭐
+        /// Build node path using the decision made in CanHandle().
+        /// No complex logic here - just path building.
         /// </summary>
         public NodePathResult GetNodePath(UnifiedNodeContext context)
         {
-            bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(context.ExecutionContext).AsBoolean();
-            bool hasNode20Handler = context.HandlerData is Node20_1HandlerData;
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
-
-            string nodeFolder;
-            string warning = null;
-            string reason;
-
-            // Determine node version based on conditions (no validation - already done in CanHandle)
-            if (context.Node20HasGlibcError)
-            {
-                // Node20 has glibc error - fallback to Node16
-                // Note: EOL policy validation already done in CanHandle, so we can safely use Node16 here
-                nodeFolder = "node16";
-                string systemType = context.IsContainer ? "container" : "agent";
-                warning = $"The {systemType} operating system doesn't support Node20. Using Node16 instead. " +
-                         "Please upgrade the operating system to remain compatible with future updates.";
-                reason = "Node20 glibc error → Node16 fallback";
-            }
-            else
-            {
-                // Normal Node20 usage
-                nodeFolder = "node20_1";
-                if (useNode20Globally)
-                {
-                    reason = "Global AGENT_USE_NODE20_1=true";
-                }
-                else if (hasNode20Handler)
-                {
-                    reason = "Node20 handler ownership";
-                }
-                else
-                {
-                    reason = "EOL policy upgrade to Node20";
-                }
-            }
-
-            // Build path
+            // All decisions already made in CanHandle() - just build the path
             string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.IsContainer && context.Container != null ? 
                               context.Container.TranslateToContainerPath(hostPath) : hostPath;
 
             return new NodePathResult
             {
                 NodePath = finalPath,
-                NodeVersion = nodeFolder,
-                Reason = reason,
-                Warning = warning
+                NodeVersion = context.SelectedNodeVersion,
+                Reason = context.SelectionReason,
+                Warning = context.SelectionWarning
             };
         }
     }

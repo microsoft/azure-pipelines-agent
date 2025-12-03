@@ -128,6 +128,47 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public ExecutionTargetInfo StepTarget { get; set; }
 
         // ============================================
+        // Strategy Decision (Set by CanHandle, Used by GetNodePath)
+        // ============================================
+
+        /// <summary>
+        /// The selected node version determined by CanHandle().
+        /// This eliminates duplication between CanHandle and GetNodePath.
+        /// 
+        /// Examples: "node24", "node20_1", "node16", "node10", "node"
+        /// 
+        /// Flow:
+        /// 1. Strategy.CanHandle() makes decision and sets this value
+        /// 2. Strategy.GetNodePath() uses this value to build paths
+        /// 
+        /// Benefits:
+        /// - No code duplication between CanHandle/GetNodePath
+        /// - CanHandle is the single source of truth for decisions
+        /// - GetNodePath just builds paths, no complex logic
+        /// </summary>
+        public string SelectedNodeVersion { get; set; }
+
+        /// <summary>
+        /// Reason for the node version selection (for logging/debugging).
+        /// Set by CanHandle() along with SelectedNodeVersion.
+        /// 
+        /// Examples:
+        /// - "Global Node24 enabled"
+        /// - "Node24 handler with knob enabled"
+        /// - "Node24 glibc error → Node20 fallback"
+        /// - "EOL policy upgrade"
+        /// </summary>
+        public string SelectionReason { get; set; }
+
+        /// <summary>
+        /// Warning message if fallback occurred (for user notification).
+        /// Set by CanHandle() if glibc fallback happens.
+        /// 
+        /// Example: "The agent operating system doesn't support Node24. Using Node20 instead."
+        /// </summary>
+        public string SelectionWarning { get; set; }
+
+        // ============================================
         // ⭐ NO KNOB PROPERTIES ⭐
         // ============================================
         // We do NOT store knobs here!

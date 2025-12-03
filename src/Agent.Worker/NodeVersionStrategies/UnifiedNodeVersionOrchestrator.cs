@@ -5,56 +5,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
-    /// <summary>
-    /// Orchestrates Node version selection for BOTH host and container.
-    /// Single source of truth for all Node selection logic.
-    /// 
-    /// ⭐ KEY DESIGN PRINCIPLES:
-    /// 1. Strategies ordered by HandlerData.Priority from TaskManager.cs (no duplication)
-    /// 2. NO separate EOL policy strategy - each strategy handles its own EOL enforcement
-    /// 3. First strategy that returns true from CanHandle() wins
-    /// 4. Works identically for host and container (path translation in strategies)
-    /// 
-    /// Usage:
-    /// var context = new UnifiedNodeContext { ... };
-    /// var orchestrator = new UnifiedNodeVersionOrchestrator();
-    /// var result = orchestrator.SelectNodeVersion(context);
-    /// // result.NodePath is ready to use (host or container path)
-    /// </summary>
     public sealed class UnifiedNodeVersionOrchestrator
     {
         private readonly List<IUnifiedNodeVersionStrategy> _strategies;
 
-        /// <summary>
-        /// Initializes orchestrator with all available strategies.
-        /// 
-        /// ⭐ STRATEGY REGISTRATION ORDER:
-        /// Strategies are registered in the order they should be checked.
-        /// We DON'T sort by priority here - strategies are already in correct order.
-        /// 
-        /// Priority order (from HandlerData):
-        /// - CustomNode: 0 (highest priority - always check first)
-        /// - Node24HandlerData: 101
-        /// - Node20_1HandlerData: 102
-        /// - Node16HandlerData: 103 (⭐ EOL - blocked by policy)
-        /// - Node10HandlerData: 104 (⭐ EOL - blocked by policy)
-        /// - NodeHandlerData (Node6): 105 (⭐ EOL - blocked by policy)
-        /// 
-        /// Note: We don't need a separate EOL policy strategy because:
-        /// - Each strategy enforces its own EOL policy in CanHandle()
-        /// - If a strategy is EOL and policy is enabled, CanHandle() returns false
-        /// - This naturally prevents EOL versions from being selected
-        /// </summary>
         public UnifiedNodeVersionOrchestrator()
         {
             _strategies = new List<IUnifiedNodeVersionStrategy>();
 
-            // ⭐ Register all strategies in priority order ⭐
-            // Priority 0 (highest): Custom node path overrides everything
-            // TODO: Uncomment after testing Node24→Node6 strategies
             _strategies.Add(new UnifiedCustomNodeStrategy());
             
             // Priority 101: Node24 (current, glibc fallback: 24→20→16)
@@ -210,12 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             //
             // Provide helpful error message
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
-            throw new NotSupportedException(
-                $"No compatible Node.js version available for {environmentType.ToLowerInvariant()} execution. " +
-                $"Handler type: {handlerType}. " +
-                $"This may occur if all available versions are blocked by EOL policy. " +
-                $"Please update your pipeline to use Node20 or Node24 tasks. " +
-                $"To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false");
+            throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
         }
 
         /// <summary>

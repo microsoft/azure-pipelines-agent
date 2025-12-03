@@ -6,6 +6,7 @@ using System.IO;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -15,27 +16,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         public bool CanHandle(UnifiedNodeContext context)
         {
-
             bool hasNode10Handler = context.HandlerData is Node10HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
-            
             
             // NODE 10 HANDLER CHECK
             if (hasNode10Handler)
             {
-                // EOL CHECK
-                if (eolPolicyEnabled) 
-                {
-                    context.ExecutionContext.Debug("[Node10Strategy] Node10HandlerData + EOL policy enabled → Throw exception");
-                    throw new NotSupportedException(
-                        "Task requires Node10 which has reached End-of-Life. " +
-                        "This is blocked by organization policy. " +
-                        "Please upgrade task to Node20 or Node24. " +
-                        "To temporarily disable this check: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false");
-                }
-                // EOL off - use with warning
-                context.ExecutionContext.Debug("[Node10Strategy] Node10HandlerData + EOL policy disabled → Handle with warning");
-                return true;
+                context.ExecutionContext.Debug("[Node10Strategy] Node10HandlerData → Check EOL policy");
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Node10 handler");
             }
 
             // Alpine Fallback (Only if EOL Policy Disabled)
@@ -47,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     "Node10 has reached End-of-Life. Please upgrade to Node20 or Node24 for continued support.");
                 
                 context.ExecutionContext.Debug("[Node10Strategy] EnableEOLNodeVersionPolicy=false + IsAlpine=true → Handle (Node6 doesn't work on Alpine)");
-                return true;
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Alpine fallback from Node6");
             }
 
             // Cannot handle other handler types
@@ -56,65 +44,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
-        /// Gets the Node10 path.
-        /// ⭐ DEFENSE IN DEPTH: Double-checks EOL policy and throws if violated ⭐
+        /// Determine the actual node version to use and set context properties.
+        /// Node10 is EOL, so we check EOL policy and either allow Node10 or throw exception.
         /// </summary>
-        public NodePathResult GetNodePath(UnifiedNodeContext context)
+        private bool DetermineNodeVersionAndSetContext(UnifiedNodeContext context, bool eolPolicyEnabled, string baseReason)
         {
-            // ⭐ DEFENSE IN DEPTH: Double-check EOL policy ⭐
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
-            
             if (eolPolicyEnabled)
             {
-                // This should not happen (CanHandle should have rejected), but check anyway
-                string systemType = context.IsContainer ? "container" : "agent";
-                throw new NotSupportedException(
-                    $"Task requires Node10 (End-of-Life) on {systemType}. " +
-                    $"This is blocked by organization policy. " +
-                    $"Please upgrade task to Node20 or Node24. " +
-                    $"To temporarily disable this check: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false");
+                context.ExecutionContext.Debug("[Node10Strategy] Node10 is EOL and policy enabled → Throw exception");
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node10"));
             }
 
-            // EOL policy is disabled - proceed with Node10
-            string nodeFolder = "node10";
-
-            // Get path based on environment (HOST vs CONTAINER)
-            string nodePath = GetNodePathForEnvironment(context, nodeFolder);
-
-            return new NodePathResult
-            {
-                NodePath = nodePath,
-                NodeVersion = nodeFolder,
-                Reason = "Task explicitly requests Node10 (EOL, policy disabled)",
-                Warning = "Node10 has reached End-of-Life. Please upgrade to Node20 or Node24."
-            };
+            // EOL policy disabled, allow Node10
+            context.SelectedNodeVersion = "node10";
+            context.SelectionReason = baseReason;
+            context.SelectionWarning = StringUtil.Loc("NodeEOLWarning", "Node10");
+            return true;
         }
 
         /// <summary>
-        /// Gets the appropriate path based on environment (host vs container).
-        /// ⭐ THIS IS THE KEY METHOD - Shows host/container distinction ⭐
+        /// Build node path using the decision made in CanHandle().
+        /// No complex logic here - just path building.
         /// </summary>
-        private string GetNodePathForEnvironment(UnifiedNodeContext context, string nodeFolder)
+        public NodePathResult GetNodePath(UnifiedNodeContext context)
         {
-            // Build HOST path first (always same logic)
+            // All decisions already made in CanHandle() - just build the path
             string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostNodePath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
+            string finalPath = context.IsContainer && context.Container != null ? 
+                              context.Container.TranslateToContainerPath(hostPath) : hostPath;
 
-            // ⭐ HOST vs CONTAINER DISTINCTION HERE ⭐
-            if (context.IsContainer && context.Container != null)
+            return new NodePathResult
             {
-                // CONTAINER: Translate host path to container path
-                // Example: C:\agent\_work\_tool\node10\bin\node.exe → /azp/node10/bin/node
-                string containerPath = context.Container.TranslateToContainerPath(hostNodePath);
-                context.ExecutionContext.Debug($"[Node10Strategy] Container path translation: {hostNodePath} → {containerPath}");
-                return containerPath;
-            }
-            else
-            {
-                // HOST: Return host path directly
-                context.ExecutionContext.Debug($"[Node10Strategy] Using host path: {hostNodePath}");
-                return hostNodePath;
-            }
+                NodePath = finalPath,
+                NodeVersion = context.SelectedNodeVersion,
+                Reason = context.SelectionReason,
+                Warning = context.SelectionWarning
+            };
         }
     }
 }
