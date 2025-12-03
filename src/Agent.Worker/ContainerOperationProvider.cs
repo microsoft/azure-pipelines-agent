@@ -952,6 +952,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
 
+                    // Check feature flag once for all platforms
+                    bool useUnifiedStrategy = AgentKnobs.UseUnifiedNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+
                     if (PlatformUtil.RunningOnLinux)
                     {
                         bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
@@ -999,19 +1002,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        if (!container.NeedsNode20Redirect)
+                        // Legacy path: Direct assignment based on glibc test results (Linux only)
+                        // NOTE: This does NOT enforce EOL policy for Node16!
+                        // This is only used when unified strategy is disabled
+                        if (!useUnifiedStrategy)
                         {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            if (!container.NeedsNode20Redirect)
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
+                            else if (!container.NeedsNode16Redirect)
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
+                            else
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
                         }
-                        else if (!container.NeedsNode16Redirect)
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                        else
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
+                    }
 
+                    // Use unified node version strategy if feature flag is enabled
+                    // This runs for ALL platforms (Linux, Windows, Mac) to ensure EOL policy enforcement
+                    if (useUnifiedStrategy)
+                    {
+                        executionContext.Debug("Container: Using unified node version strategy");
+                        
+                        // Determine handler data for container (considers cross-platform, custom path, knobs)
+                        BaseNodeHandlerData handlerData = GetJobContainerHandlerData(executionContext, container);
+                        
+                        // Use unified strategy to set container.ResultNodePath
+                        // This will enforce EOL policy and consolidate all node selection logic
+                        // On Linux: Uses glibc test results (container.NeedsNode20Redirect, container.NeedsNode16Redirect)
+                        // On Windows/Mac: Uses container knobs and handler data
+                        SetContainerNodePathWithStrategy(executionContext, container, handlerData);
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
@@ -1019,6 +1043,121 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         container.CurrentUserName = containerUserName;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Determines the NodeJS handler data for container based on:
+        /// 1. Cross-platform scenario (MacOS/Windows host + Linux container → use container's own node)
+        /// 2. Custom node path from Docker label (com.azure.dev.pipelines.agent.handler.node.path)
+        /// 3. Container-specific knobs (UseNode24ToStartContainer, UseNode20ToStartContainer)
+        /// 4. Default fallback (Node20_1)
+        /// </summary>
+        private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
+        {
+            // Cross-platform scenario or custom node path: Return null to signal custom handling
+            // The unified strategy will use container.CustomNodePath directly
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                executionContext.Debug("Cross-platform container detected. Will use container's built-in node.");
+                return null; // Signals custom path handling in strategies
+            }
+
+            // Custom node path from Docker label
+            if (!string.IsNullOrEmpty(container.CustomNodePath))
+            {
+                executionContext.Debug($"Custom node path specified: {container.CustomNodePath}");
+                return null; // Signals custom path handling in strategies
+            }
+
+            // Check container-specific knobs
+            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+
+            if (useNode24ToStartContainer)
+            {
+                executionContext.Debug("Container knob UseNode24ToStartContainer is enabled.");
+                return new Node24HandlerData();
+            }
+
+            if (useNode20ToStartContainer)
+            {
+                executionContext.Debug("Container knob UseNode20ToStartContainer is enabled.");
+                return new Node20_1HandlerData();
+            }
+
+            // Default: Node20_1
+            executionContext.Debug("Using default Node20_1 for container.");
+            return new Node20_1HandlerData();
+        }
+
+        /// <summary>
+        /// Sets container.ResultNodePath using the unified node version strategy.
+        /// Builds UnifiedNodeContext from container state, calls orchestrator, and assigns result.
+        /// Maps container glibc flags: NeedsNode20Redirect → Node24HasGlibcError, NeedsNode16Redirect → Node20HasGlibcError
+        /// </summary>
+        private void SetContainerNodePathWithStrategy(IExecutionContext executionContext, ContainerInfo container, BaseNodeHandlerData handlerData)
+        {
+            executionContext.Debug("[UnifiedStrategy-Container] Starting node version selection for container");
+            executionContext.Debug($"[UnifiedStrategy-Container] Handler type: {handlerData?.GetType().Name}");
+            executionContext.Debug($"[UnifiedStrategy-Container] Container.NeedsNode20Redirect: {container.NeedsNode20Redirect}");
+            executionContext.Debug($"[UnifiedStrategy-Container] Container.NeedsNode16Redirect: {container.NeedsNode16Redirect}");
+            executionContext.Debug($"[UnifiedStrategy-Container] Container.CustomNodePath: {container.CustomNodePath}");
+
+            // Build unified context for container
+            var context = new NodeVersionStrategies.UnifiedNodeContext
+            {
+                // Environment
+                IsContainer = true,
+                IsHostLinux = PlatformUtil.RunningOnLinux,
+                IsAlpine = false, // Container OS is not necessarily Alpine even if host is
+                
+                // Task data (determined by GetJobContainerHandlerData)
+                HandlerData = handlerData,
+                
+                // Glibc test results (map container flags to context properties)
+                // NeedsNode20Redirect means Node24 failed glibc test → Node24HasGlibcError = true
+                // NeedsNode16Redirect means Node20 failed glibc test → Node20HasGlibcError = true
+                Node24HasGlibcError = container.NeedsNode20Redirect,
+                Node20HasGlibcError = container.NeedsNode16Redirect,
+                
+                // Container
+                Container = container,
+                
+                // Services (for strategies to read knobs)
+                HostContext = this.HostContext,
+                ExecutionContext = executionContext,
+                StepTarget = container
+            };
+
+            // Create orchestrator and select node version
+            var orchestrator = new NodeVersionStrategies.UnifiedNodeVersionOrchestrator();
+            
+            executionContext.Debug($"[UnifiedStrategy-Container] Orchestrator created with {orchestrator.StrategyCount} strategies");
+            executionContext.Debug($"[UnifiedStrategy-Container] Registered strategies: {string.Join(", ", orchestrator.StrategyNames)}");
+
+            try
+            {
+                var result = orchestrator.SelectNodeVersion(context);
+                
+                executionContext.Debug($"[UnifiedStrategy-Container] Selected node version: {result.NodeVersion}");
+                executionContext.Debug($"[UnifiedStrategy-Container] Node path: {result.NodePath}");
+                executionContext.Debug($"[UnifiedStrategy-Container] Reason: {result.Reason}");
+
+                // Set the result
+                container.ResultNodePath = result.NodePath;
+                executionContext.Debug($"[UnifiedStrategy-Container] Container.ResultNodePath set to: {container.ResultNodePath}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                // EOL policy violation or no suitable node found
+                executionContext.Error($"[UnifiedStrategy-Container] Failed to select node version: {ex.Message}");
+                throw new InvalidOperationException($"Container node selection failed: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                executionContext.Error($"[UnifiedStrategy-Container] Unexpected error: {ex}");
+                throw;
             }
         }
 

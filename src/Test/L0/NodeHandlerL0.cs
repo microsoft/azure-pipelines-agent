@@ -31,6 +31,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             ResetNodeKnobs();
 
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+
             var agentUseNode10 = Environment.GetEnvironmentVariable("AGENT_USE_NODE10");
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             using (TestHostContext thc = CreateTestHostContext())
@@ -58,6 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.Equal(expectedLocation, actualLocation);
             }
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", agentUseNode10);
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
         }
 
         [Theory]
@@ -71,6 +75,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void UseNewNodeForNewNodeHandler(string nodeVersion)
         {
             ResetNodeKnobs();
+
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
 
             // For node24, set the required knob
             if (nodeVersion == "node24")
@@ -114,6 +121,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
                 }
+                Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
+                ResetNodeKnobs();
             }
         }
 
@@ -129,6 +138,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void ForceUseNode24Knob(string nodeVersion)
         {
             ResetNodeKnobs();
+
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
 
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
 
@@ -165,6 +177,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             finally
             {
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+                Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
+                ResetNodeKnobs();
             }
         }
 
@@ -175,6 +189,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void DoNotUseNode24WhenHandlerDataKnobIsFalse()
         {
             ResetNodeKnobs();
+
+            // Force legacy strategy for this test
+            // Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
 
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", "false");
 
@@ -204,6 +221,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             finally
             {
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
+                Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
+                ResetNodeKnobs();
             }
         }
 
@@ -214,6 +233,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             try
             {
+                // Force legacy strategy for this test
+                // Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE10", "true");
 
                 using (TestHostContext thc = CreateTestHostContext())
@@ -238,6 +259,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             finally
             {
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+                Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
+                ResetNodeKnobs();
             }
         }
 
@@ -248,12 +271,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             using (TestHostContext thc = CreateTestHostContext())
             {
+                ResetNodeKnobs();
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                 thc.SetSingleton(new ExtensionManager() as IExtensionManager);
 
                 var variables = new Dictionary<string, VariableValue>();
 
                 variables.Add("AGENT_USE_NODE10", new VariableValue("true"));
+                // Force legacy strategy through execution context
+                variables.Add("AGENT_USE_UNIFIED_NODE_STRATEGY", new VariableValue("false"));
 
                 NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -286,6 +312,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 // Explicitly set variable feature flag to false
                 variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
+                // Force legacy strategy through execution context
+                variables.Add("AGENT_USE_UNIFIED_NODE_STRATEGY", new VariableValue("false"));
 
                 NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -307,6 +335,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseLTSNodeIfUseNodeKnobIsLTS()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+            ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -339,6 +370,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
+            ResetNodeKnobs();
         }
 
         [Fact]
@@ -346,6 +379,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void ThrowExceptionIfUseNodeKnobIsLTSAndLTSNotAvailable()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+            ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -380,6 +416,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void ThrowExceptionIfUseNodeKnobIsLTSAndFilteredPossibleNodeFoldersEmpty()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+                ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -409,6 +448,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseFirstAvailableNodeIfUseNodeKnobIsUpgrade()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -440,6 +482,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
         }
 
         [Fact]
@@ -447,6 +490,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void UseSecondAvailableNodeIfUseNodeKnobIsUpgradeFilteredNodeFoldersFirstNotAvailable()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -479,6 +525,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
         }
 
         [Fact]
@@ -486,6 +533,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         public void ThrowExceptionIfUseNodeKnobIsUpgradeFilteredNodeFoldersAllNotAvailable()
         {
+            // Force legacy strategy for this test
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "false");
+ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -513,6 +563,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.Throws<FileNotFoundException>(() => nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false));
             }
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
         }
 
         private TestHostContext CreateTestHostContext([CallerMemberName] string testName = "")
@@ -584,6 +635,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
+            Environment.SetEnvironmentVariable("AGENT_ENABLE_EOL_NODE_VERSION_POLICY", null); // ADD THIS
+            Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", null); // ADD THIS  
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null); // UNCOMMENT THIS!
         }
     }
 }

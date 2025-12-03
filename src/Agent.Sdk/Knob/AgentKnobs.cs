@@ -561,6 +561,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
+            nameof(EnableEOLNodeVersionPolicy),
+            "When enabled, automatically upgrades tasks using end-of-life Node.js versions (6, 10, 16) to supported versions (Node 20.1 or Node 24). Throws error if no supported versions are available on the agent.",
+            // new PipelineFeatureSource("AGENT_ENABLE_EOL_NODE_VERSION_POLICY"),
+            new RuntimeKnobSource("AGENT_ENABLE_EOL_NODE_VERSION_POLICY"),
+            new EnvironmentKnobSource("AGENT_ENABLE_EOL_NODE_VERSION_POLICY"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -921,5 +929,16 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("EnableDockerExecDiagnostics"),
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
+
+        // ============================================
+        // Unified Node Version Strategy Pattern
+        // ============================================
+
+        public static readonly Knob UseUnifiedNodeVersionStrategy = new Knob(
+            nameof(UseUnifiedNodeVersionStrategy),
+            "If true, use the unified strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseUnifiedNodeVersionStrategy"),
+            new EnvironmentKnobSource("AGENT_USE_UNIFIED_NODE_STRATEGY"),
+            new BuiltInDefaultKnobSource("false")); // ⭐ PHASE 2: Testing unified strategy with EOL enforcement
     }
 }
