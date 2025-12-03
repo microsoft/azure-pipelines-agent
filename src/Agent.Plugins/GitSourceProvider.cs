@@ -618,6 +618,31 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
+                if (File.Exists(Path.Combine(targetPath, ".autoManagedVhd"))
+                    && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
+                {
+                    // The existing working directory comes from an auto-managed VHD and is a full, 
+                    // non-shallow clone of the repository. Some pipelines enable shallow fetch, but 
+                    // Git cannot convert an existing full clone into a shallow one in-place. 
+                    //
+                    // Technical reason:
+                    //   A full clone already has complete commit history and object reachability. 
+                    //   When a fetch is issued with a non-zero --depth against a full clone, Git 
+                    //   does *not* rewrite the local history to match the requested shallow boundary. 
+                    //   Instead, to honor the depth constraint, Git falls back to creating a brand-new 
+                    //   shallow clone in an empty directory. 
+                    //
+                    // That behavior causes the agent to discard the VHD-provided clone and re-clone 
+                    // from scratch—defeating the whole purpose of using AutoManagedVHDs for fast sync.
+                    //
+                    // To avoid this, force a normal full fetch by disabling shallow behavior:
+                    //   clean = false   → preserve the VHD clone
+                    //   fetchDepth = 0  → perform a standard "sync" fetch
+                    clean = false;
+                    fetchDepth = 0;
+                    executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false and fetchDepth to 0.");
+                }
+
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
