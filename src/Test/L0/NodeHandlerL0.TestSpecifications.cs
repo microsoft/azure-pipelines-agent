@@ -52,13 +52,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node10_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node10 handler automatically upgrades to Node24 when EOL policy is enabled",
+                description: "Node10 handler with EOL policy: legacy allows Node10, unified upgrades to Node24",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24
-                expectSuccess: true,
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.EOLOverride
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
 
             // ============================================
@@ -77,13 +79,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node6_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node6 handler automatically upgrades to Node24 when EOL policy is enabled",
+                description: "Node6 handler with EOL policy: legacy allows Node6, unified upgrades to Node24",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24
-                expectSuccess: true,
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.EOLOverride
+                legacyExpectedNode: "node", // Legacy allows EOL nodes (Node6 = "node" folder)
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
 
             // ============================================
@@ -149,18 +153,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: false, // Different EOL policy behavior
                 category: TestCategory.EOLDivergence
             ),
-            // wrong - node 20 handler tpye, case of an old task with node 10 handler
-            // either remove this test
-            // or expected whould be not supported error
-            new TestScenario(
+            
+            new TestScenario( // this test is wrong, name wise it has node 20, why? hadnler is node 10 with EOL on,
+                    // unified expected node would be node 24 -> 20 (in case of fallback glibc check implied)
+                    // legacy would get node 10 as result as it would not have EOL check
+                    // correct this test
                 name: "Node20_EOLUpgrade_FromOldHandler",
-                description: "Node10HandlerData with EOL policy upgrades to Node24 (highest priority)",
+                description: "Node10HandlerData with EOL policy: legacy allows Node10, unified upgrades to node 24",
                 handlerData: typeof(Node10HandlerData), // Old handler
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24 (highest priority)
-                expectSuccess: true,
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.EOLOverride
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
 
             new TestScenario(
@@ -179,8 +186,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node20 handler ignores deprecated AGENT_USE_NODE10 knob in unified strategy",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_USE_NODE10"] = "true" },
-                expectedNode: "node20_1", // Should stay with Node20 (deprecated knob ignored)
-                expectSuccess: true,
                 legacyExpectedNode: "node10", // Legacy honored deprecated knob
                 legacyExpectSuccess: true,
                 unifiedExpectedNode: "node20_1", // Unified ignores deprecated knob
@@ -223,9 +228,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // ============================================
             // GROUP 3: Node16 (Node16HandlerData) Scenarios - END-OF-LIFE
             // ============================================
-                        // ============================================
-            // GROUP 3: Node16 (Node16HandlerData) Scenarios - END-OF-LIFE
-            // ============================================
             new TestScenario(
                 name: "Node16_DefaultBehavior_EOLPolicyDisabled",
                 description: "Node16 handler uses Node16 when EOL policy is disabled",
@@ -250,13 +252,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node16_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node16 handler automatically upgrades to Node24 when EOL policy is enabled",
+                description: "Node16 handler with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24
-                expectSuccess: true, // Should succeed with upgrade
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.EOLOverride
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
 
             new TestScenario(
@@ -273,21 +277,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node16_InContainer_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node16 upgrades to Node24 in containers when EOL policy is enabled",
+                description: "Node16 in container with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24
-                expectSuccess: true, // Should succeed with upgrade
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
                 inContainer: true,
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.Container
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
             
-            // new TestScenario(
-                
-            // ),
-
-
             // ============================================
             // GROUP 5: Node24 (Node24HandlerData) Scenarios
             // ============================================
@@ -334,8 +335,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
                     ["AGENT_USE_NODE10"] = "true"
                 },
-                expectedNode: "node24", // Should use Node24 (deprecated knob ignored)
-                expectSuccess: true,
                 legacyExpectedNode: "node10", // Legacy behavior honored deprecated knob
                 legacyExpectSuccess: true,
                 unifiedExpectedNode: "node24", // Unified ignores deprecated knob
@@ -346,16 +345,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_WithUseNode20Knob",
-                description: "Node24 handler with AGENT_USE_NODE20_1=true still uses Node24 (handler knob takes precedence)",
+                description: "Node24 handler with AGENT_USE_NODE20_1=true: legacy honors knob, unified ignores deprecated knob",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true"
                 },
-                expectedNode: "node24", // Handler knob + handler data should override global knob
-                expectSuccess: true,
-                shouldMatchBetweenModes: true,
+                shouldMatchBetweenModes: false, // Legacy honors deprecated knob, unified ignores it
+                legacyExpectedNode: "node20_1", // Legacy honors AGENT_USE_NODE20_1
+                unifiedExpectedNode: "node24", // Unified ignores deprecated knob, uses handler data
                 category: TestCategory.KnobPriority
             ),
             
@@ -422,11 +421,78 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node10HandlerData with EOL policy upgrades to Node24 (highest priority strategy)",
                 handlerData: typeof(Node10HandlerData), // Old handler
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                expectedNode: "node24", // Should upgrade to Node24
-                expectSuccess: true,
-                shouldMatchBetweenModes: false, // Different upgrade logic
-                category: TestCategory.EOLOverride
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
             ),
+
+            // ============================================
+            // GROUP 6: Edge Cases and Error Scenarios
+            // ============================================
+            
+            new TestScenario(
+                name: "Node24_MultipleKnobs_GlobalWins",
+                description: "When multiple knobs conflict, global AGENT_USE_NODE24 takes highest priority",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE10"] = "true",
+                    ["AGENT_USE_NODE20_1"] = "true",
+                    ["AGENT_USE_NODE24"] = "true"
+                },
+                expectedNode: "node24", // Global Node24 has highest priority
+                expectSuccess: true,
+                shouldMatchBetweenModes: true,
+                category: TestCategory.KnobPriority
+            ),
+
+            new TestScenario(
+                name: "Node16_EOLPolicy_WithUseNode10Knob_UpgradesToNode24",
+                description: "Node16 handler with deprecated knob still upgrades to Node24 when EOL policy enabled",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE10"] = "true",
+                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true"
+                },
+                legacyExpectedNode: "node10", // Legacy honors deprecated knob
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false, // Different behavior
+                category: TestCategory.EOLDivergence
+            ),
+
+            new TestScenario(
+                name: "Node24_InContainer_WithCustomPath",
+                description: "Node24 handler works in container environment",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                expectedNode: "node24",
+                expectSuccess: true,
+                inContainer: true,
+                shouldMatchBetweenModes: true,
+                category: TestCategory.Container
+            ),
+
+            new TestScenario(
+                name: "Node20_AllGlobalKnobsDisabled_UsesHandler",
+                description: "Node20 handler uses handler data when all global knobs are false",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE10"] = "false",
+                    ["AGENT_USE_NODE20_1"] = "false",
+                    ["AGENT_USE_NODE24"] = "false"
+                },
+                expectedNode: "node20_1", // Should use handler data
+                expectSuccess: true,
+                shouldMatchBetweenModes: true,
+                category: TestCategory.DefaultBehavior
+            )
         };
 
         // ============================================

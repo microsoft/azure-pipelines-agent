@@ -53,6 +53,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         /// </summary>
         protected void RunScenarioAndAssert(TestScenario scenario)
         {
+            RunScenarioAndAssert(scenario, useUnifiedStrategy: true);
+        }
+
+        /// <summary>
+        /// Execute a test scenario and assert the expected behavior with strategy selection.
+        /// </summary>
+        protected void RunScenarioAndAssert(TestScenario scenario, bool useUnifiedStrategy)
+        {
             // Reset environment before each test
             ResetEnvironment();
             
@@ -62,8 +70,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Environment.SetEnvironmentVariable(knob.Key, knob.Value);
             }
             
-            // Always use unified strategy for new tests
-            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", "true");
+            // Set strategy based on parameter
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", useUnifiedStrategy ? "true" : "false");
 
             try
             {
@@ -83,15 +91,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.ExecutionContext = executionContextMock.Object;
                     nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
+                    // Get expectations based on scenario type and strategy
+                    var expectations = GetScenarioExpectations(scenario, useUnifiedStrategy);
+
                     // Execute test
-                    if (scenario.ExpectSuccess)
+                    if (expectations.ExpectSuccess)
                     {
                         string actualLocation = nodeHandler.GetNodeLocation(
                             node20ResultsInGlibCError: scenario.Node20GlibcError,
                             node24ResultsInGlibCError: scenario.Node24GlibcError,
                             inContainer: scenario.InContainer);
 
-                        string expectedLocation = GetExpectedNodeLocation(scenario, thc);
+                        string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, thc);
                         Assert.Equal(expectedLocation, actualLocation);
                     }
                     else
@@ -103,9 +114,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                                 inContainer: scenario.InContainer));
 
                         // Verify error message if specified
-                        if (!string.IsNullOrEmpty(scenario.UnifiedExpectedError))
+                        if (!string.IsNullOrEmpty(expectations.ExpectedError))
                         {
-                            Assert.Contains(scenario.UnifiedExpectedError, exception.Message);
+                            Assert.Contains(expectations.ExpectedError, exception.Message);
                         }
                     }
                 }
@@ -113,6 +124,72 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             finally
             {
                 // Always clean up after test
+                ResetEnvironment();
+            }
+        }
+
+        /// <summary>
+        /// Execute a test scenario and return the result without assertions.
+        /// Useful for equivalency testing where you want to compare results.
+        /// </summary>
+        protected TestResult RunScenarioForResult(TestScenario scenario, bool useUnifiedStrategy)
+        {
+            // Reset environment before each test
+            ResetEnvironment();
+            
+            // Set up environment variables from scenario
+            foreach (var knob in scenario.Knobs)
+            {
+                Environment.SetEnvironmentVariable(knob.Key, knob.Value);
+            }
+            
+            // Set strategy based on parameter
+            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", useUnifiedStrategy ? "true" : "false");
+
+            try
+            {
+                using (TestHostContext thc = new TestHostContext(this, $"{scenario.Name}_{(useUnifiedStrategy ? "Unified" : "Legacy")}"))
+                {
+                    thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                    thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                    // Setup node handler with mocks
+                    ConfigureNodeHandlerHelper(scenario);
+
+                    NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
+                    nodeHandler.Initialize(thc);
+
+                    // Setup execution context
+                    var executionContextMock = CreateTestExecutionContext(thc, scenario.Knobs);
+                    nodeHandler.ExecutionContext = executionContextMock.Object;
+                    nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
+
+                    // Execute test
+                    try
+                    {
+                        string actualLocation = nodeHandler.GetNodeLocation(
+                            node20ResultsInGlibCError: scenario.Node20GlibcError,
+                            node24ResultsInGlibCError: scenario.Node24GlibcError,
+                            inContainer: scenario.InContainer);
+
+                        return new TestResult 
+                        { 
+                            Success = true, 
+                            NodePath = actualLocation 
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        return new TestResult 
+                        { 
+                            Success = false, 
+                            Exception = ex 
+                        };
+                    }
+                }
+            }
+            finally
+            {
                 ResetEnvironment();
             }
         }
@@ -139,11 +216,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         /// <summary>
-        /// Get expected node location based on scenario.
+        /// Get expected node location based on node folder name.
         /// </summary>
-        private string GetExpectedNodeLocation(TestScenario scenario, TestHostContext thc)
+        private string GetExpectedNodeLocation(string expectedNode, TestHostContext thc)
         {
-            string expectedNode = scenario.ExpectedNode;
             return Path.Combine(
                 thc.GetDirectory(WellKnownDirectory.Externals),
                 expectedNode,
@@ -152,9 +228,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         /// <summary>
+        /// Get scenario expectations based on whether it's equivalent or divergent and which strategy is being used.
+        /// </summary>
+        protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useUnifiedStrategy)
+        {
+            if (scenario.ShouldMatchBetweenModes)
+            {
+                // Equivalent scenarios: use the common expectedNode and expectSuccess
+                return new ScenarioExpectations
+                {
+                    ExpectedNode = scenario.ExpectedNode,
+                    ExpectSuccess = scenario.ExpectSuccess,
+                    ExpectedError = scenario.UnifiedExpectedError // May be null, that's fine
+                };
+            }
+            else
+            {
+                // Divergent scenarios: use strategy-specific expectations
+                if (useUnifiedStrategy)
+                {
+                    return new ScenarioExpectations
+                    {
+                        ExpectedNode = scenario.UnifiedExpectedNode,
+                        ExpectSuccess = scenario.UnifiedExpectSuccess,
+                        ExpectedError = scenario.UnifiedExpectedError
+                    };
+                }
+                else
+                {
+                    return new ScenarioExpectations
+                    {
+                        ExpectedNode = scenario.LegacyExpectedNode,
+                        ExpectSuccess = scenario.LegacyExpectSuccess,
+                        ExpectedError = null // Legacy doesn't have expected errors typically
+                    };
+                }
+            }
+        }
+
+        /// <summary>
         /// Create handler data instance based on type.
         /// </summary>
-        private BaseNodeHandlerData CreateHandlerData(Type handlerDataType)
+        protected BaseNodeHandlerData CreateHandlerData(Type handlerDataType)
         {
             if (handlerDataType == typeof(NodeHandlerData))
                 return new NodeHandlerData();
@@ -173,7 +288,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         /// <summary>
         /// Create test execution context with environment variables.
         /// </summary>
-        private Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, Dictionary<string, string> knobs)
+        protected Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, Dictionary<string, string> knobs)
         {
             var executionContext = new Mock<IExecutionContext>();
             var variables = new Dictionary<string, VariableValue>();
@@ -232,7 +347,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         /// <summary>
         /// Reset all node-related environment variables.
         /// </summary>
-        private void ResetEnvironment()
+        protected void ResetEnvironment()
         {
             // Core Node.js strategy knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
@@ -261,5 +376,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
+    }
+
+    /// <summary>
+    /// Result of running a test scenario.
+    /// </summary>
+    public class TestResult
+    {
+        public bool Success { get; set; }
+        public string NodePath { get; set; }
+        public Exception Exception { get; set; }
+    }
+
+    /// <summary>
+    /// Encapsulates expectations for a scenario based on strategy.
+    /// </summary>
+    public class ScenarioExpectations
+    {
+        public string ExpectedNode { get; set; }
+        public bool ExpectSuccess { get; set; }
+        public string ExpectedError { get; set; }
     }
 }
