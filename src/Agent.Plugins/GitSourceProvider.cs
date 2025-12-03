@@ -864,6 +864,24 @@ namespace Agent.Plugins.Repository
                     {
                         additionalCheckoutArgs.Add(args);
                     }
+
+                    // When using partial clones (fetch filters), set up authentication in git config
+                    // so that git's automatic promisor fetches can access credentials
+                    if (additionalFetchFilterOptions.Any())
+                    {
+                        string authHeader = GenerateAuthHeader(executionContext, username, password, useBearerAuthType);
+                        string configValue = $"AUTHORIZATION: {authHeader}";
+                        executionContext.Debug("Setting up git config authentication for partial clone promisor fetches.");
+                        int exitCode_configAuth = await gitCommandManager.GitConfig(executionContext, targetPath, configKey, configValue);
+                        if (exitCode_configAuth != 0)
+                        {
+                            executionContext.Warning($"Failed to set git config authentication for partial clone. Promisor fetches may fail. Exit code: {exitCode_configAuth}");
+                        }
+                        else
+                        {
+                            configModifications[configKey] = configValue;
+                        }
+                    }
                 }
                 else
                 {
