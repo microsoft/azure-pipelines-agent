@@ -15,6 +15,11 @@ using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
+    /// <summary>
+    /// Legacy NodeHandler tests that explicitly use the legacy strategy.
+    /// These tests manipulate global environment variables and must run sequentially.
+    /// </summary>
+    [Collection("Unified NodeHandler Tests")]
     public sealed class NodeHandlerL0
     {
         private Mock<INodeHandlerHelper> nodeHandlerHalper;
