@@ -746,6 +746,7 @@ namespace Agent.Sdk.Knob
             nameof(UseNode24ToStartContainer),
             "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
             new PipelineFeatureSource("UseNode24ToStartContainer"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
