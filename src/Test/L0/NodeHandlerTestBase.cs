@@ -87,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.Initialize(thc);
 
                     // Setup execution context
-                    var executionContextMock = CreateTestExecutionContext(thc, scenario.Knobs);
+                    var executionContextMock = CreateTestExecutionContext(thc, scenario);
                     nodeHandler.ExecutionContext = executionContextMock.Object;
                     nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
@@ -102,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                             node24ResultsInGlibCError: scenario.Node24GlibcError,
                             inContainer: scenario.InContainer);
 
-                        string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, thc);
+                        string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
                     }
                     else
@@ -160,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.Initialize(thc);
 
                     // Setup execution context
-                    var executionContextMock = CreateTestExecutionContext(thc, scenario.Knobs);
+                    var executionContextMock = CreateTestExecutionContext(thc, scenario);
                     nodeHandler.ExecutionContext = executionContextMock.Object;
                     nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
@@ -217,9 +217,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         /// <summary>
         /// Get expected node location based on node folder name.
+        /// For custom node paths, returns the path as-is.
+        /// For standard node folders, constructs the full path.
         /// </summary>
-        private string GetExpectedNodeLocation(string expectedNode, TestHostContext thc)
+        private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
         {
+            // For custom node scenarios, return the custom path exactly as specified
+            // This applies to both unified and legacy strategies since both return exact paths
+            if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
+            {
+                return scenario.CustomNodePath; // Return actual custom path, not expectedNode
+            }
+            
+            // Handle null expectedNode to prevent ArgumentNullException
+            if (string.IsNullOrWhiteSpace(expectedNode))
+            {
+                throw new ArgumentException("ExpectedNode cannot be null or empty for non-custom node scenarios", nameof(expectedNode));
+            }
+            
+            // For standard node folders, construct the full path
             return Path.Combine(
                 thc.GetDirectory(WellKnownDirectory.Externals),
                 expectedNode,
@@ -320,6 +336,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 });
 
             return executionContext;
+        }
+
+        /// <summary>
+        /// Create test execution context with custom node path support.
+        /// </summary>
+        protected Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, TestScenario scenario)
+        {
+            var executionContext = CreateTestExecutionContext(tc, scenario.Knobs);
+            
+            // Setup StepTarget object for custom node path scenarios
+            if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
+            {
+                var stepTarget = CreateStepTargetObject(scenario);
+                executionContext
+                    .Setup(x => x.StepTarget())
+                    .Returns(stepTarget);
+            }
+            else
+            {
+                // No custom path - return null StepTarget
+                executionContext
+                    .Setup(x => x.StepTarget())
+                    .Returns((ExecutionTargetInfo)null);
+            }
+            
+            return executionContext;
+        }
+
+        /// <summary>
+        /// Create StepTarget object for custom node scenarios.
+        /// Uses real HostInfo/ContainerInfo objects since CustomNodePath is not virtual.
+        /// </summary>
+        private ExecutionTargetInfo CreateStepTargetObject(TestScenario scenario)
+        {
+            if (scenario.InContainer)
+            {
+                // Container scenario - create real ContainerInfo with custom node path
+                return new ContainerInfo()
+                {
+                    CustomNodePath = scenario.CustomNodePath
+                };
+            }
+            else
+            {
+                // Host scenario - create real HostInfo with custom node path  
+                return new HostInfo()
+                {
+                    CustomNodePath = scenario.CustomNodePath
+                };
+            }
         }
 
         /// <summary>

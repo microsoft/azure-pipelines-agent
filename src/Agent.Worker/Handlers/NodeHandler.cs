@@ -184,18 +184,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StepHost.ErrorDataReceived += OnDataReceived;
 
             string file;
-            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
-            {
-                file = ExecutionContext.StepTarget().CustomNodePath;
-            }
-            else
-            {
-                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool node20ResultsInGlibCErrorHost = false;
-                bool node24ResultsInGlibCErrorHost = false;
+            // Strategy selection first, then custom node handling within each strategy path
+            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool node20ResultsInGlibCErrorHost = false;
+            bool node24ResultsInGlibCErrorHost = false;
 
-                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
                 {
                     if (!useNode20InUnsupportedSystem)
                     {
@@ -237,7 +232,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 ExecutionContext.Debug("Using node path: " + file);
-            }
 
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
@@ -364,14 +358,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            // ⭐ CUSTOM NODE PATH OVERRIDE (HIGHEST PRIORITY) ⭐
-            // Check if custom node path is set in StepTarget - this overrides everything
-            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
-            {
-                ExecutionContext.Debug($"Using custom node path from StepTarget: {ExecutionContext.StepTarget().CustomNodePath}");
-                return ExecutionContext.StepTarget().CustomNodePath;
-            }
-
             // ⭐ NEW UNIFIED STRATEGY PATTERN (FEATURE FLAG CONTROLLED) ⭐
             bool useUnifiedStrategy = AgentKnobs.UseUnifiedNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
             
@@ -379,6 +365,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 ExecutionContext.Debug("Using unified node version strategy pattern");
                 return GetNodeLocationWithUnifiedStrategy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+            }
+
+            // ⭐ LEGACY STRATEGY: CUSTOM NODE PATH CHECK (HIGHEST PRIORITY) ⭐
+            // For legacy strategy, check custom node path first before other logic
+            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
+            {
+                ExecutionContext.Debug($"[Legacy] Using custom node path from StepTarget: {ExecutionContext.StepTarget().CustomNodePath}");
+                return ExecutionContext.StepTarget().CustomNodePath;
             }
 
             // ⭐ LEGACY LOGIC BELOW (DEFAULT BEHAVIOR) ⭐

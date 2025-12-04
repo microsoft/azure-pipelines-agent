@@ -91,12 +91,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             context.ExecutionContext.Debug($"[CustomNodeStrategy] Using custom node path from {source}: {customPath}");
 
+            // Translate to container path if running in container
+            string finalPath = context.IsContainer && context.Container != null ? 
+                              context.Container.TranslateToContainerPath(customPath) : customPath;
+
             // Extract version from path for logging (best effort)
             string nodeVersion = ExtractNodeVersionFromPath(customPath);
 
             return new NodePathResult
             {
-                NodePath = customPath,
+                NodePath = finalPath,
                 NodeVersion = nodeVersion ?? "custom",
                 Reason = $"Custom Node.js path specified by user ({source})",
                 Warning = null // No warnings for custom paths
