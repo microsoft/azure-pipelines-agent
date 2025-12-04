@@ -13,21 +13,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     /// <summary>
     /// Centralized test specifications for NodeHandler behavior testing.
     /// 
-    /// This file defines ALL test scenarios for node version selection in a declarative format.
+    /// This is the SINGLE source of truth for ALL NodeHandler test scenarios.
     /// Each scenario specifies:
     /// - Handler data type (what task declares)
-    /// - Environment knobs (global overrides)
+    /// - Environment knobs (global overrides) 
     /// - Runtime conditions (glibc errors, container context)
     /// - Expected behavior (which node version is selected)
     /// - Whether behavior differs between legacy and unified strategy
     /// 
     /// Organization:
-    /// 1. Node6 scenarios (NodeHandlerData)
-    /// 2. Node10 scenarios (Node10HandlerData)
-    /// 3. Node16 scenarios (Node16HandlerData)
-    /// 4. Node20 scenarios (Node20_1HandlerData)
-    /// 5. Node24 scenarios (Node24HandlerData)
-    /// 6. Cross-cutting scenarios (custom paths, container contexts, fallbacks)
+    /// 1. CUSTOM NODE SCENARIOS (Priority 0 - HIGHEST)
+    /// 2. NODE6 SCENARIOS (NodeHandlerData - EOL)
+    /// 3. NODE10 SCENARIOS (Node10HandlerData - EOL) 
+    /// 4. NODE16 SCENARIOS (Node16HandlerData - EOL)
+    /// 5. NODE20 SCENARIOS (Node20_1HandlerData)
+    /// 6. NODE24 SCENARIOS (Node24HandlerData)
+    /// 7. CONTAINER-SPECIFIC SCENARIOS
+    /// 8. EOL POLICY SCENARIOS
+    /// 9. EDGE CASES AND ERROR SCENARIOS
     /// </summary>
     public static class NodeHandlerTestSpecs
     {
@@ -37,33 +40,242 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public static readonly TestScenario[] AllScenarios = new[]
         {
             // ============================================
-            // GROUP 2: Node10 (Node10HandlerData) Scenarios - END-OF-LIFE
+            // GROUP 1: CUSTOM NODE SCENARIOS (Priority 0 - HIGHEST)
             // ============================================
+            
+            // Custom node strategy has HIGHEST priority and bypasses ALL other logic:
+            // - No knob requirements
+            // - No EOL policy checks 
+            // - No glibc fallback logic
+            // - No handler data validation
+            
             new TestScenario(
-                name: "Node10_DefaultBehavior_EOLPolicyDisabled",
-                description: "Node10 handler uses Node10 when EOL policy is disabled",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
-                expectedNode: "node10",
+                name: "CustomNode_Host_OverridesHandlerData",
+                description: "Custom node path in host takes priority over handler data",
+                handlerData: typeof(Node20_1HandlerData),
+                customNodePath: "/usr/local/custom/node",
+                inContainer: false,
+                expectedNode: "/usr/local/custom/node",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
             new TestScenario(
-                name: "Node10_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node10 handler with EOL policy: legacy allows Node10, unified upgrades to Node24",
+                name: "CustomNode_Host_BypassesAllKnobs",
+                description: "Custom node path ignores all global knobs",
                 handlerData: typeof(Node10HandlerData),
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node10", // Legacy allows EOL nodes
-                legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
-                unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24"] = "true",
+                    ["AGENT_USE_NODE20_1"] = "true",
+                    ["AGENT_USE_NODE10"] = "true"
+                },
+                customNodePath: "/opt/my-node/bin/node",
+                inContainer: false,
+                expectedNode: "/opt/my-node/bin/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Host_BypassesEOLPolicy",
+                description: "Custom node path bypasses EOL policy even for blocked versions",
+                handlerData: typeof(Node10HandlerData), // EOL handler
+                knobs: new()
+                {
+                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" // EOL policy enabled
+                },
+                customNodePath: "/legacy/node6/bin/node", // Even older version
+                inContainer: false,
+                expectedNode: "/legacy/node6/bin/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Host_NoGlibcFallback",
+                description: "Custom node path used even with glibc errors - no fallback logic",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                node24GlibcError: true, // This would normally cause fallback
+                node20GlibcError: true, // This would normally cause fallback
+                customNodePath: "/broken-glibc/node", // Custom path still used
+                inContainer: false,
+                expectedNode: "/broken-glibc/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_FromDockerLabel",
+                description: "Custom node path from Docker label in container",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesHandlerData",
+                description: "Container custom path overrides handler data",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                customNodePath: "/container/node20/bin/node", // Different from handler
+                inContainer: true,
+                expectedNode: "/container/node20/bin/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_BypassesEOLPolicy",
+                description: "Container custom path bypasses EOL policy",
+                handlerData: typeof(NodeHandlerData), // EOL handler (Node6)
+                knobs: new()
+                {
+                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true"
+                },
+                customNodePath: "/container/legacy/node",
+                inContainer: true,
+                expectedNode: "/container/legacy/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_HighestPriority_OverridesEverything",
+                description: "Custom path has highest priority - overrides all knobs, EOL policy, and glibc errors",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24"] = "true",
+                    ["AGENT_USE_NODE20_1"] = "true", 
+                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true",
+                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "false"
+                },
+                node20GlibcError: true,
+                node24GlibcError: true,
+                customNodePath: "/ultimate/override/node",
+                inContainer: false,
+                expectedNode: "/ultimate/override/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario( // what scenario is this one?
+                name: "CustomNode_WindowsPath",
+                description: "Custom node path with Windows format",
+                handlerData: typeof(Node20_1HandlerData),
+                customNodePath: "C:\\Program Files\\nodejs\\node.exe",
+                inContainer: false,
+                expectedNode: "C:\\Program Files\\nodejs\\node.exe",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario( // what is this scenario testing?
+                name: "CustomNode_RelativePath",
+                description: "Custom node path with relative path",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "./custom-node/bin/node",
+                inContainer: false,
+                expectedNode: "./custom-node/bin/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_NullPath_FallsBackToNormalLogic",
+                description: "Null custom node path is ignored, falls back to normal handler logic",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" }, // Required for Node24
+                customNodePath: null, // Explicitly null
+                inContainer: false,
+                expectedNode: "node24",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_EmptyString_IgnoredFallsBackToNormalLogic",
+                description: "Empty custom node path is ignored, falls back to normal handler logic",
+                handlerData: typeof(Node20_1HandlerData),
+                customNodePath: "", // Empty string should be ignored
+                inContainer: false,
+                expectedNode: "node20_1", // Should use handler data
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_WhitespaceOnly_IgnoredFallsBackToNormalLogic",
+                description: "Whitespace-only custom node path is ignored, falls back to normal handler logic",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "   ", // Whitespace only should be ignored
+                inContainer: false,
+                expectedNode: "node16", // Should use handler data
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerKnobs",
+                description: "Custom path overrides container-specific knobs",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
+                    ["AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_PathTranslation",
+                description: "Custom host path gets translated to container path via TranslateToContainerPath",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "/host/path/to/node", // Host path that should be translated
+                inContainer: true,
+                expectedNode: "/host/path/to/node", // Should be translated by TranslateToContainerPath
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "CustomNode_VersionExtraction_FromPath",
+                description: "Node version correctly extracted from custom path for logging purposes",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "/usr/local/node20/bin/node",
+                inContainer: false,
+                expectedNode: "/usr/local/node20/bin/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+                // Note: Version extraction ("node20") is tested through strategy's ExtractNodeVersionFromPath method
+            ),
+
+            new TestScenario(
+                name: "CustomNode_MixedPaths_ContainerWins",
+                description: "When both host and container have custom paths, container takes precedence",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                customNodePath: "/container/custom/node", // Container custom path
+                inContainer: true,
+                expectedNode: "/container/custom/node",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+                // Note: This tests Container.CustomNodePath vs StepTarget.CustomNodePath priority
             ),
 
             // ============================================
-            // GROUP 1: Node6 (NodeHandlerData) Scenarios - END-OF-LIFE
+            // GROUP 3: NODE10 SCENARIOS (Node10HandlerData - EOL)
             // ============================================
+            
             new TestScenario(
                 name: "Node6_DefaultBehavior_EOLPolicyDisabled",
                 description: "Node6 handler uses Node6 when EOL policy is disabled",
@@ -87,9 +299,94 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ============================================
-            // GROUP 4: Node20 (Node20_1HandlerData) Scenarios
+            // GROUP 4: NODE16 SCENARIOS (Node16HandlerData - EOL)
             // ============================================
-            // right
+            
+            new TestScenario(
+                name: "Node10_DefaultBehavior_EOLPolicyDisabled",
+                description: "Node10 handler uses Node10 when EOL policy is disabled",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
+                expectedNode: "node10",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "Node10_EOLPolicyEnabled_UpgradesToNode24",
+                description: "Node10 handler with EOL policy: legacy allows Node10, unified upgrades to Node24",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false // Different behavior
+            ),
+
+            // ============================================
+            // GROUP 4: NODE16 SCENARIOS (Node16HandlerData - EOL)
+            // ============================================
+            
+            new TestScenario(
+                name: "Node16_DefaultBehavior_EOLPolicyDisabled",
+                description: "Node16 handler uses Node16 when EOL policy is disabled",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
+                expectedNode: "node16",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "Node16_DefaultEOLPolicy_AllowsNode16",
+                description: "Node16 handler uses Node16 when EOL policy is default (disabled)",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { }, // Default EOL policy is false
+                expectedNode: "node16",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "Node16_EOLPolicyEnabled_UpgradesToNode24",
+                description: "Node16 handler with EOL policy: legacy allows Node16, unified upgrades to Node24",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false // Different behavior
+            ),
+
+            new TestScenario(
+                name: "Node16_InContainer_EOLPolicyDisabled",
+                description: "Node16 works in containers when EOL policy is disabled",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
+                expectedNode: "node16", 
+                expectSuccess: true,
+                inContainer: true,
+                shouldMatchBetweenModes: true
+            ),
+
+            new TestScenario(
+                name: "Node16_InContainer_EOLPolicyEnabled_UpgradesToNode24",
+                description: "Node16 in container with EOL policy: legacy allows Node16, unified upgrades to Node24",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectSuccess: true,
+                inContainer: true,
+                shouldMatchBetweenModes: false // Different behavior
+            ),
+
+            // ============================================
+            // GROUP 5: NODE20 SCENARIOS (Node20_1HandlerData)
+            // ============================================
             new TestScenario(
                 name: "Node20_DefaultBehavior_WithHandler",
                 description: "Node20 handler uses Node20 by default",
@@ -99,17 +396,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
-            // right
+            
             new TestScenario(
-                name: "Node20_WithGlobalUseNode20Knob", // checks
+                name: "Node20_WithGlobalUseNode20Knob",
                 description: "AGENT_USE_NODE20_1=true forces Node20 regardless of handler data",
-                handlerData: typeof(Node20_1HandlerData), // Different handler
+                handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_USE_NODE20_1"] = "true" },
                 expectedNode: "node20_1",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
-            // right
             new TestScenario(
                 name: "Node20_GlibcError_FallsBackToNode16",
                 description: "Node20 with glibc error falls back to Node16",
@@ -295,7 +591,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ============================================
-            // Container-Specific EOL Scenarios
+            // GROUP 7: CONTAINER-SPECIFIC EOL SCENARIOS
             // ============================================
             
             new TestScenario(
@@ -329,7 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 legacyExpectSuccess: true,
                 unifiedExpectSuccess: false, // Unified throws error
                 expectedErrorType: typeof(NotSupportedException),
-                unifiedExpectedError: "notFound:NodeVersionNotAvailable",
+                unifiedExpectedError: "notFound:NodeVersionNotAvailable", // this is wrong
                 inContainer: true,
                 shouldMatchBetweenModes: false
             ),
@@ -399,7 +695,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
             
             // ============================================
-            // GROUP 5: Node24 (Node24HandlerData) Scenarios
+            // GROUP 6: NODE24 SCENARIOS (Node24HandlerData)
             // ============================================
             
             new TestScenario(
@@ -531,7 +827,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ============================================
-            // GROUP 6: Edge Cases and Error Scenarios
+            // GROUP 8: EDGE CASES AND ERROR SCENARIOS
             // ============================================
             
             new TestScenario(
