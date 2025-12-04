@@ -665,10 +665,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                             Trace.Warning($"Plan event reporting for Plan v8+ worker crash [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}]");
                                             await ReportJobCompletionEventAsync(message, result);
                                             Trace.Info("Plan event reporting executed successfully for worker crash");
-                                            
-                                            // Publish enhanced worker crash handling telemetry
-                                            var telemetryPublisher = HostContext.GetService<IWorkerCrashTelemetryPublisher>();
-                                            await telemetryPublisher.PublishEnhancedWorkerCrashTelemetryAsync(HostContext, message.JobId, message.JobId, returnCode, message.Plan, "UnexpectedWorkerExit", "PlanEventReported");
                                         }
                                         else
                                         {
