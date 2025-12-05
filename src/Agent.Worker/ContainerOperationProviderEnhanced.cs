@@ -648,8 +648,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 trace.Info($"Configured {container.MountVolumes.Count} volume mounts: {string.Join(", ", mountSummary)}");
 
                 bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+                bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
                 bool useAgentNode = false;
 
+                string labelContainerStartupUsingNode24 = "container-startup-using-node-24";
                 string labelContainerStartupUsingNode20 = "container-startup-using-node-20";
                 string labelContainerStartupUsingNode16 = "container-startup-using-node-16";
                 string labelContainerStartupFailed = "container-startup-failed";
@@ -662,6 +664,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 string nodeContainerPath = containerNodePath(NodeHandler.NodeFolder);
                 string node16ContainerPath = containerNodePath(NodeHandler.Node16Folder);
                 string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
+                string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
 
                 if (container.IsJobContainer)
                 {
@@ -697,9 +700,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     else
                     {
                         useAgentNode = true;
-                        trace.Info($"Using agent-provided Node.js. Node20 enabled: {useNode20ToStartContainer}");
-                        trace.Info($"Node paths - Default: {nodeContainerPath}, Node16: {node16ContainerPath}, Node20: {node20ContainerPath}");
-                        string sleepCommand = useNode20ToStartContainer ? $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'" : nodeSetInterval(nodeContainerPath);
+                        trace.Info($"Using agent-provided Node.js. Node20 enabled: {useNode20ToStartContainer}, Node24 enabled: {useNode24ToStartContainer}");
+                        trace.Info($"Node paths - Default: {nodeContainerPath}, Node16: {node16ContainerPath}, Node20: {node20ContainerPath}, Node24: {node24ContainerPath}");
+                        string sleepCommand;
+
+                        if (useNode24ToStartContainer)
+                        {
+                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        }
+                        else if (useNode20ToStartContainer)
+                        {
+                            sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        }
+                        else
+                        {
+                            sleepCommand = nodeSetInterval(nodeContainerPath);
+                        }
                         container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
                         container.ResultNodePath = nodeContainerPath;
                     }
@@ -762,7 +778,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                     }
-                    else if (useAgentNode && useNode20ToStartContainer)
+                    else if (useAgentNode && (useNode20ToStartContainer || useNode24ToStartContainer))
                     {
                         bool containerStartupCompleted = false;
                         int containerStartupTimeoutInMilliseconds = 10000;
@@ -777,23 +793,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                             foreach (string logLine in containerLogs)
                             {
-                                if (logLine.Contains(labelContainerStartupUsingNode20))
+                                if (logLine.Contains(labelContainerStartupUsingNode24))
                                 {
-                                    executionContext.Debug("Using Node 20 for container startup.");
+                                    executionContext.Debug("Using Node 24 for container startup.");
+                                    containerStartupCompleted = true;
+                                    container.ResultNodePath = node24ContainerPath;
+                                    break;
+                                }
+                                else if (logLine.Contains(labelContainerStartupUsingNode20))
+                                {
+                                    string warningMsg = useNode24ToStartContainer 
+                                        ? "Cannot run Node 24 in container. Falling back to Node 20 for container startup."
+                                        : "Using Node 20 for container startup.";
+                                    executionContext.Warning(warningMsg);
                                     containerStartupCompleted = true;
                                     container.ResultNodePath = node20ContainerPath;
                                     break;
                                 }
                                 else if (logLine.Contains(labelContainerStartupUsingNode16))
                                 {
-                                    executionContext.Warning("Can not run Node 20 in container. Falling back to Node 16 for container startup.");
+                                    string warningMsg = useNode24ToStartContainer
+                                        ? "Cannot run Node 24 and Node 20 in container. Falling back to Node 16 for container startup."
+                                        : "Cannot run Node 20 in container. Falling back to Node 16 for container startup.";
+                                    executionContext.Warning(warningMsg);
                                     containerStartupCompleted = true;
                                     container.ResultNodePath = node16ContainerPath;
                                     break;
                                 }
                                 else if (logLine.Contains(labelContainerStartupFailed))
                                 {
-                                    executionContext.Error("Can not run both Node 20 and Node 16 in container. Container startup failed.");
+                                    string errorMsg = useNode24ToStartContainer
+                                        ? "Cannot run Node 24, Node 20, and Node 16 in container. Container startup failed."
+                                        : "Cannot run both Node 20 and Node 16 in container. Container startup failed.";
+                                    executionContext.Error(errorMsg);
                                     containerStartupCompleted = true;
                                     break;
                                 }
@@ -1114,8 +1146,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         if (PlatformUtil.RunningOnLinux)
                         {
                             bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(executionContext).AsBoolean();
+                            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(executionContext).AsBoolean();
 
-                            if (!useNode20InUnsupportedSystem)
+                            if (!useNode24InUnsupportedSystem)
+                            {
+                                var node24 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
+                                string node24TestCmd = $"bash -c \"{node24} -v\"";
+                                List<string> node24VersionOutput = await DockerExec(executionContext, container.ContainerId, node24TestCmd, noExceptionOnError: true);
+
+                                container.NeedsNode20Redirect = WorkerUtilities.IsCommandResultGlibcError(executionContext, node24VersionOutput, out string node24InfoLine);
+
+                                if (container.NeedsNode20Redirect)
+                                {
+                                    PublishTelemetry(
+                                        executionContext,
+                                        new Dictionary<string, string>
+                                        {
+                                            { "ContainerNode24to20Fallback", container.NeedsNode20Redirect.ToString() }
+                                        }
+                                    );
+                                }
+                            }
+                            
+                            if (!useNode20InUnsupportedSystem && (useNode24InUnsupportedSystem || container.NeedsNode20Redirect))
                             {
                                 var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
 
@@ -1130,12 +1184,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                         executionContext,
                                         new Dictionary<string, string>
                                         {
-                                        {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
+                                            {  "ContainerNode20to16Fallback", container.NeedsNode16Redirect.ToString() }
                                         }
                                     );
                                 }
                             }
 
+                            if (!container.NeedsNode20Redirect)
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
+                            else if (!container.NeedsNode16Redirect)
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
+                            else
+                            {
+                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                            }
                         }
 
                         if (!string.IsNullOrEmpty(containerUserName))
