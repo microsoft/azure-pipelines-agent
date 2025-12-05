@@ -98,6 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
+            // throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false", handlerType);
         }
 
         public int StrategyCount => _strategies.Count;
