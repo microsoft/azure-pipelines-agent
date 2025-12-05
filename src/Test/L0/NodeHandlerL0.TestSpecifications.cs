@@ -11,16 +11,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     /// <summary>
-    /// Centralized test specifications for NodeHandler behavior testing.
-    /// 
-    /// This is the SINGLE source of truth for ALL NodeHandler test scenarios.
-    /// Each scenario specifies:
-    /// - Handler data type (what task declares)
-    /// - Environment knobs (global overrides) 
-    /// - Runtime conditions (glibc errors, container context)
-    /// - Expected behavior (which node version is selected)
-    /// - Whether behavior differs between legacy and unified strategy
-    /// 
     /// Organization:
     /// 1. CUSTOM NODE SCENARIOS (Priority 0 - HIGHEST)
     /// 2. NODE6 SCENARIOS (NodeHandlerData - EOL)
@@ -34,24 +24,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     /// </summary>
     public static class NodeHandlerTestSpecs
     {
-        /// <summary>
-        /// All test scenarios. This is the single source of truth for NodeHandler behavior.
-        /// </summary>
         public static readonly TestScenario[] AllScenarios = new[]
         {
             // ============================================
-            // GROUP 1: CUSTOM NODE SCENARIOS (Priority 0 - HIGHEST)
+            // GROUP 1: CUSTOM NODE SCENARIOS
             // ============================================
             
-            // Custom node strategy has HIGHEST priority and bypasses ALL other logic:
-            // - No knob requirements
-            // - No EOL policy checks 
-            // - No glibc fallback logic
-            // - No handler data validation
-            
-            new TestScenario(
+            new TestScenario( // DONE
                 name: "CustomNode_Host_OverridesHandlerData",
-                description: "Custom node path in host takes priority over handler data",
+                description: "Custom node path takes priority over handler data type",
                 handlerData: typeof(Node20_1HandlerData),
                 customNodePath: "/usr/local/custom/node",
                 inContainer: false,
@@ -60,9 +41,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // DONE
                 name: "CustomNode_Host_BypassesAllKnobs",
-                description: "Custom node path ignores all global knobs",
+                description: "Custom node path ignores all global node version knobs",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new()
                 {
@@ -77,38 +58,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // DONE
                 name: "CustomNode_Host_BypassesEOLPolicy",
-                description: "Custom node path bypasses EOL policy even for blocked versions",
-                handlerData: typeof(Node10HandlerData), // EOL handler
+                description: "Custom node path bypasses EOL policy restrictions",
+                handlerData: typeof(Node10HandlerData),
                 knobs: new()
                 {
-                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" // EOL policy enabled
+                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true"
                 },
-                customNodePath: "/legacy/node6/bin/node", // Even older version
+                customNodePath: "/legacy/node6/bin/node",
                 inContainer: false,
                 expectedNode: "/legacy/node6/bin/node",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
-                name: "CustomNode_Host_NoGlibcFallback",
-                description: "Custom node path used even with glibc errors - no fallback logic",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                node24GlibcError: true, // This would normally cause fallback
-                node20GlibcError: true, // This would normally cause fallback
-                customNodePath: "/broken-glibc/node", // Custom path still used
-                inContainer: false,
-                expectedNode: "/broken-glibc/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
+            // new TestScenario( // DO WE NEED THIS TEST, AS CUSTOM NODE DOES NOT HAVE GLIBC CHECKS, NOT EARLIER, NOT NOW ---
+            //     name: "CustomNode_Host_NoGlibcFallback",
+            //     description: "Custom node path ignores glibc compatibility errors",
+            //     handlerData: typeof(Node24HandlerData),
+            //     knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+            //     node24GlibcError: true, // This would normally cause fallback
+            //     node20GlibcError: true, // This would normally cause fallback
+            //     customNodePath: "/broken-glibc/node", // Custom path still used
+            //     inContainer: false,
+            //     expectedNode: "/broken-glibc/node",
+            //     expectSuccess: true,
+            //     shouldMatchBetweenModes: true
+            // ),
 
-            new TestScenario(
+            new TestScenario( // HOW DOES THIS TEST WORK, WHERE ARE WE PICKING CUSTOM NODE FROM DOCKER LABEL VIA THIS TEST ---
                 name: "CustomNode_Container_FromDockerLabel",
-                description: "Custom node path from Docker label in container",
+                description: "Container uses custom node path from Docker label",
                 handlerData: typeof(Node16HandlerData),
                 customNodePath: "/container/custom/node",
                 inContainer: true,
@@ -117,9 +98,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // THIS AGENT_USE_NODE24_WITH_HANDLER_DATA KNOB IS FOR NODE HANDLER, DO WE NEED THIS TEST AND INCONTAINER = TRUE HERE ---
                 name: "CustomNode_Container_OverridesHandlerData",
-                description: "Container custom path overrides handler data",
+                description: "Container custom node path overrides task handler data",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 customNodePath: "/container/node20/bin/node", // Different from handler
@@ -129,9 +110,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // CHECK IF THIS IS DUPLICATE TEST ---
                 name: "CustomNode_Container_BypassesEOLPolicy",
-                description: "Container custom path bypasses EOL policy",
+                description: "Container custom node path bypasses EOL policy",
                 handlerData: typeof(NodeHandlerData), // EOL handler (Node6)
                 knobs: new()
                 {
@@ -164,9 +145,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario( // what scenario is this one?
+            new TestScenario( // what scenario is this one? ---
                 name: "CustomNode_WindowsPath",
-                description: "Custom node path with Windows format",
+                description: "Custom node path works with Windows file path format",
                 handlerData: typeof(Node20_1HandlerData),
                 customNodePath: "C:\\Program Files\\nodejs\\node.exe",
                 inContainer: false,
@@ -175,9 +156,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario( // what is this scenario testing?
+            new TestScenario( // what is this scenario testing? ---
                 name: "CustomNode_RelativePath",
-                description: "Custom node path with relative path",
+                description: "Custom node path works with relative file paths",
                 handlerData: typeof(Node16HandlerData),
                 customNodePath: "./custom-node/bin/node",
                 inContainer: false,
@@ -186,12 +167,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+             new TestScenario(
                 name: "CustomNode_NullPath_FallsBackToNormalLogic",
-                description: "Null custom node path is ignored, falls back to normal handler logic",
+                description: "Null custom node path falls back to standard node selection",
                 handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" }, // Required for Node24
-                customNodePath: null, // Explicitly null
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                customNodePath: null,
                 inContainer: false,
                 expectedNode: "node24",
                 expectSuccess: true,
@@ -202,9 +183,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 name: "CustomNode_EmptyString_IgnoredFallsBackToNormalLogic",
                 description: "Empty custom node path is ignored, falls back to normal handler logic",
                 handlerData: typeof(Node20_1HandlerData),
-                customNodePath: "", // Empty string should be ignored
+                customNodePath: "",
                 inContainer: false,
-                expectedNode: "node20_1", // Should use handler data
+                expectedNode: "node20_1",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
@@ -213,16 +194,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 name: "CustomNode_WhitespaceOnly_IgnoredFallsBackToNormalLogic",
                 description: "Whitespace-only custom node path is ignored, falls back to normal handler logic",
                 handlerData: typeof(Node16HandlerData),
-                customNodePath: "   ", // Whitespace only should be ignored
+                customNodePath: "   ",
                 inContainer: false,
-                expectedNode: "node16", // Should use handler data
+                expectedNode: "node16",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
             new TestScenario(
                 name: "CustomNode_Container_OverridesContainerKnobs",
-                description: "Custom path overrides container-specific knobs",
+                description: "Container custom node path overrides container-specific knobs",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new()
                 {
@@ -236,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // CHECK THIS TEST ---
                 name: "CustomNode_Container_PathTranslation",
                 description: "Custom host path gets translated to container path via TranslateToContainerPath",
                 handlerData: typeof(Node16HandlerData),
@@ -247,9 +228,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario(// CHECK THIS TEST --- do we need this test
+            // we have version extraction logic in custom ndoe strategy
+            // chek if that funciton is required, if not then just remove that functions and this test as well
                 name: "CustomNode_VersionExtraction_FromPath",
-                description: "Node version correctly extracted from custom path for logging purposes",
+                description: "Node version is extracted from custom path for logging",
                 handlerData: typeof(Node16HandlerData),
                 customNodePath: "/usr/local/node20/bin/node",
                 inContainer: false,
@@ -259,7 +242,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 // Note: Version extraction ("node20") is tested through strategy's ExtractNodeVersionFromPath method
             ),
 
-            new TestScenario(
+            new TestScenario( // CHECK THIS TEST ---
+            // how can this haapen, both host and container having custom paths
+            // did we even implement this scenario in strategy? check this
                 name: "CustomNode_MixedPaths_ContainerWins",
                 description: "When both host and container have custom paths, container takes precedence",
                 handlerData: typeof(Node24HandlerData),
@@ -272,13 +257,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 // Note: This tests Container.CustomNodePath vs StepTarget.CustomNodePath priority
             ),
 
-            // ============================================
-            // GROUP 3: NODE10 SCENARIOS (Node10HandlerData - EOL)
-            // ============================================
+            // ========================================================================================
+            // GROUP 3: NODE6 SCENARIOS (Node6HandlerData - EOL)
+            // ========================================================================================
             
             new TestScenario(
                 name: "Node6_DefaultBehavior_EOLPolicyDisabled",
-                description: "Node6 handler uses Node6 when EOL policy is disabled",
+                description: "Node6 handler works when EOL policy is disabled",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
                 expectedNode: "node",
@@ -291,15 +276,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node6 handler with EOL policy: legacy allows Node6, unified upgrades to Node24",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node", // Legacy allows EOL nodes (Node6 = "node" folder)
+                legacyExpectedNode: "node",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
 
+            // let add a test here for when node 6 handler, EOL is on, node24 has glibc error, fallsback to node 20
+            // but ensure not to repeat this test
+            // ADD ABOVE
+            // ANOTHER TEST FOR WHEN BOTH NODE24 AND NODE20 HAVE GLIBC ERRORS, AND EOL IS ON, SHOULD THROW ERROR IN UNIFIED MODE
+            // ADD ABOVE
+
             // ============================================
-            // GROUP 4: NODE16 SCENARIOS (Node16HandlerData - EOL)
+            // GROUP 4: NODE10 SCENARIOS (Node10HandlerData - EOL)
             // ============================================
             
             new TestScenario(
@@ -317,12 +308,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node10 handler with EOL policy: legacy allows Node10, unified upgrades to Node24",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node10", // Legacy allows EOL nodes
+                legacyExpectedNode: "node10",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false
+            ),
+
+            new TestScenario( // NEWLY ADDED - BELOW COMMENTED TEST
+                name: "Node10_EOLPolicy_Node24GlibcError_FallsBackToNode20",
+                description: "Node10 handler with EOL policy and Node24 glibc error: legacy allows Node10, unified falls back to Node20",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                node24GlibcError: true, // Node24 has glibc error, can't upgrade
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes regardless
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node20_1", // Unified falls back to Node20 (next best option)
                 unifiedExpectSuccess: true,
                 shouldMatchBetweenModes: false // Different behavior
             ),
+
+            new TestScenario(// NEWLY ADDED - BELOW COMMENTED TEST
+                name: "Node10_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
+                description: "Node10 handler with EOL policy and both newer versions having glibc errors: legacy allows Node10, unified throws error",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                node24GlibcError: true, // Node24 has glibc error
+                node20GlibcError: true, // Node20 also has glibc error
+                legacyExpectedNode: "node10", // Legacy allows EOL nodes regardless of glibc errors
+                legacyExpectSuccess: true,
+                unifiedExpectSuccess: false, // Unified throws error (no compatible upgrade path)
+                expectedErrorType: typeof(NotSupportedException),
+                unifiedExpectedError: "No compatible Node.js version available for host execution. Handler type: Node10HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false",
+                shouldMatchBetweenModes: false // Different behavior
+            ),
+
+            // let add a test here for when node 10 handler, EOL is on, node24 has glibc error, fallsback to node 20
+            // but ensure not to repeat this test
+            // ADD ABOVE
+            // ANOTHER TEST FOR WHEN BOTH NODE24 AND NODE20 HAVE GLIBC ERRORS, AND EOL IS ON, SHOULD THROW ERROR IN UNIFIED MODE
+            // ADD ABOVE
+            // *****   BOTH TESTS ADDED ABOVE  *********
+
+            
 
             // ============================================
             // GROUP 4: NODE16 SCENARIOS (Node16HandlerData - EOL)
@@ -342,7 +370,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 name: "Node16_DefaultEOLPolicy_AllowsNode16",
                 description: "Node16 handler uses Node16 when EOL policy is default (disabled)",
                 handlerData: typeof(Node16HandlerData),
-                knobs: new() { }, // Default EOL policy is false
+                knobs: new() { },
                 expectedNode: "node16",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
@@ -353,12 +381,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node16 handler with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
+
+            // 1. let add a test here for when node 16 handler, EOL is on, node24 has glibc error, fallsback to node 20
+            // 2. ANOTHER TEST FOR WHEN BOTH NODE24 AND NODE20 HAVE GLIBC ERRORS, AND EOL IS ON, SHOULD THROW ERROR IN UNIFIED MODE
 
             new TestScenario(
                 name: "Node16_InContainer_EOLPolicyDisabled",
@@ -376,13 +407,85 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node16 in container with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
                 inContainer: true,
+                shouldMatchBetweenModes: false
+            ),
+
+            new TestScenario(
+                name: "Node16_EOLPolicy_Node24GlibcError_FallsBackToNode20",
+                description: "Node16 handler with EOL policy and Node24 glibc error: legacy allows Node16, unified falls back to Node20",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                node24GlibcError: true,
+                legacyExpectedNode: "node16",
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node20_1",
+                unifiedExpectSuccess: true,
+                shouldMatchBetweenModes: false
+            ),
+
+            new TestScenario(
+                name: "Node16_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
+                description: "Node16 handler with EOL policy and both newer versions having glibc errors: legacy allows Node16, unified throws error",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                node24GlibcError: true,
+                node20GlibcError: true,
+                legacyExpectedNode: "node16",
+                legacyExpectSuccess: true,
+                unifiedExpectSuccess: false,
+                expectedErrorType: typeof(NotSupportedException),
+                unifiedExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false",
+                shouldMatchBetweenModes: false
+            ),
+
+            new TestScenario( // NEWLY ADDED - BELOW COMMENTED TEST
+            // NEED FIX FOR CONTAINER TEST FOR REDIRECT FIELDSFOR NODE 16 AND NODE 20 REDIRECT FOR IN CONTAINER
+            // FIX DONE
+            // failing with node24 actially getting selected, need to debug
+                name: "Node16_InContainer_EOLPolicy_Node24GlibcError_FallsBackToNode20",
+                description: "Node16 handler in container with EOL policy and Node24 glibc error: legacy allows Node16, unified falls back to Node20",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                containerNeedsNode20Redirect: true, // This simulates Node24 glibc error in container
+                inContainer: true,
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes regardless
+                legacyExpectSuccess: true,
+                unifiedExpectedNode: "node20_1", // Unified falls back to Node20
+                unifiedExpectSuccess: true,
                 shouldMatchBetweenModes: false // Different behavior
             ),
+
+            new TestScenario( // NEWLY ADDED - BELOW COMMENTED TEST
+            // NEED FIX FOR CONTAINER TEST FOR REDIRECT FIELDSFOR NODE 16 AND NODE 20 REDIRECT FOR IN CONTAINER
+            // FIX DONE
+            // failing with no exception thrown, need to debug
+                name: "Node16_InContainer_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
+                description: "Node16 handler in container with EOL policy and both newer versions having glibc errors: legacy allows Node16, unified throws error",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
+                containerNeedsNode16Redirect: true, // This simulates Node20 glibc error in container  
+                containerNeedsNode20Redirect: true, // This simulates Node24 glibc error in container
+                inContainer: true,
+                legacyExpectedNode: "node16", // Legacy allows EOL nodes regardless
+                legacyExpectSuccess: true,
+                unifiedExpectSuccess: false, // Unified throws error (no compatible upgrade path)
+                expectedErrorType: typeof(NotSupportedException),
+                unifiedExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false",
+                shouldMatchBetweenModes: false // Different behavior
+            ),
+
+            // 1. let add a test here for when (IN CONTAINER) node 16 handler, EOL is on, node24 has glibc error, fallsback to node 20
+            // 2. ANOTHER TEST FOR WHEN (IN CONTAINER) BOTH NODE24 AND NODE20 HAVE GLIBC ERRORS, AND EOL IS ON, SHOULD THROW ERROR IN UNIFIED MODE
+            // REVIEW THESE 2 ABIVE SCCNARIOS, HOW TO DO THEM, DO THEY REQUIRED, NODE 16/20 REDIRECT FIELDS WHICH WE JUST REMOVED
+            // ADDED THESE 2 ABOVE TESTS FOR HOST MODE, SIMILAR TESTS CAN BE ADDED FOR IN CONTAINER IF REQUIRED
+            // 4 tests added above*************
+            // 2 for host and 2 for in container
+
 
             // ============================================
             // GROUP 5: NODE20 SCENARIOS (Node20_1HandlerData)
@@ -399,105 +502,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node20_WithGlobalUseNode20Knob",
-                description: "AGENT_USE_NODE20_1=true forces Node20 regardless of handler data",
+                description: "Global Node20 knob forces Node20 regardless of handler type",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_USE_NODE20_1"] = "true" },
                 expectedNode: "node20_1",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
-            new TestScenario(
-                name: "Node20_GlibcError_FallsBackToNode16",
-                description: "Node20 with glibc error falls back to Node16",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { },
-                node24GlibcError: true,
-                expectedNode: "node20_1",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-            // right
-            // new TestScenario(
-            //     name: "Node20_GlibcError_EOLPolicy_ThrowsError",
-            //     description: "Node20 with glibc error and EOL policy enabled throws error (cannot fallback to Node16)",
+            
+            // should this give node24?? as node 24 glibc is compatible in this case (not set so good)
+            // lets review this test case - review done of both below 2 test,
+            // below 2 mentioned cases covered in immediate 2 below tests for EOL policy enabled
+            // 2 cases in this for EOL = true
+            // 1. node20 glibc error true, node24 glibc error false ( not set) - select node 24 - this test is covered - Node20_GlibcError_EOLPolicy_UpgradesToNode24
+            // 2. node20 glibc error true, node24 glibc error true - should throw error as both have glibc errors
+            // new TestScenario( // DONE
+            //     name: "Node20_GlibcError_Node24_GlibcError_EOLPolicy_ThrowsError",
+            //     description: "Node20 and Node24 with glibc error and EOL policy enabled throws error (cannot fallback to Node16), legacy picks Node16",
             //     handlerData: typeof(Node20_1HandlerData),
             //     knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
             //     node20GlibcError: true,
-            //     expectSuccess: false,
-                // expectedErrorType: typeof(NotSupportedException),
-                // unifiedExpectedError: "would fallback to Node16 (EOL) but EOL policy is enabled",
-                // shouldMatchBetweenModes: false, // Different EOL policy behavior
+            //     node24GlibcError: true,
+            //     legacyExpectedNode: "node16", // Legacy falls back to Node16
+            //     legacyExpectSuccess: true,
+                // expectSuccess: false,
+            //     expectedErrorType: typeof(NotSupportedException),
+            //     unifiedExpectedError: "would fallback to Node16 (EOL) but EOL policy is enabled",
+            //     shouldMatchBetweenModes: false, // Different EOL policy behavior
             // ),
-            // Fix the Node20_GlibcError_EOLPolicy_ThrowsError test specification
-            /*
-            new TestScenario(
-                name: "Node20_GlibcError_EOLPolicy_ThrowsError",
-                description: "Node20 with glibc error and EOL policy enabled throws error (cannot fallback to Node16)",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                node20GlibcError: true,
-                legacyExpectedNode: "node16", // Legacy falls back to Node16
-                legacyExpectSuccess: true,
-                unifiedExpectSuccess: false, // Unified throws error
-                expectedErrorType: typeof(NotSupportedException), // check if node 24 is selected here, eol is on, node 20 has glibc error, so node 24 should get selected
-                unifiedExpectedError: "would fallback to Node16 (EOL) but EOL policy is enabled",
-                shouldMatchBetweenModes: false // Different EOL policy behavior
-                // infact this test - gives below in comparsion testing
-                // 
-                // NodeHandlerL0StrategyComparisonTests.NodeHandler_DivergenceTest_LegacyAndUnifiedProduceDifferentResults
-                // (scenario: Node20_GlibcError_EOLPolicy_ThrowsError) [91 ms]
-                //     EXEC : error Message:  [C:\RISHABH\azure-pipelines-agent\src\dir.proj]
-                //         Unified should fail for scenario: Node20_GlibcError_EOLPolicy_ThrowsError
-                //     Expected: False
-                //     Actual:   True
-                // 
-            ),*/
+            // uncomment htis test, giving some syntax error, check and fix
+            
             new TestScenario(
                 name: "Node20_GlibcError_EOLPolicy_UpgradesToNode24",
                 description: "Node20 with glibc error and EOL policy: legacy falls back to Node16, unified upgrades to Node24",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
                 node20GlibcError: true,
-                legacyExpectedNode: "node16", // Legacy falls back to Node16
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24 (EOL policy triggers upgrade)
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior: legacy uses Node16, unified uses Node24
-            ),
-            
-            new TestScenario( // this test is wrong, name wise it has node 20, why? hadnler is node 10 with EOL on,
-                    // unified expected node would be node 24 -> 20 (in case of fallback glibc check implied)
-                    // legacy would get node 10 as result as it would not have EOL check
-                    // correct this test
-                name: "Node20_EOLUpgrade_FromOldHandler",
-                description: "Node10HandlerData with EOL policy: legacy allows Node10, unified upgrades to node 24",
-                handlerData: typeof(Node10HandlerData), // Old handler
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node10", // Legacy allows EOL nodes
-                legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
-                unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
 
             new TestScenario(
                 name: "Node20_WithGlobalUseNode24Knob",
-                description: "AGENT_USE_NODE24=true global override forces Node24 even with Node20 handler",
+                description: "Global Node24 knob overrides Node20 handler data",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24"] = "true" },
-                expectedNode: "node24", // Global Node24 knob has highest priority
+                expectedNode: "node24",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
             new TestScenario(
                 name: "Node20_WithUseNode10Knob",
-                description: "Node20 handler ignores deprecated AGENT_USE_NODE10 knob in unified strategy",
+                description: "Node20 handler ignores deprecated Node10 knob in unified strategy",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_USE_NODE10"] = "true" },
-                legacyExpectedNode: "node10", // Legacy honored deprecated knob
+                legacyExpectedNode: "node10",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node20_1", // Unified ignores deprecated knob
+                unifiedExpectedNode: "node20_1",
                 unifiedExpectSuccess: true,
                 shouldMatchBetweenModes: false
             ),
@@ -505,38 +570,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node20_PriorityTest_UseNode20OverridesUseNode10",
-                description: "When both global knobs are set, Node20 takes priority over Node10",
+                description: "Node20 global knob takes priority over Node10 global knob",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE10"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true"
                 },
-                expectedNode: "node20_1", // Higher priority global knob wins
+                expectedNode: "node20_1",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
             new TestScenario(
                 name: "Node20_PriorityTest_UseNode24OverridesUseNode20",
-                description: "When both Node20 and Node24 global knobs are set, Node24 takes priority",
+                description: "Node24 global knob takes priority over Node20 global knob",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
-                expectedNode: "node24", // Node24 has higher priority
+                expectedNode: "node24",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
+
+            /*
+            we need in container test here for node 20
+
+            */
 
             // ============================================
             // GROUP 3: Node16 (Node16HandlerData) Scenarios - END-OF-LIFE
             // ============================================
             new TestScenario(
                 name: "Node16_DefaultBehavior_EOLPolicyDisabled",
-                description: "Node16 handler uses Node16 when EOL policy is disabled",
+                description: "Node16 handler works when EOL policy is explicitly disabled",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "false" },
                 expectedNode: "node16",
@@ -548,7 +618,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 name: "Node16_DefaultEOLPolicy_AllowsNode16",
                 description: "Node16 handler uses Node16 when EOL policy is default (disabled)",
                 handlerData: typeof(Node16HandlerData),
-                knobs: new() { }, // Default EOL policy is false
+                knobs: new() { },
                 expectedNode: "node16",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
@@ -559,11 +629,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node16 handler with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
 
             new TestScenario(
@@ -577,26 +647,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
+            new TestScenario( // se this test, correspoinf test in container Node16_InContainer_EOLPolicy_Node24GlibcError_FallsBackToNode20 is failing 
+            // this test is successful, debug the other test
                 name: "Node16_InContainer_EOLPolicyEnabled_UpgradesToNode24",
                 description: "Node16 in container with EOL policy: legacy allows Node16, unified upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node16", // Legacy allows EOL nodes
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
                 inContainer: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
 
             // ============================================
             // GROUP 7: CONTAINER-SPECIFIC EOL SCENARIOS
             // ============================================
             
-            new TestScenario(
+            new TestScenario( // VERIFY THIS TEST ---
                 name: "Node24_InContainer_GlibcError_EOLPolicy_FallsBackToNode20",
-                description: "Node24 in container with glibc error and EOL policy falls back to Node20 (not Node16)",
+                description: "Node24 in container with glibc error falls back to Node20 when EOL policy prevents Node16",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
@@ -610,9 +681,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
             
-            new TestScenario(
+            new TestScenario( // VERIFY THIS TEST ---
                 name: "Node24_InContainer_BothGlibcErrors_EOLPolicy_ThrowsError",
-                description: "Node24 in container with both glibc errors and EOL policy throws error (cannot fallback to Node16)",
+                description: "Node24 in container with all glibc errors and EOL policy throws error (unified) or falls back to Node16 (legacy)",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
@@ -625,64 +696,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 legacyExpectSuccess: true,
                 unifiedExpectSuccess: false, // Unified throws error
                 expectedErrorType: typeof(NotSupportedException),
-                unifiedExpectedError: "notFound:NodeVersionNotAvailable", // this is wrong
+                unifiedExpectedError: "No compatible Node.js version available for host execution. Handler type: Node24HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false", // this is wrong --- this TEST NEEDS FIXING
                 inContainer: true,
                 shouldMatchBetweenModes: false
             ),
             
-            // new TestScenario(
-            //     name: "Node20_InContainer_GlibcError_EOLPolicy_ThrowsError",
-            //     description: "Node20 in container with glibc error and EOL policy throws error (cannot fallback to Node16)",
-            //     handlerData: typeof(Node20_1HandlerData),
-            //     knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-            //     node20GlibcError: true,
-            //     legacyExpectedNode: "node16", // Legacy falls back to Node16
-            //     legacyExpectSuccess: true,
-            //     unifiedExpectSuccess: false, // Unified throws error
-            //     expectedErrorType: typeof(NotSupportedException), // <<<<< should this be node 24 - for smae reason as in test Node20_GlibcError_EOLPolicy_ThrowsError
-            //     unifiedExpectedError: "notFound:NodeVersionNotAvailable",
-            //     inContainer: true,
-            //     shouldMatchBetweenModes: false
-            //     /*
-            //     NodeHandlerL0StrategyComparisonTests.NodeHandler_DivergenceTest_LegacyAndUnifiedProduceDifferentResults
-            //     (scenario: Node20_InContainer_GlibcError_EOLPolicy_ThrowsError) [90 ms]
-            //     EXEC : error Message:  [C:\RISHABH\azure-pipelines-agent\src\dir.proj]
-            //         Unified should fail for scenario: Node20_InContainer_GlibcError_EOLPolicy_ThrowsError
-            //     Expected: False
-            //     Actual:   True
-            //     */
-            // ),
-            new TestScenario( // this is fixed test  for - Node20_InContainer_GlibcError_EOLPolicy_ThrowsError
+            new TestScenario(
                 name: "Node20_InContainer_GlibcError_EOLPolicy_UpgradesToNode24",
-                description: "Node20 in container with glibc error and EOL policy: legacy falls back to Node16, unified upgrades to Node24",
+                description: "Node20 in container with glibc error and EOL policy upgrades to Node24 (unified) or falls back to Node16 (legacy)",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
                 node20GlibcError: true,
-                legacyExpectedNode: "node16", // Legacy falls back to Node16
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24 (EOL policy triggers upgrade)
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
                 inContainer: true,
-                shouldMatchBetweenModes: false // Different behavior: legacy uses Node16, unified uses Node24
+                shouldMatchBetweenModes: false
             ),
 
             new TestScenario(
                 name: "Node16_InContainer_WithRedirect_EOLPolicy_UpgradesToNode24",
-                description: "Node16 in container with redirect and EOL policy: legacy allows redirect to Node16, unified upgrades to Node24",
+                description: "Node16 in container with redirect and EOL policy upgrades to Node24 (unified) or allows Node16 (legacy)",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
                 containerNeedsNode16Redirect: true,
-                legacyExpectedNode: "node16", // Legacy allows EOL redirect
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades despite redirect
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true, 
                 inContainer: true,
                 shouldMatchBetweenModes: false
             ),
             
-            new TestScenario(
+            new TestScenario( // VERIFY THIS TEST --- containerNeedsNode20Redirect = true sp node24 has glibc error on container
+            // fix this, currently passing incorrectly
                 name: "Node20_InContainer_WithRedirect_EOLPolicy_UpgradesToNode24",
-                description: "Node20 in container with redirect and EOL policy: legacy stays Node20, unified upgrades to Node24",
+                description: "Node20 in container with redirect and EOL policy upgrades to Node24 (unified) or stays Node20 (legacy)",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
                 containerNeedsNode20Redirect: true,
@@ -693,6 +743,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 inContainer: true,
                 shouldMatchBetweenModes: false
             ),
+
+            new TestScenario( 
+                name: "Node20_AllGlobalKnobsDisabled_UsesHandler",
+                description: "Node20 handler uses handler data when all global knobs are disabled",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE10"] = "false",
+                    ["AGENT_USE_NODE20_1"] = "false",
+                    ["AGENT_USE_NODE24"] = "false"
+                },
+                expectedNode: "node20_1",
+                expectSuccess: true,
+                shouldMatchBetweenModes: true
+            ),
+
             
             // ============================================
             // GROUP 6: NODE24 SCENARIOS (Node24HandlerData)
@@ -700,7 +766,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_DefaultBehavior_WithKnobEnabled",
-                description: "Node24 handler uses Node24 when AGENT_USE_NODE24_WITH_HANDLER_DATA=true",
+                description: "Node24 handler uses Node24 when handler-specific knob is enabled",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 expectedNode: "node24",
@@ -713,14 +779,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 description: "Node24 handler falls back to Node20 when AGENT_USE_NODE24_WITH_HANDLER_DATA=false",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "false" },
-                expectedNode: "node20_1", // Should fallback to Node20
+                expectedNode: "node20_1",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
             
             new TestScenario(
                 name: "Node24_WithGlobalUseNode24Knob",
-                description: "AGENT_USE_NODE24=true forces Node24 regardless of handler data knob",
+                description: "Global Node24 knob overrides handler-specific knob setting",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24"] = "true" },
                 expectedNode: "node24",
@@ -730,37 +796,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_WithUseNode10Knob",
-                description: "Node24 handler ignores deprecated AGENT_USE_NODE10 knob in unified strategy",
+                description: "Node24 handler ignores deprecated Node10 knob in unified strategy",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
                     ["AGENT_USE_NODE10"] = "true"
                 },
-                legacyExpectedNode: "node10", // Legacy behavior honored deprecated knob
+                legacyExpectedNode: "node10",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified ignores deprecated knob
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
                 shouldMatchBetweenModes: false
             ),
             
             new TestScenario(
                 name: "Node24_WithUseNode20Knob",
-                description: "Node24 handler with AGENT_USE_NODE20_1=true: legacy honors knob, unified ignores deprecated knob",
+                description: "Node24 handler ignores deprecated Node20 knob in unified strategy",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true"
                 },
-                shouldMatchBetweenModes: false, // Legacy honors deprecated knob, unified ignores it
-                legacyExpectedNode: "node20_1", // Legacy honors AGENT_USE_NODE20_1
-                unifiedExpectedNode: "node24" // Unified ignores deprecated knob, uses handler data
+                shouldMatchBetweenModes: false,
+                legacyExpectedNode: "node20_1",
+                unifiedExpectedNode: "node24"
             ),
             
             new TestScenario(
                 name: "Node24_GlibcError_FallsBackToNode20",
-                description: "Node24 with glibc error falls back to Node20",
+                description: "Node24 with glibc compatibility error falls back to Node20",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 node24GlibcError: true,
@@ -771,7 +837,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_GlibcError_Node20GlibcError_FallsBackToNode16", 
-                description: "Node24 with both glibc errors falls back to Node16 when EOL policy is disabled",
+                description: "Node24 with both Node24 and Node20 glibc errors falls back to Node16",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 node24GlibcError: true,
@@ -783,7 +849,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_GlibcError_Node20GlibcError_EOLPolicy_ThrowsError",
-                description: "Node24 with glibc errors and EOL policy enabled throws error (cannot fallback to Node16)",
+                description: "Node24 with all glibc errors and EOL policy throws error (unified) or falls back to Node16 (legacy)",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
@@ -792,38 +858,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 node24GlibcError: true,
                 node20GlibcError: true,
-                legacyExpectedNode: "node16", // Legacy falls back to Node16
+                legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
-                unifiedExpectSuccess: false, // Unified throws error
+                unifiedExpectSuccess: false,
                 expectedErrorType: typeof(NotSupportedException),
                 unifiedExpectedError: "No compatible Node.js version available for host execution. Handler type: Node24HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY=false",
-                shouldMatchBetweenModes: false // Legacy doesn't have this EOL policy check
+                shouldMatchBetweenModes: false
             ),
             
             new TestScenario(
                 name: "Node24_PriorityTest_UseNode24OverridesUseNode20",
-                description: "When both global knobs are set, Node24 takes priority",
+                description: "Node24 global knob takes priority over Node20 global knob",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
-                expectedNode: "node24", // Higher priority global knob wins
+                expectedNode: "node24",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "Node24_EOLUpgrade_FromOldHandler",
-                description: "Node10HandlerData with EOL policy upgrades to Node24 (highest priority strategy)",
-                handlerData: typeof(Node10HandlerData), // Old handler
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                legacyExpectedNode: "node10", // Legacy allows EOL nodes
-                legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
-                unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
             ),
 
             // ============================================
@@ -832,7 +886,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             new TestScenario(
                 name: "Node24_MultipleKnobs_GlobalWins",
-                description: "When multiple knobs conflict, global AGENT_USE_NODE24 takes highest priority",
+                description: "Global Node24 knob takes highest priority when multiple knobs are set",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
@@ -840,30 +894,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
-                expectedNode: "node24", // Global Node24 has highest priority
+                expectedNode: "node24",
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
 
             new TestScenario(
                 name: "Node16_EOLPolicy_WithUseNode10Knob_UpgradesToNode24",
-                description: "Node16 handler with deprecated knob still upgrades to Node24 when EOL policy enabled",
+                description: "Node16 handler with deprecated Node10 knob upgrades to Node24 when EOL policy is enabled (unified) or uses Node10 (legacy)",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE10"] = "true",
                     ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true"
                 },
-                legacyExpectedNode: "node10", // Legacy honors deprecated knob
+                legacyExpectedNode: "node10",
                 legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24
+                unifiedExpectedNode: "node24",
                 unifiedExpectSuccess: true,
-                shouldMatchBetweenModes: false // Different behavior
+                shouldMatchBetweenModes: false
             ),
 
             new TestScenario(
-                name: "Node24_InContainer_WithCustomPath",
-                description: "Node24 handler works in container environment",
+                name: "Node24_InContainer_DefaultBehavior",
+                description: "Node24 handler works correctly in container environments",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 expectedNode: "node24",
@@ -871,79 +925,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 inContainer: true,
                 shouldMatchBetweenModes: true
             ),
-
-            new TestScenario(
-                name: "Node20_AllGlobalKnobsDisabled_UsesHandler",
-                description: "Node20 handler uses handler data when all global knobs are false",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE10"] = "false",
-                    ["AGENT_USE_NODE20_1"] = "false",
-                    ["AGENT_USE_NODE24"] = "false"
-                },
-                expectedNode: "node20_1", // Should use handler data
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            )
-
-            // ============================================
-            // GROUP 7: Custom Node Path Scenarios (Priority 0 - HIGHEST)
-            // TODO: Enable these tests once UnifiedCustomNodeStrategy is properly integrated
-            // ============================================
-            
-            // TODO: Add custom node scenarios once the following is implemented:
-            // 1. UnifiedCustomNodeStrategy needs to be registered in the orchestrator
-            // 2. NodeHandler needs to properly set StepTarget.CustomNodePath and Container.CustomNodePath
-            // 3. Test infrastructure needs to properly mock custom path scenarios
-            // 
-            // Expected custom node scenarios:
-            // - CustomNode_Host_OverridesHandlerData: Custom path beats handler data
-            // - CustomNode_Host_BypassesAllKnobs: Custom path ignores global knobs
-            // - CustomNode_Host_BypassesEOLPolicy: Custom path bypasses EOL policy
-            // - CustomNode_Container_FromDockerLabel: Docker label custom path
-            // - CustomNode_HighestPriority_OverridesEverything: Custom path beats all logic
         };
 
-        // ============================================
-        // Simple Test Access - No Complex Helpers
-        // ============================================
-
-        /// <summary>
-        /// Get all Node24 test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] Node24Scenarios 
-            => AllScenarios.Where(s => s.HandlerDataType == typeof(Node24HandlerData)).ToArray();
-            
-        /// <summary>
-        /// Get all Node20 test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] Node20Scenarios 
-            => AllScenarios.Where(s => s.HandlerDataType == typeof(Node20_1HandlerData)).ToArray();
-            
-        /// <summary>
-        /// Get all Node16 test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] Node16Scenarios 
-            => AllScenarios.Where(s => s.HandlerDataType == typeof(Node16HandlerData)).ToArray();
-
-        /// <summary>
-        /// Get all Node10 test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] Node10Scenarios 
-            => AllScenarios.Where(s => s.HandlerDataType == typeof(Node10HandlerData)).ToArray();
-
-        /// <summary>
-        /// Get all Node6 test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] Node6Scenarios 
-            => AllScenarios.Where(s => s.HandlerDataType == typeof(NodeHandlerData)).ToArray();
-
-        /// <summary>
-        /// Get all Custom Node test scenarios for simple iteration.
-        /// </summary>
-        public static TestScenario[] CustomNodeScenarios 
-            => AllScenarios.Where(s => !string.IsNullOrEmpty(s.CustomNodePath)).ToArray();
     }
 
     /// <summary>
