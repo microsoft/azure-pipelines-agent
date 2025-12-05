@@ -652,14 +652,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     
                                     if (enhancedworkercrashhandlingenabled)
                                     {
-                                        // ENHANCED CRASH HANDLING: Apply forced completion for Plan v8+ worker crashes in normal completion path
-                                        bool isPlanV8PlusNormal = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
+                                        bool isPlanV8Plus = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
                                         bool isWorkerCrash = !TaskResultUtil.IsValidReturnCode(returnCode);
-                                        bool notifyServerOfWorkerCrash = isPlanV8PlusNormal && isWorkerCrash;
                                         
-                                        Trace.Info($"Enhanced crash handling enabled - Normal completion crash analysis [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, IsPlanV8Plus:{isPlanV8PlusNormal}, IsWorkerCrash:{isWorkerCrash}, ExitCode:{returnCode}, NeedsForcedCompletion:{notifyServerOfWorkerCrash}]");
+                                        Trace.Info($"Enhanced crash handling enabled - Normal completion crash analysis [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, IsPlanV8Plus:{isPlanV8Plus}, IsWorkerCrash:{isWorkerCrash}, ExitCode:{returnCode}, NeedsForcedCompletion:{isPlanV8Plus && isWorkerCrash}]");
                                         
-                                        if (notifyServerOfWorkerCrash)
+                                        if (isPlanV8Plus && isWorkerCrash)
                                         {
                                             // Direct plan event reporting for Plan v8+ worker crashes
                                             Trace.Warning($"Plan event reporting for Plan v8+ worker crash [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}]");
@@ -1009,14 +1007,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             throw new AggregateException(exceptions);
         }
 
-        /// <summary>
-        /// Reports job completion to server via plan event (similar to how worker reports)
-        /// Used for Plan v8+ scenarios where listener needs to notify server of job completion
-        /// </summary>
+        // Reports job completion to server via plan event (similar to how worker reports)
+        // Used for Plan v8+ scenarios where listener needs to notify server of job completion
         private async Task ReportJobCompletionEventAsync(Pipelines.AgentJobRequestMessage message, TaskResult result)
         {
             Trace.Info($"Plan event reporting initiated - Sending job completion event to server [JobId:{message.JobId}, Result:{result}]");
-            
+
             try
             {
                 var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection));
@@ -1038,17 +1034,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         {
                             //replace the schema and host portion of messageUri with the host from the
                             //server URI (which was set at config time)
+                            Trace.Info($"URL replacement for OnPremises server - Original: {jobServerUrl}, New: {urlResult}");
                             jobServerUrl = urlResult;
                         }
                     }
                     catch (InvalidOperationException ex)
                     {
-                        //cannot parse the Uri - not a fatal error
                         Trace.Error(ex);
                     }
                     catch (UriFormatException ex)
                     {
-                        //cannot parse the Uri - not a fatal error
                         Trace.Error(ex);
                     }
                 }
@@ -1056,51 +1051,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 using (var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace, skipServerCertificateValidation: false))
                 {
                     await jobServer.ConnectAsync(jobConnection);
-
                     // Create job completed event (similar to worker)
                     var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result, false);
-                    
-                    // Send plan event with retry logic (similar to worker pattern)
-                    int retryLimit = 5;
-                    var exceptions = new List<Exception>();
-                    
-                    while (retryLimit-- > 0)
+                    try
                     {
-                        try
-                        {
-                            await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
-                            Trace.Info($"Plan event reporting completed successfully [JobId:{message.JobId}, Result:{result}]");
-                            return;
-                        }
-                        catch (TaskOrchestrationPlanNotFoundException ex)
-                        {
-                            Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting for job {message.JobId}");
-                            Trace.Error(ex);
-                            return; // No point retrying
-                        }
-                        catch (TaskOrchestrationPlanSecurityException ex)
-                        {
-                            Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting for job {message.JobId}");
-                            Trace.Error(ex);
-                            return; // No point retrying
-                        }
-                        catch (Exception ex)
-                        {
-                            Trace.Error($"Exception during plan event reporting for job {message.JobId}: {ex.Message}");
-                            exceptions.Add(ex);
-                            
-                            if (retryLimit > 0)
-                            {
-                                Trace.Info($"Retrying plan event reporting in 5 seconds [JobId:{message.JobId}, RemainingRetries:{retryLimit}]");
-                                await Task.Delay(TimeSpan.FromSeconds(5));
-                            }
-                        }
+                        await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
+                        Trace.Info($"Plan event reporting completed successfully [JobId:{message.JobId}, Result:{result}]");
                     }
-                    
-                    // If all retries failed, log but don't throw - we don't want to break the completion flow
-                    Trace.Error($"Plan event reporting failed after all retries [JobId:{message.JobId}, TotalExceptions:{exceptions.Count}]");
-                    foreach (var ex in exceptions)
+                    catch (TaskOrchestrationPlanNotFoundException ex)
                     {
+                        Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting for job {message.JobId}");
+                        Trace.Error(ex);
+                    }
+                    catch (TaskOrchestrationPlanSecurityException ex)
+                    {
+                        Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting for job {message.JobId}");
+                        Trace.Error(ex);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Error($"Exception during plan event reporting for job {message.JobId}: {ex.Message}");
                         Trace.Error(ex);
                     }
                 }
@@ -1109,7 +1079,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Error($"Critical error during plan event reporting setup for job {message.JobId}: {ex.Message}");
                 Trace.Error(ex);
-                // Don't throw - we don't want to break the completion flow
             }
         }
 
