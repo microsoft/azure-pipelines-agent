@@ -184,13 +184,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StepHost.ErrorDataReceived += OnDataReceived;
 
             string file;
-            // Strategy selection first, then custom node handling within each strategy path
-            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-            bool node20ResultsInGlibCErrorHost = false;
-            bool node24ResultsInGlibCErrorHost = false;
+            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
+            {
+                file = ExecutionContext.StepTarget().CustomNodePath;
+            }
+            else
+            {
+                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool node20ResultsInGlibCErrorHost = false;
+                bool node24ResultsInGlibCErrorHost = false;
 
-            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
                 {
                     if (!useNode20InUnsupportedSystem)
                     {
@@ -232,6 +237,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 ExecutionContext.Debug("Using node path: " + file);
+            }
 
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
@@ -358,26 +364,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            // ⭐ NEW UNIFIED STRATEGY PATTERN (FEATURE FLAG CONTROLLED) ⭐
-            bool useUnifiedStrategy = AgentKnobs.UseUnifiedNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
-            
-            if (useUnifiedStrategy)
-            {
-                ExecutionContext.Debug("Using unified node version strategy pattern");
-                return GetNodeLocationWithUnifiedStrategy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-            }
-
-            // ⭐ LEGACY STRATEGY: CUSTOM NODE PATH CHECK (HIGHEST PRIORITY) ⭐
-            // For legacy strategy, check custom node path first before other logic
-            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
-            {
-                ExecutionContext.Debug($"[Legacy] Using custom node path from StepTarget: {ExecutionContext.StepTarget().CustomNodePath}");
-                return ExecutionContext.StepTarget().CustomNodePath;
-            }
-
-            // ⭐ LEGACY LOGIC BELOW (DEFAULT BEHAVIOR) ⭐
-            ExecutionContext.Debug("Using legacy node version selection logic");
-            
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
@@ -495,92 +481,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
-        }
-
-        /// <summary>
-        /// Gets Node.js location using the unified strategy pattern.
-        /// ⭐ NEW IMPLEMENTATION - Used when AGENT_USE_UNIFIED_NODE_STRATEGY=true ⭐
-        /// </summary>
-        private string GetNodeLocationWithUnifiedStrategy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
-        {
-            ExecutionContext.Debug("[UnifiedStrategy] Starting node version selection");
-            ExecutionContext.Debug($"[UnifiedStrategy] Handler type: {Data?.GetType().Name}");
-            ExecutionContext.Debug($"[UnifiedStrategy] Node20 glibc error: {node20ResultsInGlibCError}");
-            ExecutionContext.Debug($"[UnifiedStrategy] Node24 glibc error: {node24ResultsInGlibCError}");
-            ExecutionContext.Debug($"[UnifiedStrategy] In container: {inContainer}");
-
-            // Build unified context
-            var context = new NodeVersionStrategies.UnifiedNodeContext
-            {
-                // Environment
-                IsContainer = inContainer,
-                IsHostLinux = PlatformUtil.RunningOnLinux,
-                IsAlpine = PlatformUtil.RunningOnAlpine,
-                
-                // Task data (reuses existing HandlerData)
-                HandlerData = this.Data,
-                
-                // Glibc test results (runtime data)
-                Node24HasGlibcError = node24ResultsInGlibCError,
-                Node20HasGlibcError = node20ResultsInGlibCError,
-                
-                // Container (null for host execution)
-                Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
-                
-                // Services (for strategies to read knobs)
-                HostContext = this.HostContext,
-                ExecutionContext = this.ExecutionContext,
-                StepTarget = inContainer ? null : ExecutionContext.StepTarget()
-            };
-
-            // Create orchestrator and select node version
-            var orchestrator = new NodeVersionStrategies.UnifiedNodeVersionOrchestrator();
-            
-            ExecutionContext.Debug($"[UnifiedStrategy] Orchestrator created with {orchestrator.StrategyCount} strategies");
-            ExecutionContext.Debug($"[UnifiedStrategy] Registered strategies: {string.Join(", ", orchestrator.StrategyNames)}");
-
-            try
-            {
-                var result = orchestrator.SelectNodeVersion(context);
-                
-                ExecutionContext.Debug($"[UnifiedStrategy] Selected node version: {result.NodeVersion}");
-                ExecutionContext.Debug($"[UnifiedStrategy] Node path: {result.NodePath}");
-                ExecutionContext.Debug($"[UnifiedStrategy] Selection reason: {result.Reason}");
-                
-                if (!string.IsNullOrEmpty(result.Warning))
-                {
-                    ExecutionContext.Debug($"[UnifiedStrategy] Warning: {result.Warning}");
-                }
-
-                // Publish telemetry if enabled
-                if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
-                {
-                    try
-                    {
-                        PublishHandlerTelemetry(result.NodeVersion);
-                    }
-                    catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
-                    {
-                        ExecutionContext.Debug($"NodeHandler telemetry wasn't published, because one of the variables has unexpected value.");
-                        ExecutionContext.Debug(ex.ToString());
-                    }
-                }
-
-                return result.NodePath;
-            }
-            catch (NotSupportedException ex)
-            {
-                // EOL policy violation or no compatible version
-                ExecutionContext.Error($"[UnifiedStrategy] Node selection failed: {ex.Message}");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // Unexpected error - log and rethrow
-                ExecutionContext.Error($"[UnifiedStrategy] Unexpected error during node selection: {ex.Message}");
-                ExecutionContext.Debug(ex.ToString());
-                throw;
-            }
         }
 
         private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer)

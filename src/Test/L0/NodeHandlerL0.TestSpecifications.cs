@@ -26,188 +26,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         public static readonly TestScenario[] AllScenarios = new[]
         {
-            // ============================================
-            // GROUP 1: CUSTOM NODE SCENARIOS
-            // ============================================
-            
-            new TestScenario(
-                name: "CustomNode_Host_OverridesHandlerData",
-                description: "Custom node path takes priority over handler data type",
-                handlerData: typeof(Node20_1HandlerData),
-                customNodePath: "/usr/local/custom/node",
-                inContainer: false,
-                expectedNode: "/usr/local/custom/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_Host_BypassesAllKnobs",
-                description: "Custom node path ignores all global node version knobs",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_USE_NODE24"] = "true",
-                    ["AGENT_USE_NODE20_1"] = "true",
-                    ["AGENT_USE_NODE10"] = "true"
-                },
-                customNodePath: "/opt/my-node/bin/node",
-                inContainer: false,
-                expectedNode: "/opt/my-node/bin/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_Host_BypassesEOLPolicy",
-                description: "Custom node path bypasses EOL policy restrictions",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true"
-                },
-                customNodePath: "/legacy/node6/bin/node",
-                inContainer: false,
-                expectedNode: "/legacy/node6/bin/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario( // HOW DOES THIS TEST WORK, WHERE ARE WE PICKING CUSTOM NODE FROM DOCKER LABEL VIA THIS TEST ---
-                name: "CustomNode_Container_FromDockerLabel",
-                description: "Container uses custom node path from Docker label",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "/container/custom/node",
-                inContainer: true,
-                expectedNode: "/container/custom/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario( // THIS AGENT_USE_NODE24_WITH_HANDLER_DATA KNOB IS FOR NODE HANDLER, DO WE NEED THIS TEST AND INCONTAINER = TRUE HERE ---
-                name: "CustomNode_Container_OverridesHandlerData",
-                description: "Container custom node path overrides task handler data",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                customNodePath: "/container/node20/bin/node", // Different from handler
-                inContainer: true,
-                expectedNode: "/container/node20/bin/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_HighestPriority_OverridesEverything",
-                description: "Custom path has highest priority - overrides all knobs, EOL policy, and glibc errors",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_USE_NODE24"] = "true",
-                    ["AGENT_USE_NODE20_1"] = "true", 
-                    ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true",
-                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "false"
-                },
-                node20GlibcError: true,
-                node24GlibcError: true,
-                customNodePath: "/ultimate/override/node",
-                inContainer: false,
-                expectedNode: "/ultimate/override/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-             new TestScenario(
-                name: "CustomNode_NullPath_FallsBackToNormalLogic",
-                description: "Null custom node path falls back to standard node selection",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                customNodePath: null,
-                inContainer: false,
-                expectedNode: "node24",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_EmptyString_IgnoredFallsBackToNormalLogic",
-                description: "Empty custom node path is ignored, falls back to normal handler logic",
-                handlerData: typeof(Node20_1HandlerData),
-                customNodePath: "",
-                inContainer: false,
-                expectedNode: "node20_1",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_WhitespaceOnly_IgnoredFallsBackToNormalLogic",
-                description: "Whitespace-only custom node path is ignored, falls back to normal handler logic",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "   ",
-                inContainer: false,
-                expectedNode: "node16",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            new TestScenario(
-                name: "CustomNode_Container_OverridesContainerKnobs",
-                description: "Container custom node path overrides container-specific knobs",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
-                    ["AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
-                },
-                customNodePath: "/container/custom/node",
-                inContainer: true,
-                expectedNode: "/container/custom/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
-
-            // new TestScenario(
-            //     name: "CustomNode_Container_PathTranslation",
-            //     description: "Custom host path gets translated to container path via TranslateToContainerPath",
-            //     handlerData: typeof(Node16HandlerData),
-            //     customNodePath: "/host/custom-node/bin/node", // Host path
-            //     inContainer: true,
-            //     expectedNode: "/__w/custom-node/bin/node", // Expected container translation
-            //     expectSuccess: true,
-            //     shouldMatchBetweenModes: true
-            // ),
-
-            new TestScenario(// CHECK THIS TEST --- do we need this test
-            // we have version extraction logic in custom ndoe strategy
-            // chek if that funciton is required, if not then just remove that functions and this test as well
-                name: "CustomNode_VersionExtraction_FromPath",
-                description: "Node version is extracted from custom path for logging",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "/usr/local/node20/bin/node",
-                inContainer: false,
-                expectedNode: "/usr/local/node20/bin/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-                // Note: Version extraction ("node20") is tested through strategy's ExtractNodeVersionFromPath method
-            ),
-
-            new TestScenario( // CHECK THIS TEST ---
-            // how can this haapen, both host and container having custom paths
-            // did we even implement this scenario in strategy? check this
-                name: "CustomNode_MixedPaths_ContainerWins",
-                description: "When both host and container have custom paths, container takes precedence",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                customNodePath: "/container/custom/node", // Container custom path
-                inContainer: true,
-                expectedNode: "/container/custom/node",
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-                // Note: This tests Container.CustomNodePath vs StepTarget.CustomNodePath priority
-            ),
-
             // ========================================================================================
-            // GROUP 2: NODE6 SCENARIOS (Node6HandlerData - EOL)
+            // GROUP 1: NODE6 SCENARIOS (Node6HandlerData - EOL)
             // ========================================================================================
             new TestScenario(
                 name: "Node6_DefaultBehavior",
@@ -360,7 +180,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ========================================================================================
-            // GROUP 3: NODE10 SCENARIOS (Node10HandlerData - EOL)
+            // GROUP 2: NODE10 SCENARIOS (Node10HandlerData - EOL)
             // ========================================================================================
             
             new TestScenario(
@@ -512,7 +332,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ========================================================================================
-            // GROUP 4: NODE16 SCENARIOS (Node16HandlerData)
+            // GROUP 3: NODE16 SCENARIOS (Node16HandlerData)
             // ========================================================================================
             
             new TestScenario(
@@ -630,7 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ========================================================================================
-            // GROUP 5: NODE20 SCENARIOS (Node20_1HandlerData)
+            // GROUP 4: NODE20 SCENARIOS (Node20_1HandlerData)
             // ========================================================================================
             new TestScenario(
                 name: "Node20_DefaultBehavior_WithHandler",
@@ -802,13 +622,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            /*
-            we need in container test here for node 20
-
-            */
-
             // ========================================================================================
-            // GROUP 7: CONTAINER-SPECIFIC EOL SCENARIOS
+            // GROUP 5: CONTAINER-SPECIFIC EOL SCENARIOS
             // ========================================================================================
             
             new TestScenario(
@@ -1024,7 +839,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             // ========================================================================================
-            // GROUP 8: EDGE CASES AND ERROR SCENARIOS
+            // GROUP 7: EDGE CASES AND ERROR SCENARIOS
             // ========================================================================================
             
 
@@ -1059,19 +874,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public string Description { get; set; }
         
         // Test inputs - Handler Configuration
-        public Type HandlerDataType { get; set; }  // Single handler (matches reality)
+        public Type HandlerDataType { get; set; } 
         
         public Dictionary<string, string> Knobs { get; set; } = new();
         public bool Node20GlibcError { get; set; }
         public bool Node24GlibcError { get; set; }
         public bool InContainer { get; set; }
-        // public bool ContainerNeedsNode16Redirect { get; set; }
-        // public bool ContainerNeedsNode20Redirect { get; set; }
         public string CustomNodePath { get; set; }
-        // public bool IsAlpine { get; set; }
-        // public bool PrimaryNodeUnavailable { get; set; }
-        // public bool LtsNodeUnavailable { get; set; }
-        // public bool AllNodesUnavailable { get; set; }
         
         // Expected results (for equivalent scenarios)
         public string ExpectedNode { get; set; }
@@ -1085,7 +894,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public string UnifiedExpectedError { get; set; }
         public Type ExpectedErrorType { get; set; }
         
-        // Metadata
         public bool ShouldMatchBetweenModes { get; set; } = true;
         
         public TestScenario(
@@ -1105,13 +913,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             bool node20GlibcError = false,
             bool node24GlibcError = false,
             bool inContainer = false,
-            // bool containerNeedsNode16Redirect = false,
-            // bool containerNeedsNode20Redirect = false,
             string customNodePath = null
-            // bool isAlpine = false,
-            // bool primaryNodeUnavailable = false,
-            // bool ltsNodeUnavailable = false,
-            // bool allNodesUnavailable = false
             )
         {
             Name = name;
@@ -1131,16 +933,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Node20GlibcError = node20GlibcError;
             Node24GlibcError = node24GlibcError;
             InContainer = inContainer;
-            // ContainerNeedsNode16Redirect = containerNeedsNode16Redirect;
-            // ContainerNeedsNode20Redirect = containerNeedsNode20Redirect;
             CustomNodePath = customNodePath;
-            // IsAlpine = isAlpine;
-            // PrimaryNodeUnavailable = primaryNodeUnavailable;
-            // LtsNodeUnavailable = ltsNodeUnavailable;
-            // AllNodesUnavailable = allNodesUnavailable;
         }
         
-        public override string ToString() => Name; // For test display names
+        public override string ToString() => Name; // needed?
     }
 
 }

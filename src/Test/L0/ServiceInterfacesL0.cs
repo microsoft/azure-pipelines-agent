@@ -101,8 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(INUnitResultsXmlReader),
                 typeof(IWorkerCommand),
                 typeof(ITaskRestrictionsChecker),
-                typeof(IRetryOptions),
-                typeof(Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies.IUnifiedNodeVersionStrategy) // Strategy interface - no DI needed
+                typeof(IRetryOptions)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,
