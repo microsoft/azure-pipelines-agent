@@ -1055,19 +1055,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
         {
-            // Cross-platform scenario or custom node path: Return null to signal custom handling
-            // The unified strategy will use container.CustomNodePath directly
+            // Cross-platform scenario: Return CustomNodeHandlerData to signal custom handling
             if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
             {
                 executionContext.Debug("Cross-platform container detected. Will use container's built-in node.");
-                return null; // Signals custom path handling in strategies
+                return new CustomNodeHandlerData { Source = "CrossPlatform" };
             }
 
-            // Custom node path from Docker label
+            // Custom node path from Docker label: Return CustomNodeHandlerData to signal custom handling
             if (!string.IsNullOrEmpty(container.CustomNodePath))
             {
                 executionContext.Debug($"Custom node path specified: {container.CustomNodePath}");
-                return null; // Signals custom path handling in strategies
+                return new CustomNodeHandlerData { Source = "DockerLabel" };
             }
 
             // Check container-specific knobs

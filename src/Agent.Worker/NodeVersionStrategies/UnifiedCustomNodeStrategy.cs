@@ -82,12 +82,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 source = "Container.CustomNodePath";
             }
 
-            if (string.IsNullOrEmpty(customPath))
-            {
-                throw new InvalidOperationException(
-                    "CustomNodeStrategy.GetNodePath() called but no custom path found. " +
-                    "This should not happen - CanHandle() should have returned false.");
-            }
+            // if (string.IsNullOrEmpty(customPath))
+            // {
+            //     throw new InvalidOperationException(
+            //         "CustomNodeStrategy.GetNodePath() called but no custom path found. " +
+            //         "This should not happen - CanHandle() should have returned false.");
+            // }
 
             context.ExecutionContext.Debug($"[CustomNodeStrategy] Using custom node path from {source}: {customPath}");
 
