@@ -14,10 +14,6 @@ using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    /// <summary>
-    /// Simplified base class for NodeHandler test execution.
-    /// Sets up test environment, runs tests, and cleans up.
-    /// </summary>
     public abstract class NodeHandlerTestBase : IDisposable
     {
         protected Mock<INodeHandlerHelper> NodeHandlerHelper { get; private set; }
@@ -47,17 +43,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        /// <summary>
-        /// Execute a test scenario and assert the expected behavior.
-        /// </summary>
         protected void RunScenarioAndAssert(TestScenario scenario)
         {
             RunScenarioAndAssert(scenario, useUnifiedStrategy: false);
         }
 
-        /// <summary>
-        /// Execute a test scenario and assert the expected behavior with strategy selection.
-        /// </summary>
         protected void RunScenarioAndAssert(TestScenario scenario, bool useUnifiedStrategy)
         {
             ResetEnvironment();
@@ -87,7 +77,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     var expectations = GetScenarioExpectations(scenario, useUnifiedStrategy);
 
-                    // Execute test
                     if (expectations.ExpectSuccess)
                     {
                         string actualLocation = nodeHandler.GetNodeLocation(
@@ -106,7 +95,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                                 node24ResultsInGlibCError: scenario.Node24GlibcError,
                                 inContainer: scenario.InContainer));
 
-                        // Verify error message if specified
                         if (!string.IsNullOrEmpty(expectations.ExpectedError))
                         {
                             Assert.Contains(expectations.ExpectedError, exception.Message);
@@ -120,9 +108,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        /// <summary>
-        /// Configure NodeHandlerHelper mock based on scenario conditions.
-        /// </summary>
         private void ConfigureNodeHandlerHelper(TestScenario scenario)
         {
             NodeHandlerHelper.Reset();
@@ -140,11 +125,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}"));
         }
 
-        /// <summary>
-        /// Get expected node location based on scenario and expectedNode.
-        /// For custom node paths, returns the custom path exactly as specified.
-        /// For standard node paths, constructs the appropriate path based on container vs host.
-        /// </summary>
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
         {
             if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
@@ -159,9 +139,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 $"node{IOUtil.ExeExtension}");
         }
 
-        /// <summary>
-        /// Get scenario expectations based on whether it's equivalent or divergent and which strategy is being used.
-        /// </summary>
         protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useUnifiedStrategy)
         {
             return new ScenarioExpectations
@@ -172,9 +149,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             };
         }
 
-        /// <summary>
-        /// Create handler data instance based on type.
-        /// </summary>
         protected BaseNodeHandlerData CreateHandlerData(Type handlerDataType)
         {
             if (handlerDataType == typeof(NodeHandlerData))
@@ -191,9 +165,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 throw new ArgumentException($"Unknown handler data type: {handlerDataType}");
         }
 
-        /// <summary>
-        /// Create test execution context with environment variables.
-        /// </summary>
         protected Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, Dictionary<string, string> knobs)
         {
             var executionContext = new Mock<IExecutionContext>();
@@ -217,7 +188,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
                 .Returns((string variableName) =>
                 {
-                    // Check variables first, then environment
                     if (variables.TryGetValue(variableName, out VariableValue value))
                     {
                         return value.Value;
@@ -228,14 +198,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return executionContext;
         }
 
-        /// <summary>
-        /// Create test execution context with custom node path support.
-        /// </summary>
         protected Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, TestScenario scenario)
         {
             var executionContext = CreateTestExecutionContext(tc, scenario.Knobs);
             
-            // Setup StepTarget object for custom node path scenarios
             if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
             {
                 var stepTarget = CreateStepTargetObject(scenario);
@@ -245,7 +211,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             else
             {
-                // No custom path - return null StepTarget
                 executionContext
                     .Setup(x => x.StepTarget())
                     .Returns((ExecutionTargetInfo)null);
@@ -254,15 +219,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return executionContext;
         }
 
-        /// <summary>
-        /// Create StepTarget object for custom node scenarios.
-        /// Uses real HostInfo/ContainerInfo objects since CustomNodePath is not virtual.
-        /// </summary>
         private ExecutionTargetInfo CreateStepTargetObject(TestScenario scenario)
         {
             if (scenario.InContainer)
             {
-                // Container scenario - create real ContainerInfo with custom node path
                 return new ContainerInfo()
                 {
                     CustomNodePath = scenario.CustomNodePath
@@ -270,7 +230,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             else
             {
-                // Host scenario - create real HostInfo with custom node path  
                 return new HostInfo()
                 {
                     CustomNodePath = scenario.CustomNodePath
@@ -278,9 +237,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        /// <summary>
-        /// Get mocked node handler helper with default behavior.
-        /// </summary>
         private Mock<INodeHandlerHelper> GetMockedNodeHandlerHelper()
         {
             var nodeHandlerHelper = new Mock<INodeHandlerHelper>();
@@ -300,9 +256,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return nodeHandlerHelper;
         }
 
-        /// <summary>
-        /// Reset all node-related environment variables.
-        /// </summary>
         protected void ResetEnvironment()
         {
             // Core Node.js strategy knobs
@@ -315,28 +268,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_ENABLE_EOL_NODE_VERSION_POLICY", null);
             Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
-            Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", null);
+            // Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);            
             
-            // Agent path variables
-            Environment.SetEnvironmentVariable("VSTS_AGENT_SRC_FOLDER", null);
-            Environment.SetEnvironmentVariable("AGENT_TOOLSDIRECTORY", null);
-            
-            // Node warnings
-            Environment.SetEnvironmentVariable("VSTSAGENT_ENABLE_NODE_WARNINGS", null);
-            
-            // Force garbage collection to ensure clean state
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
         }
     }
 
-    /// <summary>
-    /// Result of running a test scenario.
-    /// </summary>
     public class TestResult
     {
         public bool Success { get; set; }
@@ -344,9 +284,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public Exception Exception { get; set; }
     }
 
-    /// <summary>
-    /// Encapsulates expectations for a scenario based on strategy.
-    /// </summary>
     public class ScenarioExpectations
     {
         public string ExpectedNode { get; set; }

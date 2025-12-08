@@ -10,18 +10,6 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
-    /// <summary>
-    /// Organization:
-    /// 1. CUSTOM NODE SCENARIOS (Priority 0 - HIGHEST)
-    /// 2. NODE6 SCENARIOS (NodeHandlerData - EOL)
-    /// 3. NODE10 SCENARIOS (Node10HandlerData - EOL) 
-    /// 4. NODE16 SCENARIOS (Node16HandlerData - EOL)
-    /// 5. NODE20 SCENARIOS (Node20_1HandlerData)
-    /// 6. NODE24 SCENARIOS (Node24HandlerData)
-    /// 7. CONTAINER-SPECIFIC SCENARIOS
-    /// 8. EOL POLICY SCENARIOS
-    /// 9. EDGE CASES AND ERROR SCENARIOS
-    /// </summary>
     public static class NodeHandlerTestSpecs
     {
         public static readonly TestScenario[] AllScenarios = new[]
@@ -471,28 +459,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectSuccess: true,
                 shouldMatchBetweenModes: true
             ),
-            
-            // should this give node24?? as node 24 glibc is compatible in this case (not set so good)
-            // lets review this test case - review done of both below 2 test,
-            // below 2 mentioned cases covered in immediate 2 below tests for EOL policy enabled
-            // 2 cases in this for EOL = true
-            // 1. node20 glibc error true, node24 glibc error false ( not set) - select node 24 - this test is covered - Node20_GlibcError_EOLPolicy_UpgradesToNode24
-            // 2. node20 glibc error true, node24 glibc error true - should throw error as both have glibc errors
-            // new TestScenario( // DONE
-            //     name: "Node20_GlibcError_Node24_GlibcError_EOLPolicy_ThrowsError",
-            //     description: "Node20 and Node24 with glibc error and EOL policy enabled throws error (cannot fallback to Node16), legacy picks Node16",
-            //     handlerData: typeof(Node20_1HandlerData),
-            //     knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-            //     node20GlibcError: true,
-            //     node24GlibcError: true,
-            //     legacyExpectedNode: "node16", // Legacy falls back to Node16
-            //     legacyExpectSuccess: true,
-                // expectSuccess: false,
-            //     expectedErrorType: typeof(NotSupportedException),
-            //     unifiedExpectedError: "would fallback to Node16 (EOL) but EOL policy is enabled",
-            //     shouldMatchBetweenModes: false, // Different EOL policy behavior
-            // ),
-            // uncomment htis test, giving some syntax error, check and fix
 
             new TestScenario(
                 name: "Node20_GlibcError_EOLPolicy_UpgradesToNode24",
@@ -671,21 +637,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 legacyExpectedNode: "node16",
                 legacyExpectSuccess: true,
                 unifiedExpectedNode: "node24",
-                unifiedExpectSuccess: true,
-                inContainer: true,
-                shouldMatchBetweenModes: false
-            ),
-            
-            new TestScenario( // VERIFY THIS TEST --- containerNeedsNode20Redirect = true so node24 has glibc error on container
-            // fix this, currently passing incorrectly
-                name: "Node20_InContainer_WithRedirect_EOLPolicy_UpgradesToNode24",
-                description: "Node20 in container with redirect and EOL policy upgrades to Node24 (unified) or stays Node20 (legacy)",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_ENABLE_EOL_NODE_VERSION_POLICY"] = "true" },
-                // node24GlibcError: true,
-                legacyExpectedNode: "node20_1", // Legacy stays Node20
-                legacyExpectSuccess: true,
-                unifiedExpectedNode: "node24", // Unified upgrades to Node24 due to EOL policy
                 unifiedExpectSuccess: true,
                 inContainer: true,
                 shouldMatchBetweenModes: false
@@ -936,7 +887,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             CustomNodePath = customNodePath;
         }
         
-        public override string ToString() => Name; // needed?
     }
 
 }
