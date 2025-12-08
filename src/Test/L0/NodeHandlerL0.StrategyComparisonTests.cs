@@ -89,7 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             if (!string.IsNullOrEmpty(scenario.LegacyExpectedNode))
             {
                 Assert.True(legacyResult.Success, $"Legacy should succeed for scenario: {scenario.Name}");
-                var expectedLegacyPath = GetExpectedNodePath(scenario.LegacyExpectedNode);
+                var expectedLegacyPath = GetExpectedNodePath(scenario.LegacyExpectedNode, scenario);
                 Assert.Equal(expectedLegacyPath, legacyResult.NodePath);
             }
             else if (!scenario.LegacyExpectSuccess)
@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             if (!string.IsNullOrEmpty(scenario.UnifiedExpectedNode))
             {
                 Assert.True(unifiedResult.Success, $"Unified should succeed for scenario: {scenario.Name}");
-                var expectedUnifiedPath = GetExpectedNodePath(scenario.UnifiedExpectedNode);
+                var expectedUnifiedPath = GetExpectedNodePath(scenario.UnifiedExpectedNode, scenario);
                 Assert.Equal(expectedUnifiedPath, unifiedResult.NodePath);
             }
             else if (!scenario.UnifiedExpectSuccess)
@@ -128,10 +128,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         /// <summary>
-        /// Get expected node path based on node folder name using a mock TestHostContext.
+        /// Get expected node path based on node folder name and scenario.
+        /// For custom node paths, returns the custom path exactly as specified.
+        /// For standard node paths, constructs the appropriate path.
         /// </summary>
-        private string GetExpectedNodePath(string nodeFolderName)
+        private string GetExpectedNodePath(string nodeFolderName, TestScenario scenario)
         {
+            // For custom node scenarios, return the custom path exactly as specified
+            // This matches the behavior in NodeHandlerTestBase.GetExpectedNodeLocation
+            if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
+            {
+                return scenario.CustomNodePath;
+            }
+
+            // For standard scenarios, check if nodeFolderName looks like a full path or just a folder name
+            if (nodeFolderName.Contains('/') || nodeFolderName.Contains('\\'))
+            {
+                // nodeFolderName is already a full path
+                return nodeFolderName;
+            }
+
+            // nodeFolderName is a node folder name, build the host path
             using (TestHostContext thc = new TestHostContext(this, "MockForPath"))
             {
                 return Path.Combine(

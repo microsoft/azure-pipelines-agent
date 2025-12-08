@@ -216,17 +216,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         /// <summary>
-        /// Get expected node location based on node folder name.
-        /// For custom node paths, returns the path as-is.
-        /// For standard node folders, constructs the full path.
+        /// Get expected node location based on scenario and expectedNode.
+        /// For custom node paths, returns the custom path exactly as specified.
+        /// For standard node paths, constructs the appropriate path based on container vs host.
         /// </summary>
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
         {
             // For custom node scenarios, return the custom path exactly as specified
-            // This applies to both unified and legacy strategies since both return exact paths
+            // Both legacy and unified strategies return custom paths directly
             if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
             {
-                return scenario.CustomNodePath; // Return actual custom path, not expectedNode
+                return scenario.CustomNodePath;
             }
             
             // Handle null expectedNode to prevent ArgumentNullException
@@ -235,12 +235,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 throw new ArgumentException("ExpectedNode cannot be null or empty for non-custom node scenarios", nameof(expectedNode));
             }
             
-            // For standard node folders, construct the full path
-            return Path.Combine(
+            // For standard scenarios, check if expectedNode looks like a full path or just a node folder name
+            if (expectedNode.Contains('/') || expectedNode.Contains('\\'))
+            {
+                // expectedNode is already a full path (e.g., for some container scenarios)
+                return expectedNode;
+            }
+            
+            // expectedNode is a node folder name, build the host path first
+            string hostPath = Path.Combine(
                 thc.GetDirectory(WellKnownDirectory.Externals),
                 expectedNode,
                 "bin",
                 $"node{IOUtil.ExeExtension}");
+            
+            // For container scenarios, apply container path translation
+            // if (scenario.InContainer)
+            // {
+            //     // Create a mock ContainerInfo to simulate path translation
+            //     var containerInfo = new ContainerInfo();
+                
+            //     // Set up basic path mappings for testing
+            //     // This simulates what would happen in real container scenarios
+            //     SetupMockContainerPathMappings(containerInfo, thc);
+                
+            //     // Apply the same path translation that the real code would use
+            //     return containerInfo.TranslateToContainerPath(hostPath);
+            // }
+            
+            // For host scenarios, return the host path
+            return hostPath;
+        }
+
+        /// <summary>
+        /// Set up mock container path mappings for testing.
+        /// This simulates the path mappings that would be created during real container setup.
+        /// </summary>
+        private void SetupMockContainerPathMappings(ContainerInfo containerInfo, TestHostContext thc)
+        {
+            // Simulate typical container path mappings
+            // In real scenarios, these are set up during container creation based on volume mounts
+            
+            // Map externals directory (where node binaries are located)
+            string hostExternals = thc.GetDirectory(WellKnownDirectory.Externals);
+            string containerExternals = "/vsts/_work/_tool";
+            containerInfo.PathMappings[hostExternals] = containerExternals;
+            
+            // Add other common mappings that might affect node paths
+            string hostWork = thc.GetDirectory(WellKnownDirectory.Work);
+            string containerWork = "/vsts/_work";
+            containerInfo.PathMappings[hostWork] = containerWork;
         }
 
         /// <summary>

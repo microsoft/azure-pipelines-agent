@@ -907,6 +907,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public override int Priority => 101;
     }
 
+    public sealed class CustomNodeHandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 0; // Highest priority - same as CustomNodeStrategy
+        
+        public string Source { get; set; } = "Custom";
+    }
+
     public sealed class PowerShell3HandlerData : HandlerData
     {
         public override int Priority => 106;

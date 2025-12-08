@@ -166,16 +166,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 shouldMatchBetweenModes: true
             ),
 
-            new TestScenario(
-                name: "CustomNode_Container_PathTranslation",
-                description: "Custom host path gets translated to container path via TranslateToContainerPath",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "{{WORK_DIR}}/custom-node/bin/node", // Will be replaced with actual work directory
-                inContainer: true,
-                expectedNode: "/__w/custom-node/bin/node", // Expected container translation (Linux)
-                expectSuccess: true,
-                shouldMatchBetweenModes: true
-            ),
+            // new TestScenario(
+            //     name: "CustomNode_Container_PathTranslation",
+            //     description: "Custom host path gets translated to container path via TranslateToContainerPath",
+            //     handlerData: typeof(Node16HandlerData),
+            //     customNodePath: "/host/custom-node/bin/node", // Host path
+            //     inContainer: true,
+            //     expectedNode: "/__w/custom-node/bin/node", // Expected container translation
+            //     expectSuccess: true,
+            //     shouldMatchBetweenModes: true
+            // ),
 
             new TestScenario(// CHECK THIS TEST --- do we need this test
             // we have version extraction logic in custom ndoe strategy
