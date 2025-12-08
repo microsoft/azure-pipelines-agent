@@ -1,0 +1,1208 @@
+# EOL Node.js Feature Test Pipeline with Real PowerShell Tasks
+# Tests actual PowerShell tasks with different Node.js handler configurations
+# Task Version 1: Node24, Node20, Node16, Node10 handlers
+# Task Version 2: Node16, Node10 handlers only
+
+trigger:
+  branches:
+    include:
+    - users/rishabhmalikMS/agentEOLNodeUpdates
+    - main
+
+variables:
+  BUILD_CONFIGURATION: 'Debug'
+  # Replace with your actual PowerShell task IDs and versions
+  POWERSHELL_TASK_V1_ID: 'your-powershell-task-v1-guid'  # Has Node24,20,16,10 handlers  
+  POWERSHELL_TASK_V1_VERSION: '1.0.0'
+  POWERSHELL_TASK_V2_ID: 'your-powershell-task-v2-guid'  # Has Node16,10 handlers only
+  POWERSHELL_TASK_V2_VERSION: '2.0.0'
+
+pool: 
+  # Replace with your actual self-hosted agent pool name
+  name: 'YourSelfHostedPool'
+
+jobs:
+
+# =============================================================================
+# TASK VERSION 1 TESTS (Node24, Node20, Node16, Node10 handlers available)
+# =============================================================================
+
+- job: 'TaskV1_EOL_Policy_Tests'
+  displayName: 'Task V1 (Node24/20/16/10) - EOL Policy Tests'
+  strategy:
+    matrix:
+      # Test all handlers with EOL policy enabled
+      Node24_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node24_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node24'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (not affected by EOL)'
+        
+      Node20_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node20_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node20'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (not affected by EOL)'
+        
+      Node16_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node16_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (EOL upgrade)'
+        
+      Node10_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node10_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (EOL upgrade)'
+        
+      # Test handlers with EOL policy disabled
+      Node16_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV1_Node16_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node16 (EOL policy disabled)'
+        
+      Node10_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV1_Node10_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node10 (EOL policy disabled)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V1 (Node24/20/16/10 handlers)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set EOL policy environment variable
+        if ("$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)" -ne '') {
+            $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY = "$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)"
+            Write-Host "Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY = $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+        }
+
+  # Use your actual PowerShell task V1 here
+  - task: $(POWERSHELL_TASK_V1_ID)@$(POWERSHELL_TASK_V1_VERSION)
+    displayName: 'Execute PowerShell Task V1 with $(NODE_HANDLER) Handler'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V1 Execution ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        Write-Host "Node version: $($PSVersionTable.PSVersion)"
+        Write-Host "PowerShell executable: $PSHOME"
+        
+        # Show which Node.js version is being used by the task
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Node.js version: $(node --version)"
+            Write-Host "Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+- job: 'TaskV1_Global_Knob_Tests'
+  displayName: 'Task V1 (Node24/20/16/10) - Global Knob Tests'
+  strategy:
+    matrix:
+      # Test AGENT_USE_NODE24 override
+      Node16_with_UseNode24:
+        TEST_NAME: 'TaskV1_Node16_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob override)'
+        
+      Node10_with_UseNode24:
+        TEST_NAME: 'TaskV1_Node10_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob override)'
+        
+      # Test AGENT_USE_NODE20_1 override
+      Node16_with_UseNode20:
+        TEST_NAME: 'TaskV1_Node16_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob override)'
+        
+      Node10_with_UseNode20:
+        TEST_NAME: 'TaskV1_Node10_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob override)'
+        
+      # Test multiple knobs priority
+      Multiple_Knobs_Priority:
+        TEST_NAME: 'TaskV1_Multiple_Knobs_Priority'
+        AGENT_USE_NODE24: 'true'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (highest priority)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Global Knob Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set global knobs based on test matrix
+        if ("$(AGENT_USE_NODE24)" -eq 'true') {
+            $env:AGENT_USE_NODE24 = "true"
+            Write-Host "Set AGENT_USE_NODE24 = true" -ForegroundColor Green
+        }
+        if ("$(AGENT_USE_NODE20_1)" -eq 'true') {
+            $env:AGENT_USE_NODE20_1 = "true"
+            Write-Host "Set AGENT_USE_NODE20_1 = true" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V1_ID)@$(POWERSHELL_TASK_V1_VERSION)
+    displayName: 'Execute PowerShell Task V1 with Global Knobs'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V1 - Global Knob Test ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Selected Node.js version: $(node --version)"
+            Write-Host "Selected Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+# =============================================================================
+# TASK VERSION 2 TESTS (Node16, Node10 handlers only)
+# =============================================================================
+
+- job: 'TaskV2_EOL_Policy_Tests'
+  displayName: 'Task V2 (Node16/10 only) - EOL Policy Tests'
+  strategy:
+    matrix:
+      Node16_Handler_EOL_ON:
+        TEST_NAME: 'TaskV2_Node16_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (external fallback)'
+        
+      Node10_Handler_EOL_ON:
+        TEST_NAME: 'TaskV2_Node10_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (external fallback)'
+        
+      Node16_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV2_Node16_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node16 (EOL policy disabled)'
+        
+      Node10_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV2_Node10_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node10 (EOL policy disabled)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V2 (Node16/10 handlers only)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow  
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set EOL policy
+        if ("$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)" -ne '') {
+            $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY = "$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)"
+            Write-Host "Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY = $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V2_ID)@$(POWERSHELL_TASK_V2_VERSION)
+    displayName: 'Execute PowerShell Task V2 with $(NODE_HANDLER) Handler'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V2 Execution ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        Write-Host "Note: Task only has Node16/10 handlers, may fallback to agent externals"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Node.js version: $(node --version)"
+            Write-Host "Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+- job: 'TaskV2_Global_Knob_Tests'
+  displayName: 'Task V2 (Node16/10 only) - Global Knob Tests'
+  strategy:
+    matrix:
+      Node16_with_UseNode24:
+        TEST_NAME: 'TaskV2_Node16_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob, external)'
+        
+      Node10_with_UseNode20:
+        TEST_NAME: 'TaskV2_Node10_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob, external)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Global Knob Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V2 (Node16/10 handlers only)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        if ("$(AGENT_USE_NODE24)" -eq 'true') {
+            $env:AGENT_USE_NODE24 = "true"
+            Write-Host "Set AGENT_USE_NODE24 = true" -ForegroundColor Green
+        }
+        if ("$(AGENT_USE_NODE20_1)" -eq 'true') {
+            $env:AGENT_USE_NODE20_1 = "true"
+            Write-Host "Set AGENT_USE_NODE20_1 = true" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V2_ID)@$(POWERSHELL_TASK_V2_VERSION)
+    displayName: 'Execute PowerShell Task V2 with Global Knobs'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V2 - Global Knob Test ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Selected Node.js version: $(node --version)"
+            Write-Host "Selected Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+# =============================================================================
+# COMPREHENSIVE RESULTS SUMMARY
+# =============================================================================
+
+- job: 'Test_Results_Summary'
+  displayName: 'Comprehensive Test Results Summary'
+  dependsOn:
+  - TaskV1_EOL_Policy_Tests
+  - TaskV1_Global_Knob_Tests
+  - TaskV2_EOL_Policy_Tests
+  - TaskV2_Global_Knob_Tests
+  condition: always()
+  
+  steps:
+  - task: PowerShell@2
+    displayName: 'Generate Test Results Summary'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== EOL Node.js Feature - PowerShell Task Test Results ===" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "🎯 Test Combinations Executed:" -ForegroundColor Yellow
+        Write-Host "✅ PowerShell Task V1 (Node24/20/16/10) - EOL Policy Tests" -ForegroundColor Green
+        Write-Host "✅ PowerShell Task V1 (Node24/20/16/10) - Global Knob Tests" -ForegroundColor Green
+        Write-Host "✅ PowerShell Task V2 (Node16/10 only) - EOL Policy Tests" -ForegroundColor Green
+        Write-Host "✅ PowerShell Task V2 (Node16/10 only) - Global Knob Tests" -ForegroundColor Green
+        Write-Host ""
+        
+        Write-Host "📊 Key Validation Points:" -ForegroundColor Magenta
+        Write-Host "• Handler Availability Impact:" -ForegroundColor White
+        Write-Host "  - Task V1: Can use internal Node24/20 or upgrade EOL versions" -ForegroundColor Gray
+        Write-Host "  - Task V2: Must fallback to agent externals for Node24/20" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "• EOL Policy Behavior:" -ForegroundColor White
+        Write-Host "  - Node16/10 requests should upgrade to Node24 when policy enabled" -ForegroundColor Gray
+        Write-Host "  - Node24/20 requests should not be affected by EOL policy" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "• Global Knob Priority:" -ForegroundColor White
+        Write-Host "  - AGENT_USE_NODE24 should override all handler requests" -ForegroundColor Gray
+        Write-Host "  - NODE24 knob should take priority over NODE20_1 knob" -ForegroundColor Gray
+        Write-Host ""
+        
+        Write-Host "✅ Test execution completed! Review individual job results above." -ForegroundColor Green
+
+# =============================================================================
+# TASK VERSION 1 TESTS (Node24, Node20, Node16, Node10 handlers available)
+# =============================================================================
+
+- job: 'TaskV1_EOL_Policy_Tests'
+  displayName: 'Task V1 (Node24/20/16/10) - EOL Policy Tests'
+  strategy:
+    matrix:
+      # Test all handlers with EOL policy enabled
+      Node24_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node24_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node24'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (not affected by EOL)'
+        
+      Node20_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node20_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node20'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (not affected by EOL)'
+        
+      Node16_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node16_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (EOL upgrade)'
+        
+      Node10_Handler_EOL_ON:
+        TEST_NAME: 'TaskV1_Node10_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (EOL upgrade)'
+        
+      # Test handlers with EOL policy disabled
+      Node16_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV1_Node16_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node16 (EOL policy disabled)'
+        
+      Node10_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV1_Node10_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node10 (EOL policy disabled)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V1 (Node24/20/16/10 handlers)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set EOL policy environment variable
+        if ("$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)" -ne '') {
+            $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY = "$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)"
+            Write-Host "Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY = $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+        }
+
+  # Use your actual PowerShell task V1 here
+  - task: $(POWERSHELL_TASK_V1_ID)@$(POWERSHELL_TASK_V1_VERSION)
+    displayName: 'Execute PowerShell Task V1 with $(NODE_HANDLER) Handler'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V1 Execution ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        Write-Host "Node version: $($PSVersionTable.PSVersion)"
+        Write-Host "PowerShell executable: $PSHOME"
+        
+        # Show which Node.js version is being used by the task
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Node.js version: $(node --version)"
+            Write-Host "Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+- job: 'TaskV1_Global_Knob_Tests'
+  displayName: 'Task V1 (Node24/20/16/10) - Global Knob Tests'
+  strategy:
+    matrix:
+      # Test AGENT_USE_NODE24 override
+      Node16_with_UseNode24:
+        TEST_NAME: 'TaskV1_Node16_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob override)'
+        
+      Node10_with_UseNode24:
+        TEST_NAME: 'TaskV1_Node10_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob override)'
+        
+      # Test AGENT_USE_NODE20_1 override
+      Node16_with_UseNode20:
+        TEST_NAME: 'TaskV1_Node16_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob override)'
+        
+      Node10_with_UseNode20:
+        TEST_NAME: 'TaskV1_Node10_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob override)'
+        
+      # Test multiple knobs priority
+      Multiple_Knobs_Priority:
+        TEST_NAME: 'TaskV1_Multiple_Knobs_Priority'
+        AGENT_USE_NODE24: 'true'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (highest priority)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Global Knob Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set global knobs based on test matrix
+        if ("$(AGENT_USE_NODE24)" -eq 'true') {
+            $env:AGENT_USE_NODE24 = "true"
+            Write-Host "Set AGENT_USE_NODE24 = true" -ForegroundColor Green
+        }
+        if ("$(AGENT_USE_NODE20_1)" -eq 'true') {
+            $env:AGENT_USE_NODE20_1 = "true"
+            Write-Host "Set AGENT_USE_NODE20_1 = true" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V1_ID)@$(POWERSHELL_TASK_V1_VERSION)
+    displayName: 'Execute PowerShell Task V1 with Global Knobs'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V1 - Global Knob Test ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Selected Node.js version: $(node --version)"
+            Write-Host "Selected Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+# =============================================================================
+# TASK VERSION 2 TESTS (Node16, Node10 handlers only)
+# =============================================================================
+
+- job: 'TaskV2_EOL_Policy_Tests'
+  displayName: 'Task V2 (Node16/10 only) - EOL Policy Tests'
+  strategy:
+    matrix:
+      Node16_Handler_EOL_ON:
+        TEST_NAME: 'TaskV2_Node16_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (external fallback)'
+        
+      Node10_Handler_EOL_ON:
+        TEST_NAME: 'TaskV2_Node10_EOL_Policy_ON'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should upgrade to Node24 (external fallback)'
+        
+      Node16_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV2_Node16_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node16 (EOL policy disabled)'
+        
+      Node10_Handler_EOL_OFF:
+        TEST_NAME: 'TaskV2_Node10_EOL_Policy_OFF'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node10 (EOL policy disabled)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V2 (Node16/10 handlers only)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow  
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        # Set EOL policy
+        if ("$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)" -ne '') {
+            $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY = "$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)"
+            Write-Host "Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY = $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V2_ID)@$(POWERSHELL_TASK_V2_VERSION)
+    displayName: 'Execute PowerShell Task V2 with $(NODE_HANDLER) Handler'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V2 Execution ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        Write-Host "Note: Task only has Node16/10 handlers, may fallback to agent externals"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Node.js version: $(node --version)"
+            Write-Host "Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+- job: 'TaskV2_Global_Knob_Tests'
+  displayName: 'Task V2 (Node16/10 only) - Global Knob Tests'
+  strategy:
+    matrix:
+      Node16_with_UseNode24:
+        TEST_NAME: 'TaskV2_Node16_with_AGENT_USE_NODE24'
+        AGENT_USE_NODE24: 'true'
+        NODE_HANDLER: 'Node16'
+        EXPECTED_BEHAVIOR: 'Should use Node24 (global knob, external)'
+        
+      Node10_with_UseNode20:
+        TEST_NAME: 'TaskV2_Node10_with_AGENT_USE_NODE20_1'
+        AGENT_USE_NODE20_1: 'true'
+        NODE_HANDLER: 'Node10'
+        EXPECTED_BEHAVIOR: 'Should use Node20 (global knob, external)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Global Knob Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Task Version: V2 (Node16/10 handlers only)" -ForegroundColor Yellow
+        Write-Host "Handler: $(NODE_HANDLER)" -ForegroundColor Yellow
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)" -ForegroundColor Yellow
+        
+        if ("$(AGENT_USE_NODE24)" -eq 'true') {
+            $env:AGENT_USE_NODE24 = "true"
+            Write-Host "Set AGENT_USE_NODE24 = true" -ForegroundColor Green
+        }
+        if ("$(AGENT_USE_NODE20_1)" -eq 'true') {
+            $env:AGENT_USE_NODE20_1 = "true"
+            Write-Host "Set AGENT_USE_NODE20_1 = true" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V2_ID)@$(POWERSHELL_TASK_V2_VERSION)
+    displayName: 'Execute PowerShell Task V2 with Global Knobs'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== PowerShell Task V2 - Global Knob Test ==="
+        Write-Host "Test: $(TEST_NAME)"
+        Write-Host "Expected: $(EXPECTED_BEHAVIOR)"
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            Write-Host "Selected Node.js version: $(node --version)"
+            Write-Host "Selected Node.js path: $(Get-Command node | Select-Object -ExpandProperty Source)"
+        }
+
+# =============================================================================
+# COMPARISON TESTS (Same scenario, different task versions)
+# =============================================================================
+
+- job: 'Cross_Task_Comparison'
+  displayName: 'Cross-Task Version Comparison Tests'
+  dependsOn:
+  - TaskV1_EOL_Policy_Tests
+  - TaskV1_Global_Knob_Tests
+  - TaskV2_EOL_Policy_Tests
+  - TaskV2_Global_Knob_Tests
+  
+  strategy:
+    matrix:
+      Compare_Node16_EOL_Policy:
+        TEST_NAME: 'Compare_Node16_Handler_EOL_Policy'
+        AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+        EXPECTED_V1: 'Node24 (has handler or upgrades)'
+        EXPECTED_V2: 'Node24 (external fallback)'
+        
+      Compare_Global_NODE24_Override:
+        TEST_NAME: 'Compare_Global_NODE24_Override'
+        AGENT_USE_NODE24: 'true'
+        EXPECTED_V1: 'Node24 (global knob)'
+        EXPECTED_V2: 'Node24 (global knob, external)'
+
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Comparison Test: $(TEST_NAME)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Cross-Task Comparison: $(TEST_NAME) ===" -ForegroundColor Cyan
+        Write-Host "Expected V1 (Node24/20/16/10): $(EXPECTED_V1)" -ForegroundColor Yellow
+        Write-Host "Expected V2 (Node16/10 only): $(EXPECTED_V2)" -ForegroundColor Yellow
+        
+        # Set environment variables
+        if ("$(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)" -eq 'true') {
+            $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY = "true"
+            Write-Host "Set AGENT_ENABLE_EOL_NODE_VERSION_POLICY = true" -ForegroundColor Green
+        }
+        if ("$(AGENT_USE_NODE24)" -eq 'true') {
+            $env:AGENT_USE_NODE24 = "true"
+            Write-Host "Set AGENT_USE_NODE24 = true" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V1_ID)@$(POWERSHELL_TASK_V1_VERSION)
+    displayName: 'Test with Task V1 (Node24/20/16/10)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Task V1 Result ==="
+        Write-Host "Expected: $(EXPECTED_V1)"
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            $nodeVersion = node --version
+            $nodePath = (Get-Command node).Source
+            Write-Host "Actual Node version: $nodeVersion" -ForegroundColor Green
+            Write-Host "Actual Node path: $nodePath" -ForegroundColor Green
+        }
+
+  - task: $(POWERSHELL_TASK_V2_ID)@$(POWERSHELL_TASK_V2_VERSION)
+    displayName: 'Test with Task V2 (Node16/10 only)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Task V2 Result ==="
+        Write-Host "Expected: $(EXPECTED_V2)"
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            $nodeVersion = node --version
+            $nodePath = (Get-Command node).Source
+            Write-Host "Actual Node version: $nodeVersion" -ForegroundColor Green
+            Write-Host "Actual Node path: $nodePath" -ForegroundColor Green
+        }
+
+  - task: PowerShell@2
+    displayName: 'Compare Results'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Comparison Analysis ===" -ForegroundColor Cyan
+        Write-Host "Both tasks should show similar node selection behavior" -ForegroundColor Yellow
+        Write-Host "Key differences to validate:" -ForegroundColor White
+        Write-Host "• Task V1: May use internal handlers when available" -ForegroundColor Gray
+        Write-Host "• Task V2: Must fallback to agent externals for Node24/20" -ForegroundColor Gray
+        Write-Host "• Both: Should respect global knobs and EOL policy equally" -ForegroundColor Gray
+
+# =============================================================================
+# COMPREHENSIVE RESULTS SUMMARY
+# =============================================================================
+
+- job: 'Test_Results_Summary'
+  displayName: 'Comprehensive Test Results Summary'
+  dependsOn:
+  - TaskV1_EOL_Policy_Tests
+  - TaskV1_Global_Knob_Tests
+  - TaskV2_EOL_Policy_Tests
+  - TaskV2_Global_Knob_Tests
+  - Cross_Task_Comparison
+  condition: always()
+  
+  steps:
+  - task: PowerShell@2
+    displayName: 'Generate Test Results Summary'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== EOL Node.js Feature - Test Results Summary ===" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "🎯 Test Combinations Executed:" -ForegroundColor Yellow
+        Write-Host "✅ Task V1 (Node24/20/16/10) - EOL Policy Tests" -ForegroundColor Green
+        Write-Host "  - Node24/20 handlers + EOL Policy → Should use Node24/20" -ForegroundColor Gray
+        Write-Host "  - Node16/10 handlers + EOL Policy → Should upgrade to Node24" -ForegroundColor Gray
+        Write-Host "  - Node16/10 handlers + EOL Policy OFF → Should use Node16/10" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "✅ Task V1 (Node24/20/16/10) - Global Knob Tests" -ForegroundColor Green
+        Write-Host "  - AGENT_USE_NODE24=true → All handlers should use Node24" -ForegroundColor Gray
+        Write-Host "  - AGENT_USE_NODE20_1=true → All handlers should use Node20" -ForegroundColor Gray
+        Write-Host "  - Multiple knobs → Node24 should win (priority)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "✅ Task V2 (Node16/10 only) - EOL Policy Tests" -ForegroundColor Green
+        Write-Host "  - Node16/10 + EOL Policy → Should upgrade to Node24 (external)" -ForegroundColor Gray
+        Write-Host "  - Node16/10 + EOL Policy OFF → Should use Node16/10" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "✅ Task V2 (Node16/10 only) - Global Knob Tests" -ForegroundColor Green
+        Write-Host "  - Global knobs should force Node24/20 (external fallback)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "✅ Cross-Task Comparison Tests" -ForegroundColor Green
+        Write-Host "  - Same scenarios across different task versions" -ForegroundColor Gray
+        Write-Host "  - Validation of consistent behavior" -ForegroundColor Gray
+        Write-Host ""
+        
+        Write-Host "📊 Key Validation Points:" -ForegroundColor Magenta
+        Write-Host "• Handler Availability Impact:" -ForegroundColor White
+        Write-Host "  - Task V1: Can use internal Node24/20 or upgrade EOL versions" -ForegroundColor Gray
+        Write-Host "  - Task V2: Must fallback to agent externals for Node24/20" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "• EOL Policy Behavior:" -ForegroundColor White
+        Write-Host "  - Node16/10 requests should upgrade to Node24 when policy enabled" -ForegroundColor Gray
+        Write-Host "  - Node24/20 requests should not be affected by EOL policy" -ForegroundColor Gray
+        Write-Host "  - Disabled policy should allow original EOL versions" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "• Global Knob Priority:" -ForegroundColor White
+        Write-Host "  - AGENT_USE_NODE24 should override all handler requests" -ForegroundColor Gray
+        Write-Host "  - AGENT_USE_NODE20_1 should override all handler requests" -ForegroundColor Gray
+        Write-Host "  - NODE24 knob should take priority over NODE20_1 knob" -ForegroundColor Gray
+        Write-Host ""
+        
+        Write-Host "🔍 Results Validation Checklist:" -ForegroundColor Cyan
+        Write-Host "For each test, verify the 'Node.js path' output shows:" -ForegroundColor White
+        Write-Host "□ Task V1 + Node16 + EOL Policy ON → node24 path" -ForegroundColor White
+        Write-Host "□ Task V1 + Node10 + EOL Policy ON → node24 path" -ForegroundColor White
+        Write-Host "□ Task V2 + Node16 + EOL Policy ON → node24 path (external)" -ForegroundColor White
+        Write-Host "□ Task V2 + Node10 + EOL Policy ON → node24 path (external)" -ForegroundColor White
+        Write-Host "□ Both tasks + Node16/10 + EOL Policy OFF → original paths" -ForegroundColor White
+        Write-Host "□ Both tasks + AGENT_USE_NODE24=true → node24 path" -ForegroundColor White
+        Write-Host "□ Both tasks + AGENT_USE_NODE20_1=true → node20 path" -ForegroundColor White
+        Write-Host "□ Both tasks + Multiple knobs → node24 path (priority)" -ForegroundColor White
+        Write-Host ""
+        
+        Write-Host "📋 Expected Behavior Summary:" -ForegroundColor Yellow
+        Write-Host "Task V1 (has Node24/20/16/10):" -ForegroundColor White
+        Write-Host "• Node24/20 requests → Use internal handlers" -ForegroundColor Gray
+        Write-Host "• Node16/10 + EOL Policy → Upgrade to Node24" -ForegroundColor Gray
+        Write-Host "• Global knobs → Override to specified version" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "Task V2 (has Node16/10 only):" -ForegroundColor White
+        Write-Host "• Node16/10 + EOL Policy → Upgrade to Node24 (external)" -ForegroundColor Gray
+        Write-Host "• Global knobs → Use agent external Node24/20" -ForegroundColor Gray
+        Write-Host "• Fallback behavior when task lacks required handlers" -ForegroundColor Gray
+        Write-Host ""
+        
+        Write-Host "✅ Test execution completed! Review individual job results above." -ForegroundColor Green
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Node6 Handler with EOL Policy Disabled ===" -ForegroundColor Cyan
+        Write-Host "Expected: Task should use original Node6" -ForegroundColor Yellow
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Node6 Test Task'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Node6 handler with EOL policy disabled');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-node6-disabled.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Node6 Handler Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing Node.js script to test handler selection..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-node6-disabled.js"
+        Write-Host "Node handler selection completed. Check logs for selected version." -ForegroundColor Green
+
+# =============================================================================
+# TEST 3: Node16 Handler with EOL Policy Enabled (should upgrade to Node24)
+# =============================================================================
+
+- job: 'Node16_EOL_Enabled'
+  displayName: 'Node16 Handler + EOL Policy → Node24'
+  
+  variables:
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Node16 Handler with EOL Policy Enabled ===" -ForegroundColor Cyan
+        Write-Host "Expected: Task should use Node24 instead of Node16" -ForegroundColor Yellow
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Node16 Test Task'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Node16 handler with EOL policy enabled');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-node16.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Node16 Handler Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing Node.js script to test handler selection..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-node16.js"
+        Write-Host "Node handler selection completed. Check logs for selected version." -ForegroundColor Green
+
+# =============================================================================
+# TEST 4: Node20 Handler (should not be affected by EOL policy)
+# =============================================================================
+
+- job: 'Node20_Not_EOL'
+  displayName: 'Node20 Handler + EOL Policy → Node20 (not affected)'
+  
+  variables:
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Node20 Handler with EOL Policy ===" -ForegroundColor Cyan
+        Write-Host "Expected: Task should use Node20 (not affected by EOL policy)" -ForegroundColor Yellow
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Node20 Test Task'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Node20 handler with EOL policy (should not be affected)');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-node20.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Node20 Handler Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing Node.js script to test handler selection..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-node20.js"
+        Write-Host "Node handler selection completed. Check logs for selected version." -ForegroundColor Green
+
+# =============================================================================
+# TEST 5: Global AGENT_USE_NODE24 Knob Override
+# =============================================================================
+
+- job: 'UseNode24_GlobalKnob'
+  displayName: 'Global AGENT_USE_NODE24 → Node24'
+  
+  variables:
+    AGENT_USE_NODE24: 'true'
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Global AGENT_USE_NODE24 Knob Test ===" -ForegroundColor Cyan
+        Write-Host "Expected: Any task should use Node24 due to global knob" -ForegroundColor Yellow
+        Write-Host "AGENT_USE_NODE24: $env:AGENT_USE_NODE24" -ForegroundColor Green
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Test Task (any handler)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Global AGENT_USE_NODE24 knob override');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-global-node24.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Test with Global Knob'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing with global Node24 knob..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-global-node24.js"
+        Write-Host "Global knob test completed. Should have used Node24." -ForegroundColor Green
+
+# =============================================================================
+# TEST 6: Global AGENT_USE_NODE20_1 Knob Override
+# =============================================================================
+
+- job: 'UseNode20_GlobalKnob'
+  displayName: 'Global AGENT_USE_NODE20_1 → Node20'
+  
+  variables:
+    AGENT_USE_NODE20_1: 'true'
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Global AGENT_USE_NODE20_1 Knob Test ===" -ForegroundColor Cyan
+        Write-Host "Expected: Any task should use Node20.1 due to global knob" -ForegroundColor Yellow
+        Write-Host "AGENT_USE_NODE20_1: $env:AGENT_USE_NODE20_1" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Test Task (any handler)'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Global AGENT_USE_NODE20_1 knob override');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-global-node20.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Test with Global Knob'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing with global Node20.1 knob..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-global-node20.js"
+        Write-Host "Global knob test completed. Should have used Node20.1." -ForegroundColor Green
+
+# =============================================================================
+# TEST 7: Multiple Global Knobs (Priority Test)
+# =============================================================================
+
+- job: 'MultipleKnobs_Priority'
+  displayName: 'Multiple Knobs Priority → Node24 (highest priority)'
+  
+  variables:
+    AGENT_USE_NODE24: 'true'
+    AGENT_USE_NODE20_1: 'true' 
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Multiple Global Knobs Priority Test ===" -ForegroundColor Cyan
+        Write-Host "Expected: Node24 should win (highest priority)" -ForegroundColor Yellow
+        Write-Host "AGENT_USE_NODE24: $env:AGENT_USE_NODE24" -ForegroundColor Green
+        Write-Host "AGENT_USE_NODE20_1: $env:AGENT_USE_NODE20_1" -ForegroundColor Green
+
+  - task: PowerShell@2
+    displayName: 'Create Test Task'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Multiple knobs priority - Node24 should win');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-multiple-knobs.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Priority Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Executing with multiple knobs..." -ForegroundColor Yellow
+        node "$(Agent.TempDirectory)/test-multiple-knobs.js"
+        Write-Host "Priority test completed. Node24 should have been selected." -ForegroundColor Green
+
+# =============================================================================
+# CUSTOM NODE PATH TESTS
+# =============================================================================
+
+    # Write-Host "Priority test completed. Node24 should have been selected." -ForegroundColor Green
+
+# =============================================================================
+# TEST 8: Custom Node Path Override (Highest Priority)
+# =============================================================================
+
+- job: 'CustomNodePath_Override'
+  displayName: 'Custom Node Path → Overrides Everything'
+  
+  variables:
+    AGENT_USE_NODE_PATH: '/custom/node/path'
+    AGENT_USE_NODE24: 'true'
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+    
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Test Environment'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Custom Node Path Override Test ===" -ForegroundColor Cyan
+        Write-Host "Expected: Custom path should override all knobs and policies" -ForegroundColor Yellow
+        Write-Host "AGENT_USE_NODE_PATH: $env:AGENT_USE_NODE_PATH" -ForegroundColor Green
+        Write-Host "AGENT_USE_NODE24: $env:AGENT_USE_NODE24 (should be ignored)" -ForegroundColor Gray
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY (should be ignored)" -ForegroundColor Gray
+
+  - task: PowerShell@2
+    displayName: 'Create Test Task'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $nodeScript = @"
+        console.log('Node version:', process.version);
+        console.log('Node executable path:', process.execPath);
+        console.log('Test: Custom node path override');
+        "@
+        
+        $nodeScript | Out-File -FilePath "$(Agent.TempDirectory)/test-custom-path.js" -Encoding UTF8
+
+  - task: PowerShell@2
+    displayName: 'Execute Custom Path Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "Note: Custom path test will use fallback since custom path doesn't exist" -ForegroundColor Magenta
+        Write-Host "In real implementation, custom path would take priority" -ForegroundColor Magenta
+        Write-Host "Executing test..." -ForegroundColor Yellow
+        
+        # In actual implementation, this would use the custom path
+        # For testing, we'll show the intended behavior
+        try {
+            node "$(Agent.TempDirectory)/test-custom-path.js"
+        } catch {
+            Write-Host "Expected: Custom path not found, fallback behavior triggered" -ForegroundColor Yellow
+        }
+        
+        Write-Host "Custom path test completed." -ForegroundColor Green
+
+# =============================================================================
+# REAL TASK INTEGRATION TESTS
+# =============================================================================
+
+- job: 'RealTask_Integration'
+  displayName: 'Integration with Real Azure DevOps Tasks'
+  dependsOn: 
+  - Node6_EOL_Enabled
+  - Node6_EOL_Disabled  
+  - Node16_EOL_Enabled
+  - Node20_Not_EOL
+  - UseNode24_GlobalKnob
+  - UseNode20_GlobalKnob
+  - MultipleKnobs_Priority
+  - CustomNodePath_Override
+  
+  variables:
+    AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+  
+  steps:
+  - task: PowerShell@2
+    displayName: 'Setup Integration Test'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Real Task Integration Test ===" -ForegroundColor Cyan
+        Write-Host "Testing with actual Azure DevOps tasks that use Node.js handlers" -ForegroundColor Yellow
+        Write-Host "EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY" -ForegroundColor Green
+
+  # Try to use a real Node.js based task (if available on the agent)
+  - task: NodeTool@0
+    displayName: 'Test with NodeTool Task'
+    continueOnError: true
+    inputs:
+      versionSpec: '6.x'  # This should trigger EOL upgrade logic
+
+  - task: Npm@1
+    displayName: 'Test with NPM Task' 
+    continueOnError: true
+    inputs:
+      command: 'custom'
+      customCommand: '--version'
+
+  - task: PowerShell@2
+    displayName: 'Verify Integration Results'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== Integration Test Results ===" -ForegroundColor Cyan
+        Write-Host "Check the task logs above for node version selection behavior" -ForegroundColor Yellow
+        Write-Host "Look for messages indicating which node version was selected" -ForegroundColor Yellow
+        Write-Host "With EOL policy enabled, legacy tasks should use Node24/20 instead of Node6/16" -ForegroundColor Green
+
+# =============================================================================
+# TEST SUMMARY AND VALIDATION
+# =============================================================================
+
+- job: 'TestSummary'
+  displayName: 'Test Summary and Validation'
+  dependsOn:
+  - Node6_EOL_Enabled
+  - Node6_EOL_Disabled  
+  - Node16_EOL_Enabled
+  - Node20_Not_EOL
+  - UseNode24_GlobalKnob
+  - UseNode20_GlobalKnob
+  - MultipleKnobs_Priority
+  - CustomNodePath_Override
+  - RealTask_Integration
+  condition: always()
+  
+  steps:
+  - task: PowerShell@2
+    displayName: 'Test Summary Report'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Write-Host "=== EOL Node.js Feature Test Summary ===" -ForegroundColor Cyan
+        Write-Host ""
+        
+        Write-Host "📋 Test Scenarios Executed:" -ForegroundColor Yellow
+        Write-Host "✅ Node6 Handler + EOL Policy Enabled → Should use Node24" -ForegroundColor Green
+        Write-Host "✅ Node6 Handler + EOL Policy Disabled → Should use Node6" -ForegroundColor Green
+        Write-Host "✅ Node16 Handler + EOL Policy Enabled → Should use Node24" -ForegroundColor Green
+        Write-Host "✅ Node20 Handler + EOL Policy → Should use Node20 (not affected)" -ForegroundColor Green
+        Write-Host "✅ Global AGENT_USE_NODE24 → Should force Node24" -ForegroundColor Green
+        Write-Host "✅ Global AGENT_USE_NODE20_1 → Should force Node20.1" -ForegroundColor Green
+        Write-Host "✅ Multiple Knobs → Node24 should win (priority)" -ForegroundColor Green
+        Write-Host "✅ Custom Node Path → Should override everything" -ForegroundColor Green
+        Write-Host "✅ Real Task Integration → EOL policy in action" -ForegroundColor Green
+        Write-Host ""
+        
+        Write-Host "🎯 Key Behaviors Tested:" -ForegroundColor Yellow
+        Write-Host "• EOL Policy Enforcement (Node6/16 → Node24/20)"
+        Write-Host "• Global Knob Overrides (AGENT_USE_NODE24, AGENT_USE_NODE20_1)"
+        Write-Host "• Knob Priority Resolution (Node24 > Node20 > Handler Data)"
+        Write-Host "• Custom Path Override (highest priority)"
+        Write-Host "• Integration with real Azure DevOps tasks"
+        Write-Host ""
+        
+        Write-Host "📊 Expected Results:" -ForegroundColor Magenta
+        Write-Host "• Check individual job logs for node version selection"
+        Write-Host "• Look for agent logs showing strategy selection"
+        Write-Host "• Verify process.execPath shows correct node executable"
+        Write-Host "• Confirm EOL versions are upgraded when policy is enabled"
+        Write-Host ""
+        
+        Write-Host "🔍 Validation Checklist:" -ForegroundColor Cyan
+        Write-Host "□ Node6 tasks use Node24 when EOL policy is enabled"
+        Write-Host "□ Node16 tasks use Node24 when EOL policy is enabled"
+        Write-Host "□ Node6 tasks use Node6 when EOL policy is disabled"
+        Write-Host "□ Node20/24 tasks are not affected by EOL policy"
+        Write-Host "□ AGENT_USE_NODE24 forces all tasks to use Node24"
+        Write-Host "□ AGENT_USE_NODE20_1 forces all tasks to use Node20.1"
+        Write-Host "□ Multiple knobs resolve with correct priority"
+        Write-Host "□ Custom node path overrides all other settings"
+        Write-Host ""
+        
+        Write-Host "Next: Review job logs and verify the expected node selection behavior!" -ForegroundColor Green

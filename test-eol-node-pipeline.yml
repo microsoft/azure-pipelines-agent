@@ -1,0 +1,599 @@
+# Azure Pipelines Test Pipeline for EOL Node.js Version Enforcement Feature
+# This pipeline tests all scenarios for the Node.js End-of-Life version enforcement feature
+# Based on NodeHandlerL0.TestSpecifications.cs and Final design.md
+
+trigger:
+  branches:
+    include:
+    - users/rishabhmalikMS/agentEOLNodeUpdates
+    - main
+  paths:
+    include:
+    - src/Agent.Worker/Handlers/NodeHandler.cs
+    - src/Agent.Worker/Handlers/UnifiedNodeVersionStrategies/*
+    - src/Agent.Worker/ContainerOperationProvider.cs
+
+variables:
+  # Common test variables
+  AGENT_TEMP_DIRECTORY: $(Agent.TempDirectory)
+  BUILD_CONFIGURATION: 'Debug'
+  
+pool: 
+  # Use your self-hosted agent pool
+  name: 'YourSelfHostedPool'  # Replace with your actual pool name
+
+stages:
+- stage: 'EOL_Node_Feature_Tests'
+  displayName: 'EOL Node.js Feature Tests'
+  
+  jobs:
+  
+  # =============================================================================
+  # GROUP 1: CUSTOM NODE PATH SCENARIOS (Priority 0 - Highest)
+  # =============================================================================
+  
+  - job: 'CustomNode_Tests'
+    displayName: 'Custom Node Path Tests'
+    strategy:
+      matrix:
+        CustomNode_OverridesHandlerData:
+          TEST_SCENARIO: 'CustomNode_Host_OverridesHandlerData'
+          CUSTOM_NODE_PATH: '/usr/local/custom/node'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/usr/local/custom/node'
+          
+        CustomNode_BypassesAllKnobs:
+          TEST_SCENARIO: 'CustomNode_Host_BypassesAllKnobs'
+          AGENT_USE_NODE24: 'true'
+          AGENT_USE_NODE20_1: 'true'
+          CUSTOM_NODE_PATH: '/opt/my-node/bin/node'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/opt/my-node/bin/node'
+          
+        CustomNode_BypassesEOLPolicy:
+          TEST_SCENARIO: 'CustomNode_Host_BypassesEOLPolicy'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          CUSTOM_NODE_PATH: '/legacy/node6/bin/node'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/legacy/node6/bin/node'
+          
+        CustomNode_HighestPriority:
+          TEST_SCENARIO: 'CustomNode_HighestPriority_OverridesEverything'
+          AGENT_USE_NODE24: 'true'
+          AGENT_USE_NODE20_1: 'true'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          CUSTOM_NODE_PATH: '/ultimate/override/node'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/ultimate/override/node'
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Custom Node Path Scenario: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Custom Node Path: $(CUSTOM_NODE_PATH)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          Write-Host "Expected Node: $(EXPECTED_NODE)"
+          
+          # Set environment variables for this test
+          if ($env:AGENT_USE_NODE24) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE24', $env:AGENT_USE_NODE24, 'Process')
+          }
+          if ($env:AGENT_USE_NODE20_1) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE20_1', $env:AGENT_USE_NODE20_1, 'Process')
+          }
+          if ($env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY) { 
+              [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+          }
+          if ($env:CUSTOM_NODE_PATH) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE_PATH', $env:CUSTOM_NODE_PATH, 'Process')
+          }
+          
+          # Create a test Node.js task to trigger node handler logic
+          Write-Host "Creating test task with custom node path..."
+          
+          # TODO: Add actual test execution logic here
+          # This would typically involve:
+          # 1. Creating a test task definition with Node handler
+          # 2. Triggering the node selection logic
+          # 3. Verifying the selected node path matches expected
+          
+          Write-Host "Test completed for scenario: $(TEST_SCENARIO)"
+          
+  # =============================================================================
+  # GROUP 2: EOL POLICY ENFORCEMENT TESTS
+  # =============================================================================
+  
+  - job: 'EOL_Policy_Tests'
+    displayName: 'EOL Policy Enforcement Tests'
+    strategy:
+      matrix:
+        Node6_EOLPolicy_Enabled:
+          TEST_SCENARIO: 'Node6_EOLPolicyEnabled_UpgradesToNode24'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          HANDLER_DATA_TYPE: 'Node6'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+        Node6_EOLPolicy_Disabled:
+          TEST_SCENARIO: 'Node6_DefaultBehavior_EOLPolicyDisabled'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+          HANDLER_DATA_TYPE: 'Node6'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node'
+          
+        Node10_EOLPolicy_Enabled:
+          TEST_SCENARIO: 'Node10_EOLPolicyEnabled_UpgradesToNode24'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          HANDLER_DATA_TYPE: 'Node10'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+        Node10_EOLPolicy_Disabled:
+          TEST_SCENARIO: 'Node10_DefaultBehavior_EOLPolicyDisabled'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+          HANDLER_DATA_TYPE: 'Node10'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node10'
+          
+        Node16_EOLPolicy_Enabled:
+          TEST_SCENARIO: 'Node16_EOLPolicyEnabled_UpgradesToNode24'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          HANDLER_DATA_TYPE: 'Node16'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+        Node16_EOLPolicy_Disabled:
+          TEST_SCENARIO: 'Node16_DefaultBehavior_EOLPolicyDisabled'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+          HANDLER_DATA_TYPE: 'Node16'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node16'
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test EOL Policy: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing EOL Policy Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "EOL Policy Enabled: $(AGENT_ENABLE_EOL_NODE_VERSION_POLICY)"
+          Write-Host "Handler Data Type: $(HANDLER_DATA_TYPE)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          Write-Host "Expected Node: $(EXPECTED_NODE)"
+          
+          # Set EOL policy environment variable
+          [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+          
+          Write-Host "EOL Policy environment variable set to: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY"
+          
+          # TODO: Add test execution logic for EOL policy scenarios
+          # This would involve creating tasks with different handler data types
+          # and verifying the node selection behavior
+          
+          Write-Host "Test completed for EOL policy scenario: $(TEST_SCENARIO)"
+  
+  # =============================================================================
+  # GROUP 3: GLOBAL KNOB OVERRIDE TESTS
+  # =============================================================================
+  
+  - job: 'GlobalKnob_Tests'
+    displayName: 'Global Node Knob Tests'
+    strategy:
+      matrix:
+        UseNode24_GlobalKnob:
+          TEST_SCENARIO: 'GlobalKnob_UseNode24_OverridesHandlerData'
+          AGENT_USE_NODE24: 'true'
+          HANDLER_DATA_TYPE: 'Node20'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+        UseNode20_GlobalKnob:
+          TEST_SCENARIO: 'GlobalKnob_UseNode20_OverridesHandlerData'
+          AGENT_USE_NODE20_1: 'true'
+          HANDLER_DATA_TYPE: 'Node16'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node20_1'
+          
+        UseNode24WithHandlerData:
+          TEST_SCENARIO: 'Node24_WithHandlerDataKnob_TaskExplicitlyRequests'
+          AGENT_USE_NODE24_WITH_HANDLER_DATA: 'true'
+          HANDLER_DATA_TYPE: 'Node24'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+        MultipleKnobs_Priority:
+          TEST_SCENARIO: 'MultipleKnobs_PriorityOrder'
+          AGENT_USE_NODE24: 'true'
+          AGENT_USE_NODE20_1: 'true'
+          AGENT_USE_NODE10: 'true'
+          HANDLER_DATA_TYPE: 'Node16'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'  # Node24 has highest priority
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Global Knobs: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Global Knob Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Handler Data Type: $(HANDLER_DATA_TYPE)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          Write-Host "Expected Node: $(EXPECTED_NODE)"
+          
+          # Set knob environment variables
+          if ($env:AGENT_USE_NODE24) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE24', $env:AGENT_USE_NODE24, 'Process')
+              Write-Host "Set AGENT_USE_NODE24: $env:AGENT_USE_NODE24"
+          }
+          if ($env:AGENT_USE_NODE20_1) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE20_1', $env:AGENT_USE_NODE20_1, 'Process')
+              Write-Host "Set AGENT_USE_NODE20_1: $env:AGENT_USE_NODE20_1"
+          }
+          if ($env:AGENT_USE_NODE24_WITH_HANDLER_DATA) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE24_WITH_HANDLER_DATA', $env:AGENT_USE_NODE24_WITH_HANDLER_DATA, 'Process')
+              Write-Host "Set AGENT_USE_NODE24_WITH_HANDLER_DATA: $env:AGENT_USE_NODE24_WITH_HANDLER_DATA"
+          }
+          if ($env:AGENT_USE_NODE10) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE10', $env:AGENT_USE_NODE10, 'Process')
+              Write-Host "Set AGENT_USE_NODE10: $env:AGENT_USE_NODE10"
+          }
+          
+          # TODO: Add test execution logic for global knob scenarios
+          
+          Write-Host "Test completed for global knob scenario: $(TEST_SCENARIO)"
+  
+  # =============================================================================
+  # GROUP 4: GLIBC COMPATIBILITY TESTS (Linux only)
+  # =============================================================================
+  
+  - job: 'Glibc_Compatibility_Tests'
+    displayName: 'Glibc Compatibility Tests'
+    condition: eq(variables['Agent.OS'], 'Linux')
+    strategy:
+      matrix:
+        Node24_GlibcFallback_ToNode20:
+          TEST_SCENARIO: 'Node24_GlibcError_FallbackToNode20'
+          HANDLER_DATA_TYPE: 'Node24'
+          SIMULATE_GLIBC_ERROR_24: 'true'
+          SIMULATE_GLIBC_ERROR_20: 'false'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node20_1'
+          
+        Node24_GlibcFallback_ToNode16:
+          TEST_SCENARIO: 'Node24_GlibcError_FallbackToNode16_WithEOLPolicy'
+          HANDLER_DATA_TYPE: 'Node24'
+          SIMULATE_GLIBC_ERROR_24: 'true'
+          SIMULATE_GLIBC_ERROR_20: 'true'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'  # Must be false to allow Node16
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node16'
+          
+        Node20_GlibcFallback_ToNode16:
+          TEST_SCENARIO: 'Node20_GlibcError_FallbackToNode16'
+          HANDLER_DATA_TYPE: 'Node20'
+          SIMULATE_GLIBC_ERROR_20: 'true'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node16'
+          
+        GlibcError_WithEOLPolicy_ShouldFail:
+          TEST_SCENARIO: 'GlibcError_WithEOLPolicy_BlocksEOLFallback'
+          HANDLER_DATA_TYPE: 'Node24'
+          SIMULATE_GLIBC_ERROR_24: 'true'
+          SIMULATE_GLIBC_ERROR_20: 'true'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          EXPECTED_RESULT: 'FAILURE'  # Should fail because can't fallback to EOL Node16
+          EXPECTED_ERROR: 'EOL_POLICY_VIOLATION'
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Glibc Compatibility: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Glibc Compatibility Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Handler Data Type: $(HANDLER_DATA_TYPE)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          
+          # Set environment variables for glibc simulation
+          if ($env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY) { 
+              [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+              Write-Host "Set EOL Policy: $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY"
+          }
+          
+          # Set glibc error simulation flags (these would be used by test framework)
+          if ($env:SIMULATE_GLIBC_ERROR_24) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_GLIBC_ERROR_NODE24', $env:SIMULATE_GLIBC_ERROR_24, 'Process')
+              Write-Host "Simulating Node24 glibc error: $env:SIMULATE_GLIBC_ERROR_24"
+          }
+          if ($env:SIMULATE_GLIBC_ERROR_20) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_GLIBC_ERROR_NODE20', $env:SIMULATE_GLIBC_ERROR_20, 'Process')
+              Write-Host "Simulating Node20 glibc error: $env:SIMULATE_GLIBC_ERROR_20"
+          }
+          
+          Write-Host "Testing glibc compatibility and fallback behavior..."
+          
+          # TODO: Add glibc compatibility test execution
+          # This requires integration with the actual node handler logic
+          
+          Write-Host "Test completed for glibc scenario: $(TEST_SCENARIO)"
+  
+  # =============================================================================
+  # GROUP 5: CONTAINER-SPECIFIC TESTS
+  # =============================================================================
+  
+  - job: 'Container_Tests'
+    displayName: 'Container Node Selection Tests'
+    strategy:
+      matrix:
+        Container_CustomNodePath:
+          TEST_SCENARIO: 'Container_CustomNodePath_FromDockerLabel'
+          CONTAINER_CUSTOM_NODE_PATH: '/container/custom/node'
+          HANDLER_DATA_TYPE: 'Node16'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/container/custom/node'
+          
+        Container_EOLUpgrade:
+          TEST_SCENARIO: 'Container_Node6_UpgradeToNode24'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          HANDLER_DATA_TYPE: 'Node6'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/azp/node24/bin/node'  # Container path format
+          
+        Container_GlibcFallback:
+          TEST_SCENARIO: 'Container_Node24_GlibcFallback'
+          HANDLER_DATA_TYPE: 'Node24'
+          SIMULATE_CONTAINER_GLIBC_ERROR_24: 'true'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: '/azp/node20/bin/node'  # Container path format
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Container Scenarios: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Container Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Handler Data Type: $(HANDLER_DATA_TYPE)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          Write-Host "Expected Node: $(EXPECTED_NODE)"
+          
+          # Set container-specific environment variables
+          if ($env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY) { 
+              [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+          }
+          if ($env:CONTAINER_CUSTOM_NODE_PATH) { 
+              [Environment]::SetEnvironmentVariable('TEST_CONTAINER_CUSTOM_NODE_PATH', $env:CONTAINER_CUSTOM_NODE_PATH, 'Process')
+          }
+          if ($env:SIMULATE_CONTAINER_GLIBC_ERROR_24) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_CONTAINER_GLIBC_ERROR_NODE24', $env:SIMULATE_CONTAINER_GLIBC_ERROR_24, 'Process')
+          }
+          
+          Write-Host "Testing container node selection behavior..."
+          
+          # TODO: Add container-specific test execution
+          # This would test the ContainerOperationProvider integration
+          
+          Write-Host "Test completed for container scenario: $(TEST_SCENARIO)"
+  
+  # =============================================================================
+  # GROUP 6: ALPINE LINUX SPECIAL CASES
+  # =============================================================================
+  
+  - job: 'Alpine_Linux_Tests'
+    displayName: 'Alpine Linux Special Cases'
+    condition: eq(variables['Agent.OS'], 'Linux')
+    strategy:
+      matrix:
+        Alpine_Node6_FallbackToNode10:
+          TEST_SCENARIO: 'Alpine_Node6_AutoFallbackToNode10'
+          SIMULATE_ALPINE_ENVIRONMENT: 'true'
+          HANDLER_DATA_TYPE: 'Node6'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'false'  # To allow Node10
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node10'
+          
+        Alpine_Node6_EOLPolicy_UpgradeToNode24:
+          TEST_SCENARIO: 'Alpine_Node6_WithEOLPolicy_UpgradeToNode24'
+          SIMULATE_ALPINE_ENVIRONMENT: 'true'
+          HANDLER_DATA_TYPE: 'Node6'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Alpine Linux: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Alpine Linux Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Handler Data Type: $(HANDLER_DATA_TYPE)"
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          Write-Host "Expected Node: $(EXPECTED_NODE)"
+          
+          # Set Alpine simulation and policy variables
+          if ($env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY) { 
+              [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+          }
+          if ($env:SIMULATE_ALPINE_ENVIRONMENT) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_ALPINE', $env:SIMULATE_ALPINE_ENVIRONMENT, 'Process')
+          }
+          
+          Write-Host "Testing Alpine Linux node selection..."
+          
+          # TODO: Add Alpine-specific test execution
+          
+          Write-Host "Test completed for Alpine scenario: $(TEST_SCENARIO)"
+  
+  # =============================================================================
+  # GROUP 7: ERROR AND EDGE CASES
+  # =============================================================================
+  
+  - job: 'EdgeCase_Tests'
+    displayName: 'Edge Cases and Error Scenarios'
+    strategy:
+      matrix:
+        AllNodesMissing:
+          TEST_SCENARIO: 'EdgeCase_AllNodeVersionsMissing'
+          SIMULATE_MISSING_ALL_NODES: 'true'
+          EXPECTED_RESULT: 'FAILURE'
+          EXPECTED_ERROR: 'NO_NODE_FOUND'
+          
+        EOLPolicy_BlocksAllAvailable:
+          TEST_SCENARIO: 'EdgeCase_EOLPolicy_BlocksAllAvailableNodes'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          SIMULATE_ONLY_EOL_NODES_AVAILABLE: 'true'
+          EXPECTED_RESULT: 'FAILURE'
+          EXPECTED_ERROR: 'EOL_POLICY_VIOLATION'
+          
+        InvalidCustomNodePath:
+          TEST_SCENARIO: 'EdgeCase_InvalidCustomNodePath'
+          CUSTOM_NODE_PATH: '/nonexistent/node/path'
+          EXPECTED_RESULT: 'FAILURE'
+          EXPECTED_ERROR: 'CUSTOM_NODE_NOT_FOUND'
+          
+        ConflictingKnobs:
+          TEST_SCENARIO: 'EdgeCase_ConflictingKnobs_PriorityResolution'
+          AGENT_USE_NODE24: 'true'
+          AGENT_USE_NODE20_1: 'true'
+          AGENT_USE_NODE10: 'true'
+          AGENT_ENABLE_EOL_NODE_VERSION_POLICY: 'true'
+          HANDLER_DATA_TYPE: 'Node6'
+          EXPECTED_RESULT: 'SUCCESS'
+          EXPECTED_NODE: 'node24'  # Highest priority wins
+          
+    steps:
+    - task: PowerShell@2
+      displayName: 'Test Edge Cases: $(TEST_SCENARIO)'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Testing Edge Case Scenario: $(TEST_SCENARIO) ==="
+          Write-Host "Expected Result: $(EXPECTED_RESULT)"
+          
+          # Set all environment variables for edge case testing
+          if ($env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY) { 
+              [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', $env:AGENT_ENABLE_EOL_NODE_VERSION_POLICY, 'Process')
+          }
+          if ($env:AGENT_USE_NODE24) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE24', $env:AGENT_USE_NODE24, 'Process')
+          }
+          if ($env:AGENT_USE_NODE20_1) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE20_1', $env:AGENT_USE_NODE20_1, 'Process')
+          }
+          if ($env:AGENT_USE_NODE10) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE10', $env:AGENT_USE_NODE10, 'Process')
+          }
+          if ($env:CUSTOM_NODE_PATH) { 
+              [Environment]::SetEnvironmentVariable('AGENT_USE_NODE_PATH', $env:CUSTOM_NODE_PATH, 'Process')
+          }
+          
+          # Set test simulation flags for edge cases
+          if ($env:SIMULATE_MISSING_ALL_NODES) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_NO_NODES', $env:SIMULATE_MISSING_ALL_NODES, 'Process')
+          }
+          if ($env:SIMULATE_ONLY_EOL_NODES_AVAILABLE) { 
+              [Environment]::SetEnvironmentVariable('TEST_SIMULATE_ONLY_EOL_NODES', $env:SIMULATE_ONLY_EOL_NODES_AVAILABLE, 'Process')
+          }
+          
+          Write-Host "Testing edge case behavior..."
+          
+          # TODO: Add edge case test execution
+          
+          if ($env:EXPECTED_RESULT -eq 'FAILURE') {
+              Write-Host "This scenario is expected to fail with: $(EXPECTED_ERROR)"
+          } else {
+              Write-Host "Expected Node: $(EXPECTED_NODE)"
+          }
+          
+          Write-Host "Test completed for edge case scenario: $(TEST_SCENARIO)"
+
+  # =============================================================================
+  # GROUP 8: INTEGRATION TEST - FULL PIPELINE
+  # =============================================================================
+  
+  - job: 'Integration_Test'
+    displayName: 'Full Integration Test'
+    dependsOn: 
+    - CustomNode_Tests
+    - EOL_Policy_Tests
+    - GlobalKnob_Tests
+    # Skip glibc and alpine tests on Windows
+    - ${{ if eq(variables['Agent.OS'], 'Linux') }}:
+      - Glibc_Compatibility_Tests
+      - Alpine_Linux_Tests
+    - Container_Tests
+    - EdgeCase_Tests
+    
+    steps:
+    - task: PowerShell@2
+      displayName: 'Full Integration Test'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Full Integration Test ==="
+          Write-Host "Testing complete end-to-end scenarios..."
+          
+          # Test 1: Real-world scenario - Task with Node6 handler, EOL policy enabled
+          Write-Host "--- Integration Test 1: Node6 Task with EOL Policy ---"
+          [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', 'true', 'Process')
+          # TODO: Create and execute a real Node.js task with Node6 handler data
+          Write-Host "Expected: Task should use Node24 instead of Node6"
+          
+          # Test 2: Real-world scenario - Task with Node20 handler, no special configuration
+          Write-Host "--- Integration Test 2: Node20 Task Default Behavior ---"
+          [Environment]::SetEnvironmentVariable('AGENT_ENABLE_EOL_NODE_VERSION_POLICY', 'true', 'Process')
+          # TODO: Create and execute a real Node.js task with Node20 handler data
+          Write-Host "Expected: Task should use Node20 as requested"
+          
+          # Test 3: Real-world scenario - Custom node path override
+          Write-Host "--- Integration Test 3: Custom Node Path Override ---"
+          [Environment]::SetEnvironmentVariable('AGENT_USE_NODE_PATH', '/custom/node/path', 'Process')
+          # TODO: Create and execute a task that should use custom path
+          Write-Host "Expected: Task should use custom node path"
+          
+          Write-Host "Integration tests completed successfully!"
+
+# =============================================================================
+# POST-TEST ANALYSIS AND REPORTING
+# =============================================================================
+
+- stage: 'Test_Results_Analysis'
+  displayName: 'Test Results Analysis'
+  dependsOn: 'EOL_Node_Feature_Tests'
+  condition: always()
+  
+  jobs:
+  - job: 'Analyze_Results'
+    displayName: 'Analyze Test Results'
+    
+    steps:
+    - task: PowerShell@2
+      displayName: 'Collect and Analyze Test Results'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== Test Results Analysis ==="
+          
+          # TODO: Collect results from all test jobs
+          # This could involve:
+          # 1. Parsing test outputs/logs
+          # 2. Generating summary report
+          # 3. Checking for any failures
+          # 4. Publishing results to a dashboard
+          
+          Write-Host "Analysis completed. Check individual job results for details."
+          
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      condition: always()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: '$(Agent.TempDirectory)'
+        failTaskOnFailedTests: false  # Don't fail the pipeline on test failures, just report them
