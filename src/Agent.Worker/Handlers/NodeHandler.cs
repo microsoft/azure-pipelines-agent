@@ -190,12 +190,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool node20ResultsInGlibCErrorHost = false;
-                bool node24ResultsInGlibCErrorHost = false;
+            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool node20ResultsInGlibCErrorHost = false;
+            bool node24ResultsInGlibCErrorHost = false;
 
-                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
                 {
                     if (!useNode20InUnsupportedSystem)
                     {
@@ -364,6 +364,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
+            bool useUnifiedStrategy = AgentKnobs.UseUnifiedNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            
+            if (useUnifiedStrategy)
+            {
+                ExecutionContext.Debug("Using unified node version strategy pattern");
+                return GetNodeLocationWithUnifiedStrategy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+            }
+
+            ExecutionContext.Debug("Using legacy node version selection logic");
+            
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
@@ -481,6 +491,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
+        }
+
+        private string GetNodeLocationWithUnifiedStrategy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
+        {
+            ExecutionContext.Debug("[UnifiedStrategy] Starting node version selection");
+            ExecutionContext.Debug($"[UnifiedStrategy] Handler type: {Data?.GetType().Name}");
+            ExecutionContext.Debug($"[UnifiedStrategy] Node20 glibc error: {node20ResultsInGlibCError}");
+            ExecutionContext.Debug($"[UnifiedStrategy] Node24 glibc error: {node24ResultsInGlibCError}");
+            ExecutionContext.Debug($"[UnifiedStrategy] In container: {inContainer}");
+
+            var context = new NodeVersionStrategies.UnifiedNodeContext
+            {
+                IsContainer = inContainer,
+                IsHostLinux = PlatformUtil.RunningOnLinux,
+                IsAlpine = PlatformUtil.RunningOnAlpine,
+                HandlerData = this.Data,
+                Node24HasGlibcError = node24ResultsInGlibCError,
+                Node20HasGlibcError = node20ResultsInGlibCError,
+                Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
+                HostContext = this.HostContext,
+                ExecutionContext = this.ExecutionContext,
+                StepTarget = inContainer ? null : ExecutionContext.StepTarget()
+            };
+
+            var orchestrator = new NodeVersionStrategies.UnifiedNodeVersionOrchestrator();
+            try
+            {
+                var result = orchestrator.SelectNodeVersion(context);
+                
+                if (!string.IsNullOrEmpty(result.Warning))
+                {
+                    ExecutionContext.Debug($"[UnifiedStrategy] Warning: {result.Warning}");
+                }
+
+                if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
+                {
+                    try
+                    {
+                        PublishHandlerTelemetry(result.NodeVersion);
+                    }
+                    catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
+                    {
+                        ExecutionContext.Debug($"NodeHandler telemetry wasn't published, because one of the variables has unexpected value.");
+                        ExecutionContext.Debug(ex.ToString());
+                    }
+                }
+
+                return result.NodePath;
+            }
+            catch (NotSupportedException ex)
+            {
+                ExecutionContext.Error($"[UnifiedStrategy] Node selection failed: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Error($"[UnifiedStrategy] Unexpected error during node selection: {ex.Message}");
+                ExecutionContext.Debug(ex.ToString());
+                throw;
+            }
         }
 
         private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer)
