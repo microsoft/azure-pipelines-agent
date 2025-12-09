@@ -17,7 +17,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             _strategies = new List<IUnifiedNodeVersionStrategy>();
 
-            _strategies.Add(new UnifiedCustomNodeStrategy());
             _strategies.Add(new UnifiedNode24Strategy());
             _strategies.Add(new UnifiedNode20Strategy());
             _strategies.Add(new UnifiedNode16Strategy());
