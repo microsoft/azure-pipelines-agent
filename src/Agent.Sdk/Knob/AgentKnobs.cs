@@ -564,8 +564,8 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
             nameof(EnableEOLNodeVersionPolicy),
             "When enabled, automatically upgrades tasks using end-of-life Node.js versions (6, 10, 16) to supported versions (Node 20.1 or Node 24). Throws error if no supported versions are available on the agent.",
-            new PipelineFeatureSource("AGENT_ENABLE_EOL_NODE_VERSION_POLICY"),
-            new EnvironmentKnobSource("AGENT_ENABLE_EOL_NODE_VERSION_POLICY"),
+            new PipelineFeatureSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableTeePluginRemoval = new Knob(
