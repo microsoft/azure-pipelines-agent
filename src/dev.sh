@@ -45,8 +45,8 @@ function get_net_version() {
         net6.0-sdk=6.0.424
         net6.0-runtime=6.0.32
 
-        net8.0-sdk=8.0.401
-        net8.0-runtime=8.0.8
+        net8.0-sdk=8.0.416
+        net8.0-runtime=8.0.22
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
@@ -109,6 +109,50 @@ function restore_sdk_and_runtime() {
 
         printf "\nInstalling Runtime...\n"
         bash "${DOTNET_INSTALL_SCRIPT_PATH}" --runtime dotnet --version "${DOTNET_RUNTIME_VERSION}" --install-dir "${DOTNET_DIR}" --skip-non-versioned-files --no-path || checkRC "${DOTNET_INSTALL_SCRIPT_NAME} (Runtime)"
+    fi
+}
+
+function warn_about_newer_versions() {
+    echo "" 
+    
+    # Use official .NET APIs to get latest versions
+    local latest_sdk latest_runtime
+    local sdk_outdated=false
+    local runtime_outdated=false
+    
+    # Get latest SDK version from official .NET feed
+    latest_sdk=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    if [[ -z "$latest_sdk" ]]; then
+        # Fallback to backup feed
+        latest_sdk=$(curl -s "https://ci.dot.net/public/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_SDK_VERSION")
+    fi
+    
+    # Get latest Runtime version from official .NET feed  
+    latest_runtime=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    if [[ -z "$latest_runtime" ]]; then
+        # Fallback to backup feed
+        latest_runtime=$(curl -s "https://ci.dot.net/public/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_RUNTIME_VERSION")
+    fi
+    
+    # Check SDK version
+    if [[ -n "$latest_sdk" && "$latest_sdk" != "$DOTNET_SDK_VERSION" ]]; then
+        sdk_outdated=true
+    fi
+    
+    # Check Runtime version  
+    if [[ -n "$latest_runtime" && "$latest_runtime" != "$DOTNET_RUNTIME_VERSION" ]]; then
+        runtime_outdated=true
+    fi
+    
+    if [[ "$sdk_outdated" == "true" || "$runtime_outdated" == "true" ]]; then
+        echo "⚠️  WARNING: Newer .NET 8.0 versions available:" >&2
+        if [[ "$sdk_outdated" == "true" ]]; then
+            echo "   SDK: $latest_sdk (currently using $DOTNET_SDK_VERSION)" >&2
+        fi
+        if [[ "$runtime_outdated" == "true" ]]; then
+            echo "   Runtime: $latest_runtime (currently using $DOTNET_RUNTIME_VERSION)" >&2
+        fi
+        echo "   Consider updating versions in dev.sh" >&2
     fi
 }
 
@@ -487,6 +531,10 @@ case $DEV_CMD in
 esac
 
 popd
+
+# Check for newer .NET versions at the end so it's visible
+warn_about_newer_versions
+
 echo
 echo Done.
 echo
