@@ -1062,28 +1062,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     try
                     {
                         await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
-                        Trace.Info($"Plan event reporting completed successfully");
+                        Trace.Info("Plan event reporting completed successfully");
                     }
                     catch (TaskOrchestrationPlanNotFoundException ex)
                     {
-                        Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting");
+                        Trace.Error("TaskOrchestrationPlanNotFoundException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (TaskOrchestrationPlanSecurityException ex)
                     {
-                        Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting");
+                        Trace.Error("TaskOrchestrationPlanSecurityException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (Exception ex)
                     {
-                        Trace.Error($"Exception during plan event reporting");
+                        Trace.Error("Exception during plan event reporting");
                         Trace.Error(ex);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Trace.Error($"Critical error during plan event reporting setup");
+                Trace.Error("Critical error during plan event reporting setup");
                 Trace.Error(ex);
             }
         }
