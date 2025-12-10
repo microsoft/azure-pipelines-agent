@@ -190,12 +190,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-            bool node20ResultsInGlibCErrorHost = false;
-            bool node24ResultsInGlibCErrorHost = false;
+                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+                bool node20ResultsInGlibCErrorHost = false;
+                bool node24ResultsInGlibCErrorHost = false;
 
-            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
                 {
                     if (!useNode20InUnsupportedSystem)
                     {
