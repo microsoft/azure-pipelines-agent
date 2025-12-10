@@ -103,7 +103,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(IWorkerCommand),
                 typeof(ITaskRestrictionsChecker),
                 typeof(IRetryOptions),
-                typeof(IUnifiedNodeVersionStrategy)
+                typeof(INodeVersionStrategy)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

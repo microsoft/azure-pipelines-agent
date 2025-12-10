@@ -7,9 +7,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     /// <summary>
     /// Result containing the selected Node path and metadata.
-    /// Used by unified strategy pattern for both host and container node selection.
+    /// Used by strategy pattern for both host and container node selection.
     /// </summary>
-    public sealed class NodePathResult
+    public sealed class NodeRunnerInfo
     {
         /// <summary>
         /// Full path to the node executable.

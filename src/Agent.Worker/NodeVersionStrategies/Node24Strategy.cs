@@ -10,11 +10,11 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
-    public sealed class UnifiedNode24Strategy : IUnifiedNodeVersionStrategy
+    public sealed class Node24Strategy : INodeVersionStrategy
     {
         public string Name => "Node24";
 
-        public bool CanHandle(UnifiedNodeContext context)
+        public bool CanHandle(NodeContext context)
         {
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(context.ExecutionContext).AsBoolean();
             bool hasNode24Handler = context.HandlerData is Node24HandlerData;
@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return false;
         }
 
-        private bool DetermineNodeVersionAndSetContext(UnifiedNodeContext context, bool eolPolicyEnabled, string baseReason)
+        private bool DetermineNodeVersionAndSetContext(NodeContext context, bool eolPolicyEnabled, string baseReason)
         {
             string systemType = context.IsContainer ? "container" : "agent";
             
@@ -83,14 +83,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return true;
         }
 
-        public NodePathResult GetNodePath(UnifiedNodeContext context)
+        public NodeRunnerInfo GetNodePath(NodeContext context)
         {
             string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
             string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.IsContainer && context.Container != null ? 
                               context.Container.TranslateToContainerPath(hostPath) : hostPath;
 
-            return new NodePathResult
+            return new NodeRunnerInfo
             {
                 NodePath = finalPath,
                 NodeVersion = context.SelectedNodeVersion,

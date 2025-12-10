@@ -8,10 +8,10 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     /// <summary>
-    /// Unified context for both host and container node selection.
+    /// Context for both host and container node selection.
     /// Contains runtime data - strategies read their own knobs via ExecutionContext.
     /// </summary>
-    public sealed class UnifiedNodeContext
+    public sealed class NodeContext
     {
         /// <summary>
         /// True if running in a container, false if running on host.

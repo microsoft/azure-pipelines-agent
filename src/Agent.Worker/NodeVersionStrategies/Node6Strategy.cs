@@ -10,54 +10,46 @@ using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
-    public sealed class UnifiedNode10Strategy : IUnifiedNodeVersionStrategy
-    {
-        public string Name => "Node10";
 
-        public bool CanHandle(UnifiedNodeContext context)
+    public sealed class Node6Strategy : INodeVersionStrategy
+    {
+        public string Name => "Node6";
+
+        public bool CanHandle(NodeContext context)
         {
-            bool hasNode10Handler = context.HandlerData is Node10HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
             
-            if (hasNode10Handler)
-            {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Node10 task handler");
-            }
+            bool hasNode6Handler = context.HandlerData != null && context.HandlerData.GetType() == typeof(NodeHandlerData);
 
-            bool isAlpine = context.IsAlpine;
-            if (isAlpine)
+            if (hasNode6Handler)
             {
-                context.ExecutionContext.Warning(
-                    "Using Node10 on Alpine Linux because Node6 is not compatible. " +
-                    "Node10 has reached End-of-Life. Please upgrade to Node20 or Node24 for continued support.");
-                
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Alpine Linux compatibility (Node6 incompatible)");
+                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Node6 task handler");
             }
-
+            
             return false;
         }
 
-        private bool DetermineNodeVersionAndSetContext(UnifiedNodeContext context, bool eolPolicyEnabled, string baseReason)
+        private bool DetermineNodeVersionAndSetContext(NodeContext context, bool eolPolicyEnabled, string baseReason)
         {
             if (eolPolicyEnabled)
             {
-                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node10"));
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node6"));
             }
 
-            context.SelectedNodeVersion = "node10";
+            context.SelectedNodeVersion = "node";
             context.SelectionReason = baseReason;
-            context.SelectionWarning = StringUtil.Loc("NodeEOLWarning", "Node10");
+            context.SelectionWarning = StringUtil.Loc("NodeEOLWarning", "Node6");
             return true;
         }
 
-        public NodePathResult GetNodePath(UnifiedNodeContext context)
+        public NodeRunnerInfo GetNodePath(NodeContext context)
         {
             string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
             string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.IsContainer && context.Container != null ? 
                               context.Container.TranslateToContainerPath(hostPath) : hostPath;
 
-            return new NodePathResult
+            return new NodeRunnerInfo
             {
                 NodePath = finalPath,
                 NodeVersion = context.SelectedNodeVersion,
