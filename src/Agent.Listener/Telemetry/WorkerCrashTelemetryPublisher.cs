@@ -42,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
             }
             catch (Exception ex)
             {
-                Trace.Warning($"Failed to publish worker crash telemetry: {ex.Message}");
+                Trace.Warning($"Failed to publish worker crash telemetry: {ex}");
             }
         }
     }

@@ -1066,17 +1066,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                     catch (TaskOrchestrationPlanNotFoundException ex)
                     {
-                        Trace.Error("TaskOrchestrationPlanNotFoundException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (TaskOrchestrationPlanSecurityException ex)
                     {
-                        Trace.Error("TaskOrchestrationPlanSecurityException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (Exception ex)
                     {
-                        Trace.Error("Exception during plan event reporting");
                         Trace.Error(ex);
                     }
                 }
