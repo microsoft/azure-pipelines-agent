@@ -91,7 +91,7 @@ extends:
         baselineFile: $(Build.SourcesDirectory)/.gdn/.gdnbaselines
       sourceAnalysisPool:
         name: 1ES-ABTT-Shared-Pool
-        image: abtt-windows-2022
+        image: abtt-windows-2025
         os: windows
     customBuildTags:
     - ES365AIMigrationTooling
@@ -119,7 +119,7 @@ extends:
                   targetFramework: 'net8.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
           variables:
             DisableDockerDetector: true
@@ -154,7 +154,7 @@ extends:
             displayName: Windows (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-windows-2022
+              image: abtt-windows-2025
               os: windows
             os: win
             arch: x64
@@ -176,7 +176,7 @@ extends:
             displayName: Windows (x86)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-windows-2022
+              image: abtt-windows-2025
               os: windows
             os: win
             arch: x86
@@ -196,7 +196,7 @@ extends:
               displayName: Windows (ARM64)
               pool:
                 name: 1ES-ABTT-Shared-Pool
-                image: abtt-windows-2022
+                image: abtt-windows-2025
                 os: windows
               os: win
               arch: arm64
@@ -216,7 +216,7 @@ extends:
             displayName: Linux (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             os: linux
             arch: x64
@@ -236,7 +236,7 @@ extends:
             displayName: Linux (ARM)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             timeoutInMinutes: 75
             os: linux
@@ -257,7 +257,7 @@ extends:
             displayName: Linux (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              vmImage: abtt-azurelinux3_arm64
               os: linux
             timeoutInMinutes: 75
             os: linux
@@ -278,7 +278,7 @@ extends:
             displayName: Alpine (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             #container: alpine
             os: linux-musl
@@ -299,7 +299,7 @@ extends:
             displayName: Alpine (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              vmImage: abtt-azurelinux3_arm64
               os: linux
             # container: # arm64v8/alpine (N/A)
             os: linux-musl
