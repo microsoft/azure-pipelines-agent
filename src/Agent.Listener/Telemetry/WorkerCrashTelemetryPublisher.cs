@@ -13,12 +13,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
     [ServiceLocator(Default = typeof(WorkerCrashTelemetryPublisher))]
     public interface IWorkerCrashTelemetryPublisher : IAgentService
     {
-        Task PublishWorkerCrashTelemetryAsync(IHostContext hostContext, Guid jobId, Guid? taskInstanceId, int exitCode);
+        Task PublishWorkerCrashTelemetryAsync(IHostContext hostContext, Guid jobId, int exitCode);
     }
 
     public sealed class WorkerCrashTelemetryPublisher : AgentService, IWorkerCrashTelemetryPublisher
     {
-        public async Task PublishWorkerCrashTelemetryAsync(IHostContext hostContext, Guid jobId, Guid? taskInstanceId, int exitCode)
+        public async Task PublishWorkerCrashTelemetryAsync(IHostContext hostContext, Guid jobId, int exitCode)
         {
             try
             {
@@ -27,7 +27,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
                 var telemetryData = new Dictionary<string, object>
                 {
                     ["JobId"] = jobId.ToString(),
-                    ["TaskInstanceId"] = taskInstanceId?.ToString() ?? "N/A",
                     ["ExitCode"] = exitCode.ToString()
                 };
 
