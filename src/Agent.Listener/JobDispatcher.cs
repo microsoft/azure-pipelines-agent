@@ -649,14 +649,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     if (ShouldUseEnhancedCrashHandling(message, returnCode))
                                     {
                                         // Direct plan event reporting for Plan v8+ worker crashes
-                                        Trace.Warning($"Plan event reporting for Plan v8+ worker crash [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}]");
                                         await ReportJobCompletionEventAsync(message, result, agentCertManager.SkipServerCertificateValidation);
                                         Trace.Info("Plan event reporting executed successfully for worker crash");
                                     }
                                     else
                                     {
                                         // Standard completion for Plan v7 or normal Plan v8+ scenarios, or when enhanced handling is disabled
-                                        Trace.Info($"Standard completion [JobId:{message.JobId}, PlanVersion:{message.Plan.Version}, ExitCode:{returnCode}, Result:{result}, EnhancedHandling:{AgentKnobs.EnhancedWorkerCrashHandling.GetValue(UtilKnobValueContext.Instance()).AsBoolean()}]");
                                         await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
                                         Trace.Info("Standard completion executed successfully");
                                     }
