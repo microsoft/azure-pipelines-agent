@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// </summary>
         /// <param name="context">Context with environment, task, and glibc information</param>
         /// <returns>True if this strategy can handle the context, false otherwise</returns>
-        bool CanHandle(NodeContext context);
+        NodeRunnerInfo CanHandle(NodeContext context);
 
         /// <summary>
         /// Gets the Node path for the given context.
@@ -32,6 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// <param name="context">Context with environment, task, and glibc information</param>
         /// <returns>NodeRunnerInfo with path, version, reason, and optional warning</returns>
         /// <exception cref="NotSupportedException">If EOL policy prevents using this version</exception>
-        NodeRunnerInfo GetNodePath(NodeContext context);
+        // NodeRunnerInfo GetNodePath(NodeContext context);
     }
 }

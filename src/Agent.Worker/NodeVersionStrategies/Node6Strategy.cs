@@ -15,7 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
     {
         public string Name => "Node6";
 
-        public bool CanHandle(NodeContext context)
+        public NodeRunnerInfo CanHandle(NodeContext context)
         {
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
             
@@ -23,38 +23,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (hasNode6Handler)
             {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Node6 task handler");
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node6 task handler");
             }
             
-            return false;
+            return null;
         }
 
-        private bool DetermineNodeVersionAndSetContext(NodeContext context, bool eolPolicyEnabled, string baseReason)
+        private NodeRunnerInfo DetermineNodeVersionSelection(NodeContext context, bool eolPolicyEnabled, string baseReason)
         {
             if (eolPolicyEnabled)
             {
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node6"));
             }
 
-            context.SelectedNodeVersion = "node";
-            context.SelectionReason = baseReason;
-            context.SelectionWarning = StringUtil.Loc("NodeEOLWarning", "Node6");
-            return true;
-        }
-
-        public NodeRunnerInfo GetNodePath(NodeContext context)
-        {
-            string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
-            string finalPath = context.IsContainer && context.Container != null ? 
-                              context.Container.TranslateToContainerPath(hostPath) : hostPath;
-
             return new NodeRunnerInfo
             {
-                NodePath = finalPath,
-                NodeVersion = context.SelectedNodeVersion,
-                Reason = context.SelectionReason,
-                Warning = context.SelectionWarning
+                NodePath = null,
+                NodeVersion = "node",
+                Reason = baseReason,
+                Warning = StringUtil.Loc("NodeEOLWarning", "Node6")
             };
         }
     }

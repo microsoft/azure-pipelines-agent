@@ -9,28 +9,28 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
-    public sealed class UnifiedNodeVersionOrchestrator
+    public sealed class NodeVersionOrchestrator
     {
-        private readonly List<IUnifiedNodeVersionStrategy> _strategies;
+        private readonly List<INodeVersionStrategy> _strategies;
 
-        public UnifiedNodeVersionOrchestrator()
+        public NodeVersionOrchestrator()
         {
-            _strategies = new List<IUnifiedNodeVersionStrategy>();
+            _strategies = new List<INodeVersionStrategy>();
 
-            _strategies.Add(new UnifiedNode24Strategy());
-            _strategies.Add(new UnifiedNode20Strategy());
-            _strategies.Add(new UnifiedNode16Strategy());
-            _strategies.Add(new UnifiedNode10Strategy());
-            _strategies.Add(new UnifiedNode6Strategy());
+            _strategies.Add(new Node24Strategy());
+            _strategies.Add(new Node20Strategy());
+            _strategies.Add(new Node16Strategy());
+            _strategies.Add(new Node10Strategy());
+            _strategies.Add(new Node6Strategy());
         }
 
-        public UnifiedNodeVersionOrchestrator(IEnumerable<IUnifiedNodeVersionStrategy> strategies)
+        public NodeVersionOrchestrator(IEnumerable<INodeVersionStrategy> strategies)
         {
             ArgUtil.NotNull(strategies, nameof(strategies));
-            _strategies = new List<IUnifiedNodeVersionStrategy>(strategies);
+            _strategies = new List<INodeVersionStrategy>(strategies);
         }
 
-        public NodePathResult SelectNodeVersion(UnifiedNodeContext context)
+        public NodeRunnerInfo SelectNodeVersion(NodeContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(context.ExecutionContext, nameof(context.ExecutionContext));
@@ -46,9 +46,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
                 try
                 {
-                    if (strategy.CanHandle(context))
+                    var selectionResult = strategy.CanHandle(context);
+                    if (selectionResult != null)
                     {
-                        NodePathResult result = strategy.GetNodePath(context);
+                        var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
+                        // NodeRunnerInfo result = strategy.GetNodePath(context);
 
                         context.ExecutionContext.Output(
                             $"[{environmentType}] Selected Node version: {result.NodeVersion} (Strategy: {strategy.Name})");
@@ -81,6 +83,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
+        }
+
+        private NodeRunnerInfo CreateNodeRunnerInfoWithPath(NodeContext context, NodeRunnerInfo selection)
+        {
+            string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
+            string hostPath = Path.Combine(externalsPath, selection.NodeVersion, "bin", $"node{IOUtil.ExeExtension}");
+            string finalPath = context.IsContainer && context.Container != null ? 
+                            context.Container.TranslateToContainerPath(hostPath) : hostPath;
+
+            return new NodeRunnerInfo
+            {
+                NodePath = finalPath,
+                NodeVersion = selection.NodeVersion,
+                Reason = selection.Reason,
+                Warning = selection.Warning
+            };
         }
     }
 }

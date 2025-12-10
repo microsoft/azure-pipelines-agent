@@ -936,5 +936,12 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("EnableDockerExecDiagnostics"),
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNodeVersionStrategy = new Knob(
+            nameof(UseNodeVersionStrategy),
+            "If true, use the strategy pattern for Node.js version selection. This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new EnvironmentKnobSource("AGENT_USE_NODE_VERSION_STRATEGY"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

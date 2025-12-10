@@ -364,12 +364,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            bool useUnifiedStrategy = AgentKnobs.UseUnifiedNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            bool useStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
             
-            if (useUnifiedStrategy)
+            if (useStrategy)
             {
-                ExecutionContext.Debug("Using unified node version strategy pattern");
-                return GetNodeLocationWithUnifiedStrategy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+                ExecutionContext.Debug("Using node version strategy pattern");
+                return GetNodeLocationWithStrategy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
 
             ExecutionContext.Debug("Using legacy node version selection logic");
@@ -493,15 +493,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private string GetNodeLocationWithUnifiedStrategy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
+        private string GetNodeLocationWithStrategy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            ExecutionContext.Debug("[UnifiedStrategy] Starting node version selection");
-            ExecutionContext.Debug($"[UnifiedStrategy] Handler type: {Data?.GetType().Name}");
-            ExecutionContext.Debug($"[UnifiedStrategy] Node20 glibc error: {node20ResultsInGlibCError}");
-            ExecutionContext.Debug($"[UnifiedStrategy] Node24 glibc error: {node24ResultsInGlibCError}");
-            ExecutionContext.Debug($"[UnifiedStrategy] In container: {inContainer}");
+            ExecutionContext.Debug("[Strategy] Starting node version selection");
+            ExecutionContext.Debug($"[Strategy] Handler type: {Data?.GetType().Name}");
+            ExecutionContext.Debug($"[Strategy] Node20 glibc error: {node20ResultsInGlibCError}");
+            ExecutionContext.Debug($"[Strategy] Node24 glibc error: {node24ResultsInGlibCError}");
+            ExecutionContext.Debug($"[Strategy] In container: {inContainer}");
 
-            var context = new NodeVersionStrategies.UnifiedNodeContext
+            var context = new NodeVersionStrategies.NodeContext
             {
                 IsContainer = inContainer,
                 IsHostLinux = PlatformUtil.RunningOnLinux,
@@ -515,14 +515,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 StepTarget = inContainer ? null : ExecutionContext.StepTarget()
             };
 
-            var orchestrator = new NodeVersionStrategies.UnifiedNodeVersionOrchestrator();
+            var orchestrator = new NodeVersionStrategies.NodeVersionOrchestrator();
             try
             {
                 var result = orchestrator.SelectNodeVersion(context);
                 
                 if (!string.IsNullOrEmpty(result.Warning))
                 {
-                    ExecutionContext.Debug($"[UnifiedStrategy] Warning: {result.Warning}");
+                    ExecutionContext.Debug($"[Strategy] Warning: {result.Warning}");
                 }
 
                 if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
@@ -542,12 +542,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             catch (NotSupportedException ex)
             {
-                ExecutionContext.Error($"[UnifiedStrategy] Node selection failed: {ex.Message}");
+                ExecutionContext.Error($"[Strategy] Node selection failed: {ex.Message}");
                 throw;
             }
             catch (Exception ex)
             {
-                ExecutionContext.Error($"[UnifiedStrategy] Unexpected error during node selection: {ex.Message}");
+                ExecutionContext.Error($"[Strategy] Unexpected error during node selection: {ex.Message}");
                 ExecutionContext.Debug(ex.ToString());
                 throw;
             }
