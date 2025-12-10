@@ -1052,7 +1052,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         // Used for Plan v8+ scenarios where listener needs to notify server of job completion
         private async Task ReportJobCompletionEventAsync(Pipelines.AgentJobRequestMessage message, TaskResult result, bool skipServerCertificateValidation = false)
         {
-            Trace.Info($"Plan event reporting initiated - Sending job completion event to server [JobId:{message.JobId}, Result:{result}]");
+            Trace.Info($"Plan event reporting initiated - Sending job completion event to server");
 
             try
             {
@@ -1064,28 +1064,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     try
                     {
                         await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
-                        Trace.Info($"Plan event reporting completed successfully [JobId:{message.JobId}, Result:{result}]");
+                        Trace.Info($"Plan event reporting completed successfully");
                     }
                     catch (TaskOrchestrationPlanNotFoundException ex)
                     {
-                        Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting for job {message.JobId}");
+                        Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (TaskOrchestrationPlanSecurityException ex)
                     {
-                        Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting for job {message.JobId}");
+                        Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting");
                         Trace.Error(ex);
                     }
                     catch (Exception ex)
                     {
-                        Trace.Error($"Exception during plan event reporting for job {message.JobId}: {ex.Message}");
+                        Trace.Error($"Exception during plan event reporting");
                         Trace.Error(ex);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Trace.Error($"Critical error during plan event reporting setup for job {message.JobId}: {ex.Message}");
+                Trace.Error($"Critical error during plan event reporting setup");
                 Trace.Error(ex);
             }
         }
