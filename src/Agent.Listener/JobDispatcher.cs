@@ -1058,21 +1058,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 {
                     var jobServer = HostContext.GetService<IJobServer>();
                     // Create job completed event (similar to worker)
-                    var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result, false);
-                    try
+                    var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result);
+                    
+                    // Send plan event with retry logic (similar to worker pattern)
+                    int retryLimit = 5;
+                    var exceptions = new List<Exception>();
+                    
+                    while (retryLimit-- > 0)
                     {
-                        await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
-                        Trace.Info("Plan event reporting completed successfully");
+                        try
+                        {
+                            await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
+                            Trace.Info($"Plan event reporting completed successfully [JobId:{message.JobId}, Result:{result}]");
+                            return;
+                        }
+                        catch (TaskOrchestrationPlanNotFoundException ex)
+                        {
+                            Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting for job {message.JobId}");
+                            Trace.Error(ex);
+                            return; // No point retrying
+                        }
+                        catch (TaskOrchestrationPlanSecurityException ex)
+                        {
+                            Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting for job {message.JobId}");
+                            Trace.Error(ex);
+                            return; // No point retrying
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error(ex);
+                            exceptions.Add(ex);
+                        }
+                        
+                        // delay 5 seconds before next retry
+                        Trace.Info($"Plan event reporting retry delay - Waiting 5 seconds before retry {5 - retryLimit}/5");
+                        await Task.Delay(TimeSpan.FromSeconds(5));
                     }
-                    catch (TaskOrchestrationPlanNotFoundException ex)
-                    {
-                        Trace.Error(ex);
-                    }
-                    catch (TaskOrchestrationPlanSecurityException ex)
-                    {
-                        Trace.Error(ex);
-                    }
-                    catch (Exception ex)
+                    
+                    // If we get here, all retries failed
+                    Trace.Warning($"Plan event reporting failed after all retries [JobId:{message.JobId}, TotalExceptions:{exceptions.Count}]");
+                    foreach (var ex in exceptions)
                     {
                         Trace.Error(ex);
                     }
