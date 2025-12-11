@@ -937,11 +937,11 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseUnifiedNodeVersionStrategy = new Knob(
-            nameof(UseUnifiedNodeVersionStrategy),
-            "If true, use the unified strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
-            new PipelineFeatureSource("UseUnifiedNodeVersionStrategy"),
-            new EnvironmentKnobSource("AGENT_USE_UNIFIED_NODE_STRATEGY"),
+        public static readonly Knob UseNodeVersionStrategy = new Knob(
+            nameof(UseNodeVersionStrategy),
+            "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

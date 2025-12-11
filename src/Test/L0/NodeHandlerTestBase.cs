@@ -45,10 +45,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         protected void RunScenarioAndAssert(TestScenario scenario)
         {
-            RunScenarioAndAssert(scenario, useUnifiedStrategy: false);
+            RunScenarioAndAssert(scenario, useStrategy: false);
         }
 
-        protected void RunScenarioAndAssert(TestScenario scenario, bool useUnifiedStrategy)
+        protected void RunScenarioAndAssert(TestScenario scenario, bool useStrategy)
         {
             ResetEnvironment();
             
@@ -57,7 +57,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Environment.SetEnvironmentVariable(knob.Key, knob.Value);
             }
             
-            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", useUnifiedStrategy ? "true" : "false");
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", useStrategy ? "true" : "false");
 
             try
             {
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.ExecutionContext = executionContextMock.Object;
                     nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
-                    var expectations = GetScenarioExpectations(scenario, useUnifiedStrategy);
+                    var expectations = GetScenarioExpectations(scenario, useStrategy);
 
                     if (expectations.ExpectSuccess)
                     {
@@ -139,7 +139,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 $"node{IOUtil.ExeExtension}");
         }
 
-        protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useUnifiedStrategy)
+        protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useStrategy)
         {
             return new ScenarioExpectations
             {
@@ -267,8 +267,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_ENABLE_EOL_NODE_VERSION_POLICY", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_UNIFIED_NODE_STRATEGY", null);
-            // Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
