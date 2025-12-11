@@ -1189,19 +1189,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     );
                                 }
                             }
-
-                            if (!container.NeedsNode20Redirect)
-                            {
-                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                            }
-                            else if (!container.NeedsNode16Redirect)
-                            {
-                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                            }
-                            else
-                            {
-                                container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                            }
                         }
 
                         if (!string.IsNullOrEmpty(containerUserName))
