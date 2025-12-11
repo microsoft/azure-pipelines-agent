@@ -12,67 +12,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node20Strategy : INodeVersionStrategy
     {
-        public string Name => "Node20";
-
-        public bool CanHandle(NodeContext context)
+        public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
-            bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(context.ExecutionContext).AsBoolean();
+            bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
             bool hasNode20Handler = context.HandlerData is Node20_1HandlerData;
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
-
+            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+            
             if (useNode20Globally)
             {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE20_1 override");
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE20_1 override", glibcInfo);
             }
             
             if (hasNode20Handler)
             {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Node20 task handler");
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node20 task handler", glibcInfo);
             }
             
             if (eolPolicyEnabled)
             {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy");
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", glibcInfo);
             }
             
-            return false;
+            return null;
         }
 
-        private bool DetermineNodeVersionAndSetContext(NodeContext context, bool eolPolicyEnabled, string baseReason)
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, GlibcCompatibilityInfo glibcInfo)
         {
-            if (!context.Node20HasGlibcError)
+            if (!glibcInfo.Node20HasGlibcError)
             {
-                context.SelectedNodeVersion = "node20_1";
-                context.SelectionReason = baseReason;
-                context.SelectionWarning = null;
-                return true;
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = "node20_1",
+                    Reason = baseReason,
+                    Warning = null
+                };
             }
 
             if (eolPolicyEnabled)
             {
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLFallbackBlocked", "Node20", "Node16"));
             }
-
-            string systemType = context.IsContainer ? "container" : "agent";
-            context.SelectedNodeVersion = "node16";
-            context.SelectionReason = $"{baseReason}, fallback to Node16 due to Node20 glibc compatibility issue";
-            context.SelectionWarning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16");
-            return true;
-        }
-
-        public NodeRunnerInfo GetNodePath(NodeContext context)
-        {
-            string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
-            string finalPath = context.IsContainer && context.Container != null ? 
-                              context.Container.TranslateToContainerPath(hostPath) : hostPath;
-
+            
+            string systemType = context.Container != null ? "container" : "agent";
             return new NodeRunnerInfo
             {
-                NodePath = finalPath,
-                NodeVersion = context.SelectedNodeVersion,
-                Reason = context.SelectionReason,
-                Warning = context.SelectionWarning
+                NodePath = null,
+                NodeVersion = "node16",
+                Reason = $"{baseReason}, fallback to Node16 due to Node20 glibc compatibility issue",
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
             };
         }
     }

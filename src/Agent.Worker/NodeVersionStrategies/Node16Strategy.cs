@@ -12,47 +12,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node16Strategy : INodeVersionStrategy
     {
-        public string Name => "Node16";
-
-        public bool CanHandle(NodeContext context)
+        public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool hasNode16Handler = context.HandlerData is Node16HandlerData;
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(context.ExecutionContext).AsBoolean();
+            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             if (hasNode16Handler)
             {
-                return DetermineNodeVersionAndSetContext(context, eolPolicyEnabled, "Selected for Node16 task handler");
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node16 task handler");
             }
 
-            return false;
+            return null;
         }
 
-        private bool DetermineNodeVersionAndSetContext(NodeContext context, bool eolPolicyEnabled, string baseReason)
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason)
         {
             if (eolPolicyEnabled)
             {
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node16"));
             }
 
-            context.SelectedNodeVersion = "node16";
-            context.SelectionReason = baseReason;
-            context.SelectionWarning = StringUtil.Loc("NodeEOLWarning", "Node16");
-            return true;
-        }
-
-        public NodeRunnerInfo GetNodePath(NodeContext context)
-        {
-            string externalsPath = context.HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostPath = Path.Combine(externalsPath, context.SelectedNodeVersion, "bin", $"node{IOUtil.ExeExtension}");
-            string finalPath = context.IsContainer && context.Container != null ? 
-                              context.Container.TranslateToContainerPath(hostPath) : hostPath;
-
             return new NodeRunnerInfo
             {
-                NodePath = finalPath,
-                NodeVersion = context.SelectedNodeVersion,
-                Reason = context.SelectionReason,
-                Warning = context.SelectionWarning
+                NodePath = null,
+                NodeVersion = "node16",
+                Reason = baseReason,
+                Warning = StringUtil.Loc("NodeEOLWarning", "Node16")
             };
         }
     }

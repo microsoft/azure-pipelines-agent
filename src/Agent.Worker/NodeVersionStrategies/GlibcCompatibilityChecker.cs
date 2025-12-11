@@ -1,0 +1,148 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using Agent.Sdk.Knob;
+using Microsoft.VisualStudio.Services.Agent.Util;
+
+namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
+{
+    /// <summary>
+    /// Utility class for checking glibc compatibility with Node.js versions on Linux systems.
+    /// </summary>
+    public sealed class GlibcCompatibilityChecker
+    {
+        private readonly IExecutionContext _executionContext;
+        private readonly IHostContext _hostContext;        
+        private static bool? _supportsNode20;
+        private static bool? _supportsNode24;
+
+        public GlibcCompatibilityChecker(IExecutionContext executionContext, IHostContext hostContext)
+        {
+            ArgUtil.NotNull(executionContext, nameof(executionContext));
+            ArgUtil.NotNull(hostContext, nameof(hostContext));
+            _executionContext = executionContext;
+            _hostContext = hostContext;
+        }
+
+        /// <summary>
+        /// Checks glibc compatibility for both Node20 and Node24.
+        /// This method combines the behavior from NodeHandler for both Node versions.
+        /// </summary>
+        /// <returns>GlibcCompatibilityInfo containing compatibility results for both Node versions</returns>
+        public async Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync()
+        {
+            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
+            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
+
+            bool node20HasGlibcError = false;
+            bool node24HasGlibcError = false;
+
+            if (!useNode20InUnsupportedSystem)
+            {
+                if (_supportsNode20.HasValue)
+                {
+                    node20HasGlibcError = !_supportsNode20.Value;
+                }
+                else
+                {
+                    node20HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node20_1");
+                    _executionContext.EmitHostNode20FallbackTelemetry(node20HasGlibcError);
+                    _supportsNode20 = !node20HasGlibcError;
+                }
+            }
+
+            if (!useNode24InUnsupportedSystem)
+            {
+                if (_supportsNode24.HasValue)
+                {
+                    node24HasGlibcError = !_supportsNode24.Value;
+                }
+                else
+                {
+                    node24HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node24");
+                    _executionContext.EmitHostNode24FallbackTelemetry(node24HasGlibcError);
+                    _supportsNode24 = !node24HasGlibcError;
+                }
+            }
+
+            return GlibcCompatibilityInfo.Create(node24HasGlibcError, node20HasGlibcError);
+        }
+
+        /// <summary>
+        /// Checks if the specified Node.js version results in glibc compatibility errors.
+        /// </summary>
+        /// <param name="nodeFolder">The node folder name (e.g., "node20_1", "node24")</param>
+        /// <returns>True if glibc error is detected, false otherwise</returns>
+        public async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder)
+        {
+            var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
+            var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
+
+            return nodeResultsInGlibCError;
+        }
+
+        private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)
+        {
+            string commandLog = $"{command} {arg}";
+            if (!showOutputOnFailureOnly)
+            {
+                context.Command(commandLog);
+            }
+
+            List<string> outputs = new List<string>();
+            object outputLock = new object();
+            var processInvoker = _hostContext.CreateService<IProcessInvoker>();
+            processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+            {
+                if (!string.IsNullOrEmpty(message.Data))
+                {
+                    lock (outputLock)
+                    {
+                        outputs.Add(message.Data);
+                    }
+                }
+            };
+
+            processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
+            {
+                if (!string.IsNullOrEmpty(message.Data))
+                {
+                    lock (outputLock)
+                    {
+                        outputs.Add(message.Data);
+                    }
+                }
+            };
+
+            var exitCode = await processInvoker.ExecuteAsync(
+                            workingDirectory: _hostContext.GetDirectory(WellKnownDirectory.Work),
+                            fileName: command,
+                            arguments: arg,
+                            environment: null,
+                            requireExitCodeZero: requireZeroExitCode,
+                            outputEncoding: null,
+                            cancellationToken: System.Threading.CancellationToken.None);
+
+            if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
+            {
+                if (showOutputOnFailureOnly)
+                {
+                    context.Command(commandLog);
+                }
+
+                foreach (var outputLine in outputs)
+                {
+                    context.Debug(outputLine);
+                }
+            }
+
+            return outputs;
+        }
+    }
+}
