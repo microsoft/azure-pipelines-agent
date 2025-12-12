@@ -77,27 +77,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
 
-                    if (expectations.ExpectSuccess)
+                    try
                     {
                         string actualLocation = nodeHandler.GetNodeLocation(
                             node20ResultsInGlibCError: scenario.Node20GlibcError,
                             node24ResultsInGlibCError: scenario.Node24GlibcError,
                             inContainer: scenario.InContainer);
-
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        var exception = Assert.Throws(scenario.ExpectedErrorType ?? typeof(FileNotFoundException),
-                            () => nodeHandler.GetNodeLocation(
-                                node20ResultsInGlibCError: scenario.Node20GlibcError,
-                                node24ResultsInGlibCError: scenario.Node24GlibcError,
-                                inContainer: scenario.InContainer));
-
+                        Assert.NotNull(ex);
+                        Assert.IsType(scenario.ExpectedErrorType, ex);
+                        
                         if (!string.IsNullOrEmpty(expectations.ExpectedError))
                         {
-                            Assert.Contains(expectations.ExpectedError, exception.Message);
+                            Assert.Contains(expectations.ExpectedError, ex.Message);
                         }
                     }
                 }
@@ -144,7 +140,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return new ScenarioExpectations
             {
                 ExpectedNode = scenario.LegacyExpectedNode,
-                ExpectSuccess = scenario.LegacyExpectSuccess,
+                // ExpectSuccess = scenario.LegacyExpectSuccess,
                 ExpectedError = null
             };
         }
@@ -266,7 +262,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_USE_NODE", null);
             
             // EOL and strategy control
-            Environment.SetEnvironmentVariable("AGENT_ENABLE_EOL_NODE_VERSION_POLICY", null);
+            Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
             
             // System-specific knobs
@@ -286,7 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public class ScenarioExpectations
     {
         public string ExpectedNode { get; set; }
-        public bool ExpectSuccess { get; set; }
+        // public bool ExpectSuccess { get; set; }
         public string ExpectedError { get; set; }
     }
 }
