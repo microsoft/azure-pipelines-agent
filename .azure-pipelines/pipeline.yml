@@ -91,7 +91,7 @@ extends:
         baselineFile: $(Build.SourcesDirectory)/.gdn/.gdnbaselines
       sourceAnalysisPool:
         name: 1ES-ABTT-Shared-Pool
-        image: abtt-windows-2025
+        image: abtt-windows-2022
         os: windows
     customBuildTags:
     - ES365AIMigrationTooling
@@ -154,7 +154,7 @@ extends:
             displayName: Windows (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-windows-2025
+              image: abtt-windows-2022
               os: windows
             os: win
             arch: x64
@@ -176,7 +176,7 @@ extends:
             displayName: Windows (x86)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-windows-2025
+              image: abtt-windows-2022
               os: windows
             os: win
             arch: x86
@@ -196,7 +196,7 @@ extends:
               displayName: Windows (ARM64)
               pool:
                 name: 1ES-ABTT-Shared-Pool
-                image: abtt-windows-2025
+                image: abtt-windows-2022
                 os: windows
               os: win
               arch: arm64
