@@ -27,6 +27,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             GlibcChecker.Initialize(hostContext);
             _strategies = new List<INodeVersionStrategy>();
 
+            // IMPORTANT: Strategy order determines selection priority
+            // Add strategies in descending priority order (newest/preferred versions first)
+            // The orchestrator will try each strategy in order until one can handle the request
             _strategies.Add(new Node24Strategy());
             _strategies.Add(new Node20Strategy());
             _strategies.Add(new Node16Strategy());
