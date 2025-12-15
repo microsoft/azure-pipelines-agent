@@ -6,7 +6,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
     /// <summary>
     /// Contains glibc compatibility information for different Node.js versions.
     /// </summary>
-    public sealed class GlibcCompatibilityInfo
+    public class GlibcCompatibilityInfo
     {
         /// <summary>
         /// True if Node24 has glibc compatibility errors (requires glibc 2.28+).

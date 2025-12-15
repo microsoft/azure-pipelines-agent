@@ -4,10 +4,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
 using Xunit;
 using Agent.Sdk;
@@ -43,11 +46,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        // protected void RunScenarioAndAssert(TestScenario scenario)
-        // {
-        //     RunScenarioAndAssert(scenario, useStrategy: false);
-        // }
-
         protected void RunScenarioAndAssert(TestScenario scenario, bool useStrategy)
         {
             ResetEnvironment();
@@ -65,6 +63,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                    var glibcCheckerMock = SetupMockedGlibcCompatibilityInfoProvider(scenario);
+                    thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcCheckerMock.Object);
 
                     ConfigureNodeHandlerHelper(scenario);
 
@@ -104,6 +105,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        /// <summary>
+        /// Sets up a mocked GlibcCompatibilityInfoProvider for focused NodeHandler testing.
+        /// </summary>
+        private Mock<IGlibcCompatibilityInfoProvider> SetupMockedGlibcCompatibilityInfoProvider(TestScenario scenario)
+        {
+            var glibcCheckerMock = new Mock<IGlibcCompatibilityInfoProvider>();
+            
+            var glibcInfo = GlibcCompatibilityInfo.Create(
+                scenario.Node24GlibcError,
+                scenario.Node20GlibcError);
+            
+            glibcCheckerMock
+                .Setup(x => x.CheckGlibcCompatibilityAsync())
+                .ReturnsAsync(glibcInfo);
+            
+            glibcCheckerMock
+                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>()))
+                .ReturnsAsync(glibcInfo);
+            
+            return glibcCheckerMock;
+        }
+
         private void ConfigureNodeHandlerHelper(TestScenario scenario)
         {
             NodeHandlerHelper.Reset();
@@ -137,13 +160,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useStrategy)
         {
-            if (scenario.ShouldMatchBetweenLegacyAndStrategy)
+            // Check if this is an equivalent scenario by seeing if strategy-specific fields are populated
+            bool isEquivalentScenario = string.IsNullOrEmpty(scenario.StrategyExpectedNode) && 
+                                       string.IsNullOrEmpty(scenario.LegacyExpectedNode);
+            
+            if (isEquivalentScenario)
             {
-                // Equivalent scenarios: same behavior for both modes
+                // Equivalent scenarios: same behavior for both modes, use shared ExpectedNode
                 return new ScenarioExpectations
                 {
                     ExpectedNode = scenario.ExpectedNode,
-                    ExpectedError = null // For equivalent scenarios, error message is not mode-specific
+                    ExpectedError = null
                 };
             }
             else
@@ -162,7 +189,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     return new ScenarioExpectations
                     {
                         ExpectedNode = scenario.LegacyExpectedNode,
-                        ExpectedError = null // Legacy error messages are not specified in current scenarios
+                        ExpectedError = null
                     };
                 }
             }

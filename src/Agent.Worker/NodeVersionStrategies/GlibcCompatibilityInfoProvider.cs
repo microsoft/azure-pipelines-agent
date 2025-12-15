@@ -14,14 +14,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
     /// <summary>
     /// Utility class for checking glibc compatibility with Node.js versions on Linux systems.
     /// </summary>
-    public sealed class GlibcCompatibilityChecker
+    public class GlibcCompatibilityInfoProvider : AgentService, IGlibcCompatibilityInfoProvider
     {
         private readonly IExecutionContext _executionContext;
         private readonly IHostContext _hostContext;        
         private static bool? _supportsNode20;
         private static bool? _supportsNode24;
 
-        public GlibcCompatibilityChecker(IExecutionContext executionContext, IHostContext hostContext)
+        public GlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(hostContext, nameof(hostContext));
@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// This method combines the behavior from NodeHandler for both Node versions.
         /// </summary>
         /// <returns>GlibcCompatibilityInfo containing compatibility results for both Node versions</returns>
-        public async Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync()
+        public virtual async Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync()
         {
             bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
             bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
@@ -74,11 +74,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
+        /// Gets glibc compatibility information based on the execution context (host vs container).
+        /// </summary>
+        /// <param name="context">The task context containing container and handler information</param>
+        /// <returns>Glibc compatibility information for the current execution environment</returns>
+        public virtual async Task<GlibcCompatibilityInfo> GetGlibcCompatibilityAsync(TaskContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            string environmentType = context.Container != null ? "Container" : "Host";
+
+            if (context.Container == null)
+            {
+                // Host execution - check actual glibc compatibility
+                var glibcInfo = await CheckGlibcCompatibilityAsync();
+                
+                _executionContext.Debug($"[{environmentType}] Host glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
+                
+                return glibcInfo;
+            }
+            else
+            {
+                // Container execution - use container-specific redirect information
+                var glibcInfo = GlibcCompatibilityInfo.Create(
+                    node24HasGlibcError: context.Container.NeedsNode20Redirect, 
+                    node20HasGlibcError: context.Container.NeedsNode16Redirect);
+                
+                _executionContext.Debug($"[{environmentType}] Container glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
+                
+                return glibcInfo;
+            }
+        }
+
+        /// <summary>
         /// Checks if the specified Node.js version results in glibc compatibility errors.
         /// </summary>
         /// <param name="nodeFolder">The node folder name (e.g., "node20_1", "node24")</param>
         /// <returns>True if glibc error is detected, false otherwise</returns>
-        public async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder)
+        public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder)
         {
             var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);

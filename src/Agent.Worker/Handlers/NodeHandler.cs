@@ -372,13 +372,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
             if (useStrategyPattern)
             {
-                return GetNodeLocationUsingStrategy(inContainer, node20ResultsInGlibCError, node24ResultsInGlibCError);
+                return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
             
             return GetNodeLocationLegacy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
         }
         
-        private string GetNodeLocationUsingStrategy(bool inContainer, bool node20ResultsInGlibCError, bool node24ResultsInGlibCError)
+        private async Task<string> GetNodeLocationUsingStrategy(bool inContainer)
         {
             try
             {
@@ -386,12 +386,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     HandlerData = Data,
                     Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
-                    StepTarget = inContainer ? null : ExecutionContext.StepTarget(),
-                    Node24HasGlibcError = node24ResultsInGlibCError,
-                    Node20HasGlibcError = node20ResultsInGlibCError
+                    StepTarget = inContainer ? null : ExecutionContext.StepTarget()
                 };
                 
-                var result = nodeVersionOrchestrator.Value.SelectNodeVersionAsync(taskContext);
+                NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionAsync(taskContext);
                 return result.NodePath;
             }
             catch (Exception ex)

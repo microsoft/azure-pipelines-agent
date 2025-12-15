@@ -15,6 +15,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         private readonly List<INodeVersionStrategy> _strategies;
         private readonly IExecutionContext ExecutionContext;
         private readonly IHostContext HostContext;
+        private readonly IGlibcCompatibilityInfoProvider GlibcChecker;
 
         public NodeVersionOrchestrator(IExecutionContext executionContext, IHostContext hostContext)
         {
@@ -22,6 +23,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ArgUtil.NotNull(hostContext, nameof(hostContext));
             ExecutionContext = executionContext;
             HostContext = hostContext;
+            GlibcChecker = HostContext.GetService<IGlibcCompatibilityInfoProvider>();
+            GlibcChecker.Initialize(hostContext);
             _strategies = new List<INodeVersionStrategy>();
 
             _strategies.Add(new Node24Strategy());
@@ -31,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             _strategies.Add(new Node6Strategy());
         }
 
-        public NodeRunnerInfo SelectNodeVersionAsync(TaskContext context)
+        public async Task<NodeRunnerInfo>  SelectNodeVersionAsync(TaskContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -39,25 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            GlibcCompatibilityInfo glibcInfo = GlibcCompatibilityInfo.Compatible;
-            
-            if (context.Container == null) 
-            {
-                glibcInfo = GlibcCompatibilityInfo.Create(
-                    node24HasGlibcError: context.Node24HasGlibcError, 
-                    node20HasGlibcError: context.Node20HasGlibcError);
-                ExecutionContext.Debug($"[{environmentType}] Container glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
-                // var glibcChecker = new GlibcCompatibilityChecker(ExecutionContext, HostContext);
-                // glibcInfo = await glibcChecker.CheckGlibcCompatibilityAsync();
-                ExecutionContext.Debug($"[{environmentType}] Host glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
-            }
-            else if (context.Container != null)
-            {
-                glibcInfo = GlibcCompatibilityInfo.Create(
-                    node24HasGlibcError: context.Container.NeedsNode20Redirect, 
-                    node20HasGlibcError: context.Container.NeedsNode16Redirect);
-                ExecutionContext.Debug($"[{environmentType}] Container glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
-            }
+            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context);
 
             foreach (var strategy in _strategies)
             {
