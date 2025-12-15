@@ -31,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             _strategies.Add(new Node6Strategy());
         }
 
-        public async Task<NodeRunnerInfo> SelectNodeVersionAsync(TaskContext context)
+        public NodeRunnerInfo SelectNodeVersionAsync(TaskContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -43,8 +43,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (context.Container == null) 
             {
-                var glibcChecker = new GlibcCompatibilityChecker(ExecutionContext, HostContext);
-                glibcInfo = await glibcChecker.CheckGlibcCompatibilityAsync();
+                glibcInfo = GlibcCompatibilityInfo.Create(
+                    node24HasGlibcError: context.Node24HasGlibcError, 
+                    node20HasGlibcError: context.Node20HasGlibcError);
+                ExecutionContext.Debug($"[{environmentType}] Container glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
+                // var glibcChecker = new GlibcCompatibilityChecker(ExecutionContext, HostContext);
+                // glibcInfo = await glibcChecker.CheckGlibcCompatibilityAsync();
                 ExecutionContext.Debug($"[{environmentType}] Host glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
             }
             else if (context.Container != null)
