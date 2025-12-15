@@ -119,7 +119,7 @@ extends:
                   targetFramework: 'net8.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
           variables:
             DisableDockerDetector: true
@@ -216,7 +216,7 @@ extends:
             displayName: Linux (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             os: linux
             arch: x64
@@ -236,7 +236,7 @@ extends:
             displayName: Linux (ARM)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             timeoutInMinutes: 75
             os: linux
@@ -257,7 +257,7 @@ extends:
             displayName: Linux (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              vmImage: abtt-azurelinux3_arm64
               os: linux
             timeoutInMinutes: 75
             os: linux
@@ -278,7 +278,7 @@ extends:
             displayName: Alpine (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             #container: alpine
             os: linux-musl
@@ -299,7 +299,7 @@ extends:
             displayName: Alpine (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              vmImage: abtt-azurelinux3_arm64
               os: linux
             # container: # arm64v8/alpine (N/A)
             os: linux-musl
@@ -321,7 +321,7 @@ extends:
             displayName: macOS (x64)
             pool:
               name: Azure Pipelines
-              image: macos-14
+              image: macos-15
               os: macOS
             os: osx
             arch: x64
@@ -342,7 +342,7 @@ extends:
             displayName: macOS (ARM64)
             pool:
               name: Azure Pipelines
-              image: macos-14
+              image: macos-15-arm64
               os: macOS
             os: osx
             arch: arm64

@@ -92,7 +92,7 @@ extends:
       displayName: Verify it's a release run
       pool:
         name: 1ES-ABTT-Shared-Pool
-        image: abtt-ubuntu-2204
+        image: abtt-ubuntu-2404
         os: linux
       jobs:
       - job: Set_variables
@@ -182,7 +182,7 @@ extends:
 
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-ubuntu-2204
+          image: abtt-ubuntu-2404
           os: linux
         steps:
 
@@ -384,7 +384,7 @@ extends:
 
           pool:
             name: 1ES-ABTT-Shared-Pool
-            image: abtt-ubuntu-2204
+            image: abtt-ubuntu-2404
             os: linux
           steps:
           - checkout: self
@@ -413,7 +413,7 @@ extends:
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-mariner
+          image: abtt-ubuntu-2404
           os: linux
         jobs:
         ################################################################################
@@ -462,7 +462,7 @@ extends:
         - CreatePRs
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-ubuntu-2204
+          image: abtt-ubuntu-2404
           os: linux
         jobs:
         - job: j_SendPRsNotifications
