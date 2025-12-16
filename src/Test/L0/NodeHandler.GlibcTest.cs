@@ -21,6 +21,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         private bool disposed = false;
 
+        private class TestableGlibcCompatibilityInfoProvider : GlibcCompatibilityInfoProvider
+        {
+            public TestableGlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)
+                : base(executionContext, hostContext)
+            {
+            }
+
+            protected override bool IsLinuxPlatform() => true;
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -31,10 +41,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             if (!disposed)
             {
-                if (disposing)
-                {
-                    // Clean up
-                }
                 disposed = true;
             }
         }
@@ -44,27 +50,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_Node24GlibcError_ReturnsCorrectStatus()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
             
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc);
 
-                // Setup Node24 process to return glibc error
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: true);
-                
-                // Setup Node20 process to return success
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                // Act
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.True(result.Node24HasGlibcError, "Node24 should have glibc error");
-                Assert.False(result.Node20HasGlibcError, "Node20 should not have glibc error");
+                Assert.True(result.Node24HasGlibcError);
+                Assert.False(result.Node20HasGlibcError);
             }
         }
 
@@ -73,25 +72,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_BothVersionsSuccess_ReturnsCorrectStatus()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
-            
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc);
 
-                // Setup both processes to return success
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: false);
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                // Act
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.False(result.Node24HasGlibcError, "Node24 should not have glibc error");
-                Assert.False(result.Node20HasGlibcError, "Node20 should not have glibc error");
+                Assert.False(result.Node24HasGlibcError);
+                Assert.False(result.Node20HasGlibcError);
             }
         }
 
@@ -100,32 +93,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_UseNode20InUnsupportedSystem_SkipsNode20Check()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
             
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var knobs = new Dictionary<string, string>
                 {
                     ["AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"] = "true"
                 };
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc, knobs);
 
-                // Setup Node24 to return glibc error (should still be checked)
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: true);
-                
-                // Don't setup Node20 process - it should not be called because knob skips it
 
-                // Act
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.True(result.Node24HasGlibcError, "Node24 should have glibc error (still checked)");
-                Assert.False(result.Node20HasGlibcError, "Node20 should not have glibc error (skipped due to knob)");
+                Assert.True(result.Node24HasGlibcError);
+                Assert.False(result.Node20HasGlibcError);
                 
-                // Verify Node20 process was never called
                 VerifyProcessNotCalled(processInvokerMock, "node20_1");
             }
         }
@@ -135,32 +120,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_UseNode24InUnsupportedSystem_SkipsNode24Check()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
             
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var knobs = new Dictionary<string, string>
                 {
                     ["AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM"] = "true"
                 };
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc, knobs);
 
-                // Don't setup Node24 process - it should not be called because knob skips it
-                
-                // Setup Node20 to return glibc error (should still be checked)
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: true);
 
-                // Act
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.False(result.Node24HasGlibcError, "Node24 should not have glibc error (skipped due to knob)");
-                Assert.True(result.Node20HasGlibcError, "Node20 should have glibc error (still checked)");
+                Assert.False(result.Node24HasGlibcError);
+                Assert.True(result.Node20HasGlibcError);
                 
-                // Verify Node24 process was never called
                 VerifyProcessNotCalled(processInvokerMock, "node24");
             }
         }
@@ -170,12 +147,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_BothUnsupportedSystemKnobs_SkipsBothChecks()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
             
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var knobs = new Dictionary<string, string>
                 {
                     ["AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM"] = "true",
@@ -183,17 +158,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 };
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc, knobs);
 
-                // Don't setup any processes - neither should be called
-
-                // Act
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.False(result.Node24HasGlibcError, "Node24 should not have glibc error (skipped due to knob)");
-                Assert.False(result.Node20HasGlibcError, "Node20 should not have glibc error (skipped due to knob)");
-                
-                // Verify no processes were called
+                Assert.False(result.Node24HasGlibcError);
+                Assert.False(result.Node20HasGlibcError);
                 VerifyNoProcessesCalled(processInvokerMock);
             }
         }
@@ -203,32 +172,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "GlibcChecker")]
         public async Task GlibcCompatibilityInfoProvider_StaticCaching_WorksCorrectly()
         {
-            // Reset static cache fields to ensure clean test
             ResetGlibcCompatibilityInfoProviderCache();
             
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc);
 
-                // Setup processes to return success
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: false);
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                // Act - First call should execute processes
-                var glibcChecker = new GlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
                 var result1 = await glibcChecker.CheckGlibcCompatibilityAsync();
-                
-                // Act - Second call should use cache
                 var result2 = await glibcChecker.CheckGlibcCompatibilityAsync();
 
-                // Assert
-                Assert.False(result1.Node24HasGlibcError, "First call: Node24 should not have glibc error");
-                Assert.False(result1.Node20HasGlibcError, "First call: Node20 should not have glibc error");
-                Assert.False(result2.Node24HasGlibcError, "Second call: Node24 should not have glibc error");
-                Assert.False(result2.Node20HasGlibcError, "Second call: Node20 should not have glibc error");
-                
-                // Verify processes were called only once (due to caching)
+                Assert.False(result1.Node24HasGlibcError);
+                Assert.False(result1.Node20HasGlibcError);
+                Assert.False(result2.Node24HasGlibcError);
+                Assert.False(result2.Node20HasGlibcError);
                 VerifyProcessCalledOnce(processInvokerMock, "node24");
                 VerifyProcessCalledOnce(processInvokerMock, "node20_1");
             }
@@ -247,13 +207,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var processInvokerMock = new Mock<IProcessInvoker>();
             var executionContextMock = new Mock<IExecutionContext>();
             
-            // Enqueue multiple process invoker instances
             for (int i = 0; i < 10; i++)
             {
                 hc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
             }
 
-            // Setup execution context with knobs
             var variables = new Dictionary<string, VariableValue>();
             if (knobs != null)
             {
@@ -268,12 +226,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.Variables)
                 .Returns(new Variables(hc, copy: variables, warnings: out warnings));
 
-            // Setup scoped environment for knob reading
             executionContextMock
                 .Setup(x => x.GetScopedEnvironment())
                 .Returns(new SystemEnvironment());
 
-            // Setup knob reading method
             executionContextMock
                 .Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
                 .Returns((string variableName) =>
@@ -285,7 +241,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     return Environment.GetEnvironmentVariable(variableName);
                 });
 
-            // Setup telemetry methods
             executionContextMock.Setup(x => x.EmitHostNode20FallbackTelemetry(It.IsAny<bool>()));
             executionContextMock.Setup(x => x.EmitHostNode24FallbackTelemetry(It.IsAny<bool>()));
 
@@ -337,50 +292,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 It.IsAny<CancellationToken>()), Times.Once);
         }
 
-        /// <summary>
-        /// Sets up a node process invocation mock with the specified behavior.
-        /// </summary>
-
         private void SetupNodeProcessInvocation(Mock<IProcessInvoker> processInvokerMock, string nodeFolder, bool shouldHaveGlibcError)
         {
             string nodeExePath = Path.Combine("externals", nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             
             processInvokerMock.Setup(x => x.ExecuteAsync(
-                    It.IsAny<string>(), // workingDirectory
-                    It.Is<string>(fileName => fileName.Contains(nodeExePath)), // fileName
-                    "-v", // arguments
-                    It.IsAny<IDictionary<string, string>>(), // environment
-                    false, // requireExitCodeZero
-                    It.IsAny<Encoding>(), // outputEncoding
-                    It.IsAny<CancellationToken>())) // cancellationToken
+                    It.IsAny<string>(),
+                    It.Is<string>(fileName => fileName.Contains(nodeExePath)),
+                    "-v",
+                    It.IsAny<IDictionary<string, string>>(),
+                    false,
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
                 .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, CancellationToken>(
                     (wd, fn, args, env, reqZero, enc, ct) =>
                     {
-                        // Simulate output based on whether glibc error should occur
                         if (shouldHaveGlibcError)
                         {
-                            // Simulate glibc error output that WorkerUtilities.IsCommandResultGlibcError would detect
                             processInvokerMock.Raise(x => x.ErrorDataReceived += null, 
                                 processInvokerMock.Object,
                                 new ProcessDataReceivedEventArgs("node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found"));
                         }
                         else
                         {
-                            // Simulate successful node version output
                             processInvokerMock.Raise(x => x.OutputDataReceived += null, 
                                 processInvokerMock.Object,
                                 new ProcessDataReceivedEventArgs($"v{(nodeFolder.Contains("24") ? "24" : "20")}.0.0"));
                         }
                     })
-                .ReturnsAsync(shouldHaveGlibcError ? 1 : 0); // Return appropriate exit code
+                .ReturnsAsync(shouldHaveGlibcError ? 1 : 0);
         }
 
-        /// <summary>
-        /// Resets the static cache fields in GlibcCompatibilityInfoProvider using reflection.
-        /// </summary>
         private void ResetGlibcCompatibilityInfoProviderCache()
         {
-            // Use reflection to reset the static cache fields in GlibcCompatibilityInfoProvider
             var glibcType = typeof(GlibcCompatibilityInfoProvider);
             var supportsNode20Field = glibcType.GetField("_supportsNode20", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
             var supportsNode24Field = glibcType.GetField("_supportsNode24", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
+using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -41,6 +42,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             bool node20HasGlibcError = false;
             bool node24HasGlibcError = false;
+
+            // Only perform glibc compatibility checks on Linux systems
+            if (!IsLinuxPlatform())
+            {
+                // Non-Linux systems (Windows, macOS) don't have glibc compatibility issues
+                return GlibcCompatibilityInfo.Create(node24HasGlibcError: false, node20HasGlibcError: false);
+            }
 
             if (!useNode20InUnsupportedSystem)
             {
@@ -118,6 +126,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
 
             return nodeResultsInGlibCError;
+        }
+
+        /// <summary>
+        /// Determines if the current platform is Linux. Virtual for testing override.
+        /// </summary>
+        /// <returns>True if running on Linux, false otherwise</returns>
+        protected virtual bool IsLinuxPlatform()
+        {
+            return PlatformUtil.HostOS == PlatformUtil.OS.Linux;
         }
 
         private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)
