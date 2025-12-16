@@ -631,7 +631,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                                         // Publish worker crash telemetry for Kusto analysis
                                         var telemetryPublisher = HostContext.GetService<IWorkerCrashTelemetryPublisher>();
-                                        await telemetryPublisher.PublishWorkerCrashTelemetryAsync(HostContext, message.JobId, returnCode);
+                                        await telemetryPublisher.PublishWorkerCrashTelemetryAsync(HostContext, message.JobId, returnCode, "200");
                                     }
 
                                     TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
