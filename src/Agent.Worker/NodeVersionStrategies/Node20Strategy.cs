@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
-                    NodeVersion = "node20_1",
+                    NodeVersion = NodeVersion.Node20,
                     Reason = baseReason,
                     Warning = null
                 };
@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return new NodeRunnerInfo
             {
                 NodePath = null,
-                NodeVersion = "node16",
+                NodeVersion = NodeVersion.Node16,
                 Reason = $"{baseReason}, fallback to Node16 due to Node20 glibc compatibility issue",
                 Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
             };

@@ -179,7 +179,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                             outputEncoding: null,
                             cancellationToken: System.Threading.CancellationToken.None);
 
-            if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
+            if (!showOutputOnFailureOnly || exitCode != 0)
             {
                 if (showOutputOnFailureOnly)
                 {

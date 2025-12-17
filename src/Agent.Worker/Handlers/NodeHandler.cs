@@ -370,6 +370,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            
+            // Publish telemetry to track strategy pattern vs legacy code usage
+            PublishNodeSelectionMethodTelemetry(useStrategyPattern, inContainer);
+            
             if (useStrategyPattern)
             {
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
@@ -685,6 +689,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)}
             };
             ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+        }
+
+        private void PublishNodeSelectionMethodTelemetry(bool useStrategyPattern, bool inContainer)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "UseStrategyPattern", useStrategyPattern.ToString() },
+                    { "SelectionMethod", useStrategyPattern ? "Strategy" : "Legacy" },
+                    { "IsContainer", inContainer.ToString() },
+                    { "JobId", ExecutionContext.Variables.System_JobId.ToString() },
+                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId) ?? "" },
+                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name) ?? "" }
+                };
+                
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Debug($"Failed to publish node selection method telemetry: {ex.Message}");
+            }
         }
     }
 }
