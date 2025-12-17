@@ -30,6 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // IMPORTANT: Strategy order determines selection priority
             // Add strategies in descending priority order (newest/preferred versions first)
             // The orchestrator will try each strategy in order until one can handle the request
+            _strategies.Add(new CustomNodeStrategy());
             _strategies.Add(new Node24Strategy());
             _strategies.Add(new Node20Strategy());
             _strategies.Add(new Node16Strategy());
@@ -93,6 +94,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            // If the strategy already provided a complete path (like CustomNodeStrategy), use it directly
+            if (!string.IsNullOrEmpty(selection.NodePath))
+            {
+                return selection;
+            }
+            
+            // For standard node versions, construct path from externals directory
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string hostPath = Path.Combine(externalsPath, selection.NodeVersion, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.Container != null ? 

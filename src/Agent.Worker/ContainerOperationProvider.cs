@@ -10,6 +10,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -38,6 +39,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public class ContainerOperationProvider : AgentService, IContainerOperationProvider
     {
         private const string _nodeJsPathLabel = "com.azure.dev.pipelines.agent.handler.node.path";
+        // internal static readonly string Node16Folder = "node16";
+        // internal static readonly string Node20_1Folder = "node20_1";
+        // internal static readonly string Node24Folder = "node24";
         private const string c_tenantId = "tenantid";
         private const string c_clientId = "servicePrincipalId";
         private const string c_activeDirectoryServiceEndpointResourceId = "activeDirectoryServiceEndpointResourceId";
@@ -1008,6 +1012,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
+                        // Apply unified strategy if enabled
+                        bool useUnifiedStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+                        if (useUnifiedStrategy && container.IsJobContainer)
+                        {
+                            try
+                            {
+                                var handlerData = GetJobContainerHandlerData(executionContext, container);
+                                await SetContainerNodePathWithStrategy(executionContext, container, handlerData);
+                            }
+                            catch (Exception ex)
+                            {
+                                executionContext.Warning($"Failed to use unified strategy for container node selection: {ex.Message}");
+                                // Strategy failed, continue with legacy behavior
+                            }
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
@@ -1243,6 +1262,94 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
+            }
+        }
+
+        /// <summary>
+        /// Determines the NodeJS handler data for container based on:
+        /// 1. Cross-platform scenario (MacOS/Windows host + Linux container → use container's own node)
+        /// 2. Custom node path from Docker label (com.azure.dev.pipelines.agent.handler.node.path)
+        /// 3. Container-specific knobs (UseNode24ToStartContainer, UseNode20ToStartContainer)
+        /// 4. Default fallback (Node20_1)
+        /// </summary>
+        private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
+        {
+            // Cross-platform scenarios use container's built-in node
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                return new NodeHandlerData(); // Use container's own node
+            }
+
+            // Custom node path via Docker label
+            if (!string.IsNullOrEmpty(container.CustomNodePath))
+            {
+                return new NodeHandlerData(); // Custom path handling
+            }
+
+            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+
+            if (useNode24ToStartContainer)
+            {
+                return new Node24HandlerData();
+            }
+
+            if (useNode20ToStartContainer)
+            {
+                return new Node20_1HandlerData();
+            }
+
+            // Default to Node20_1 for containers
+            return new Node20_1HandlerData();
+        }
+
+        /// <summary>
+        /// Sets container.ResultNodePath using the unified node version strategy.
+        /// Builds TaskContext from container state, calls orchestrator, and assigns result.
+        /// Maps container glibc flags: NeedsNode20Redirect → Node24HasGlibcError, NeedsNode16Redirect → Node20HasGlibcError
+        /// </summary>
+        private async Task SetContainerNodePathWithStrategy(IExecutionContext executionContext, ContainerInfo container, BaseNodeHandlerData handlerData)
+        {
+            try
+            {
+                var orchestrator = new NodeVersionOrchestrator(executionContext, HostContext);
+
+                // Build TaskContext for container execution
+                var taskContext = new TaskContext
+                {
+                    HandlerData = handlerData,
+                    Container = container,
+                    StepTarget = null // Containers don't have step targets
+                };
+
+                // Get node path from strategy
+                var result = await orchestrator.SelectNodeVersionAsync(taskContext);
+
+                if (result != null)
+                {
+                    // For containers, we need the container path format
+                    string nodeFolder = result.NodeVersion;
+                    container.ResultNodePath = $"/azp/{nodeFolder}/bin/node";
+
+                    executionContext.Debug($"Container strategy selected: {nodeFolder} (reason: {result.Reason})");
+
+                    if (!string.IsNullOrEmpty(result.Warning))
+                    {
+                        executionContext.Warning(result.Warning);
+                    }
+                }
+                else
+                {
+                    // Fallback to default container node path
+                    container.ResultNodePath = "/azp/node20_1/bin/node";
+                    executionContext.Warning("Strategy pattern failed to select node version, falling back to Node20_1");
+                }
+            }
+            catch (Exception ex)
+            {
+                executionContext.Warning($"Failed to use unified strategy for container node selection: {ex.Message}");
+                // Fallback to default container node path
+                container.ResultNodePath = "/azp/node20_1/bin/node";
             }
         }
 
