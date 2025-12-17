@@ -399,6 +399,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             catch (Exception ex)
             {
                 ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Stack trace: {ex}");
                 throw;
             }
         }
