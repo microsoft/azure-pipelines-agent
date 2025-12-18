@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return new NodeRunnerInfo
             {
                 NodePath = null,
-                NodeVersion = "node10",
+                NodeVersion = NodeVersion.Node10,
                 Reason = baseReason,
                 Warning = StringUtil.Loc("NodeEOLWarning", "Node10")
             };

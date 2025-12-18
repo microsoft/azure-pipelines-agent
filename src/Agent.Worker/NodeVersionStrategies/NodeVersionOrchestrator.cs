@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -58,7 +59,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     if (selectionResult != null)
                     {
                         var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
-
+                        
+                        // Publish telemetry for monitoring node version selection via Kusto
+                        PublishNodeVersionSelectionTelemetry(result, strategy, environmentType, context);
+                        
                         ExecutionContext.Output(
                             $"[{environmentType}] Selected Node version: {result.NodeVersion} (Strategy: {strategy.GetType().Name})");
                         ExecutionContext.Debug($"[{environmentType}] Node path: {result.NodePath}");
@@ -102,7 +106,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             // For standard node versions, construct path from externals directory
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
-            string hostPath = Path.Combine(externalsPath, selection.NodeVersion, "bin", $"node{IOUtil.ExeExtension}");
+            string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
+            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.Container != null ? 
                             context.Container.TranslateToContainerPath(hostPath) : hostPath;
 
@@ -113,6 +118,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 Reason = selection.Reason,
                 Warning = selection.Warning
             };
+        }
+
+        private void PublishNodeVersionSelectionTelemetry(NodeRunnerInfo result, INodeVersionStrategy strategy, string environmentType, TaskContext context)
+        {
+            try
+            {
+                var telemetryData = new Dictionary<string, string>
+                {
+                    { "NodeVersion", result.NodeVersion.ToString() },
+                    { "Strategy", strategy.GetType().Name },
+                    { "EnvironmentType", environmentType },
+                    { "HandlerType", context.HandlerData?.GetType().Name ?? "Unknown" },
+                    { "SelectionReason", result.Reason ?? "" },
+                    { "HasWarning", (!string.IsNullOrEmpty(result.Warning)).ToString() },
+                    { "JobId", ExecutionContext.Variables.System_JobId.ToString() },
+                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId) ?? "" },
+                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name) ?? "" },
+                    { "IsContainer", (context.Container != null).ToString() }
+                };
+                
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Debug($"Failed to publish node version selection telemetry: {ex.Message}");
+            }
         }
     }
 }

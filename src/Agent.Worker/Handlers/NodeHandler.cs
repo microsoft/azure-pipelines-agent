@@ -370,6 +370,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            
             if (useStrategyPattern)
             {
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
@@ -396,6 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             catch (Exception ex)
             {
                 ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Stack trace: {ex}");
                 throw;
             }
         }
