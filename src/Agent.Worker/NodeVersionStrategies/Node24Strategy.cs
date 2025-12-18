@@ -81,7 +81,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 executionContext.Debug("[Node24Strategy] Would need Node16 but EOL policy being enabled this is not supported");
                 string handlerType = context.HandlerData != null ? context.HandlerData.GetType().Name : "UnknownHandlerData";
-                // why this error is here? shouldn't this be part of orchestrator that if no node return throw error?
                 throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
             }
 

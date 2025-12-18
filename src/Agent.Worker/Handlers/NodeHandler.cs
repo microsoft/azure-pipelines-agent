@@ -190,12 +190,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StepHost.ErrorDataReceived += OnDataReceived;
 
             string file;
-            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
-            {
-                file = ExecutionContext.StepTarget().CustomNodePath;
-            }
-            else
-            {
+            // if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
+            // {
+            //     file = ExecutionContext.StepTarget().CustomNodePath;
+            // }
+            // else
+            // {
                 bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
                 bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
                 bool node20ResultsInGlibCErrorHost = false;
@@ -243,7 +243,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 ExecutionContext.Debug("Using node path: " + file);
-            }
+            // }
 
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
@@ -403,6 +403,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         
         private string GetNodeLocationLegacy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
+            if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
+            {
+                return ExecutionContext.StepTarget().CustomNodePath;
+            }
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
             bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();

@@ -78,24 +78,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
 
-                    try
+                    // For divergent scenarios, determine success/failure based on the mode-specific expectations
+                    // For equivalent scenarios, use the shared ExpectedErrorType
+                    bool isDivergentScenario = !string.IsNullOrEmpty(scenario.StrategyExpectedNode) || 
+                                              !string.IsNullOrEmpty(scenario.LegacyExpectedNode) ||
+                                              !string.IsNullOrEmpty(scenario.StrategyExpectedError);
+                    
+                    bool expectFailure;
+                    if (isDivergentScenario)
                     {
+                        // For divergent scenarios, check if this specific mode expects an error
+                        expectFailure = !string.IsNullOrEmpty(expectations.ExpectedError);
+                    }
+                    else
+                    {
+                        // For equivalent scenarios, use the shared ExpectedErrorType
+                        expectFailure = scenario.ExpectedErrorType != null;
+                    }
+
+                    if (expectFailure)
+                    {
+                        // Test expects failure - assert that an exception is thrown
+                        var expectedExceptionType = scenario.ExpectedErrorType ?? typeof(Exception);
+                        var exception = Assert.Throws(expectedExceptionType,
+                            () => nodeHandler.GetNodeLocation(
+                                node20ResultsInGlibCError: scenario.Node20GlibcError,
+                                node24ResultsInGlibCError: scenario.Node24GlibcError,
+                                inContainer: scenario.InContainer));
+
+                        // Verify error message if specified
+                        if (!string.IsNullOrEmpty(expectations.ExpectedError))
+                        {
+                            Assert.Contains(expectations.ExpectedError, exception.Message);
+                        }
+                    }
+                    else
+                    {
+                        // Test expects success - should return a valid path without throwing
                         string actualLocation = nodeHandler.GetNodeLocation(
                             node20ResultsInGlibCError: scenario.Node20GlibcError,
                             node24ResultsInGlibCError: scenario.Node24GlibcError,
                             inContainer: scenario.InContainer);
+
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
-                    }
-                    catch (Exception ex)
-                    {
-                        Assert.NotNull(ex);
-                        Assert.IsType(scenario.ExpectedErrorType, ex);
-                        
-                        if (!string.IsNullOrEmpty(expectations.ExpectedError))
-                        {
-                            Assert.Contains(expectations.ExpectedError, ex.Message);
-                        }
                     }
                 }
             }
