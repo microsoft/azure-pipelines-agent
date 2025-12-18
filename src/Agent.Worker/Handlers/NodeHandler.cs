@@ -383,12 +383,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             try
             {
-                var stepTarget = ExecutionContext.StepTarget();
                 var taskContext = new TaskContext
                 {
                     HandlerData = Data,
-                    Container = inContainer ? (stepTarget as ContainerInfo) : null,
-                    StepTarget = !inContainer ? stepTarget : null
+                    Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
+                    StepTarget = inContainer ? null : ExecutionContext.StepTarget()
                 };
                 
                 NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionAsync(taskContext);

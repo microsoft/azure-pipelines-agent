@@ -46,17 +46,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        /// <summary>
-        /// Execute a test scenario and assert the expected behavior (defaults to strategy mode).
-        /// </summary>
-        // protected void RunScenarioAndAssert(TestScenario scenario)
-        // {
-        //     RunScenarioAndAssert(scenario, useStrategy: true);
-        // }
-
-        /// <summary>
-        /// Execute a test scenario and assert the expected behavior with strategy selection.
-        /// </summary>
         protected void RunScenarioAndAssert(TestScenario scenario, bool useStrategy)
         {
             ResetEnvironment();
