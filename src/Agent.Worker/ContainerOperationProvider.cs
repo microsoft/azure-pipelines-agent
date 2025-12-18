@@ -1327,11 +1327,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (result != null)
                 {
-                    // For containers, we need the container path format
-                    string nodeFolder = result.NodeVersion;
-                    container.ResultNodePath = $"/azp/{nodeFolder}/bin/node";
-
-                    executionContext.Debug($"Container strategy selected: {nodeFolder} (reason: {result.Reason})");
+                    // Use the node path directly from strategy (orchestrator handles all path translation)
+                    container.ResultNodePath = result.NodePath;
+                    executionContext.Debug($"Container strategy selected: {result.NodeVersion} at {result.NodePath} (reason: {result.Reason})");
 
                     if (!string.IsNullOrEmpty(result.Warning))
                     {

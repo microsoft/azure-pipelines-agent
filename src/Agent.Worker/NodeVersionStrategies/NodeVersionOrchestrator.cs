@@ -99,15 +99,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
             // If the strategy already provided a complete path (like CustomNodeStrategy), use it directly
+            // Custom paths are not translated as they're expected to be environment-appropriate
             if (!string.IsNullOrEmpty(selection.NodePath))
             {
                 return selection;
             }
             
-            // For standard node versions, construct path from externals directory
+            // For standard node versions, construct the appropriate path based on execution environment
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
             string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            
+            // Only translate paths for standard node versions when in container environment
             string finalPath = context.Container != null ? 
                             context.Container.TranslateToContainerPath(hostPath) : hostPath;
 

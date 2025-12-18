@@ -14,7 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         Node10,
         Node16,
         Node20,
-        Node24
+        Node24,
+        Custom
     }
 
     /// <summary>
@@ -34,6 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodeVersion.Node16 => "node16",
                 NodeVersion.Node20 => "node20_1",
                 NodeVersion.Node24 => "node24",
+                NodeVersion.Custom => "custom",
                 _ => throw new ArgumentOutOfRangeException(nameof(version))
             };
         }

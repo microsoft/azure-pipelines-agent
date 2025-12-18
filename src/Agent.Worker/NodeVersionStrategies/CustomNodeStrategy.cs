@@ -61,14 +61,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             executionContext.Debug($"[CustomNodeStrategy] Found custom node path in {source}: {customPath}");
 
-            // Translate to container path if running in container
-            string finalPath = context.Container != null ? 
-                              context.Container.TranslateToContainerPath(customPath) : customPath;
-
+            // For custom paths, use them directly as provided (matching original NodeHandler behavior)
+            // Custom paths are expected to be appropriate for the execution environment
             return new NodeRunnerInfo
             {
-                NodePath = finalPath,
-                NodeVersion = "custom node",
+                NodePath = customPath,
+                NodeVersion = NodeVersion.Custom,
                 Reason = $"Custom Node.js path specified by user ({source})",
                 Warning = null
             };
