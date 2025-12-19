@@ -251,27 +251,31 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// the ~5 minute lock window (60s timeout + 60s delay = 120s < 300s).
         /// </summary>
         /// <param name="connectionType">Type of connection</param>
-        /// <param name="timeout">Optional explicit timeout (overrides environment variable and capping)</param>
+        /// <param name="timeout">Optional explicit timeout (overrides environment variable but not type-specific caps)</param>
         /// <returns>Timeout value to use</returns>
         private TimeSpan GetConnectionTimeout(AgentConnectionType connectionType, TimeSpan? timeout)
         {
-            // If explicit timeout provided, use it (bypasses all defaults and caps)
+            TimeSpan actualTimeout;
+            
             if (timeout.HasValue)
             {
-                return timeout.Value;
+                actualTimeout = timeout.Value;
             }
-            
-            // Read from environment variable, clamped to valid range [100, 1200]
-            int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
-            TimeSpan defaultTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
+            else
+            {
+                // Read from environment variable, clamped to valid range [100, 1200]
+                int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
+                actualTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
+            }
             
             // Cap JobRequest timeout to 60s to ensure renewals complete within job lock window
+            // This applies to both explicit and environment variable timeouts
             if (connectionType == AgentConnectionType.JobRequest)
             {
-                return TimeSpan.FromSeconds(Math.Min(defaultTimeout.TotalSeconds, 60));
+                return TimeSpan.FromSeconds(Math.Min(actualTimeout.TotalSeconds, 60));
             }
             
-            return defaultTimeout;
+            return actualTimeout;
         } 
 
         private void CheckConnection(AgentConnectionType connectionType)
