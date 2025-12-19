@@ -27,9 +27,9 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         Task ConnectAsync(Uri serverUrl, VssCredentials credentials);
 
-        Task RefreshConnectionAsync(AgentConnectionType connectionType, TimeSpan timeout);
+        Task RefreshConnectionAsync(AgentConnectionType connectionType, TimeSpan? timeout = null);
 
-        void SetConnectionTimeout(AgentConnectionType connectionType, TimeSpan timeout);
+        void ResetConnectionTimeout(AgentConnectionType connectionType, TimeSpan? timeout = null);
 
         // Configuration
         Task<TaskAgent> AddAgentAsync(Int32 agentPoolId, TaskAgent agent);
@@ -76,9 +76,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             // issue: https://github.com/microsoft/azure-pipelines-agent/issues/3149
             
             // Read timeout from environment variable (VSTS_HTTP_TIMEOUT), default to 100 seconds
-            // Valid range is [100, 1200] seconds as documented in docs/troubleshooting.md
-            int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
-            TimeSpan connectionTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
+            TimeSpan connectionTimeout = GetDefaultConnectionTimeout();
             
             Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
 
@@ -102,8 +100,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         }
 
         // Refresh connection is best effort. it should never throw exception
-        public async Task RefreshConnectionAsync(AgentConnectionType connectionType, TimeSpan timeout)
+        public async Task RefreshConnectionAsync(AgentConnectionType connectionType, TimeSpan? timeout = null)
         {
+            // Use provided timeout or get default from environment variable
+            TimeSpan actualTimeout = timeout ?? GetDefaultConnectionTimeout();
+            
             Trace.Info($"Refresh {connectionType} VssConnection to get on a different AFD node.");
             VssConnection newConnection = null;
             switch (connectionType)
@@ -112,7 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     try
                     {
                         _hasMessageConnection = false;
-                        newConnection = await EstablishVssConnection(_messageConnection.Uri, _messageConnection.Credentials, timeout);
+                        newConnection = await EstablishVssConnection(_messageConnection.Uri, _messageConnection.Credentials, actualTimeout);
                         var client = newConnection.GetClient<TaskAgentHttpClient>();
                         _messageConnection = newConnection;
                         _messageTaskAgentClient = client;
@@ -137,7 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     try
                     {
                         _hasRequestConnection = false;
-                        newConnection = await EstablishVssConnection(_requestConnection.Uri, _requestConnection.Credentials, timeout);
+                        newConnection = await EstablishVssConnection(_requestConnection.Uri, _requestConnection.Credentials, actualTimeout);
                         var client = newConnection.GetClient<TaskAgentHttpClient>();
                         _requestConnection = newConnection;
                         _requestTaskAgentClient = client;
@@ -162,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     try
                     {
                         _hasGenericConnection = false;
-                        newConnection = await EstablishVssConnection(_genericConnection.Uri, _genericConnection.Credentials, timeout);
+                        newConnection = await EstablishVssConnection(_genericConnection.Uri, _genericConnection.Credentials, actualTimeout);
                         var client = newConnection.GetClient<TaskAgentHttpClient>();
                         _genericConnection = newConnection;
                         _genericTaskAgentClient = client;
@@ -189,19 +190,22 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public void SetConnectionTimeout(AgentConnectionType connectionType, TimeSpan timeout)
+        public void ResetConnectionTimeout(AgentConnectionType connectionType, TimeSpan? timeout = null)
         {
-            Trace.Info($"Set {connectionType} VssConnection's timeout to {timeout.TotalSeconds} seconds.");
+            // Use provided timeout or get default from environment variable
+            TimeSpan actualTimeout = timeout ?? GetDefaultConnectionTimeout();
+            
+            Trace.Info($"Set {connectionType} VssConnection's timeout to {actualTimeout.TotalSeconds} seconds.");
             switch (connectionType)
             {
                 case AgentConnectionType.JobRequest:
-                    _requestConnection.Settings.SendTimeout = timeout;
+                    _requestConnection.Settings.SendTimeout = actualTimeout;
                     break;
                 case AgentConnectionType.MessageQueue:
-                    _messageConnection.Settings.SendTimeout = timeout;
+                    _messageConnection.Settings.SendTimeout = actualTimeout;
                     break;
                 case AgentConnectionType.Generic:
-                    _genericConnection.Settings.SendTimeout = timeout;
+                    _genericConnection.Settings.SendTimeout = actualTimeout;
                     break;
                 default:
                     Trace.Error($"Unexpected connection type: {connectionType}.");
@@ -234,6 +238,17 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // should never reach here.
             throw new InvalidOperationException(nameof(EstablishVssConnection));
+        }
+
+        /// <summary>
+        /// Gets the default connection timeout from VSTS_HTTP_TIMEOUT environment variable.
+        /// Valid range is [100, 1200] seconds as documented in docs/troubleshooting.md
+        /// </summary>
+        /// <returns>Timeout value clamped to valid range</returns>
+        private TimeSpan GetDefaultConnectionTimeout()
+        {
+            int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
+            return TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
         }
 
         private void CheckConnection(AgentConnectionType connectionType)
