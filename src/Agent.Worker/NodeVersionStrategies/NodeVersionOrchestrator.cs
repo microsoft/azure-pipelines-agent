@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
-            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");          
+            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             string finalPath = context.Container != null ? 
                             context.Container.TranslateToContainerPath(hostPath) : hostPath;
 

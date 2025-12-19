@@ -54,20 +54,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "/legacy/node6/bin/node"
             ),
 
-            new TestScenario( // HOW DOES THIS TEST WORK, WHERE ARE WE PICKING CUSTOM NODE FROM DOCKER LABEL VIA THIS TEST ---
-                name: "CustomNode_Container_FromDockerLabel",
-                description: "Container uses custom node path from Docker label",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "/container/custom/node",
-                inContainer: true,
-                expectedNode: "/container/custom/node"
-            ),
-
-            new TestScenario( // THIS AGENT_USE_NODE24_WITH_HANDLER_DATA KNOB IS FOR NODE HANDLER, DO WE NEED THIS TEST AND INCONTAINER = TRUE HERE ---
+            new TestScenario(
                 name: "CustomNode_Container_OverridesHandlerData",
                 description: "Container custom node path overrides task handler data",
                 handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
                 customNodePath: "/container/node20/bin/node",
                 inContainer: true,
                 expectedNode: "/container/node20/bin/node"
@@ -133,44 +123,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "/container/custom/node"
             ),
 
-            // new TestScenario(
-            //     name: "CustomNode_Container_PathTranslation",
-            //     description: "Custom host path gets translated to container path via TranslateToContainerPath",
-            //     handlerData: typeof(Node16HandlerData),
-            //     customNodePath: "/host/custom-node/bin/node", // Host path
-            //     inContainer: true,
-            //     expectedNode: "/__w/custom-node/bin/node", // Expected container translation
-            //     expectSuccess: true,
-            //     shouldMatchBetweenModes: true
-            // ),
-
-            new TestScenario(// CHECK THIS TEST --- do we need this test
-            // we have version extraction logic in custom ndoe strategy
-            // chek if that funciton is required, if not then just remove that functions and this test as well
-                name: "CustomNode_VersionExtraction_FromPath",
-                description: "Node version is extracted from custom path for logging",
-                handlerData: typeof(Node16HandlerData),
-                customNodePath: "/usr/local/node20/bin/node",
-                inContainer: false,
-                expectedNode: "/usr/local/node20/bin/node"
-                // Note: Version extraction ("node20") is tested through strategy's ExtractNodeVersionFromPath method
-            ),
-
-            new TestScenario( // CHECK THIS TEST ---
-            // how can this haapen, both host and container having custom paths
-            // did we even implement this scenario in strategy? check this
-                name: "CustomNode_MixedPaths_ContainerWins",
-                description: "When both host and container have custom paths, container takes precedence",
+            new TestScenario(
+                name: "CustomNode_MixedEnvironments_ContainerTakesPrecedence",
+                description: "When in container environment, Container.CustomNodePath is used over StepTarget.CustomNodePath",
                 handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                customNodePath: "/container/custom/node", // Container custom path
+                customNodePath: "/container/custom/node",
                 inContainer: true,
                 expectedNode: "/container/custom/node"
-                // expectSuccess: true
-                // Note: This tests Container.CustomNodePath vs StepTarget.CustomNodePath priority
             ),
 
-            
             // ========================================================================================
             // GROUP 1: NODE6 SCENARIOS (Node6HandlerData - EOL)
             // ========================================================================================

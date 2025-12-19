@@ -190,60 +190,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             StepHost.ErrorDataReceived += OnDataReceived;
 
             string file;
-            // if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
-            // {
-            //     file = ExecutionContext.StepTarget().CustomNodePath;
-            // }
-            // else
-            // {
-                bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
-                bool node20ResultsInGlibCErrorHost = false;
-                bool node24ResultsInGlibCErrorHost = false;
+            bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
+            bool node20ResultsInGlibCErrorHost = false;
+            bool node24ResultsInGlibCErrorHost = false;
 
-                if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+            if (PlatformUtil.HostOS == PlatformUtil.OS.Linux)
+            {
+                if (!useNode20InUnsupportedSystem)
                 {
-                    if (!useNode20InUnsupportedSystem)
+                    if (supportsNode20.HasValue)
                     {
-                        if (supportsNode20.HasValue)
-                        {
-                            node20ResultsInGlibCErrorHost = !supportsNode20.Value;
-                        }
-                        else
-                        {
-                            node20ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node20_1Folder);
-                            ExecutionContext.EmitHostNode20FallbackTelemetry(node20ResultsInGlibCErrorHost);
-                            supportsNode20 = !node20ResultsInGlibCErrorHost;
-                        }
+                        node20ResultsInGlibCErrorHost = !supportsNode20.Value;
                     }
-                    
-                    if (!useNode24InUnsupportedSystem)
+                    else
                     {
-                        if (supportsNode24.HasValue)
-                        {
-                            node24ResultsInGlibCErrorHost = !supportsNode24.Value;
-                        }
-                        else
-                        {
-                            node24ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node24Folder);
-                            ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost);
-                            supportsNode24 = !node24ResultsInGlibCErrorHost;
-                        }
+                        node20ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node20_1Folder);
+                        ExecutionContext.EmitHostNode20FallbackTelemetry(node20ResultsInGlibCErrorHost);
+                        supportsNode20 = !node20ResultsInGlibCErrorHost;
                     }
                 }
-
-                ContainerInfo container = (ExecutionContext.StepTarget() as ContainerInfo);
-                if (container == null)
+                
+                if (!useNode24InUnsupportedSystem)
                 {
-                    file = GetNodeLocation(node20ResultsInGlibCErrorHost, node24ResultsInGlibCErrorHost, inContainer: false);
+                    if (supportsNode24.HasValue)
+                    {
+                        node24ResultsInGlibCErrorHost = !supportsNode24.Value;
+                    }
+                    else
+                    {
+                        node24ResultsInGlibCErrorHost = await CheckIfNodeResultsInGlibCError(NodeHandler.Node24Folder);
+                        ExecutionContext.EmitHostNode24FallbackTelemetry(node24ResultsInGlibCErrorHost);
+                        supportsNode24 = !node24ResultsInGlibCErrorHost;
+                    }
                 }
-                else
-                {
-                    file = GetNodeLocation(container.NeedsNode16Redirect, container.NeedsNode20Redirect, inContainer: true);
-                }
+            }
 
-                ExecutionContext.Debug("Using node path: " + file);
-            // }
+            ContainerInfo container = (ExecutionContext.StepTarget() as ContainerInfo);
+            if (container == null)
+            {
+                file = GetNodeLocation(node20ResultsInGlibCErrorHost, node24ResultsInGlibCErrorHost, inContainer: false);
+            }
+            else
+            {
+                file = GetNodeLocation(container.NeedsNode16Redirect, container.NeedsNode20Redirect, inContainer: true);
+            }
+
+            ExecutionContext.Debug("Using node path: " + file);
 
             // Format the arguments passed to node.
             // 1) Wrap the script file path in double quotes.
