@@ -231,6 +231,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_FETCHBYCOMMITFORFULLCLONE"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob DisableAutoManagedVhdShallowOverride = new Knob(
+            nameof(DisableAutoManagedVhdShallowOverride),
+            "If true, the agent will NOT override shallow-fetch settings when an AutoManagedVHD full clone is detected.",
+            new RuntimeKnobSource("VSTS.DisableAutoManagedVhdShallowOverride"),
+            new EnvironmentKnobSource("VSTS_DISABLEAUTOMANAGEDVHD_SHALLOW_OVERRIDE"),
+            new BuiltInDefaultKnobSource("false"));
+
         // Agent logging
         public static readonly Knob AgentPerflog = new Knob(
             nameof(AgentPerflog),
@@ -561,6 +568,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
+            nameof(EnableEOLNodeVersionPolicy),
+            "When enabled, tasks that specify end-of-life Node.js versions (6, 10, 16) will run using a supported Node.js version available on the agent (Node 20.1 or Node 24), ignoring the  EOL Node.js version(s) in respective task. An error is thrown if no supported version is available.",
+            new PipelineFeatureSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob DisableTeePluginRemoval = new Knob(
             nameof(DisableTeePluginRemoval),
             "Disables removing TEE plugin after using it during checkout.",
@@ -738,8 +752,9 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseNode24ToStartContainer = new Knob(
             nameof(UseNode24ToStartContainer),
             "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
-            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new PipelineFeatureSource("UseNode24ToStartContainer"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
@@ -920,6 +935,13 @@ namespace Agent.Sdk.Knob
             "If true, collect and report comprehensive diagnostics when docker exec commands fail, including container state, resource limits, logs, and platform-specific analysis.",
             new PipelineFeatureSource("EnableDockerExecDiagnostics"),
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseNodeVersionStrategy = new Knob(
+            nameof(UseNodeVersionStrategy),
+            "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

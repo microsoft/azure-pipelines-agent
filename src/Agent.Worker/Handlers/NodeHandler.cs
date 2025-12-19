@@ -4,6 +4,7 @@
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -55,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     public sealed class NodeHandler : Handler, INodeHandler
     {
         private readonly INodeHandlerHelper nodeHandlerHelper;
+        private readonly Lazy<NodeVersionOrchestrator> nodeVersionOrchestrator;
         private const string Node10Folder = "node10";
         internal const string NodeFolder = "node";
         internal static readonly string Node16Folder = "node16";
@@ -89,11 +91,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public NodeHandler()
         {
             this.nodeHandlerHelper = new NodeHandlerHelper();
+            this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
+                new NodeVersionOrchestrator(ExecutionContext, HostContext));
         }
 
         public NodeHandler(INodeHandlerHelper nodeHandlerHelper)
         {
             this.nodeHandlerHelper = nodeHandlerHelper;
+            this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
+                new NodeVersionOrchestrator(ExecutionContext, HostContext));
         }
 
         public BaseNodeHandlerData Data { get; set; }
@@ -361,8 +367,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
+        {
+            bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            
+            if (useStrategyPattern)
+            {
+                return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
+            }
+            
+            return GetNodeLocationLegacy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+        }
+        
+        private async Task<string> GetNodeLocationUsingStrategy(bool inContainer)
+        {
+            try
+            {
+                var taskContext = new TaskContext
+                {
+                    HandlerData = Data,
+                    Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
+                    StepTarget = inContainer ? null : ExecutionContext.StepTarget()
+                };
+                
+                NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionAsync(taskContext);
+                return result.NodePath;
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Stack trace: {ex}");
+                throw;
+            }
+        }
+        
+        private string GetNodeLocationLegacy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();

@@ -648,21 +648,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
-                                executionContext.Debug("Using Node 20 for container startup.");
+                                string warningMsg = useNode24ToStartContainer 
+                                    ? "Cannot run Node 24 in container. Falling back to Node 20 for container startup."
+                                    : "Using Node 20 for container startup.";
+                                executionContext.Warning(warningMsg);
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node20ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode16))
                             {
-                                executionContext.Warning("Can not run Node 20 in container. Falling back to Node 16 for container startup.");
+                                string warningMsg = useNode24ToStartContainer
+                                    ? "Cannot run Node 24 and Node 20 in container. Falling back to Node 16 for container startup."
+                                    : "Cannot run Node 20 in container. Falling back to Node 16 for container startup.";
+                                executionContext.Warning(warningMsg);
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node16ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupFailed))
                             {
-                                executionContext.Error("Can not run both Node 20 and Node 16 in container. Container startup failed.");
+                                string errorMsg = useNode24ToStartContainer
+                                    ? "Cannot run Node 24, Node 20, and Node 16 in container. Container startup failed."
+                                    : "Cannot run both Node 20 and Node 16 in container. Container startup failed.";
+                                executionContext.Error(errorMsg);
                                 containerStartupCompleted = true;
                                 break;
                             }
@@ -997,19 +1006,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     }
                                 );
                             }
-                        }
-
-                        if (!container.NeedsNode20Redirect)
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                        else if (!container.NeedsNode16Redirect)
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                        else
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
                         }
 
                     }
