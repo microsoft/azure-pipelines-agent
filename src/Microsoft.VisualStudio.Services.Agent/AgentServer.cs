@@ -76,14 +76,20 @@ namespace Microsoft.VisualStudio.Services.Agent
             // issue: https://github.com/microsoft/azure-pipelines-agent/issues/3149
             
             // Read timeout from environment variable (VSTS_HTTP_TIMEOUT), default to 100 seconds
-            TimeSpan connectionTimeout = GetDefaultConnectionTimeout();
-            
+            TimeSpan connectionTimeout = GetConnectionTimeout(AgentConnectionType.Generic, null);
             Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
 
             _genericConnection = await task1;
 
-            Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
-            Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
+            // MessageQueue connection for long-polling - uses full timeout from environment variable
+            TimeSpan messageQueueTimeout = GetConnectionTimeout(AgentConnectionType.MessageQueue, null);
+            Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, messageQueueTimeout);
+            
+            // JobRequest connection uses capped timeout (max 100s) to ensure job lock renewals
+            // happen within the ~5 minute lock window. With 60s between renewals, timeout must be
+            // < 240s to avoid lock expiration, so we cap at 100s for safety.
+            TimeSpan jobRequestTimeout = GetConnectionTimeout(AgentConnectionType.JobRequest, null);
+            Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, jobRequestTimeout);
 
             await Task.WhenAll(task2, task3);
 
@@ -102,8 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         // Refresh connection is best effort. it should never throw exception
         public async Task RefreshConnectionAsync(AgentConnectionType connectionType, TimeSpan? timeout = null)
         {
-            // Use provided timeout or get default from environment variable
-            TimeSpan actualTimeout = timeout ?? GetDefaultConnectionTimeout();
+            TimeSpan actualTimeout = GetConnectionTimeout(connectionType, timeout);
             
             Trace.Info($"Refresh {connectionType} VssConnection to get on a different AFD node.");
             VssConnection newConnection = null;
@@ -192,8 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public void ResetConnectionTimeout(AgentConnectionType connectionType, TimeSpan? timeout = null)
         {
-            // Use provided timeout or get default from environment variable
-            TimeSpan actualTimeout = timeout ?? GetDefaultConnectionTimeout();
+            TimeSpan actualTimeout = GetConnectionTimeout(connectionType, timeout);
             
             Trace.Info($"Set {connectionType} VssConnection's timeout to {actualTimeout.TotalSeconds} seconds.");
             switch (connectionType)
@@ -241,15 +245,34 @@ namespace Microsoft.VisualStudio.Services.Agent
         }
 
         /// <summary>
-        /// Gets the default connection timeout from VSTS_HTTP_TIMEOUT environment variable.
-        /// Valid range is [100, 1200] seconds as documented in docs/troubleshooting.md
+        /// Gets the connection timeout for the specified connection type.
+        /// Reads from VSTS_HTTP_TIMEOUT environment variable with valid range [100, 1200] seconds.
+        /// JobRequest connections are capped at 60s to ensure job lock renewals complete within
+        /// the ~5 minute lock window (60s timeout + 60s delay = 120s < 300s).
         /// </summary>
-        /// <returns>Timeout value clamped to valid range</returns>
-        private TimeSpan GetDefaultConnectionTimeout()
+        /// <param name="connectionType">Type of connection</param>
+        /// <param name="timeout">Optional explicit timeout (overrides environment variable and capping)</param>
+        /// <returns>Timeout value to use</returns>
+        private TimeSpan GetConnectionTimeout(AgentConnectionType connectionType, TimeSpan? timeout)
         {
+            // If explicit timeout provided, use it (bypasses all defaults and caps)
+            if (timeout.HasValue)
+            {
+                return timeout.Value;
+            }
+            
+            // Read from environment variable, clamped to valid range [100, 1200]
             int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
-            return TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
-        }
+            TimeSpan defaultTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
+            
+            // Cap JobRequest timeout to 60s to ensure renewals complete within job lock window
+            if (connectionType == AgentConnectionType.JobRequest)
+            {
+                return TimeSpan.FromSeconds(Math.Min(defaultTimeout.TotalSeconds, 60));
+            }
+            
+            return defaultTimeout;
+        } 
 
         private void CheckConnection(AgentConnectionType connectionType)
         {
