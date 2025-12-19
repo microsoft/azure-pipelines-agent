@@ -4,10 +4,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
 using Xunit;
 using Agent.Sdk;
@@ -43,11 +46,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
-        protected void RunScenarioAndAssert(TestScenario scenario)
-        {
-            RunScenarioAndAssert(scenario, useStrategy: false);
-        }
-
         protected void RunScenarioAndAssert(TestScenario scenario, bool useStrategy)
         {
             ResetEnvironment();
@@ -65,6 +63,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                    var glibcCheckerMock = SetupMockedGlibcCompatibilityInfoProvider(scenario);
+                    thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcCheckerMock.Object);
 
                     ConfigureNodeHandlerHelper(scenario);
 
@@ -104,6 +105,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        /// <summary>
+        /// Sets up a mocked GlibcCompatibilityInfoProvider for focused NodeHandler testing.
+        /// </summary>
+        private Mock<IGlibcCompatibilityInfoProvider> SetupMockedGlibcCompatibilityInfoProvider(TestScenario scenario)
+        {
+            var glibcCheckerMock = new Mock<IGlibcCompatibilityInfoProvider>();
+            
+            var glibcInfo = GlibcCompatibilityInfo.Create(
+                scenario.Node24GlibcError,
+                scenario.Node20GlibcError);
+            
+            glibcCheckerMock
+                .Setup(x => x.CheckGlibcCompatibilityAsync())
+                .ReturnsAsync(glibcInfo);
+            
+            glibcCheckerMock
+                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>()))
+                .ReturnsAsync(glibcInfo);
+            
+            return glibcCheckerMock;
+        }
+
         private void ConfigureNodeHandlerHelper(TestScenario scenario)
         {
             NodeHandlerHelper.Reset();
@@ -137,12 +160,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useStrategy)
         {
-            return new ScenarioExpectations
+            // Check if this is an equivalent scenario by seeing if strategy-specific fields are populated
+            bool isEquivalentScenario = string.IsNullOrEmpty(scenario.StrategyExpectedNode) && 
+                                       string.IsNullOrEmpty(scenario.LegacyExpectedNode);
+            
+            if (isEquivalentScenario)
             {
-                ExpectedNode = scenario.LegacyExpectedNode,
-                // ExpectSuccess = scenario.LegacyExpectSuccess,
-                ExpectedError = null
-            };
+                // Equivalent scenarios: same behavior for both modes, use shared ExpectedNode
+                return new ScenarioExpectations
+                {
+                    ExpectedNode = scenario.ExpectedNode,
+                    ExpectedError = null
+                };
+            }
+            else
+            {
+                // Divergent scenarios: different behavior between legacy and strategy
+                if (useStrategy)
+                {
+                    return new ScenarioExpectations
+                    {
+                        ExpectedNode = scenario.StrategyExpectedNode,
+                        ExpectedError = scenario.StrategyExpectedError
+                    };
+                }
+                else
+                {
+                    return new ScenarioExpectations
+                    {
+                        ExpectedNode = scenario.LegacyExpectedNode,
+                        ExpectedError = null
+                    };
+                }
+            }
         }
 
         protected BaseNodeHandlerData CreateHandlerData(Type handlerDataType)
@@ -253,7 +303,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         protected void ResetEnvironment()
-        {
+        { 
             // Core Node.js strategy knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
@@ -274,7 +324,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
     public class TestResult
     {
-        public bool Success { get; set; }
         public string NodePath { get; set; }
         public Exception Exception { get; set; }
     }
@@ -282,7 +331,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public class ScenarioExpectations
     {
         public string ExpectedNode { get; set; }
-        // public bool ExpectSuccess { get; set; }
         public string ExpectedError { get; set; }
     }
 }

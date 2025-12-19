@@ -17,9 +17,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         [Theory]
         [MemberData(nameof(GetAllNodeHandlerScenarios))]
-        public void NodeHandler_AllScenarios(TestScenario scenario)
+        public void NodeHandler_AllScenarios_on_legacy(TestScenario scenario)
         {
-            RunScenarioAndAssert(scenario);
+            RunScenarioAndAssert(scenario, useStrategy: false);
+        }
+
+        [Theory]
+        [MemberData(nameof(GetAllNodeHandlerScenarios))]
+        public void NodeHandler_AllScenarios_on_strategy(TestScenario scenario)
+        {
+            RunScenarioAndAssert(scenario, useStrategy: true);
         }
 
         public static object[][] GetAllNodeHandlerScenarios()
