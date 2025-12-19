@@ -11,6 +11,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Agent.Sdk.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -73,12 +74,18 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             // Establish the first connection before doing the rest in parallel to eliminate the redundant 401s.
             // issue: https://github.com/microsoft/azure-pipelines-agent/issues/3149
-            Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(100));
+            
+            // Read timeout from environment variable (VSTS_HTTP_TIMEOUT), default to 100 seconds
+            // Valid range is [100, 1200] seconds as documented in docs/troubleshooting.md
+            int httpRequestTimeoutSeconds = AgentKnobs.HttpTimeout.GetValue(HostContext).AsInt();
+            TimeSpan connectionTimeout = TimeSpan.FromSeconds(Math.Min(Math.Max(httpRequestTimeoutSeconds, 100), 1200));
+            
+            Task<VssConnection> task1 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
 
             _genericConnection = await task1;
 
-            Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
-            Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, TimeSpan.FromSeconds(60));
+            Task<VssConnection> task2 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
+            Task<VssConnection> task3 = EstablishVssConnection(serverUrl, credentials, connectionTimeout);
 
             await Task.WhenAll(task2, task3);
 
