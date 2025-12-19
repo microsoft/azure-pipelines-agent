@@ -548,6 +548,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.IsJobContainer)
             {
+                bool useStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+                string strategySelectedNodePath = null;
+                
+                if (useStrategy)
+                {
+                    var handlerData = GetJobContainerHandlerData(executionContext, container);
+                    var strategyResult = await GetContainerNodePathWithStrategy(executionContext, container, handlerData);
+                    if (strategyResult != null && !string.IsNullOrEmpty(strategyResult.NodePath))
+                    {
+                        strategySelectedNodePath = strategyResult.NodePath;
+                        container.ResultNodePath = strategySelectedNodePath;
+                        executionContext.Debug($"Unified strategy selected node path for container: {strategySelectedNodePath}");
+                    }
+                }
+
                 // See if this container brings its own Node.js
                 container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
                                                                     dockerObject: container.ContainerImage,
@@ -563,7 +578,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return value.Replace('\'', '"');
                 }
 
-                if (!string.IsNullOrEmpty(container.CustomNodePath))
+                // Priority order: Strategy result > Custom node path > Cross-platform requirements > Legacy knobs
+                if (!string.IsNullOrEmpty(strategySelectedNodePath))
+                {
+                    // Strategy selected a specific node path (includes EOL policy enforcement)
+                    container.ContainerCommand = useDoubleQuotes(nodeSetInterval(strategySelectedNodePath));
+                    container.ResultNodePath = strategySelectedNodePath;
+                    executionContext.Debug($"Using strategy-selected node for container startup: {strategySelectedNodePath}");
+                }
+                else if (!string.IsNullOrEmpty(container.CustomNodePath))
                 {
                     container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
                     container.ResultNodePath = container.CustomNodePath;
@@ -1009,21 +1032,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        // Apply unified strategy if enabled
-                        bool useUnifiedStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
-                        if (useUnifiedStrategy && container.IsJobContainer)
-                        {
-                            try
-                            {
-                                var handlerData = GetJobContainerHandlerData(executionContext, container);
-                                await SetContainerNodePathWithStrategy(executionContext, container, handlerData);
-                            }
-                            catch (Exception ex)
-                            {
-                                executionContext.Warning($"Failed to use unified strategy for container node selection: {ex.Message}");
-                                // Strategy failed, continue with legacy behavior
-                            }
-                        }
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
@@ -1271,16 +1279,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
         {
-            // Cross-platform scenarios use container's built-in node
             if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
             {
-                return new NodeHandlerData(); // Use container's own node
+                return new CustomNodeHandlerData(); // Use container's own node
             }
 
             // Custom node path via Docker label
             if (!string.IsNullOrEmpty(container.CustomNodePath))
             {
-                return new NodeHandlerData(); // Custom path handling
+                return new CustomNodeHandlerData();
             }
 
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
@@ -1301,33 +1308,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         /// <summary>
-        /// Sets container.ResultNodePath using the unified node version strategy.
-        /// Builds TaskContext from container state, calls orchestrator, and assigns result.
+        /// Gets container node path using the node version strategy.
+        /// Builds TaskContext from container state, calls orchestrator, and returns result with debug information.
         /// Maps container glibc flags: NeedsNode20Redirect → Node24HasGlibcError, NeedsNode16Redirect → Node20HasGlibcError
+        /// Note: EOL policy exceptions are logged and re-thrown to enforce container compliance.
         /// </summary>
-        private async Task SetContainerNodePathWithStrategy(IExecutionContext executionContext, ContainerInfo container, BaseNodeHandlerData handlerData)
+        private async Task<NodeRunnerInfo> GetContainerNodePathWithStrategy(IExecutionContext executionContext, ContainerInfo container, BaseNodeHandlerData handlerData)
         {
             try
             {
+                executionContext.Debug($"Invoking strategy for container node selection with handler: {handlerData.GetType().Name}");
+                
                 var orchestrator = new NodeVersionOrchestrator(executionContext, HostContext);
 
-                // Build TaskContext for container execution
                 var taskContext = new TaskContext
                 {
                     HandlerData = handlerData,
                     Container = container,
-                    StepTarget = null // Containers don't have step targets
+                    StepTarget = null
                 };
 
-                // Get node path from strategy
                 var result = await orchestrator.SelectNodeVersionAsync(taskContext);
 
                 if (result != null)
                 {
-                    // Use the node path directly from strategy (orchestrator handles all path translation)
-                    container.ResultNodePath = result.NodePath;
                     executionContext.Debug($"Container strategy selected: {result.NodeVersion} at {result.NodePath} (reason: {result.Reason})");
-
+                    
                     if (!string.IsNullOrEmpty(result.Warning))
                     {
                         executionContext.Warning(result.Warning);
@@ -1335,16 +1341,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    // Fallback to default container node path
-                    container.ResultNodePath = "/azp/node20_1/bin/node";
-                    executionContext.Warning("Strategy pattern failed to select node version, falling back to Node20_1");
+                    executionContext.Warning("Node Strategy returned null result for container node selection");
                 }
+
+                return result;
             }
             catch (Exception ex)
             {
-                executionContext.Warning($"Failed to use unified strategy for container node selection: {ex.Message}");
-                // Fallback to default container node path
-                container.ResultNodePath = "/azp/node20_1/bin/node";
+                executionContext.Error($"Failed to invoke node strategy for container node selection: {ex.Message}");
+                executionContext.Debug($"Stack trace: {ex}");
+                throw; // Re-throw to enforce EOL policy and other strategy failures
             }
         }
 
