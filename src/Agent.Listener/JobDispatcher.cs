@@ -401,10 +401,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                                  // Because an agent can be idle for a long time between jobs, it is possible that in that time
                                                  // a firewall has closed the connection. For that reason, forcibly reestablish this connection at the
                                                  // start of a new job
-                    Trace.Info(StringUtil.Format("Refreshing server connection before job execution [ConnectionType:JobRequest, Timeout:30s, JobId:{0}]",
+                    Trace.Info(StringUtil.Format("Refreshing server connection before job execution [ConnectionType:JobRequest, JobId:{0}]",
                         message.JobId));
                     var agentServer = HostContext.GetService<IAgentServer>();
-                    await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(30));
+                    await agentServer.RefreshConnectionAsync(AgentConnectionType.JobRequest);
 
                     // start renew job request
                     Trace.Info($"Start renew job request {requestId} for job {message.JobId}.");
@@ -816,9 +816,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     if (encounteringError > 0)
                     {
                         encounteringError = 0;
-                        agentServer.SetConnectionTimeout(AgentConnectionType.JobRequest, TimeSpan.FromSeconds(60));
+                        agentServer.ResetConnectionTimeout(AgentConnectionType.JobRequest);
                         HostContext.WritePerfCounter("JobRenewRecovered");
-                        Trace.Info(StringUtil.Format("Job renewal error recovery completed [RequestId:{0}, ErrorsCleared:True, ConnectionTimeout:60s, Status:Recovered]",
+                        Trace.Info(StringUtil.Format("Job renewal error recovery completed [RequestId:{0}, ErrorsCleared:True, Status:Recovered]",
                             requestId));
                     }
 
@@ -888,7 +888,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
 
                         // Re-establish connection to server in order to avoid affinity with server.
-                        // Reduce connection timeout to 30 seconds (from 60s)
+                        // Reduce connection timeout to 30 seconds for faster failure detection during retries
                         HostContext.WritePerfCounter("ResetJobRenewConnection");
                         Trace.Info(StringUtil.Format("Job renewal connection refresh initiated [RequestId:{0}, Timeout:30s, Reason:RetryRecovery, ErrorCount:{1}]",
                             requestId, encounteringError));
