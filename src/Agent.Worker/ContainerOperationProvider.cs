@@ -551,6 +551,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 bool useStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
                 string strategySelectedNodePath = null;
                 
+                // See if this container brings its own Node.js
+                container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
+                                                                    dockerObject: container.ContainerImage,
+                                                                    options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
+
                 if (useStrategy)
                 {
                     var handlerData = GetJobContainerHandlerData(executionContext, container);
@@ -558,15 +563,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (strategyResult != null && !string.IsNullOrEmpty(strategyResult.NodePath))
                     {
                         strategySelectedNodePath = strategyResult.NodePath;
-                        container.ResultNodePath = strategySelectedNodePath;
                         executionContext.Debug($"Unified strategy selected node path for container: {strategySelectedNodePath}");
                     }
-                }
-
-                // See if this container brings its own Node.js
-                container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
-                                                                    dockerObject: container.ContainerImage,
-                                                                    options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
+                }             
 
                 string nodeSetInterval(string node)
                 {
@@ -1279,15 +1278,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
         {
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
-            {
-                return new CustomNodeHandlerData(); // Use container's own node
-            }
-
             // Custom node path via Docker label
             if (!string.IsNullOrEmpty(container.CustomNodePath))
             {
                 return new CustomNodeHandlerData();
+            }
+
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                return new CustomNodeHandlerData(); // Use container's own node
             }
 
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
