@@ -628,6 +628,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                         detailInfo = string.Join(Environment.NewLine, workerOutput);
                                         Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
                                         await LogWorkerProcessUnhandledException(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
+
+                                        // Publish worker crash telemetry for Kusto analysis
+                                        var telemetryPublisher = HostContext.GetService<IWorkerCrashTelemetryPublisher>();
+                                        await telemetryPublisher.PublishWorkerCrashTelemetryAsync(HostContext, message.JobId, returnCode, "200");
                                     }
 
                                     TaskResult result = TaskResultUtil.TranslateFromReturnCode(returnCode);
@@ -641,8 +645,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     await renewJobRequest;
 
                                     Trace.Info($"Job request completion initiated - Completing job request for job: {message.JobId}");
-                                    // complete job request
-                                    await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+                                    
+                                    if (ShouldUseEnhancedCrashHandling(message, returnCode))
+                                    {
+                                        // Direct plan event reporting for Plan v8+ worker crashes
+                                        await ReportJobCompletionEventAsync(message, result, agentCertManager.SkipServerCertificateValidation);
+                                        Trace.Info("Plan event reporting executed successfully for worker crash");
+                                    }
+                                    else
+                                    {
+                                        // Standard completion for Plan v7 or normal Plan v8+ scenarios, or when enhanced handling is disabled
+                                        await CompleteJobRequestAsync(_poolId, message, lockToken, result, detailInfo);
+                                        Trace.Info("Standard completion executed successfully");
+                                    }
+                                    
                                     Trace.Info("Job request completion completed");
 
                                     // print out unhandled exception happened in worker after we complete job request.
@@ -971,55 +987,146 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             throw new AggregateException(exceptions);
         }
 
+        // Determines if enhanced crash handling should be used for Plan v8+ worker crashes
+        private bool ShouldUseEnhancedCrashHandling(Pipelines.AgentJobRequestMessage message, int returnCode)
+        {
+            if (!AgentKnobs.EnhancedWorkerCrashHandling.GetValue(UtilKnobValueContext.Instance()).AsBoolean())
+                return false;
+
+            bool isPlanV8Plus = PlanUtil.GetFeatures(message.Plan).HasFlag(PlanFeatures.JobCompletedPlanEvent);
+            bool isWorkerCrash = !TaskResultUtil.IsValidReturnCode(returnCode);
+
+            return isPlanV8Plus && isWorkerCrash;
+        }
+
+        // Creates a job server connection with proper URL normalization for OnPremises servers
+        private async Task<VssConnection> CreateJobServerConnectionAsync(Pipelines.AgentJobRequestMessage message, bool skipServerCertificateValidation = false)
+        {
+            Trace.Info("Creating job server connection");
+            
+            var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection));
+            ArgUtil.NotNull(systemConnection, nameof(systemConnection));
+
+            var jobServer = HostContext.GetService<IJobServer>();
+            VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
+            Uri jobServerUrl = systemConnection.Url;
+            
+            Trace.Verbose($"Initial connection details [JobId:{message.JobId}, OriginalUrl:{jobServerUrl}]");
+
+            // Make sure SystemConnection Url match Config Url base for OnPremises server
+            if (!message.Variables.ContainsKey(Constants.Variables.System.ServerType) ||
+                string.Equals(message.Variables[Constants.Variables.System.ServerType]?.Value, "OnPremises", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    Uri urlResult = null;
+                    Uri configUri = new Uri(_agentSetting.ServerUrl);
+                    if (Uri.TryCreate(new Uri(configUri.GetComponents(UriComponents.SchemeAndServer, UriFormat.Unescaped)), jobServerUrl.PathAndQuery, out urlResult))
+                    {
+                        //replace the schema and host portion of messageUri with the host from the
+                        //server URI (which was set at config time)
+                        Trace.Info($"URL replacement for OnPremises server - Original: {jobServerUrl}, New: {urlResult}");
+                        jobServerUrl = urlResult;
+                    }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Trace.Error(ex);
+                }
+                catch (UriFormatException ex)
+                {
+                    Trace.Error(ex);
+                }
+            }
+
+            var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace, skipServerCertificateValidation);
+            await jobServer.ConnectAsync(jobConnection);
+            Trace.Info($"Job server connection established successfully");
+            
+            return jobConnection;
+        }
+
+        // Reports job completion to server via plan event (similar to how worker reports)
+        // Used for Plan v8+ scenarios where listener needs to notify server of job completion
+        private async Task ReportJobCompletionEventAsync(Pipelines.AgentJobRequestMessage message, TaskResult result, bool skipServerCertificateValidation = false)
+        {
+            Trace.Info($"Plan event reporting initiated - Sending job completion event to server");
+
+            try
+            {
+                using (var jobConnection = await CreateJobServerConnectionAsync(message, skipServerCertificateValidation))
+                {
+                    var jobServer = HostContext.GetService<IJobServer>();
+                    // Create job completed event (similar to worker)
+                    var jobCompletedEvent = new JobCompletedEvent(message.RequestId, message.JobId, result);
+                    
+                    // Send plan event with retry logic (similar to worker pattern)
+                    int retryLimit = 5;
+                    var exceptions = new List<Exception>();
+                    
+                    while (retryLimit-- > 0)
+                    {
+                        try
+                        {
+                            await jobServer.RaisePlanEventAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, jobCompletedEvent, CancellationToken.None);
+                            Trace.Info($"Plan event reporting completed successfully [JobId:{message.JobId}, Result:{result}]");
+                            return;
+                        }
+                        catch (TaskOrchestrationPlanNotFoundException ex)
+                        {
+                            Trace.Error($"TaskOrchestrationPlanNotFoundException during plan event reporting for job {message.JobId}");
+                            Trace.Error(ex);
+                            return; // No point retrying
+                        }
+                        catch (TaskOrchestrationPlanSecurityException ex)
+                        {
+                            Trace.Error($"TaskOrchestrationPlanSecurityException during plan event reporting for job {message.JobId}");
+                            Trace.Error(ex);
+                            return; // No point retrying
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error(ex);
+                            exceptions.Add(ex);
+                        }
+                        
+                        // delay 5 seconds before next retry
+                        Trace.Info($"Plan event reporting retry delay - Waiting 5 seconds before retry {5 - retryLimit}/5");
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                    }
+                    
+                    // If we get here, all retries failed
+                    Trace.Warning($"Plan event reporting failed after all retries [JobId:{message.JobId}, TotalExceptions:{exceptions.Count}]");
+                    foreach (var ex in exceptions)
+                    {
+                        Trace.Error(ex);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.Error("Critical error during plan event reporting setup");
+                Trace.Error(ex);
+            }
+        }
+
         // log an error issue to job level timeline record
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
         private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage, bool skipServerCertificateValidation = false)
         {
             try
             {
-                var systemConnection = message.Resources.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection));
-                ArgUtil.NotNull(systemConnection, nameof(systemConnection));
-
-                var jobServer = HostContext.GetService<IJobServer>();
-                VssCredentials jobServerCredential = VssUtil.GetVssCredential(systemConnection);
-                Uri jobServerUrl = systemConnection.Url;
-
-                // Make sure SystemConnection Url match Config Url base for OnPremises server
-                if (!message.Variables.ContainsKey(Constants.Variables.System.ServerType) ||
-                    string.Equals(message.Variables[Constants.Variables.System.ServerType]?.Value, "OnPremises", StringComparison.OrdinalIgnoreCase))
+                using (var jobConnection = await CreateJobServerConnectionAsync(message, skipServerCertificateValidation))
                 {
-                    try
-                    {
-                        Uri result = null;
-                        Uri configUri = new Uri(_agentSetting.ServerUrl);
-                        if (Uri.TryCreate(new Uri(configUri.GetComponents(UriComponents.SchemeAndServer, UriFormat.Unescaped)), jobServerUrl.PathAndQuery, out result))
-                        {
-                            //replace the schema and host portion of messageUri with the host from the
-                            //server URI (which was set at config time)
-                            jobServerUrl = result;
-                        }
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        //cannot parse the Uri - not a fatal error
-                        Trace.Error(ex);
-                    }
-                    catch (UriFormatException ex)
-                    {
-                        //cannot parse the Uri - not a fatal error
-                        Trace.Error(ex);
-                    }
+                    var jobServer = HostContext.GetService<IJobServer>();
+                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
+                    ArgUtil.NotNull(timeline, nameof(timeline));
+                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
+                    ArgUtil.NotNull(jobRecord, nameof(jobRecord));
+                    jobRecord.ErrorCount++;
+                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
+                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
                 }
-
-                var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace, skipServerCertificateValidation);
-                await jobServer.ConnectAsync(jobConnection);
-                var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
-                ArgUtil.NotNull(timeline, nameof(timeline));
-                TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
-                ArgUtil.NotNull(jobRecord, nameof(jobRecord));
-                jobRecord.ErrorCount++;
-                jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
-                await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
             }
             catch (SocketException ex)
             {
