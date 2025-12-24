@@ -10,7 +10,6 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
-using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -548,24 +547,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (container.IsJobContainer)
             {
-                bool useStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
-                string strategySelectedNodePath = null;
-                
                 // See if this container brings its own Node.js
                 container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
                                                                     dockerObject: container.ContainerImage,
                                                                     options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
-
-                if (useStrategy)
-                {
-                    var handlerData = GetJobContainerHandlerData(executionContext, container);
-                    var strategyResult = await GetContainerNodePathWithStrategy(executionContext, container, handlerData);
-                    if (strategyResult != null && !string.IsNullOrEmpty(strategyResult.NodePath))
-                    {
-                        strategySelectedNodePath = strategyResult.NodePath;
-                        executionContext.Debug($"Unified strategy selected node path for container: {strategySelectedNodePath}");
-                    }
-                }             
 
                 string nodeSetInterval(string node)
                 {
@@ -577,15 +562,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return value.Replace('\'', '"');
                 }
 
-                // Priority order: Strategy result > Custom node path > Cross-platform requirements > Legacy knobs
-                if (!string.IsNullOrEmpty(strategySelectedNodePath))
-                {
-                    // Strategy selected a specific node path (includes EOL policy enforcement)
-                    container.ContainerCommand = useDoubleQuotes(nodeSetInterval(strategySelectedNodePath));
-                    container.ResultNodePath = strategySelectedNodePath;
-                    executionContext.Debug($"Using strategy-selected node for container startup: {strategySelectedNodePath}");
-                }
-                else if (!string.IsNullOrEmpty(container.CustomNodePath))
+                if (!string.IsNullOrEmpty(container.CustomNodePath))
                 {
                     container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
                     container.ResultNodePath = container.CustomNodePath;
@@ -1266,90 +1243,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             else
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
-            }
-        }
-
-        /// <summary>
-        /// Determines the NodeJS handler data for container based on:
-        /// 1. Cross-platform scenario (MacOS/Windows host + Linux container → use container's own node)
-        /// 2. Custom node path from Docker label (com.azure.dev.pipelines.agent.handler.node.path)
-        /// 3. Container-specific knobs (UseNode24ToStartContainer, UseNode20ToStartContainer)
-        /// 4. Default fallback (Node20_1)
-        /// </summary>
-        private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
-        {
-            // Custom node path via Docker label
-            if (!string.IsNullOrEmpty(container.CustomNodePath))
-            {
-                return new CustomNodeHandlerData();
-            }
-
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
-            {
-                return new CustomNodeHandlerData(); // Use container's own node
-            }
-
-            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
-            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
-
-            if (useNode24ToStartContainer)
-            {
-                return new Node24HandlerData();
-            }
-
-            if (useNode20ToStartContainer)
-            {
-                return new Node20_1HandlerData();
-            }
-
-            // Default to Node20_1 for containers
-            return new Node20_1HandlerData();
-        }
-
-        /// <summary>
-        /// Gets container node path using the node version strategy.
-        /// Builds TaskContext from container state, calls orchestrator, and returns result with debug information.
-        /// Maps container glibc flags: NeedsNode20Redirect → Node24HasGlibcError, NeedsNode16Redirect → Node20HasGlibcError
-        /// Note: EOL policy exceptions are logged and re-thrown to enforce container compliance.
-        /// </summary>
-        private async Task<NodeRunnerInfo> GetContainerNodePathWithStrategy(IExecutionContext executionContext, ContainerInfo container, BaseNodeHandlerData handlerData)
-        {
-            try
-            {
-                executionContext.Debug($"Invoking strategy for container node selection with handler: {handlerData.GetType().Name}");
-                
-                var orchestrator = new NodeVersionOrchestrator(executionContext, HostContext);
-
-                var taskContext = new TaskContext
-                {
-                    HandlerData = handlerData,
-                    Container = container,
-                    StepTarget = null
-                };
-
-                var result = await orchestrator.SelectNodeVersionAsync(taskContext);
-
-                if (result != null)
-                {
-                    executionContext.Debug($"Container strategy selected: {result.NodeVersion} at {result.NodePath} (reason: {result.Reason})");
-                    
-                    if (!string.IsNullOrEmpty(result.Warning))
-                    {
-                        executionContext.Warning(result.Warning);
-                    }
-                }
-                else
-                {
-                    executionContext.Warning("Node Strategy returned null result for container node selection");
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                executionContext.Error($"Failed to invoke node strategy for container node selection: {ex.Message}");
-                executionContext.Debug($"Stack trace: {ex}");
-                throw; // Re-throw to enforce EOL policy and other strategy failures
             }
         }
 
