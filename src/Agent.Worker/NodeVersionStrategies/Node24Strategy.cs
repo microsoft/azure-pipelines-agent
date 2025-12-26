@@ -2,11 +2,13 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -93,5 +95,60 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
             };
         }
+
+        /// <summary>
+        /// Checks if Node24 can handle container execution based on UseNode24ToStartContainer knob
+        /// and actual Node24 availability in the container.
+        /// </summary>
+        /// <param name="context">Container context</param>
+        /// <param name="executionContext">Execution context for knob evaluation</param>
+        /// <param name="dockerManager">Docker command manager for testing node availability</param>
+        /// <param name="glibcInfo">Glibc compatibility information</param>
+        /// <returns>NodeRunnerInfo if Node24 can handle container execution, null otherwise</returns>
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager, GlibcCompatibilityInfo glibcInfo)
+        {
+            if (context.Container == null)
+            {
+                executionContext.Debug("[Node24Strategy] CanHandleInContainer called but no container context provided");
+                return null;
+            }
+
+            // Check if UseNode24ToStartContainer knob is enabled
+            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            if (!useNode24ToStartContainer)
+            {
+                executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=false, cannot handle container");
+                return null;
+            }
+
+            executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=true, checking Node24 availability in container");
+
+            try
+            {
+                // Test if Node24 is available and working in the container
+                if (NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node24, "Node24Strategy"))
+                {
+                    return new NodeRunnerInfo
+                    {
+                        NodePath = null, // Will be set by orchestrator's CreateNodeRunnerInfoWithPath
+                        NodeVersion = NodeVersion.Node24,
+                        Reason = "Node24 available in container via UseNode24ToStartContainer knob",
+                        Warning = null
+                    };
+                }
+                else
+                {
+                    executionContext.Debug("[Node24Strategy] Node24 test failed in container, returning null for fallback");
+                    return null; // Let the next strategy (Node20) handle this
+                }
+            }
+            catch (Exception ex)
+            {
+                executionContext.Warning($"[Node24Strategy] Failed to test Node24 in container: {ex.Message}");
+                return null; // Let the next strategy handle this
+            }
+        }
+
+
     }
 }
