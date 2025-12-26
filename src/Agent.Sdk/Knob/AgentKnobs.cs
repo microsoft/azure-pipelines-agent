@@ -757,6 +757,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseNewContainerStartupStrategy = new Knob(
+            nameof(UseNewContainerStartupStrategy),
+            "If true, use generic container startup command and determine node version post-startup using strategy pattern.",
+            new PipelineFeatureSource("UseNewContainerStartupStrategy"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NEW_CONTAINER_STARTUP_STRATEGY"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NEW_CONTAINER_STARTUP_STRATEGY"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
             nameof(EnableNewMaskerAndRegexes),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
@@ -943,5 +951,12 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UseNodeVersionStrategy"),
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ApprovedNodeVersionsList = new Knob(
+            nameof(ApprovedNodeVersionsList),
+            "Comma-separated list of approved Node.js LTS versions sent from server (e.g., '24,20'). Used by strategy system for container startup and task execution. If empty, uses agent's default supported versions.",
+            new PipelineFeatureSource("AGENT_APPROVED_NODE_VERSIONS"),
+            new EnvironmentKnobSource("AGENT_APPROVED_NODE_VERSIONS"),
+            new BuiltInDefaultKnobSource(string.Empty));
     }
 }
