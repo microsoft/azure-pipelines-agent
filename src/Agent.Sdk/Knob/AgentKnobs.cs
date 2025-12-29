@@ -722,6 +722,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnhancedWorkerCrashHandling = new Knob(
+            nameof(EnhancedWorkerCrashHandling),
+            "If true, enables enhanced worker crash handling with forced completion for Plan v8+ scenarios where worker crashes cannot send completion events",
+            new EnvironmentKnobSource("AZP_ENHANCED_WORKER_CRASH_HANDLING"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
             nameof(AllowWorkDirectoryRepositories),
             "Allows repositories to be checked out below work directory level on self hosted agents.",

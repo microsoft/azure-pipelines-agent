@@ -371,12 +371,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
                 bool enhancedLoggingEnabled = string.Equals(enhancedLoggingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
 
+                // Check enhanced worker crash handling feature flag
+                var enhancedWorkerCrashHandlingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnhancedWorkerCrashHandling", Trace);
+                bool enhancedWorkerCrashHandlingEnabled = string.Equals(enhancedWorkerCrashHandlingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
                 Trace.Info($"Enhanced logging feature flag is {(enhancedLoggingEnabled ? "enabled" : "disabled")}");
                 // Set the result on TraceManager - this automatically switches all trace sources
                 traceManager.SetEnhancedLoggingEnabled(enhancedLoggingEnabled);
 
                 // Ensure child processes (worker/plugin) pick up enhanced logging via knob
                 Environment.SetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING", enhancedLoggingEnabled ? "true" : null);
+
+                Trace.Info($"Enhanced worker crash handling feature flag is {(enhancedWorkerCrashHandlingEnabled ? "enabled" : "disabled")}");
+                // Ensure child processes (worker/plugin) pick up enhanced crash handling via knob
+                Environment.SetEnvironmentVariable("AZP_ENHANCED_WORKER_CRASH_HANDLING", enhancedWorkerCrashHandlingEnabled ? "true" : null);
 
                 Trace.Info("Runtime features initialization completed successfully");
             }
