@@ -14,7 +14,124 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         public static readonly TestScenario[] AllScenarios = new[]
         {
-            
+            // ============================================
+            // GROUP 0: CUSTOM NODE SCENARIOS
+            // ============================================
+            new TestScenario(
+                name: "CustomNode_Host_OverridesHandlerData",
+                description: "Custom node path takes priority over handler data type",
+                handlerData: typeof(Node20_1HandlerData),
+                customNodePath: "/usr/local/custom/node",
+                inContainer: false,
+                expectedNode: "/usr/local/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Host_BypassesAllKnobs",
+                description: "Custom node path ignores all global node version knobs",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24"] = "true",
+                    ["AGENT_USE_NODE20_1"] = "true",
+                    ["AGENT_USE_NODE10"] = "true"
+                },
+                customNodePath: "/opt/my-node/bin/node",
+                inContainer: false,
+                expectedNode: "/opt/my-node/bin/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Host_BypassesEOLPolicy",
+                description: "Custom node path bypasses EOL policy restrictions",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
+                },
+                customNodePath: "/legacy/node6/bin/node",
+                inContainer: false,
+                expectedNode: "/legacy/node6/bin/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesHandlerData",
+                description: "Container custom node path overrides task handler data",
+                handlerData: typeof(Node24HandlerData),
+                customNodePath: "/container/node20/bin/node",
+                inContainer: true,
+                expectedNode: "/container/node20/bin/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_HighestPriority_OverridesEverything",
+                description: "Custom path has highest priority - overrides all knobs, EOL policy, and glibc errors",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24"] = "true",
+                    ["AGENT_USE_NODE20_1"] = "true", 
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true",
+                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "false"
+                },
+                node20GlibcError: true,
+                node24GlibcError: true,
+                customNodePath: "/ultimate/override/node",
+                inContainer: false,
+                expectedNode: "/ultimate/override/node"
+            ),
+
+             new TestScenario(
+                name: "CustomNode_NullPath_FallsBackToNormalLogic",
+                description: "Null custom node path falls back to standard node selection",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                customNodePath: null,
+                inContainer: false,
+                expectedNode: "node24"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_EmptyString_IgnoredFallsBackToNormalLogic",
+                description: "Empty custom node path is ignored, falls back to normal handler logic",
+                handlerData: typeof(Node20_1HandlerData),
+                customNodePath: "",
+                inContainer: false,
+                expectedNode: "node20_1"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_WhitespaceOnly_IgnoredFallsBackToNormalLogic",
+                description: "Whitespace-only custom node path is ignored, falls back to normal handler logic",
+                handlerData: typeof(Node16HandlerData),
+                customNodePath: "   ",
+                inContainer: false,
+                expectedNode: "node16"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerKnobs",
+                description: "Container custom node path overrides container-specific knobs",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
+                    ["AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_MixedEnvironments_ContainerTakesPrecedence",
+                description: "When in container environment, Container.CustomNodePath is used over StepTarget.CustomNodePath",
+                handlerData: typeof(Node24HandlerData),
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
             // ========================================================================================
             // GROUP 1: NODE6 SCENARIOS (Node6HandlerData - EOL)
             // ========================================================================================

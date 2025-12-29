@@ -77,13 +77,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
+                    
+                    try{
 
-                    try
-                    {
                         string actualLocation = nodeHandler.GetNodeLocation(
                             node20ResultsInGlibCError: scenario.Node20GlibcError,
                             node24ResultsInGlibCError: scenario.Node24GlibcError,
                             inContainer: scenario.InContainer);
+
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
                     }
@@ -91,7 +92,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         Assert.NotNull(ex);
                         Assert.IsType(scenario.ExpectedErrorType, ex);
-                        
+
                         if (!string.IsNullOrEmpty(expectations.ExpectedError))
                         {
                             Assert.Contains(expectations.ExpectedError, ex.Message);

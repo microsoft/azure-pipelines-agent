@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // IMPORTANT: Strategy order determines selection priority
             // Add strategies in descending priority order (newest/preferred versions first)
             // The orchestrator will try each strategy in order until one can handle the request
+            _strategies.Add(new CustomNodeStrategy());
             _strategies.Add(new Node24Strategy());
             _strategies.Add(new Node20Strategy());
             _strategies.Add(new Node16Strategy());
@@ -97,6 +98,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            if (!string.IsNullOrEmpty(selection.NodePath))
+            {
+                return selection;
+            }
+            
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
             string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
@@ -130,7 +136,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     { "IsContainer", (context.Container != null).ToString() }
                 };
                 
-                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+            ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
             }
             catch (Exception ex)
             {
