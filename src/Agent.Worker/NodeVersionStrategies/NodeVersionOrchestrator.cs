@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -31,7 +32,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // IMPORTANT: Strategy order determines selection priority
             // Add strategies in descending priority order (newest/preferred versions first)
             // The orchestrator will try each strategy in order until one can handle the request
-            _strategies.Add(new CustomNodeStrategy());
             _strategies.Add(new Node24Strategy());
             _strategies.Add(new Node20Strategy());
             _strategies.Add(new Node16Strategy());
@@ -43,7 +43,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             ArgUtil.NotNull(context, nameof(context));
 
-            string environmentType = context.Container != null ? "Container" : "Host";
+            // Use container-specific selection logic if we're in a container
+            if (context.Container != null)
+            {
+                // Get docker manager for container node testing
+                var dockerManager = HostContext.GetService<IDockerCommandManager>();
+                return await SelectNodeVersionForContainerAsync(context, dockerManager);
+            }
+
+            string environmentType = "Host";
             ExecutionContext.Debug($"[{environmentType}] Starting node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
@@ -96,13 +104,76 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
         }
 
+        /// <summary>
+        /// Container-specific node version selection using CanHandleInContainer methods.
+        /// Follows the container knob precedence: Node24 → Node20 → Node16.
+        /// </summary>
+        public async Task<NodeRunnerInfo> SelectNodeVersionForContainerAsync(TaskContext context, IDockerCommandManager dockerManager)
+        {
+            string environmentType = "Container";
+            ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
+            ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
+
+            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context);
+
+            // Container strategies in priority order: Node24 → Node20 → Node16
+            List<INodeVersionStrategy>  containerStrategies = new List<INodeVersionStrategy>();
+
+            // IMPORTANT: Strategy order determines selection priority
+            // Add strategies in descending priority order (newest/preferred versions first)
+            // The orchestrator will try each strategy in order until one can handle the request
+            containerStrategies.Add(new Node24Strategy());
+            containerStrategies.Add(new Node20Strategy());
+            containerStrategies.Add(new Node16Strategy());
+
+            foreach (var strategy in containerStrategies)
+            {
+                ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
+
+                try
+                {
+                    var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager, glibcInfo);
+                    if (selectionResult != null)
+                    {
+                        var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
+                        
+                        // Publish telemetry for monitoring node version selection via Kusto
+                        PublishNodeVersionSelectionTelemetry(result, strategy, environmentType, context);
+                        
+                        ExecutionContext.Output(
+                            $"[{environmentType}] Selected Node version: {result.NodeVersion} (Strategy: {strategy.GetType().Name})");
+                        ExecutionContext.Debug($"[{environmentType}] Node path: {result.NodePath}");
+                        ExecutionContext.Debug($"[{environmentType}] Reason: {result.Reason}");
+
+                        if (!string.IsNullOrEmpty(result.Warning))
+                        {
+                            ExecutionContext.Warning(result.Warning);
+                        }
+
+                        return result;
+                    }
+                    else
+                    {
+                        ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' cannot handle this container context");
+                    }
+                }
+                catch (NotSupportedException ex)
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
+                    ExecutionContext.Error($"Container node version selection failed: {ex.Message}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    ExecutionContext.Warning($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw unexpected exception: {ex.Message} - trying next strategy");
+                }
+            }
+
+            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+        }
+
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
-            if (!string.IsNullOrEmpty(selection.NodePath))
-            {
-                return selection;
-            }
-            
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
             string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
@@ -136,7 +207,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     { "IsContainer", (context.Container != null).ToString() }
                 };
                 
-            ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
             }
             catch (Exception ex)
             {

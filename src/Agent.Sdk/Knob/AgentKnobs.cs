@@ -941,7 +941,15 @@ namespace Agent.Sdk.Knob
             nameof(UseNodeVersionStrategy),
             "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
             new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob ApprovedNodeVersionsList = new Knob(
+            nameof(ApprovedNodeVersionsList),
+            "Comma-separated list of approved Node.js LTS versions sent from server (e.g., '24,20'). Used by strategy system for container startup and task execution. If empty, uses agent's default supported versions.",
+            new PipelineFeatureSource("AGENT_APPROVED_NODE_VERSIONS"),
+            new EnvironmentKnobSource("AGENT_APPROVED_NODE_VERSIONS"),
+            new BuiltInDefaultKnobSource(string.Empty));
     }
 }

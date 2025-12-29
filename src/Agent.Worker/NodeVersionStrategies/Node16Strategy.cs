@@ -40,5 +40,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 Warning = StringUtil.Loc("NodeEOLWarning", "Node16")
             };
         }
+
+         /// <summary>
+        /// Node16 serves as the final fallback for container execution when Node24/Node20 are not available.
+        /// Always returns Node16 for container scenarios unless blocked by EOL policy.
+        /// </summary>
+        /// <param name="context">Container context</param>
+        /// <param name="executionContext">Execution context for knob evaluation</param>
+        /// <param name="glibcInfo">Glibc compatibility information</param>
+        /// <returns>NodeRunnerInfo for Node16 container execution</returns>
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        {
+            if (context.Container == null)
+            {
+                executionContext.Debug("[Node16Strategy] CanHandleInContainer called but no container context provided");
+                return null;
+            }
+
+            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+
+            if (eolPolicyEnabled)
+            {
+                executionContext.Debug("[Node16Strategy] Node16 blocked by EOL policy in container");
+                throw new NotSupportedException("No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks.");
+            }
+
+            executionContext.Debug("[Node16Strategy] Providing Node16 as final fallback for container");
+
+            return new NodeRunnerInfo
+            {
+                NodePath = null, // Will be set by orchestrator's CreateNodeRunnerInfoWithPath
+                NodeVersion = NodeVersion.Node16,
+                Reason = "Final fallback to Node16 for container execution",
+                Warning = "Using Node16 in container. Consider updating to Node20 or Node24 for better performance and security."
+            };
+        }
     }
 }
