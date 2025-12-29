@@ -339,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 catch (Exception ex)
                 {
                     // Log the exception but continue with cleanup to prevent silent failures
-                    Trace.Verbose($"Exception details: {ex}");
+                    Trace.Info($"Exception details: {ex}");
                 }
                 finally
                 {
