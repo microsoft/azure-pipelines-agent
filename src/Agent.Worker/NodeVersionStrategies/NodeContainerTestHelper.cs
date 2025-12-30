@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -36,22 +37,71 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return false;
             }
 
+            // Check for incompatible Windows agent + Linux container scenario
+            if (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux)
+            {
+                executionContext.Debug($"[{strategyName}] Windows agent with Linux container detected - agent's Windows Node.js binaries cannot run in Linux container");
+                executionContext.Debug($"[{strategyName}] This scenario requires the container to have its own Node.js installation");
+                return false;
+            }
+
             try
             {
                 executionContext.Debug($"[{strategyName}] Testing {nodeVersion} availability in container {container.ContainerId}");
+                executionContext.Debug($"[{strategyName}] Container ImageOS: {container.ImageOS}");
                 
                 // Use the provided Docker manager instance
                 var hostContext = executionContext.GetHostContext();
                 
                 // Build the node path for the specified version
                 string nodeFolder = NodeVersionHelper.GetFolderName(nodeVersion);
-                string externalsPath = hostContext.GetDirectory(WellKnownDirectory.Externals);
-                string hostNodePath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-                string containerNodePath = container.TranslateToContainerPath(hostNodePath);
+                
+                // Build host path (always with Windows .exe since we're on Windows host)
+                string hostPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                
+                // Translate to container path
+                string containerNodePath = container.TranslateToContainerPath(hostPath);
+                
+                // Fix path and extension for target container OS
+                if (container.ImageOS == PlatformUtil.OS.Linux)
+                {
+                    // Convert Windows backslashes to Linux forward slashes
+                    containerNodePath = containerNodePath.Replace('\\', '/');
+                    
+                    // Remove .exe extension for Linux containers
+                    if (containerNodePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        containerNodePath = containerNodePath.Substring(0, containerNodePath.Length - 4);
+                    }
+                }
+
+                executionContext.Debug($"[{strategyName}] hostPath: {hostPath}");
+                executionContext.Debug($"[{strategyName}] containerNodePath: {containerNodePath}");
                 
                 // Execute node --version command in the container
                 var output = new List<string>();
-                string testCommand = $"'{containerNodePath}' --version";
+                
+                // Format command following the same pattern as ContainerOperationProvider startup commands
+                // Use HOST OS to determine command format, just like the original code
+                string testCommand;
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    if (container.ImageOS == PlatformUtil.OS.Windows)
+                    {
+                        // Windows host + Windows container: use cmd.exe wrapper
+                        testCommand = $"cmd.exe /c \"\"{containerNodePath}\" --version\"";
+                    }
+                    else
+                    {
+                        // Windows host + Linux container: use bash wrapper (matching original pattern)
+                        testCommand = $"bash -c \"{containerNodePath} --version\"";
+                    }
+                }
+                else
+                {
+                    // Linux/Mac host: use bash wrapper
+                    testCommand = $"bash -c \"{containerNodePath} --version\"";
+                }
                 
                 executionContext.Debug($"[{strategyName}] Executing test command: {testCommand}");
                 int exitCode = dockerManager.DockerExec(executionContext, container.ContainerId, string.Empty, testCommand, output).Result;
@@ -73,5 +123,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return false;
             }
         }
+
+        // static string GetContainerNodePath(string nodeFolder, ContainerInfo container, IHostContext hostContext)
+        // {
+        //     // Container execution: use container's OS to determine executable name
+        //     string containerExeExtension = container.ImageOS == PlatformUtil.OS.Windows ? ".exe" : "";
+        //     string hostPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+        //     string containerNodePath = container.TranslateToContainerPath(hostPath);
+        //     executionContext.Debug($"[{strategyName}] hostPath: {hostPath}");
+        //     executionContext.Debug($"[{strategyName}] containerNodePath: {containerNodePath}");
+        //     // Fix the executable extension for the container OS
+        //     // string finalPath = containerNodePath.Replace($"node{IOUtil.ExeExtension}", $"node{containerExeExtension}");
+        //     executionContext.Debug($"[{strategyName}] finalPath: {finalPath}");
+        //     return finalPath;
+        // }
     }
 }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -55,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context);
+            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context, ExecutionContext);
 
             foreach (var strategy in _strategies)
             {
@@ -114,7 +115,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context);
+            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context, ExecutionContext);
 
             // Container strategies in priority order: Node24 → Node20 → Node16
             List<INodeVersionStrategy>  containerStrategies = new List<INodeVersionStrategy>();
@@ -176,17 +177,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
-            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            string finalPath = context.Container != null ? 
-                            context.Container.TranslateToContainerPath(hostPath) : hostPath;
-
-            return new NodeRunnerInfo
+            
+            if (context.Container != null)
             {
-                NodePath = finalPath,
-                NodeVersion = selection.NodeVersion,
-                Reason = selection.Reason,
-                Warning = selection.Warning
-            };
+                // Container execution: use container's OS to determine executable name
+                string containerExeExtension = context.Container.ImageOS == PlatformUtil.OS.Windows ? ".exe" : "";
+                string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                string containerNodePath = context.Container.TranslateToContainerPath(hostPath);
+                // Fix the executable extension for the container OS
+                string finalPath = containerNodePath.Replace($"node{IOUtil.ExeExtension}", $"node{containerExeExtension}");
+                
+                return new NodeRunnerInfo
+                {
+                    NodePath = finalPath,
+                    NodeVersion = selection.NodeVersion,
+                    Reason = selection.Reason,
+                    Warning = selection.Warning
+                };
+            }
+            else
+            {
+                // Host execution: use host OS executable extension
+                string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                
+                return new NodeRunnerInfo
+                {
+                    NodePath = hostPath,
+                    NodeVersion = selection.NodeVersion,
+                    Reason = selection.Reason,
+                    Warning = selection.Warning
+                };
+            }
         }
 
         private void PublishNodeVersionSelectionTelemetry(NodeRunnerInfo result, INodeVersionStrategy strategy, string environmentType, TaskContext context)

@@ -441,9 +441,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string containerOS = await _dockerManger.DockerInspect(context: executionContext,
                                                                 dockerObject: container.ContainerImage,
                                                                 options: $"--format=\"{{{{.Os}}}}\"");
+                    executionContext.Debug($"[Container OS Detection] Detected container OS: {containerOS}");
+                    
                     if (string.Equals("linux", containerOS, StringComparison.OrdinalIgnoreCase))
                     {
                         container.ImageOS = PlatformUtil.OS.Linux;
+                        executionContext.Debug("[Container OS Detection] Set container ImageOS to Linux");
+                    }
+                    else if (string.Equals("windows", containerOS, StringComparison.OrdinalIgnoreCase))
+                    {
+                        container.ImageOS = PlatformUtil.OS.Windows;
+                        executionContext.Debug("[Container OS Detection] Set container ImageOS to Windows");
                     }
                 }
             }
@@ -559,6 +567,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string node16ContainerPath = containerNodePath(NodeHandler.Node16Folder);
             string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
             string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
+            executionContext.Debug($"[ContainerSetup---] node24ContainerPath: {node24ContainerPath}");
+            executionContext.Debug($"[ContainerSetup---] node20ContainerPath: {node20ContainerPath}");
+            executionContext.Debug($"[ContainerSetup---] node16ContainerPath: {node16ContainerPath}");
+            executionContext.Debug($"[ContainerSetup---] nodeContainerPath: {nodeContainerPath}");
+
 
             if (container.IsJobContainer)
             {
