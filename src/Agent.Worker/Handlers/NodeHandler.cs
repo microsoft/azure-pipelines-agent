@@ -383,7 +383,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     StepTarget = inContainer ? null : ExecutionContext.StepTarget()
                 };
                 
-                NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionAsync(taskContext);
+                NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionForHostAsync(taskContext);
                 return result.NodePath;
             }
             catch (Exception ex)

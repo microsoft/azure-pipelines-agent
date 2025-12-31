@@ -27,13 +27,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// Evaluates if this strategy can handle container execution and determines the node version to use.
         /// Only Node24, Node20, and Node16 strategies support container execution.
         /// </summary>
-        /// <param name="context">Context with container, task, and glibc information</param>
+        /// <param name="context">Context with container and task information</param>
         /// <param name="executionContext">Execution context for knob evaluation</param>
         /// <param name="dockerManager">Docker command manager for container operations</param>
-        /// <param name="glibcInfo">Glibc compatibility information for Node versions</param>
         /// <returns>NodeRunnerInfo with selected version and metadata if this strategy can handle container execution, null if it cannot handle or doesn't support containers</returns>
         /// <exception cref="NotSupportedException">Thrown when EOL policy prevents using any compatible version</exception>
-        NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager, GlibcCompatibilityInfo glibcInfo)
+        NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
         {
             // Default implementation: older strategies (Node10, Node6) don't support container execution
             return null;

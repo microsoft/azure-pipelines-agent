@@ -7,6 +7,7 @@ using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -47,9 +48,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// </summary>
         /// <param name="context">Container context</param>
         /// <param name="executionContext">Execution context for knob evaluation</param>
-        /// <param name="glibcInfo">Glibc compatibility information</param>
         /// <returns>NodeRunnerInfo for Node16 container execution</returns>
-        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
         {
             if (context.Container == null)
             {

@@ -696,7 +696,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     
                     try
                     {
-                        await SetContainerNodePathWithOrchestrator(executionContext, container);
+                        SetContainerNodePathWithOrchestrator(executionContext, container);
                         executionContext.Debug($"[ContainerSetup] NEW strategy: Orchestrator completed, final node path: {container.ResultNodePath}");
                         executionContext.Debug($"[NewContainerStrategy] Orchestrator selected node path: {container.ResultNodePath}");
                     }
@@ -1400,7 +1400,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Uses the NodeVersionOrchestrator to determine the optimal node version for the container.
         /// Sets container.ResultNodePath based on orchestrator decision.
         /// </summary>
-        private async Task SetContainerNodePathWithOrchestrator(IExecutionContext executionContext, ContainerInfo container)
+        private void SetContainerNodePathWithOrchestrator(IExecutionContext executionContext, ContainerInfo container)
         {
             // Get appropriate handler data for this container job
             var handlerData = GetJobContainerHandlerData(executionContext, container);
@@ -1415,7 +1415,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             
             // Create orchestrator and select node version
             var orchestrator = new NodeVersionStrategies.NodeVersionOrchestrator(executionContext, HostContext);
-            var result = await orchestrator.SelectNodeVersionForContainerAsync(taskContext, _dockerManger);
+            var result = orchestrator.SelectNodeVersionForContainer(taskContext, _dockerManger);
             
             // Set the selected node path
             container.ResultNodePath = result.NodePath;

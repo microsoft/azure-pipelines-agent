@@ -101,9 +101,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// <param name="context">Container context</param>
         /// <param name="executionContext">Execution context for knob evaluation</param>
         /// <param name="dockerManager">Docker command manager for testing node availability</param>
-        /// <param name="glibcInfo">Glibc compatibility information</param>
         /// <returns>NodeRunnerInfo if Node24 can handle container execution, null otherwise</returns>
-        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager, GlibcCompatibilityInfo glibcInfo)
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
         {
             if (context.Container == null)
             {
