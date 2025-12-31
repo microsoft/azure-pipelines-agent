@@ -382,7 +382,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     Container = inContainer ? (ExecutionContext.StepTarget() as ContainerInfo) : null,
                     StepTarget = inContainer ? null : ExecutionContext.StepTarget()
                 };
-                
+
                 NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionForHostAsync(taskContext);
                 return result.NodePath;
             }

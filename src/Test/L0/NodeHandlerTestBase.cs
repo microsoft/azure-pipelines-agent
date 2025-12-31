@@ -118,11 +118,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 scenario.Node20GlibcError);
             
             glibcCheckerMock
-                .Setup(x => x.CheckGlibcCompatibilityAsync())
+                .Setup(x => x.CheckGlibcCompatibilityAsync(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(glibcInfo);
             
             glibcCheckerMock
-                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>()))
+                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>(), It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(glibcInfo);
             
             return glibcCheckerMock;

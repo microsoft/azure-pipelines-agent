@@ -17,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// Checks glibc compatibility for both Node20 and Node24.
         /// </summary>
         /// <returns>GlibcCompatibilityInfo containing compatibility results for both Node versions</returns>
-        Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync();
+        Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync(IExecutionContext executionContext);
 
         /// <summary>
         /// Gets glibc compatibility information, adapting to execution context (host vs container).

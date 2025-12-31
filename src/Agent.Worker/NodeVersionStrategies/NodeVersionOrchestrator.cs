@@ -28,6 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             HostContext = hostContext;
             GlibcChecker = HostContext.GetService<IGlibcCompatibilityInfoProvider>();
             GlibcChecker.Initialize(hostContext);
+            // GlibcChecker = new GlibcCompatibilityInfoProvider(executionContext, hostContext);
             _strategies = new List<INodeVersionStrategy>();
 
             // IMPORTANT: Strategy order determines selection priority
@@ -40,18 +41,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             _strategies.Add(new Node6Strategy());
         }
 
-        public async Task<NodeRunnerInfo>  SelectNodeVersionAsync(TaskContext context)
+        /// <summary>
+        /// Host-specific node version selection using CanHandle methods.
+        /// Follows the standard strategy precedence: Node24 → Node20 → Node16 → Node10 → Node6.
+        /// </summary>
+        public async Task<NodeRunnerInfo> SelectNodeVersionForHostAsync(TaskContext context)
         {
-            ArgUtil.NotNull(context, nameof(context));
-
-            // Use container-specific selection logic if we're in a container
-            if (context.Container != null)
-            {
-                // Get docker manager for container node testing
-                var dockerManager = HostContext.GetService<IDockerCommandManager>();
-                return await SelectNodeVersionForContainerAsync(context, dockerManager);
-            }
-
             string environmentType = "Host";
             ExecutionContext.Debug($"[{environmentType}] Starting node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
@@ -106,34 +101,53 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
+        /// Gets strategies that support container execution (Node24, Node20, Node16).
+        /// Only these strategies have CanHandleInContainer implementations.
+        /// </summary>
+        private IEnumerable<INodeVersionStrategy> GetContainerCapableStrategies()
+        {
+            // Return strategies that support container execution in priority order
+            return _strategies.Take(3); // Node24, Node20, Node16 are the first 3 in _strategies
+        }
+
+        /// <summary>
         /// Container-specific node version selection using CanHandleInContainer methods.
         /// Follows the container knob precedence: Node24 → Node20 → Node16.
         /// </summary>
-        public async Task<NodeRunnerInfo> SelectNodeVersionForContainerAsync(TaskContext context, IDockerCommandManager dockerManager)
+        public NodeRunnerInfo SelectNodeVersionForContainer(TaskContext context, IDockerCommandManager dockerManager)
         {
             string environmentType = "Container";
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context, ExecutionContext);
+            // Check for cross-platform scenarios where container's own node is REQUIRED
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
+                ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
+                
+                // Use Node20 as default for cross-platform scenarios (matches common container images)
+                var crossPlatformResult = new NodeRunnerInfo
+                {
+                    NodePath = "node", // Use container's own node installation
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Cross-platform scenario requires container's built-in Node.js"
+                };
+                
+                ExecutionContext.Output($"[{environmentType}] Selected Node version: {crossPlatformResult.NodeVersion} (Cross-platform fallback)");
+                ExecutionContext.Debug($"[{environmentType}] Node path: {crossPlatformResult.NodePath}");
+                ExecutionContext.Debug($"[{environmentType}] Reason: {crossPlatformResult.Reason}");
+                
+                return crossPlatformResult;
+            }
 
-            // Container strategies in priority order: Node24 → Node20 → Node16
-            List<INodeVersionStrategy>  containerStrategies = new List<INodeVersionStrategy>();
-
-            // IMPORTANT: Strategy order determines selection priority
-            // Add strategies in descending priority order (newest/preferred versions first)
-            // The orchestrator will try each strategy in order until one can handle the request
-            containerStrategies.Add(new Node24Strategy());
-            containerStrategies.Add(new Node20Strategy());
-            containerStrategies.Add(new Node16Strategy());
-
-            foreach (var strategy in containerStrategies)
+            foreach (var strategy in GetContainerCapableStrategies())
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
 
                 try
                 {
-                    var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager, glibcInfo);
+                    var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager);
                     if (selectionResult != null)
                     {
                         var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
@@ -180,7 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (context.Container != null)
             {
-                // Container execution: use container's OS to determine executable name
+                // Container execution: use agent binaries (cross-platform scenarios are handled earlier in SelectNodeVersionForContainer)
                 string containerExeExtension = context.Container.ImageOS == PlatformUtil.OS.Windows ? ".exe" : "";
                 string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
                 string containerNodePath = context.Container.TranslateToContainerPath(hostPath);
