@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class ContainerOperationProviderL0
     {
-        // Helper methods to reduce duplication
+        // Helper methods for Docker mocking
         private Mock<IDockerCommandManager> CreateDockerManagerMock(string inspectResult)
         {
             var dockerManager = new Mock<IDockerCommandManager>();
@@ -51,7 +51,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return executionContext;
         }
 
-        // Test constants
         private const string NodePathFromLabel = "/usr/bin/node";
         private const string NodePathFromLabelEmpty = "";
         private const string DefaultNodeCommand = "node";
@@ -64,21 +63,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (var hc = new TestHostContext(this))
             {
-                // Ensure Work directory exists for taskkey file creation
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
-                // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                // Register the mock as a singleton BEFORE initializing the provider
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
 
-                // Act - Call the public method with a list
+                // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert
@@ -103,22 +99,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                // Register singleton first so Initialize works
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
                 
-                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act - Call the public method with a list
+                // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - macOS uses "node" from container
@@ -144,27 +137,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Ensure Work directory exists for taskkey file creation
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
-                // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
                 // Set container to Linux OS (Windows host running Linux container)
                 container.ImageOS = PlatformUtil.OS.Linux;
 
-                // Register singleton first so Initialize works
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
                 
-                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act - Call the public method with a list
+                // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - Windows+Linux uses "node" from container
@@ -190,25 +179,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Ensure Work directory exists for taskkey file creation
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
-                // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                // Register singleton first so Initialize works
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
                 
-                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act - Call the public method with a list
+                // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - Linux uses agent's mounted node
