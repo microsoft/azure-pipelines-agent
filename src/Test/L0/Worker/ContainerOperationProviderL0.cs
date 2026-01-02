@@ -10,6 +10,7 @@ using Moq;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -51,6 +52,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return executionContext;
         }
 
+        private void SetupProcessInvoker(TestHostContext hc)
+        {
+            var processInvoker = new Mock<IProcessInvoker>();
+            processInvoker.Setup(x => x.ExecuteAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<Dictionary<string, string>>(),
+                It.IsAny<bool>(),
+                It.IsAny<Encoding>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+                .ReturnsAsync(0);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+        }
+
         private const string NodePathFromLabel = "/usr/bin/node";
         private const string NodePathFromLabelEmpty = "";
         private const string DefaultNodeCommand = "node";
@@ -69,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
+                SetupProcessInvoker(hc);
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -87,8 +105,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        [Trait("SkipOn", "Windows")]
-        [Trait("SkipOn", "Linux")]
+        [Trait("SkipOn", "windows")]
+        [Trait("SkipOn", "linux")]
         public async Task StartContainer_WithoutDockerLabel_OnMacOS_UsesDefaultNode()
         {
             // Only run on macOS
@@ -103,6 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
+                SetupProcessInvoker(hc);
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -125,8 +144,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        [Trait("SkipOn", "macOS")]
-        [Trait("SkipOn", "Linux")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public async Task StartContainer_WithoutDockerLabel_OnWindowsWithLinuxContainer_UsesDefaultNode()
         {
             // Only run on Windows
@@ -145,6 +164,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 // Set container to Linux OS (Windows host running Linux container)
                 container.ImageOS = PlatformUtil.OS.Linux;
 
+                SetupProcessInvoker(hc);
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -167,8 +187,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        [Trait("SkipOn", "macOS")]
-        [Trait("SkipOn", "Windows")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
         public async Task StartContainer_WithoutDockerLabel_OnLinux_UsesAgentNode()
         {
             // Only run on Linux
@@ -185,6 +205,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
+                SetupProcessInvoker(hc);
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
