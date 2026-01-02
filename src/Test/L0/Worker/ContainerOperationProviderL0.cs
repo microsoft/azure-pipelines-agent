@@ -1,11 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -13,8 +18,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class ContainerOperationProviderL0
     {
-        // Test 1: Docker label present
+        // Helper methods to reduce duplication
+        private Mock<IDockerCommandManager> CreateDockerManagerMock(string inspectResult)
+        {
+            var dockerManager = new Mock<IDockerCommandManager>();
+            dockerManager.Setup(x => x.DockerVersion(It.IsAny<IExecutionContext>()))
+                .ReturnsAsync(new DockerVersion(new Version("1.35"), new Version("1.35")));
+            dockerManager.Setup(x => x.DockerPS(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<string>());
+            dockerManager.Setup(x => x.DockerNetworkCreate(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(0);
+            dockerManager.Setup(x => x.DockerPull(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(0);
+            dockerManager.Setup(x => x.DockerCreate(It.IsAny<IExecutionContext>(), It.IsAny<ContainerInfo>()))
+                .ReturnsAsync("container123");
+            dockerManager.Setup(x => x.DockerStart(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(0);
+            dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(inspectResult);
+            return dockerManager;
+        }
+
+        private Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc)
+        {
+            var executionContext = new Mock<IExecutionContext>();
+            var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out var warnings);
+            executionContext.Setup(x => x.Variables).Returns(variables);
+            executionContext.Setup(x => x.CancellationToken).Returns(CancellationToken.None);
+            executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
+            executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());
+            executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+            return executionContext;
+        }
+
+        // Test constants
         private const string NodePathFromLabel = "/usr/bin/node";
+        private const string NodePathFromLabelEmpty = "";
+        private const string DefaultNodeCommand = "node";
+        private const string NodeFromAgentExternal = "externals/node";
 
         [Fact]
         [Trait("Level", "L0")]
@@ -23,23 +64,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (var hc = new TestHostContext(this))
             {
-                // Arrange - Mock Docker to return node path
-                var dockerManager = new Mock<IDockerCommandManager>();
-                dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                    .ReturnsAsync(NodePathFromLabel);
+                // Arrange
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                var executionContext = new Mock<IExecutionContext>();
-                executionContext.Setup(x => x.Variables).Returns(new Variables(hc, new Dictionary<string, VariableValue>()));
+                // Register the mock as a singleton BEFORE initializing the provider
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
-                var container = new ContainerInfo(hc, new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" }, isJobContainer: true);
-
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
-                typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(provider, dockerManager.Object);
 
-                // Act
-                await provider.StartContainerAsync(executionContext.Object, container);
+                // Act - Call the public method with a list
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert
                 Assert.Equal(NodePathFromLabel, container.CustomNodePath);
@@ -47,10 +84,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Contains(NodePathFromLabel, container.ContainerCommand);
             }
         }
-
-        // Test 2: Docker label absent - macOS only
-        private const string NodePathFromLabelEmpty = ""; // Label returns empty
-        private const string DefaultNodeCommand = "node"; // macOS uses this
 
         [Fact]
         [Trait("Level", "L0")]
@@ -67,23 +100,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Arrange - Mock Docker to return empty string (no label)
-                var dockerManager = new Mock<IDockerCommandManager>();
-                dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                    .ReturnsAsync(NodePathFromLabelEmpty);
+                // Arrange
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                var executionContext = new Mock<IExecutionContext>();
-                executionContext.Setup(x => x.Variables).Returns(new Variables(hc, new Dictionary<string, VariableValue>()));
+                // Register singleton first so Initialize works
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
-                var container = new ContainerInfo(hc, new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" }, isJobContainer: true);
-
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
+                
+                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act
-                await provider.StartContainerAsync(executionContext.Object, container);
+                // Act - Call the public method with a list
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - macOS uses "node" from container
                 Assert.Equal(DefaultNodeCommand, container.CustomNodePath);
@@ -108,25 +141,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Arrange - Mock Docker to return empty string (no label)
-                var dockerManager = new Mock<IDockerCommandManager>();
-                dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                    .ReturnsAsync(NodePathFromLabelEmpty);
-
-                var executionContext = new Mock<IExecutionContext>();
-                executionContext.Setup(x => x.Variables).Returns(new Variables(hc, new Dictionary<string, VariableValue>()));
+                // Ensure Work directory exists for taskkey file creation
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
-                var container = new ContainerInfo(hc, new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" }, isJobContainer: true);
+                // Arrange
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
                 // Set container to Linux OS (Windows host running Linux container)
                 container.ImageOS = PlatformUtil.OS.Linux;
 
+                // Register singleton first so Initialize works
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+                
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
+                
+                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act
-                await provider.StartContainerAsync(executionContext.Object, container);
+                // Act - Call the public method with a list
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - Windows+Linux uses "node" from container
                 Assert.Equal(DefaultNodeCommand, container.CustomNodePath);
@@ -135,9 +171,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        // Test 4: Docker label absent - Linux only
-        private const string NodeFromAgentExternal = "externals/node"; // Agent's node path contains this
-        
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
@@ -153,23 +186,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
-                // Arrange - Mock Docker to return empty string (no label)
-                var dockerManager = new Mock<IDockerCommandManager>();
-                dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
-                    .ReturnsAsync(NodePathFromLabelEmpty);
+                // Arrange
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                var executionContext = new Mock<IExecutionContext>();
-                executionContext.Setup(x => x.Variables).Returns(new Variables(hc, new Dictionary<string, VariableValue>()));
+                // Register singleton first so Initialize works
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
-                var container = new ContainerInfo(hc, new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" }, isJobContainer: true);
-
                 var provider = new ContainerOperationProvider();
                 provider.Initialize(hc);
+                
+                // Then override with reflection to avoid full docker operations
                 typeof(ContainerOperationProvider).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.SetValue(provider, dockerManager.Object);
 
-                // Act
-                await provider.StartContainerAsync(executionContext.Object, container);
+                // Act - Call the public method with a list
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 // Assert - Linux uses agent's mounted node
                 Assert.True(string.IsNullOrEmpty(container.CustomNodePath));
