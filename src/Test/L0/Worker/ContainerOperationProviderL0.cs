@@ -52,26 +52,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return executionContext;
         }
 
-        private void SetupProcessInvoker(TestHostContext hc)
+        // Helper to setup IProcessInvoker mock for Linux/macOS shell command execution
+        private void SetupProcessInvokerMock(TestHostContext hc)
         {
             var processInvoker = new Mock<IProcessInvoker>();
-            processInvoker.Setup(x => x.OutputDataReceived).Returns((EventHandler<ProcessDataReceivedEventArgs>)null);
+            
             processInvoker.Setup(x => x.ExecuteAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<Dictionary<string, string>>(),
+                It.IsAny<IDictionary<string, string>>(),
                 It.IsAny<bool>(),
                 It.IsAny<Encoding>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
-                .Callback<string, string, string, Dictionary<string, string>, bool, Encoding, bool, CancellationToken>(
-                    (wd, file, args, env, req, enc, out_, tok) =>
-                    {
-                        processInvoker.Raise(x => x.OutputDataReceived += null, 
-                            new ProcessDataReceivedEventArgs(file == "whoami" ? "testuser" : "1000"));
-                    })
-                .ReturnsAsync(0);
+                .Returns(async (string wd, string cmd, string args, IDictionary<string, string> env, bool req, Encoding enc, bool output, CancellationToken token) =>
+                {
+                    await Task.Delay(10);
+                    if (cmd == "whoami")
+                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("testuser"));
+                    else if (cmd == "id" && args.StartsWith("-u"))
+                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("1000"));
+                    else if (cmd == "id" && args.StartsWith("-gn"))
+                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("testgroup"));
+                    else if (cmd == "id" && args.StartsWith("-g"))
+                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("1000"));
+                    return 0;
+                });
+            
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
             hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
         }
 
@@ -93,7 +104,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                SetupProcessInvoker(hc);
+                // Setup IProcessInvoker for non-Windows platforms
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -130,7 +146,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                SetupProcessInvoker(hc);
+                // Setup IProcessInvoker for macOS
+                SetupProcessInvokerMock(hc);
+
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -173,7 +191,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 // Set container to Linux OS (Windows host running Linux container)
                 container.ImageOS = PlatformUtil.OS.Linux;
 
-                SetupProcessInvoker(hc);
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
@@ -214,7 +231,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
-                SetupProcessInvoker(hc);
+                // Setup IProcessInvoker for Linux
+                SetupProcessInvokerMock(hc);
+
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
                 var provider = new ContainerOperationProvider();
