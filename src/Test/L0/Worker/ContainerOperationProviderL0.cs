@@ -66,19 +66,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 It.IsAny<Encoding>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
-                .Returns(async (string wd, string cmd, string args, IDictionary<string, string> env, bool req, Encoding enc, bool output, CancellationToken token) =>
-                {
-                    await Task.Delay(10);
-                    if (cmd == "whoami")
-                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("testuser"));
-                    else if (cmd == "id" && args.StartsWith("-u"))
-                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("1000"));
-                    else if (cmd == "id" && args.StartsWith("-gn"))
-                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("testgroup"));
-                    else if (cmd == "id" && args.StartsWith("-g"))
-                        processInvoker.Raise(x => x.OutputDataReceived += null, new ProcessDataReceivedEventArgs("1000"));
-                    return 0;
-                });
+                .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, bool, CancellationToken>(
+                    (wd, cmd, args, env, req, enc, output, token) =>
+                    {
+                        if (cmd == "whoami")
+                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("testuser"));
+                        else if (cmd == "id" && args.StartsWith("-u"))
+                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("1000"));
+                        else if (cmd == "id" && args.StartsWith("-gn"))
+                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("testgroup"));
+                        else if (cmd == "id" && args.StartsWith("-g"))
+                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("1000"));
+                    })
+                .ReturnsAsync(0);
             
             hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
             hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
