@@ -55,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private void SetupProcessInvoker(TestHostContext hc)
         {
             var processInvoker = new Mock<IProcessInvoker>();
+            processInvoker.Setup(x => x.OutputDataReceived).Returns((EventHandler<ProcessDataReceivedEventArgs>)null);
             processInvoker.Setup(x => x.ExecuteAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -64,6 +65,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 It.IsAny<Encoding>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
+                .Callback<string, string, string, Dictionary<string, string>, bool, Encoding, bool, CancellationToken>(
+                    (wd, file, args, env, req, enc, out_, tok) =>
+                    {
+                        processInvoker.Raise(x => x.OutputDataReceived += null, 
+                            new ProcessDataReceivedEventArgs(file == "whoami" ? "testuser" : "1000"));
+                    })
                 .ReturnsAsync(0);
             hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
         }
@@ -117,6 +124,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
