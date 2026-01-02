@@ -64,6 +64,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (var hc = new TestHostContext(this))
             {
+                // Ensure Work directory exists for taskkey file creation
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
                 // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
                 var executionContext = CreateExecutionContextMock(hc);
@@ -171,6 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        // Test 4: Docker label absent - Linux only (uses agent's mounted node from externals)
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
@@ -186,6 +190,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             using (var hc = new TestHostContext(this))
             {
+                // Ensure Work directory exists for taskkey file creation
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
                 // Arrange
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 var executionContext = CreateExecutionContextMock(hc);
