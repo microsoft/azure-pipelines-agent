@@ -14,6 +14,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using Microsoft.VisualStudio.Services.Agent;
+using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -52,38 +54,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return executionContext;
         }
 
-        // Helper to setup IProcessInvoker mock for Linux/macOS shell command execution
+        private class FakeProcessInvoker : IProcessInvoker
+        {
+            public event EventHandler<ProcessDataReceivedEventArgs> OutputDataReceived;
+            public event EventHandler<ProcessDataReceivedEventArgs> ErrorDataReceived;
+            public TimeSpan SigintTimeout { get; set; }
+            public TimeSpan SigtermTimeout { get; set; }
+            public bool TryUseGracefulShutdown { get; set; }
+
+            public void Initialize(IHostContext hostContext) { }
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, false, null, false, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, null, false, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, outputEncoding, false, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, bool killProcessOnCancel, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, outputEncoding, killProcessOnCancel, null, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, bool killProcessOnCancel, InputQueue<string> redirectStandardIn, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, outputEncoding, killProcessOnCancel, redirectStandardIn, false, false, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, bool killProcessOnCancel, InputQueue<string> redirectStandardIn, bool inheritConsoleHandler, bool continueAfterCancelProcessTreeKillAttempt, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, outputEncoding, killProcessOnCancel, redirectStandardIn, inheritConsoleHandler, false, continueAfterCancelProcessTreeKillAttempt, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, bool killProcessOnCancel, InputQueue<string> redirectStandardIn, bool inheritConsoleHandler, bool keepStandardInOpen, bool continueAfterCancelProcessTreeKillAttempt, CancellationToken cancellationToken)
+                => ExecuteAsync(workingDirectory, fileName, arguments, environment, requireExitCodeZero, outputEncoding, killProcessOnCancel, redirectStandardIn, inheritConsoleHandler, keepStandardInOpen, false, continueAfterCancelProcessTreeKillAttempt, cancellationToken);
+
+            public Task<int> ExecuteAsync(string workingDirectory, string fileName, string arguments, IDictionary<string, string> environment, bool requireExitCodeZero, Encoding outputEncoding, bool killProcessOnCancel, InputQueue<string> redirectStandardIn, bool inheritConsoleHandler, bool keepStandardInOpen, bool highPriorityProcess, bool continueAfterCancelProcessTreeKillAttempt, CancellationToken cancellationToken)
+            {
+                if (fileName == "whoami")
+                    OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("testuser"));
+                else if (fileName == "id" && arguments.StartsWith("-u"))
+                    OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("1000"));
+                else if (fileName == "id" && arguments.StartsWith("-gn"))
+                    OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("testgroup"));
+                else if (fileName == "id" && arguments.StartsWith("-g"))
+                    OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("1000"));
+
+                return Task.FromResult(0);
+            }
+
+            public void Dispose() { }
+        }
+
         private void SetupProcessInvokerMock(TestHostContext hc)
         {
-            var processInvoker = new Mock<IProcessInvoker>();
-            
-            processInvoker.Setup(x => x.ExecuteAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<IDictionary<string, string>>(),
-                It.IsAny<bool>(),
-                It.IsAny<Encoding>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-                .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, bool, CancellationToken>(
-                    (wd, cmd, args, env, req, enc, output, token) =>
-                    {
-                        if (cmd == "whoami")
-                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("testuser"));
-                        else if (cmd == "id" && args.StartsWith("-u"))
-                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("1000"));
-                        else if (cmd == "id" && args.StartsWith("-gn"))
-                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("testgroup"));
-                        else if (cmd == "id" && args.StartsWith("-g"))
-                            processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs("1000"));
-                    })
-                .ReturnsAsync(0);
-            
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+#pragma warning disable CA2000
+            var processInvoker = new FakeProcessInvoker();
+#pragma warning restore CA2000
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
+            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
         }
 
         private const string NodePathFromLabel = "/usr/bin/node";
