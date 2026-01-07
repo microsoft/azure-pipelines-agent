@@ -21,6 +21,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
 using Microsoft.VisualStudio.Services.Agent.Worker.Release.ContainerFetchEngine;
 using Microsoft.VisualStudio.Services.Agent.Worker.Maintenance;
 using Microsoft.VisualStudio.Services.Agent.Listener.Diagnostics;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -61,7 +62,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(ITraceManager),
                 typeof(IThrottlingReporter),
                 typeof(ICapabilitiesProvider),
-                typeof(IDedupRecord)
+                typeof(IDedupRecord),
+                typeof(ICorrelationContext) // Marker interface for correlation ID providers, not a service
             };
             Validate(
                 assembly: typeof(IHostContext).GetTypeInfo().Assembly,
@@ -100,7 +102,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 typeof(INUnitResultsXmlReader),
                 typeof(IWorkerCommand),
                 typeof(ITaskRestrictionsChecker),
-                typeof(IRetryOptions)
+                typeof(IRetryOptions),
+                typeof(INodeVersionStrategy)
             };
             Validate(
                 assembly: typeof(IStepsRunner).GetTypeInfo().Assembly,

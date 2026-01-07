@@ -5,16 +5,18 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Agent.Sdk.SecretMasking;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
     public sealed class EnhancedTracing : Tracing
     {
-        public EnhancedTracing(string name, ILoggedSecretMasker secretMasker, SourceSwitch sourceSwitch, HostTraceListener traceListener)
+        private readonly ICorrelationContextManager _correlationContextManager;
+
+        public EnhancedTracing(string name, ILoggedSecretMasker secretMasker, ICorrelationContextManager correlationContextManager, SourceSwitch sourceSwitch, HostTraceListener traceListener)
             : base(name, secretMasker, sourceSwitch, traceListener)
         {
+            _correlationContextManager = correlationContextManager ?? throw new ArgumentNullException(nameof(correlationContextManager));
         }
 
         // Override ALL base methods to ensure enhanced logging for any call signature
@@ -88,8 +90,15 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private string FormatEnhancedLogMessage(string message, string operation)
         {
+            var correlation = GetCorrelationId();
+            var correlationPart = !string.IsNullOrEmpty(correlation) ? $"[{correlation}]" : "";
             var operationPart = !string.IsNullOrEmpty(operation) ? $"[{operation}]" : "";
-            return $"{operationPart} {message}".TrimEnd();
+            return $"{operationPart} {message} {correlationPart}".TrimEnd();
+        }
+
+        private string GetCorrelationId()
+        {
+            return _correlationContextManager.BuildCorrelationId();
         }
 
         private string FormatDuration(TimeSpan duration)
@@ -127,5 +136,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 }
             }
         }
+
     }
 }

@@ -244,7 +244,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
 
                         // re-create VssConnection before next retry
-                        await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue, TimeSpan.FromSeconds(60));
+                        await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue);
 
                         Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds));
                         await HostContext.Delay(_getNextMessageRetryInterval, token);

@@ -10,6 +10,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json.Linq;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -217,39 +218,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return false;
         }
 
-        public static string GetServerOMPath(IHostContext hostContext, IKnobValueContext context)
+        public static string GetTfDirectoryPath(IKnobValueContext context)
         {
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
-            ArgUtil.NotNull(context, nameof(context));
+            var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
             
-            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
-                ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLatest)
-                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
-                    ? hostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                    : hostContext.GetDirectory(WellKnownDirectory.ServerOM);
+            return useLatest
+                ? Path.Combine(externalsPath, Constants.Path.TfLatestDirectory)
+                : useLegacy
+                    ? Path.Combine(externalsPath, Constants.Path.TfLegacyDirectory)
+                    : Path.Combine(externalsPath, Constants.Path.ServerOMDirectory);
         }
 
-        public static string GetTfPath(IHostContext hostContext, IKnobValueContext context)
+        public static string GetLegacyPowerShellHostDirectoryPath(IKnobValueContext context)
         {
-            ArgUtil.NotNull(hostContext, nameof(hostContext));
-            ArgUtil.NotNull(context, nameof(context));
+            var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
             
-            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
-                ? hostContext.GetDirectory(WellKnownDirectory.TfLatest)
-                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
-                    ? hostContext.GetDirectory(WellKnownDirectory.TfLegacy)
-                    : hostContext.GetDirectory(WellKnownDirectory.Tf);
+            return !useLatest && useLegacy
+                ? Path.Combine(externalsPath, Constants.Path.LegacyPSHostLegacyDirectory)
+                : Path.Combine(externalsPath, Constants.Path.LegacyPSHostDirectory);
         }
 
-        public static string GetTfDirectoryName(IKnobValueContext context)
+
+
+        private static (bool useLatest, bool useLegacy, string externalsPath) GetKnobsAndExternalsPath(IKnobValueContext context)
         {
             ArgUtil.NotNull(context, nameof(context));
             
-            return AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean()
-                ? "tf-latest"
-                : AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean()
-                    ? "tf-legacy"
-                    : "tf";
+            bool useLatest = AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean();
+            bool useLegacy = AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean();
+            
+            string agentHomeDirectory = context.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory);
+            string externalsPath = Path.Combine(agentHomeDirectory, Constants.Path.ExternalsDirectory);
+            
+            return (useLatest, useLegacy, externalsPath);
         }
     }
 }

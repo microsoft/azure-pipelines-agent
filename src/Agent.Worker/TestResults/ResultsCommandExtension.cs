@@ -49,7 +49,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private bool _publishRunLevelAttachments;
         private TestCaseResult[] _testCaseResults;
         private string _testPlanId;
-        private bool _enableAzureTestPlanFeatureState;
         private bool _publishTestResultsLibFeatureState;
         private bool _triggerCoverageMergeJobFeatureState;
 
@@ -161,21 +160,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 _publishRunLevelAttachments = true;
             }
 
-            if (_enableAzureTestPlanFeatureState)
+            string jsonString;
+            eventProperties.TryGetValue(PublishTestResultsEventProperties.ListOfAutomatedTestPoints, out jsonString);
+            if (!string.IsNullOrEmpty(jsonString))
             {
-                string jsonString;
-                eventProperties.TryGetValue(PublishTestResultsEventProperties.ListOfAutomatedTestPoints, out jsonString);
-                if (!string.IsNullOrEmpty(jsonString))
-                {
-                    _testCaseResults = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseResult[]>(jsonString);
-                }
-
-                string testPlanId;
-                eventProperties.TryGetValue(PublishTestResultsEventProperties.TestPlanId, out testPlanId);
-                if (!string.IsNullOrEmpty(testPlanId))
-                {
-                    _testPlanId = testPlanId;
-                }
+                _testCaseResults = Newtonsoft.Json.JsonConvert.DeserializeObject<TestCaseResult[]>(jsonString);
+            }
+            string testPlanId;
+            eventProperties.TryGetValue(PublishTestResultsEventProperties.TestPlanId, out testPlanId);
+            if (!string.IsNullOrEmpty(testPlanId))
+            {
+                _testPlanId = testPlanId;
             }
         }
 
@@ -257,7 +252,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             TestRunContext testRunContext;
 
-            if (_enableAzureTestPlanFeatureState && !string.IsNullOrEmpty(_testPlanId))
+            if (!string.IsNullOrEmpty(_testPlanId))
             {
                 ShallowReference testPlanObject = new() { Id = _testPlanId };
 
@@ -322,7 +317,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
                     publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
 
-                    if (_enableAzureTestPlanFeatureState && !_testCaseResults.IsNullOrEmpty() && !_testPlanId.IsNullOrEmpty())
+                    if (!_testCaseResults.IsNullOrEmpty() && !_testPlanId.IsNullOrEmpty())
                     {
                         isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _testCaseResults, GetPublishOptions(), _executionContext.CancellationToken);
                     }
@@ -444,7 +439,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 var featureFlagService = _executionContext.GetHostContext().GetService<IFeatureFlagService>();
                 featureFlagService.InitializeFeatureService(_executionContext, connection);
                 _publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
-                _enableAzureTestPlanFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableAzureTestPlanTaskFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
                 _triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
             }
         }
