@@ -1,3 +1,12 @@
+## Features
+
+
+## Bugs
+ - AgentServer connections ignore VSTS_HTTP_TIMEOUT environment variable and use hardcoded timeout values (#5432)
+
+## Misc
+ - Updated documentation for Node24 support in agent (#5437)
+
 
 ## Agent Downloads
 
