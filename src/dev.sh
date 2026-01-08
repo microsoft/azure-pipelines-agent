@@ -34,7 +34,7 @@ fi
 
 pushd "$SCRIPT_DIR"
 
-DEFAULT_TARGET_FRAMEWORK="net8.0"
+DEFAULT_TARGET_FRAMEWORK="net10.0"
 
 if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
@@ -42,17 +42,18 @@ fi
 
 function get_net_version() {
     local dotnet_versions="
-        net6.0-sdk=6.0.424
-        net6.0-runtime=6.0.32
-
+        
         net8.0-sdk=8.0.416
         net8.0-runtime=8.0.22
+
+        net10.0-sdk=10.0.101
+        net10.0-runtime=10.0.1
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNET_SDK_VERSION=$(get_net_version "net8.0-sdk")
+DOTNET_SDK_VERSION=$(get_net_version "net10.0-sdk")
 DOTNET_RUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
 
 if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
@@ -121,17 +122,17 @@ function warn_about_newer_versions() {
     local runtime_outdated=false
     
     # Get latest SDK version from official .NET feed
-    latest_sdk=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    latest_sdk=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
     if [[ -z "$latest_sdk" ]]; then
         # Fallback to backup feed
-        latest_sdk=$(curl -s "https://ci.dot.net/public/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_SDK_VERSION")
+        latest_sdk=$(curl -s "https://ci.dot.net/public/Sdk/10.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_SDK_VERSION")
     fi
     
     # Get latest Runtime version from official .NET feed  
-    latest_runtime=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    latest_runtime=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
     if [[ -z "$latest_runtime" ]]; then
         # Fallback to backup feed
-        latest_runtime=$(curl -s "https://ci.dot.net/public/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_RUNTIME_VERSION")
+        latest_runtime=$(curl -s "https://ci.dot.net/public/Runtime/10.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_RUNTIME_VERSION")
     fi
     
     # Check SDK version
@@ -145,7 +146,7 @@ function warn_about_newer_versions() {
     fi
     
     if [[ "$sdk_outdated" == "true" || "$runtime_outdated" == "true" ]]; then
-        echo "⚠️  WARNING: Newer .NET 8.0 versions available:" >&2
+        echo "⚠️  WARNING: Newer .NET 10.0 versions available:" >&2
         if [[ "$sdk_outdated" == "true" ]]; then
             echo "   SDK: $latest_sdk (currently using $DOTNET_SDK_VERSION)" >&2
         fi
