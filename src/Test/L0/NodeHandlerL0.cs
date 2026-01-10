@@ -15,6 +15,7 @@ using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
+    [Collection("Unified NodeHandler Tests")]
     public sealed class NodeHandlerL0
     {
         private Mock<INodeHandlerHelper> nodeHandlerHalper;
