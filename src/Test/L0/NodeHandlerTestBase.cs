@@ -9,6 +9,7 @@ using System.Threading;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
@@ -67,6 +68,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     var glibcCheckerMock = SetupMockedGlibcCompatibilityInfoProvider(scenario);
                     thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcCheckerMock.Object);
 
+                    var dockerManagerMock = SetupMockedDockerCommandManager(scenario);
+                    thc.SetSingleton<IDockerCommandManager>(dockerManagerMock.Object);
+
                     ConfigureNodeHandlerHelper(scenario);
 
                     NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
@@ -118,6 +122,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 scenario.Node20GlibcError);
             
             glibcCheckerMock
+                .Setup(x => x.Initialize(It.IsAny<IHostContext>()));
+            
+            glibcCheckerMock
                 .Setup(x => x.CheckGlibcCompatibilityAsync(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(glibcInfo);
             
@@ -126,6 +133,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .ReturnsAsync(glibcInfo);
             
             return glibcCheckerMock;
+        }
+
+        /// <summary>
+        /// Sets up a mocked DockerCommandManager for container scenarios in NodeHandler testing.
+        /// </summary>
+        private Mock<IDockerCommandManager> SetupMockedDockerCommandManager(TestScenario scenario)
+        {
+            var dockerManagerMock = new Mock<IDockerCommandManager>();
+            
+            // For testing purposes, we don't need actual docker operations
+            // Just return basic success responses for any docker calls that might be made
+            dockerManagerMock
+                .Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync("mocked_inspect_result");
+                
+            dockerManagerMock
+                .Setup(x => x.DockerVersion(It.IsAny<IExecutionContext>()))
+                .ReturnsAsync(new DockerVersion(new Version("1.0.0"), new Version("1.0.0")));
+                
+            dockerManagerMock
+                .Setup(x => x.IsContainerRunning(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+            
+            return dockerManagerMock;
         }
 
         private void ConfigureNodeHandlerHelper(TestScenario scenario)

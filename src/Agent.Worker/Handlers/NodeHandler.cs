@@ -15,6 +15,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
 using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 {
@@ -92,14 +93,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             this.nodeHandlerHelper = new NodeHandlerHelper();
             this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
-                new NodeVersionOrchestrator(ExecutionContext, HostContext));
+                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext));
         }
 
         public NodeHandler(INodeHandlerHelper nodeHandlerHelper)
         {
             this.nodeHandlerHelper = nodeHandlerHelper;
             this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
-                new NodeVersionOrchestrator(ExecutionContext, HostContext));
+                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext));
         }
 
         public BaseNodeHandlerData Data { get; set; }
@@ -364,7 +365,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
             
-            if (useStrategyPattern)
+            // Strategy pattern is only used for host scenarios
+            // Container scenarios are handled by ContainerOperationProvider
+            if (useStrategyPattern)// && !inContainer)
             {
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
@@ -383,13 +386,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     StepTarget = inContainer ? null : ExecutionContext.StepTarget()
                 };
 
-                NodeRunnerInfo result = await nodeVersionOrchestrator.Value.SelectNodeVersionForHostAsync(taskContext);
+                NodeRunnerInfo result;
+                // if (inContainer)
+                // {
+                //     var dockerManager = HostContext.GetService<IDockerCommandManager>();
+                //     result = nodeVersionOrchestrator.Value.SelectNodeVersionForContainer(taskContext, dockerManager);
+                // }
+                // else
+                // {
+                    result = await nodeVersionOrchestrator.Value.SelectNodeVersionForHostAsync(taskContext);
+                // }
+                
                 return result.NodePath;
             }
             catch (Exception ex)
             {
                 ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Exception type: {ex.GetType().Name}");
                 ExecutionContext.Debug($"Stack trace: {ex}");
+                if (ex.InnerException != null)
+                {
+                    ExecutionContext.Debug($"Inner exception: {ex.InnerException}");
+                }
                 throw;
             }
         }
