@@ -41,6 +41,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 .ReturnsAsync(0);
             dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(inspectResult);
+            dockerManager.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
+                .ReturnsAsync((IExecutionContext context, string containerId, string options, string command, List<string> output) =>
+                {
+                    if (command.Contains("node -v"))
+                    {
+                        output.Add("v16.20.2");
+                    }
+                    return 0;
+                });
             return dockerManager;
         }
 
