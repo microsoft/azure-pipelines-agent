@@ -111,10 +111,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 #pragma warning disable CA2000
             var processInvoker = new FakeProcessInvoker();
 #pragma warning restore CA2000
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
-            hc.EnqueueInstance<IProcessInvoker>(processInvoker);
+            hc.SetSingleton<IProcessInvoker>(processInvoker);
         }
     }
 }
