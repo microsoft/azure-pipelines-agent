@@ -99,6 +99,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("testgroup"));
                 else if (fileName == "id" && arguments.StartsWith("-g"))
                     OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("1000"));
+                else if (fileName == "node" && arguments.Contains("-v"))
+                    OutputDataReceived?.Invoke(this, new ProcessDataReceivedEventArgs("v16.20.2"));
 
                 return Task.FromResult(0);
             }
