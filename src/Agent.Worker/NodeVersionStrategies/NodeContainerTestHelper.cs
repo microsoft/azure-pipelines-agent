@@ -24,19 +24,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public static bool CanExecuteNodeInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager, NodeVersion nodeVersion, string strategyName)
         {
             var container = context.Container;
-            if (string.IsNullOrEmpty(container.ContainerId))
-            {
-                executionContext.Debug($"[{strategyName}] Container not started yet, cannot test {nodeVersion}");
-                return false;
-            }
-
+            ArgUtil.NotNull(container, nameof(container));
+            ArgUtil.NotNull(container.ContainerId, nameof(container.ContainerId));
+            
             try
             {
                 executionContext.Debug($"[{strategyName}] Testing {nodeVersion} availability in container {container.ContainerId}");
                 
                 var hostContext = executionContext.GetHostContext();
                 string nodeFolder = NodeVersionHelper.GetFolderName(nodeVersion);
-                string hostPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                string hostPath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");                
                 string containerNodePath = container.TranslateToContainerPath(hostPath);
                 
                 // Fix path and extension for target container OS
@@ -48,10 +45,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                         containerNodePath = containerNodePath.Substring(0, containerNodePath.Length - 4);
                     }
                 }
-
                 executionContext.Debug($"[{strategyName}] Testing path: {containerNodePath}");
                 
-                return ExecuteNodeTestCommand(context, executionContext, dockerManager, containerNodePath, strategyName, $"agent {nodeVersion} binaries");
+                bool result = ExecuteNodeTestCommand(context, executionContext, dockerManager, containerNodePath, strategyName, $"agent {nodeVersion} binaries");
+                return result;
             }
             catch (Exception ex)
             {

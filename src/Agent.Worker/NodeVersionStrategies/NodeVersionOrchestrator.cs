@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         /// <summary>
         /// Host-specific node version selection using CanHandle methods.
-        /// Follows the standard strategy precedence: Node24 → Node20 → Node16 → Node10 → Node6.
+        /// Follows the standard strategy precedence: Custom Node → Node24 → Node20 → Node16 → Node10 → Node6.
         /// </summary>
         public async Task<NodeRunnerInfo> SelectNodeVersionForHostAsync(TaskContext context)
         {
@@ -101,18 +101,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
-        /// Gets strategies that support container execution (Node24, Node20, Node16).
+        /// Gets strategies that support container execution (Custom node, Node24, Node20, Node16).
         /// Only these strategies have CanHandleInContainer implementations.
         /// </summary>
         private IEnumerable<INodeVersionStrategy> GetContainerCapableStrategies()
         {
-            // Return strategies that support container execution in priority order
-            return _strategies.Take(3); // Node24, Node20, Node16 are the first 3 in _strategies
+            return _strategies.Take(4);
         }
 
         /// <summary>
         /// Container-specific node version selection using CanHandleInContainer methods.
-        /// Follows the container knob precedence: Node24 → Node20 → Node16.
+        /// Follows the container knob precedence: Custom Node → Node24 → Node20 → Node16.
         /// </summary>
         public NodeRunnerInfo SelectNodeVersionForContainer(TaskContext context, IDockerCommandManager dockerManager)
         {
@@ -130,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 var crossPlatformResult = new NodeRunnerInfo
                 {
                     NodePath = "node", // Use container's own node installation
-                    NodeVersion = NodeVersion.Node20,
+                    NodeVersion = NodeVersion.Node20, // this is not right, but we need to set something
                     Reason = "Cross-platform scenario requires container's built-in Node.js"
                 };
                 

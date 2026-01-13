@@ -110,8 +110,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            // Check if UseNode24ToStartContainer knob is enabled
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            
             if (!useNode24ToStartContainer)
             {
                 executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=false, cannot handle container");
@@ -122,12 +122,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             try
             {
-                // Test if Node24 is available and working in the container
                 if (NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node24, "Node24Strategy"))
                 {
                     return new NodeRunnerInfo
                     {
-                        NodePath = null, // Will be set by orchestrator's CreateNodeRunnerInfoWithPath
+                        NodePath = null,
                         NodeVersion = NodeVersion.Node24,
                         Reason = "Node24 available in container via UseNode24ToStartContainer knob",
                         Warning = null
@@ -136,13 +135,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 else
                 {
                     executionContext.Debug("[Node24Strategy] Node24 test failed in container, returning null for fallback");
-                    return null; // Let the next strategy (Node20) handle this
+                    return null;
                 }
             }
             catch (Exception ex)
             {
                 executionContext.Warning($"[Node24Strategy] Failed to test Node24 in container: {ex.Message}");
-                return null; // Let the next strategy handle this
+                return null;
             }
         }
     }

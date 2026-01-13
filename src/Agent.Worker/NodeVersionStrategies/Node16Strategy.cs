@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             return new NodeRunnerInfo
             {
-                NodePath = null, // Will be set by orchestrator's CreateNodeRunnerInfoWithPath
+                NodePath = null,
                 NodeVersion = NodeVersion.Node16,
                 Reason = "Final fallback to Node16 for container execution",
                 Warning = "Using Node16 in container. Consider updating to Node20 or Node24 for better performance and security."

@@ -82,8 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            // Check if UseNode20ToStartContainer knob is enabled
-            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();        
             if (!useNode20ToStartContainer)
             {
                 executionContext.Debug("[Node20Strategy] UseNode20ToStartContainer=false, cannot handle container");
@@ -94,12 +93,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             try
             {
-                // Test if Node20 is available and working in the container
                 if (NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node20, "Node20Strategy"))
                 {
                     return new NodeRunnerInfo
                     {
-                        NodePath = null, // Will be set by orchestrator's CreateNodeRunnerInfoWithPath
+                        NodePath = null,
                         NodeVersion = NodeVersion.Node20,
                         Reason = "Node20 available in container via UseNode20ToStartContainer knob",
                         Warning = null
@@ -108,13 +106,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 else
                 {
                     executionContext.Debug("[Node20Strategy] Node20 test failed in container, returning null for fallback");
-                    return null; // Let the next strategy (Node16) handle this
+                    return null;
                 }
             }
             catch (Exception ex)
             {
                 executionContext.Warning($"[Node20Strategy] Failed to test Node20 in container: {ex.Message}");
-                return null; // Let the next strategy handle this
+                return null;
             }
         }
     }

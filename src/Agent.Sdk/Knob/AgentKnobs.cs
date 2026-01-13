@@ -747,6 +747,7 @@ namespace Agent.Sdk.Knob
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
             new PipelineFeatureSource("UseNode20ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode24ToStartContainer = new Knob(
@@ -945,11 +946,5 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob ApprovedNodeVersionsList = new Knob(
-            nameof(ApprovedNodeVersionsList),
-            "Comma-separated list of approved Node.js LTS versions sent from server (e.g., '24,20'). Used by strategy system for container startup and task execution. If empty, uses agent's default supported versions.",
-            new PipelineFeatureSource("AGENT_APPROVED_NODE_VERSIONS"),
-            new EnvironmentKnobSource("AGENT_APPROVED_NODE_VERSIONS"),
-            new BuiltInDefaultKnobSource(string.Empty));
-    }
+        }
 }
