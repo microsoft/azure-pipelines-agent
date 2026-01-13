@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Linq;
-using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
