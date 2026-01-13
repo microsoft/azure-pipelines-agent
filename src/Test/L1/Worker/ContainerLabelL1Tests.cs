@@ -5,6 +5,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -13,42 +14,99 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     [Collection("Worker L1 Tests")]
     public class ContainerLabelL1Tests : L1TestBase
     {
-        private const string TestImageName = "azure-pipelines-agent-test-container-label";
-        private const string CustomNodePath = "C:\\Program Files\\nodejs\\node.exe";
+        private const string TestImageNameWindows = "azure-pipelines-agent-test-container-label-windows";
+        private const string TestImageNameLinux = "azure-pipelines-agent-test-container-label-linux";
+        private const string TestImageNameMacOS = "azure-pipelines-agent-test-container-label-macos";
+        private const string TestImageNameWindowsNoLabel = "azure-pipelines-agent-test-container-nolabel-windows";
+        private const string TestImageNameLinuxNoLabel = "azure-pipelines-agent-test-container-nolabel-linux";
+        private const string TestImageNameMacOSNoLabel = "azure-pipelines-agent-test-container-nolabel-macos";
+        private const string CustomNodePathWindows = "C:\\Program Files\\nodejs\\node.exe";
+        private const string CustomNodePathLinux = "/usr/local/bin/node";
+        private const string CustomNodePathMacOS = "/usr/local/bin/node";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
         [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        public async Task Container_Label_NodePath_Resolution_Test()
+        [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "darwin")]
+        public async Task Container_Label_NodePath_Resolution_Windows_Test()
+        {
+            await RunContainerLabelTest(TestImageNameWindows, CreateTestContainerImageWindows);
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task Container_Label_NodePath_Resolution_Linux_Test()
+        {
+            await RunContainerLabelTest(TestImageNameLinux, CreateTestContainerImageLinux);
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        [Trait("SkipOn", "linux")]
+        public async Task Container_Label_NodePath_Resolution_MacOS_Test()
+        {
+            await RunContainerLabelTest(TestImageNameMacOS, CreateTestContainerImageMacOS);
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "darwin")]
+        public async Task Container_NoLabel_NodePath_Resolution_Windows_Test()
+        {
+            await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel);
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task Container_NoLabel_NodePath_Resolution_Linux_Test()
+        {
+            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel);
+        }
+
+        [Fact]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        [Trait("SkipOn", "linux")]
+        public async Task Container_NoLabel_NodePath_Resolution_MacOS_Test()
+        {
+            await RunContainerLabelTest(TestImageNameMacOSNoLabel, CreateTestContainerImageMacOSNoLabel);
+        }
+
+        private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc)
         {
             try
             {
-                // First, create a Docker image with the container label
-                await CreateTestContainerImage();
+                await createImageFunc();
                 
-                // Arrange - Set up L1 test environment
                 SetupL1();
                 var message = LoadTemplateMessage();
                 
-                // Create a container resource that uses our test image
                 var containerResource = new Microsoft.TeamFoundation.DistributedTask.Pipelines.ContainerResource()
                 {
                     Alias = "test_container"
                 };
-                containerResource.Properties.Set("image", TestImageName);
+                containerResource.Properties.Set("image", imageName);
                 
-                // Add the container to resources
                 message.Resources.Containers.Add(containerResource);
                 
-                // Create a new message with job container properly set
                 var containerMessage = new Microsoft.TeamFoundation.DistributedTask.Pipelines.AgentJobRequestMessage(
                     message.Plan,
                     message.Timeline, 
                     message.JobId,
                     message.JobName,
                     message.JobDisplayName,
-                    "test_container", // This sets the job container
+                    "test_container",
                     message.JobSidecarContainers,
                     message.Variables,
                     message.MaskHints,
@@ -57,56 +115,95 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     message.Steps
                 );
                 
-                // Remove all existing steps
                 containerMessage.Steps.Clear();
                 
-                // Add a Node.js task that will trigger container label resolution
                 var nodeTask = CreateScriptTask("echo Testing container label node path resolution && node --version");
                 containerMessage.Steps.Add(nodeTask);
 
-                // Act - Run the worker with the container
                 var results = await RunWorker(containerMessage);
 
-                // Assert - Verify the container label was read and used
                 Assert.NotNull(results);
                 
                 var steps = GetSteps();
                 Assert.NotNull(steps);
                 Assert.True(steps.Count() >= 1);
-                
-                // The real test: The container label should have been read during container startup
-                // and the custom node path should be available in the container
             }
             finally
             {
-                // Cleanup - Remove the test Docker image
-                await CleanupTestContainerImage();
+                await CleanupTestContainerImage(imageName);
                 TearDown();
             }
         }
 
-        private async Task CreateTestContainerImage()
+        private async Task CreateTestContainerImageWindows()
         {
-            // Create a simple Dockerfile that sets the container label
-            // Use Windows Server Core Insider with specific build matching hosted agents
-            string dockerfile = $@"
-FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
-LABEL ""{ContainerLabelKey}""=""{CustomNodePath}""
+            string dockerfile = $@"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
+LABEL ""{ContainerLabelKey}""=""{CustomNodePathWindows}""
 RUN echo Container with custom node path label created
 ";
 
-            // Write Dockerfile to temp location
+            await BuildDockerImage(TestImageNameWindows, dockerfile);
+        }
+
+        private async Task CreateTestContainerImageLinux()
+        {
+            string dockerfile = $@"FROM node:16-alpine
+LABEL ""{ContainerLabelKey}""=""{CustomNodePathLinux}""
+RUN node --version
+";
+
+            await BuildDockerImage(TestImageNameLinux, dockerfile);
+        }
+
+        private async Task CreateTestContainerImageMacOS()
+        {
+            string dockerfile = $@"FROM node:16-alpine
+LABEL ""{ContainerLabelKey}""=""{CustomNodePathMacOS}""
+RUN node --version
+";
+
+            await BuildDockerImage(TestImageNameMacOS, dockerfile);
+        }
+
+        private async Task CreateTestContainerImageWindowsNoLabel()
+        {
+            string dockerfile = @"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
+RUN echo Container without custom node path label created
+";
+
+            await BuildDockerImage(TestImageNameWindowsNoLabel, dockerfile);
+        }
+
+        private async Task CreateTestContainerImageLinuxNoLabel()
+        {
+            string dockerfile = @"FROM node:16-alpine
+RUN node --version
+";
+
+            await BuildDockerImage(TestImageNameLinuxNoLabel, dockerfile);
+        }
+
+        private async Task CreateTestContainerImageMacOSNoLabel()
+        {
+            string dockerfile = @"FROM node:16-alpine
+RUN node --version
+";
+
+            await BuildDockerImage(TestImageNameMacOSNoLabel, dockerfile);
+        }
+
+        private async Task BuildDockerImage(string imageName, string dockerfileContent)
+        {
             string tempDir = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
             string dockerfilePath = Path.Combine(tempDir, "Dockerfile.test");
-            File.WriteAllText(dockerfilePath, dockerfile);
+            File.WriteAllText(dockerfilePath, dockerfileContent);
 
             try
             {
-                // Build the test image using docker command
                 var processInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    Arguments = $"build -t {TestImageName} -f \"{dockerfilePath}\" \"{tempDir}\"",
+                    Arguments = $"build -t {imageName} -f \"{dockerfilePath}\" \"{tempDir}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -124,7 +221,6 @@ RUN echo Container with custom node path label created
             }
             finally
             {
-                // Clean up the Dockerfile
                 if (File.Exists(dockerfilePath))
                 {
                     File.Delete(dockerfilePath);
@@ -132,15 +228,14 @@ RUN echo Container with custom node path label created
             }
         }
 
-        private async Task CleanupTestContainerImage()
+        private async Task CleanupTestContainerImage(string imageName)
         {
             try
             {
-                // Remove the test image
                 var processInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    Arguments = $"rmi {TestImageName} --force",
+                    Arguments = $"rmi {imageName} --force",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -149,12 +244,9 @@ RUN echo Container with custom node path label created
 
                 using var process = System.Diagnostics.Process.Start(processInfo);
                 await process.WaitForExitAsync();
-                
-                // Don't throw on cleanup failure - just continue
             }
             catch
             {
-                // Ignore cleanup errors
             }
         }
     }
