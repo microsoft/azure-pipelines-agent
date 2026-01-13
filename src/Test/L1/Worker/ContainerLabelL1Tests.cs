@@ -14,7 +14,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     public class ContainerLabelL1Tests : L1TestBase
     {
         private const string TestImageName = "azure-pipelines-agent-test-container-label";
-        private const string CustomNodePath = "/usr/local/bin/node";
+        private const string CustomNodePath = "C:\\Program Files\\nodejs\\node.exe";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
         [Fact]
@@ -88,10 +88,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private async Task CreateTestContainerImage()
         {
             // Create a simple Dockerfile that sets the container label
+            // Use Windows Server Core Insider with specific build matching hosted agents
             string dockerfile = $@"
-FROM node:16-alpine
+FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
 LABEL ""{ContainerLabelKey}""=""{CustomNodePath}""
-RUN echo 'Container with custom node path label created'
+RUN echo Container with custom node path label created
 ";
 
             // Write Dockerfile to temp location
