@@ -119,17 +119,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            // Check for cross-platform scenarios where container's own node is REQUIRED
             if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
             {
                 ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
                 ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
                 
-                // Use Node20 as default for cross-platform scenarios (matches common container images)
                 var crossPlatformResult = new NodeRunnerInfo
                 {
-                    NodePath = "node", // Use container's own node installation
-                    NodeVersion = NodeVersion.Node20, // this is not right, but we need to set something
+                    NodePath = "node",
+                    NodeVersion = NodeVersion.ContainerDefaultNode,
                     Reason = "Cross-platform scenario requires container's built-in Node.js"
                 };
                 
@@ -151,7 +149,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     {
                         var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
                         
-                        // Publish telemetry for monitoring node version selection via Kusto
                         PublishNodeVersionSelectionTelemetry(result, strategy, environmentType, context);
                         
                         ExecutionContext.Output(

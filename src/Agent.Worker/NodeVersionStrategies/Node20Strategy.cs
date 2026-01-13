@@ -66,14 +66,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             };
         }
 
-        /// <summary>
-        /// Checks if Node20 can handle container execution based on UseNode20ToStartContainer knob
-        /// and actual Node20 availability in the container.
-        /// </summary>
-        /// <param name="context">Container context</param>
-        /// <param name="executionContext">Execution context for knob evaluation</param>
-        /// <param name="dockerManager">Docker command manager for testing node availability</param>
-        /// <returns>NodeRunnerInfo if Node20 can handle container execution, null otherwise</returns>
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
         {
             if (context.Container == null)

@@ -945,6 +945,5 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
-
-        }
+    }
 }

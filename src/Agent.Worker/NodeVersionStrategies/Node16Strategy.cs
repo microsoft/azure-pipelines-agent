@@ -42,13 +42,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             };
         }
 
-         /// <summary>
-        /// Node16 serves as the final fallback for container execution when Node24/Node20 are not available.
-        /// Always returns Node16 for container scenarios unless blocked by EOL policy.
-        /// </summary>
-        /// <param name="context">Container context</param>
-        /// <param name="executionContext">Execution context for knob evaluation</param>
-        /// <returns>NodeRunnerInfo for Node16 container execution</returns>
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
         {
             if (context.Container == null)
