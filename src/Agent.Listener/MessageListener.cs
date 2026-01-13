@@ -225,15 +225,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         continuousError++;
                         //retry after a random backoff to avoid service throttling
                         //in case of there is a service error happened and all agents get kicked off of the long poll and all agent try to reconnect back at the same time.
-                        if (continuousError <= 5)
+                        if (continuousError <= 2)
                         {
                             // random backoff [15, 30]
                             _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
                         }
+                        else if (continuousError > 2 && continuousError <= 5)
+                        {
+                            // random backoff [60, 90]
+                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(90), _getNextMessageRetryInterval);
+                        }
                         else
                         {
-                            // more aggressive backoff [30, 60]
-                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
+                            // more aggressive backoff [150, 200]
+                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(200), _getNextMessageRetryInterval);
                         }
 
                         if (!encounteringError)
