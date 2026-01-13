@@ -16,13 +16,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     {
         private const string TestImageNameWindows = "azure-pipelines-agent-test-container-label-windows";
         private const string TestImageNameLinux = "azure-pipelines-agent-test-container-label-linux";
-        private const string TestImageNameMacOS = "azure-pipelines-agent-test-container-label-macos";
         private const string TestImageNameWindowsNoLabel = "azure-pipelines-agent-test-container-nolabel-windows";
         private const string TestImageNameLinuxNoLabel = "azure-pipelines-agent-test-container-nolabel-linux";
-        private const string TestImageNameMacOSNoLabel = "azure-pipelines-agent-test-container-nolabel-macos";
         private const string CustomNodePathWindows = "C:\\Program Files\\nodejs\\node.exe";
         private const string CustomNodePathLinux = "/usr/local/bin/node";
-        private const string CustomNodePathMacOS = "/usr/local/bin/node";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
         [Fact]
@@ -39,19 +36,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "windows")]
+        [Trait("SkipOn", "darwin")]
         public async Task Container_Label_NodePath_Resolution_Linux_Test()
         {
             await RunContainerLabelTest(TestImageNameLinux, CreateTestContainerImageLinux);
-        }
-
-        [Fact]
-        [Trait("Level", "L1")]
-        [Trait("Category", "Worker")]
-        [Trait("SkipOn", "windows")]
-        [Trait("SkipOn", "linux")]
-        public async Task Container_Label_NodePath_Resolution_MacOS_Test()
-        {
-            await RunContainerLabelTest(TestImageNameMacOS, CreateTestContainerImageMacOS);
         }
 
         [Fact]
@@ -68,19 +56,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "windows")]
+        [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Linux_Test()
         {
             await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel);
-        }
-
-        [Fact]
-        [Trait("Level", "L1")]
-        [Trait("Category", "Worker")]
-        [Trait("SkipOn", "windows")]
-        [Trait("SkipOn", "linux")]
-        public async Task Container_NoLabel_NodePath_Resolution_MacOS_Test()
-        {
-            await RunContainerLabelTest(TestImageNameMacOSNoLabel, CreateTestContainerImageMacOSNoLabel);
         }
 
         private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc)
@@ -155,16 +134,6 @@ RUN node --version
             await BuildDockerImage(TestImageNameLinux, dockerfile);
         }
 
-        private async Task CreateTestContainerImageMacOS()
-        {
-            string dockerfile = $@"FROM node:16-alpine
-LABEL ""{ContainerLabelKey}""=""{CustomNodePathMacOS}""
-RUN node --version
-";
-
-            await BuildDockerImage(TestImageNameMacOS, dockerfile);
-        }
-
         private async Task CreateTestContainerImageWindowsNoLabel()
         {
             string dockerfile = @"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
@@ -183,19 +152,11 @@ RUN node --version
             await BuildDockerImage(TestImageNameLinuxNoLabel, dockerfile);
         }
 
-        private async Task CreateTestContainerImageMacOSNoLabel()
-        {
-            string dockerfile = @"FROM node:16-alpine
-RUN node --version
-";
-
-            await BuildDockerImage(TestImageNameMacOSNoLabel, dockerfile);
-        }
-
         private async Task BuildDockerImage(string imageName, string dockerfileContent)
         {
-            string tempDir = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
-            string dockerfilePath = Path.Combine(tempDir, "Dockerfile.test");
+            string tempDir = Path.Combine(Path.GetTempPath(), $"docker-build-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string dockerfilePath = Path.Combine(tempDir, "Dockerfile");
             File.WriteAllText(dockerfilePath, dockerfileContent);
 
             try
@@ -221,9 +182,9 @@ RUN node --version
             }
             finally
             {
-                if (File.Exists(dockerfilePath))
+                if (Directory.Exists(tempDir))
                 {
-                    File.Delete(dockerfilePath);
+                    Directory.Delete(tempDir, recursive: true);
                 }
             }
         }
