@@ -208,7 +208,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         ContainerId = "test_container",
                         CustomNodePath = scenario.CustomNodePath,
                         IsJobContainer = true,
-                        ImageOS = PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
+                        ImageOS = PlatformUtil.RunningOnMacOS ? PlatformUtil.OS.OSX : 
+                                  PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
                     },
                     StepTarget = !string.IsNullOrWhiteSpace(scenario.CustomNodePath) 
                         ? new ContainerInfo { CustomNodePath = scenario.CustomNodePath }
@@ -262,7 +263,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     ContainerId = "test_container",
                     IsJobContainer = true,
-                    ImageOS = PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
+                    ImageOS = PlatformUtil.RunningOnMacOS ? PlatformUtil.OS.OSX : 
+                              PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
                 };
                 
                 string containerPath = containerInfo.TranslateToContainerPath(hostPath);
