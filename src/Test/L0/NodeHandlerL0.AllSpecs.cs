@@ -45,5 +45,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return scenarios
                 .Select(scenario => new object[] { scenario })
                 .ToArray();
+        }
     }
 }
