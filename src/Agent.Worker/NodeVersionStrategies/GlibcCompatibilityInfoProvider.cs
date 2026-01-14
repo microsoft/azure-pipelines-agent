@@ -130,8 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ArgUtil.NotNull(_executionContext, nameof(_executionContext));
             ArgUtil.NotNullOrEmpty(nodeFolder, nameof(nodeFolder));
 
-            // Use the inherited HostContext property instead of _hostContext field
-            var hostContext = _hostContext ?? HostContext;
+            // Get the host context from the execution context
+            var hostContext = _executionContext.GetHostContext();
             var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
@@ -158,7 +158,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             List<string> outputs = new List<string>();
             object outputLock = new object();
-            var processInvoker = _hostContext.CreateService<IProcessInvoker>();
+            var hostContext = context.GetHostContext();
+            var processInvoker = hostContext.CreateService<IProcessInvoker>();
             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
             {
                 if (!string.IsNullOrEmpty(message.Data))
@@ -182,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             };
 
             var exitCode = await processInvoker.ExecuteAsync(
-                            workingDirectory: _hostContext.GetDirectory(WellKnownDirectory.Work),
+                            workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Work),
                             fileName: command,
                             arguments: arg,
                             environment: null,
