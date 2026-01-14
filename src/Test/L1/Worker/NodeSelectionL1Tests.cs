@@ -275,7 +275,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Clear all node-related environment variables
                 ClearNodeEnvironmentVariables();
                 
-                // Set EOL policy variables for this test
+                // Explicitly enable EOL policy and try to force EOL version
                 Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", "true");
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE16", "true"); // Try to force EOL version
                 
@@ -299,30 +299,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Assert.NotNull(taskStep);
                     var log = GetTimelineLogLines(taskStep);
                     
-                    // With EOL policy enabled, should either:
-                    // 1. Upgrade to newer version (node20_1 or node24)
-                    // 2. Show EOL policy message
-                    // 3. Allow execution but with warnings
-                    bool upgradedToNewer = log.Any(x => x.Contains("Using node path:") && 
-                        (x.Contains("node24") || x.Contains("node20")));
-                    bool showsEOLMessage = log.Any(x => x.Contains("EOL") || 
-                        x.Contains("end of life") || x.Contains("not supported"));
+                    // With AGENT_RESTRICT_EOL_NODE_VERSIONS=true and AGENT_USE_NODE16=true,
+                    // the system should either:
+                    // 1. Upgrade to a supported version (node20_1 or node24)
+                    // 2. Show EOL policy warning/error message
+                    // 3. Fail the task due to EOL restriction
                     
-                    // At minimum, should have node selection logging
                     bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
-                    Assert.True(hasNodeSelection, "Should have node selection logging even with EOL policy");
                     
-                    // EOL policy should have some effect - upgrade, warn, or restrict
                     if (results.Result == TaskResult.Failed)
                     {
                         // Task failed due to EOL policy restriction
-                        Assert.True(showsEOLMessage, "If task fails, should show EOL policy message");
+                        bool showsEOLMessage = log.Any(x => x.Contains("EOL") || 
+                            x.Contains("end of life") || x.Contains("not supported"));
+                        Assert.True(showsEOLMessage, "If task fails due to EOL policy, should show EOL-related message");
                     }
                     else
                     {
-                        // Task succeeded - should either upgrade or warn
-                        Assert.True(upgradedToNewer || showsEOLMessage || hasNodeSelection, 
-                            "EOL policy should upgrade to newer version, show EOL message, or at least work normally");
+                        // Task succeeded - should have upgraded to newer version
+                        Assert.True(hasNodeSelection, "Should have node selection logging");
+                        
+                        bool upgradedToNewer = log.Any(x => x.Contains("Using node path:") && 
+                            (x.Contains("node24") || x.Contains("node20")));
+                        Assert.True(upgradedToNewer, 
+                            "With EOL policy enabled, node16 should be upgraded to node20 or node24");
+                        
+                        // Should NOT use node16 when EOL policy is enabled
+                        bool stillUsesNode16 = log.Any(x => x.Contains("Using node path:") && x.Contains("node16"));
+                        Assert.False(stillUsesNode16, 
+                            "Should not use node16 when AGENT_RESTRICT_EOL_NODE_VERSIONS is enabled");
                     }
                 }
             }

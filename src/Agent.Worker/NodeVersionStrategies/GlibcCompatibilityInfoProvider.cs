@@ -123,9 +123,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// Checks if the specified Node.js version results in glibc compatibility errors.
         /// </summary>
         /// <param name="nodeFolder">The node folder name (e.g., "node20_1", "node24")</param>
+        /// <param name="_executionContext">The execution context for logging and telemetry</param>
         /// <returns>True if glibc error is detected, false otherwise</returns>
         public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder, IExecutionContext _executionContext)
         {
+            ArgUtil.NotNull(_executionContext, nameof(_executionContext));
+            ArgUtil.NotNullOrEmpty(nodeFolder, nameof(nodeFolder));
+
             var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
