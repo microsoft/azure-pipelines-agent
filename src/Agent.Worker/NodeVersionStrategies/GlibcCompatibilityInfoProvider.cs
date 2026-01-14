@@ -24,8 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         public GlibcCompatibilityInfoProvider()
         {
-            // Parameterless constructor for dependency injection - initialize using HostContext
-            _hostContext = HostContext;
+            // Parameterless constructor for dependency injection
         }
 
         public GlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)
@@ -131,7 +130,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ArgUtil.NotNull(_executionContext, nameof(_executionContext));
             ArgUtil.NotNullOrEmpty(nodeFolder, nameof(nodeFolder));
 
-            var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            // Use the inherited HostContext property instead of _hostContext field
+            var hostContext = _hostContext ?? HostContext;
+            var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
 
