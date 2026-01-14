@@ -45,11 +45,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Assert
                 AssertJobCompleted();
                 
+                var steps = GetSteps();
+                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                
                 // Check if task succeeded, if not provide better diagnostics
                 if (results.Result != TaskResult.Succeeded)
                 {
-                    var steps = GetSteps();
-                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                     if (taskStep != null)
                     {
                         var log = GetTimelineLogLines(taskStep);
@@ -58,8 +59,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     throw new InvalidOperationException($"Task failed with result: {results.Result}. Environment: {knob}={value}");
                 }
 
-                var steps = GetSteps();
-                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                 Assert.NotNull(taskStep);
 
                 // CmdLine uses PowerShell on Windows, Node.js on Linux/macOS
@@ -160,11 +159,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Assert
                 AssertJobCompleted();
                 
+                var steps = GetSteps();
+                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                
                 // Check if task succeeded, if not provide better diagnostics
                 if (results.Result != TaskResult.Succeeded)
                 {
-                    var steps = GetSteps();
-                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                     if (taskStep != null)
                     {
                         var log = GetTimelineLogLines(taskStep);
@@ -173,8 +173,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     throw new InvalidOperationException($"Task failed with result: {results.Result}. Strategy: {useStrategy}");
                 }
 
-                var steps = GetSteps();
-                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                 Assert.NotNull(taskStep);
 
                 // CmdLine uses PowerShell on Windows, Node.js on Linux/macOS
@@ -229,11 +227,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Assert
                 AssertJobCompleted();
                 
+                var steps = GetSteps();
+                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                
                 // Check if task succeeded, if not provide better diagnostics
                 if (results.Result != TaskResult.Succeeded)
                 {
-                    var steps = GetSteps();
-                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                     if (taskStep != null)
                     {
                         var log = GetTimelineLogLines(taskStep);
@@ -242,8 +241,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     throw new InvalidOperationException($"Task failed with result: {results.Result}. Knobs: {winningKnob}={true}, {losingKnob}={true}");
                 }
 
-                var steps = GetSteps();
-                var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                 Assert.NotNull(taskStep);
 
                 // CmdLine uses PowerShell on Windows, Node.js on Linux/macOS
