@@ -130,8 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ArgUtil.NotNull(_executionContext, nameof(_executionContext));
             ArgUtil.NotNullOrEmpty(nodeFolder, nameof(nodeFolder));
 
-            // Get the host context from the execution context
-            var hostContext = _executionContext.GetHostContext();
+            // Use the injected host context if available, otherwise get it from execution context
+            var hostContext = _hostContext ?? _executionContext.GetHostContext();
             var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
@@ -158,7 +158,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             List<string> outputs = new List<string>();
             object outputLock = new object();
-            var hostContext = context.GetHostContext();
+            // Use the injected host context if available, otherwise get it from execution context
+            var hostContext = _hostContext ?? context.GetHostContext();
             var processInvoker = hostContext.CreateService<IProcessInvoker>();
             processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
             {
