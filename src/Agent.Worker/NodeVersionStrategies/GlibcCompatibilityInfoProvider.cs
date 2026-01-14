@@ -24,7 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         public GlibcCompatibilityInfoProvider()
         {
-            // Parameterless constructor for dependency injection
+            // Parameterless constructor for dependency injection - initialize using HostContext
+            _hostContext = HostContext;
         }
 
         public GlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)

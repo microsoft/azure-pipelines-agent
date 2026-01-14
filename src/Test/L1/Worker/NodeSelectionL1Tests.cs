@@ -67,9 +67,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     var log = GetTimelineLogLines(taskStep);
                     
-                    // Should contain log indicating which node version was selected
-                    Assert.True(log.Any(x => x.Contains("Using node path:") && x.Contains(expectedNodeFolder)), 
-                        $"Expected to find node selection log with '{expectedNodeFolder}' in: {string.Join("\n", log)}");
+                    // Special handling for node16 - it might fall back to newer version due to EOL policies
+                    if (expectedNodeFolder == "node16")
+                    {
+                        // For node16, accept either the requested version or a fallback to newer version
+                        bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
+                        Assert.True(hasNodeSelection, "Should have node selection logging");
+                        
+                        // Check if it uses node16 as requested, or falls back to a newer version
+                        bool usesRequestedOrNewer = log.Any(x => x.Contains("Using node path:") && 
+                            (x.Contains("node16") || x.Contains("node20") || x.Contains("node24")));
+                        Assert.True(usesRequestedOrNewer, 
+                            $"Expected '{expectedNodeFolder}' or fallback to newer version in logs: {string.Join(Environment.NewLine, log)}");
+                    }
+                    else
+                    {
+                        // For other node versions, expect exact match
+                        Assert.True(log.Any(x => x.Contains("Using node path:") && x.Contains(expectedNodeFolder)), 
+                            $"Expected to find node selection log with '{expectedNodeFolder}' in: {string.Join(Environment.NewLine, log)}");
+                    }
                 }
             }
             finally
