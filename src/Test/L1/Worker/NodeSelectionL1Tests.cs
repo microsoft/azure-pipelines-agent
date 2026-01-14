@@ -39,7 +39,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
+                // Check if task succeeded, if not provide better diagnostics
+                if (results.Result != TaskResult.Succeeded)
+                {
+                    var steps = GetSteps();
+                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                    if (taskStep != null)
+                    {
+                        var log = GetTimelineLogLines(taskStep);
+                        throw new InvalidOperationException($"Task failed with result: {results.Result}. Environment: {knob}={value}. Logs: {string.Join("\n", log)}");
+                    }
+                    throw new InvalidOperationException($"Task failed with result: {results.Result}. Environment: {knob}={value}");
+                }
 
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
@@ -132,7 +144,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
+                // Check if task succeeded, if not provide better diagnostics
+                if (results.Result != TaskResult.Succeeded)
+                {
+                    var steps = GetSteps();
+                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                    if (taskStep != null)
+                    {
+                        var log = GetTimelineLogLines(taskStep);
+                        throw new InvalidOperationException($"Task failed with result: {results.Result}. Strategy: {useStrategy}. Logs: {string.Join("\n", log)}");
+                    }
+                    throw new InvalidOperationException($"Task failed with result: {results.Result}. Strategy: {useStrategy}");
+                }
 
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
@@ -182,7 +206,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
+                // Check if task succeeded, if not provide better diagnostics
+                if (results.Result != TaskResult.Succeeded)
+                {
+                    var steps = GetSteps();
+                    var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
+                    if (taskStep != null)
+                    {
+                        var log = GetTimelineLogLines(taskStep);
+                        throw new InvalidOperationException($"Task failed with result: {results.Result}. Knobs: {winningKnob}={true}, {losingKnob}={true}. Logs: {string.Join("\n", log)}");
+                    }
+                    throw new InvalidOperationException($"Task failed with result: {results.Result}. Knobs: {winningKnob}={true}, {losingKnob}={true}");
+                }
 
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
