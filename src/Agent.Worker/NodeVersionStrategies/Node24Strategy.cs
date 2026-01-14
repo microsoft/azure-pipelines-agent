@@ -7,6 +7,7 @@ using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -91,6 +92,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 Reason = $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues",
                 Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
             };
+        }
+
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
+        {
+            if (context.Container == null)
+            {
+                executionContext.Debug("[Node24Strategy] CanHandleInContainer called but no container context provided");
+                return null;
+            }
+
+            bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            
+            if (!useNode24ToStartContainer)
+            {
+                executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=false, cannot handle container");
+                return null;
+            }
+
+            executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=true, checking Node24 availability in container");
+
+            try
+            {
+                if (NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node24, "Node24Strategy"))
+                {
+                    return new NodeRunnerInfo
+                    {
+                        NodePath = null,
+                        NodeVersion = NodeVersion.Node24,
+                        Reason = "Node24 available in container via UseNode24ToStartContainer knob",
+                        Warning = null
+                    };
+                }
+                else
+                {
+                    executionContext.Debug("[Node24Strategy] Node24 test failed in container, returning null for fallback");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                executionContext.Warning($"[Node24Strategy] Failed to test Node24 in container: {ex.Message}");
+                return null;
+            }
         }
     }
 }
