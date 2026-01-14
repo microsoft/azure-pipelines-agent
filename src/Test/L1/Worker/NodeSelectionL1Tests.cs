@@ -26,6 +26,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
+                
+                // Set only the specific environment variable for this test
                 Environment.SetEnvironmentVariable(knob, value);
                 
                 var message = LoadTemplateMessage();
@@ -70,6 +75,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -83,7 +90,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
-                // No special environment variables - test default behavior
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
                 
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
@@ -117,6 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -132,6 +142,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
+                
+                // Set specific variables for this test
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", useStrategy.ToString().ToLower());
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
                 
@@ -179,6 +194,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -194,6 +211,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
+                
+                // Set conflicting knobs for this test
                 Environment.SetEnvironmentVariable(winningKnob, "true");
                 Environment.SetEnvironmentVariable(losingKnob, "true");
                 
@@ -237,6 +259,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -250,6 +274,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
+                
+                // Set EOL policy variables for this test
                 Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", "true");
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE16", "true"); // Try to force EOL version
                 
@@ -302,6 +331,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -316,6 +347,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
+                
+                // Set specific variable for this test
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
                 
                 var message = LoadTemplateMessage();
@@ -342,6 +378,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
         }
@@ -359,6 +397,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 // Arrange
                 SetupL1();
+                
+                // Clear all node-related environment variables
+                ClearNodeEnvironmentVariables();
                 
                 // Set custom node path based on folder
                 string customNodePath = System.IO.Path.Combine(
@@ -399,8 +440,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                // Clean up environment variables
+                ClearNodeEnvironmentVariables();
                 TearDown();
             }
+        }
+
+        /// <summary>
+        /// Clears all Node.js-related environment variables to ensure test isolation
+        /// </summary>
+        private void ClearNodeEnvironmentVariables()
+        {
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE16", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
+            Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
+            Environment.SetEnvironmentVariable("AGENT_CUSTOM_NODE_PATH", null);
         }
 
     }
