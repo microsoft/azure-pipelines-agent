@@ -636,7 +636,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // GROUP 8: CONTAINER SCENARIOS
             // ========================================================================================
             
-            // Custom Node Container Tests
             new TestScenario(
                 name: "CustomNode_Container_OverridesHandlerData",
                 description: "Container custom node path overrides task handler data",
@@ -654,6 +653,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
                     ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerNode20Knobs",
+                description: "Container custom node path overrides node20 knob to start container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerNode24Knobs",
+                description: "Container custom node path overrides node24 knob to start container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
                 },
                 customNodePath: "/container/custom/node",
                 inContainer: true,
@@ -750,21 +775,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "node20_1",
                 inContainer: true
             ),
-
-            // new TestScenario(
-            //     name: "Container_Node20Preferred_GlibcError_EOLPolicy_UpgradesToNode24",
-            //     description: "Container with Node20 preferred but has glibc error: upgrades to Node24 when EOL policy enabled",
-            //     handlerData: typeof(Node20_1HandlerData),
-            //     knobs: new() { 
-            //         ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true", 
-            //         ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true",
-            //         ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
-            //     },
-            //     node20GlibcError: true,
-            //     legacyExpectedNode: "node16",
-            //     strategyExpectedNode: "node24",
-            //     inContainer: true
-            // ),
 
             new TestScenario(
                 name: "Container_EOLPolicy_AllModernNodesFailGlibc_ThrowsError",
