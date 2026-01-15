@@ -31,31 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         // Constants for node patterns in logs (may differ from folder names)
         private const string NODE20_LOG_PATTERN = "node20";  // Logs show "node20" not "node20_1"
         
-        /// <summary>
-        /// Helper method to assert task succeeded and provide diagnostics on failure
-        /// </summary>
-        private static void AssertTaskSucceededWithDiagnostics(TaskResult result, TaskStep taskStep, string context)
-        {
-            if (result != TaskResult.Succeeded)
-            {
-                var diagnostics = taskStep != null 
-                    ? $". Logs: {string.Join("\n", GetTimelineLogLines(taskStep))}" 
-                    : "";
-                throw new InvalidOperationException($"Task failed with result: {result}. Context: {context}{diagnostics}");
-            }
-        }
-        
-        /// <summary>
-        /// Helper method to validate node selection on non-Windows platforms
-        /// </summary>
-        private static void ValidateNodeSelectionNonWindows(TaskStep taskStep, Action<string[]> validateLogs)
-        {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) 
-            {
-                var log = GetTimelineLogLines(taskStep);
-                validateLogs(log);
-            }
-        }
+
         [Theory]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
@@ -81,10 +57,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
-                
-                AssertTaskSucceededWithDiagnostics(results.Result, taskStep, $"Environment: {knob}={value}");
                 Assert.NotNull(taskStep);
 
                 var log = GetTimelineLogLines(taskStep);
@@ -148,10 +124,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
-                
-                AssertTaskSucceededWithDiagnostics(results.Result, taskStep, $"Environment: {knob}={value}");
                 Assert.NotNull(taskStep);
 
                 // On Windows, CmdLine uses PowerShell, so we just verify task completion
@@ -185,10 +161,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
-                
-                AssertTaskSucceededWithDiagnostics(results.Result, taskStep, "Default behavior test");
                 Assert.NotNull(taskStep);
 
                 var log = GetTimelineLogLines(taskStep);
@@ -235,10 +211,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
-                
-                AssertTaskSucceededWithDiagnostics(results.Result, taskStep, $"Strategy: {useStrategy}");
                 Assert.NotNull(taskStep);
 
                 var log = GetTimelineLogLines(taskStep);
@@ -286,10 +262,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 // Assert
                 AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
-                
-                AssertTaskSucceededWithDiagnostics(results.Result, taskStep, $"Knobs: {winningKnob}=true, {losingKnob}=true");
                 Assert.NotNull(taskStep);
 
                 // CmdLine uses PowerShell on Windows, Node.js on Linux/macOS
