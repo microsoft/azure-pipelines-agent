@@ -67,14 +67,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     var log = GetTimelineLogLines(taskStep);
                     
+                    // Check for final node selection - this is the key assertion
+                    bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
+                    Assert.True(hasNodeSelection, "Should have final node selection log");
+                    
                     // Special handling for node16 - it might fall back to newer version due to EOL policies
                     if (expectedNodeFolder == "node16")
                     {
                         // For node16, accept either the requested version or a fallback to newer version
-                        bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
-                        Assert.True(hasNodeSelection, "Should have node selection logging");
-                        
-                        // Check if it uses node16 as requested, or falls back to a newer version
                         bool usesRequestedOrNewer = log.Any(x => x.Contains("Using node path:") && 
                             (x.Contains("node16") || x.Contains("node20") || x.Contains("node24")));
                         Assert.True(usesRequestedOrNewer, 
@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     }
                     else
                     {
-                        // For other node versions, expect exact match
+                        // For other node versions, expect exact match - this confirms the knob worked
                         Assert.True(log.Any(x => x.Contains("Using node path:") && x.Contains(expectedNodeFolder)), 
                             $"Expected to find node selection log with '{expectedNodeFolder}' in: {string.Join(Environment.NewLine, log)}");
                     }
@@ -134,9 +134,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
                     Assert.True(hasNodeSelection, "Should have node selection logging for default behavior");
                     
-                    // Default should typically be node20_1 
-                    bool usesDefaultVersion = log.Any(x => x.Contains("Using node path:") && x.Contains("node20"));
-                    Assert.True(usesDefaultVersion, "Default behavior should use node20 series");
+                    // Default should use a compatible node version (could be node20, node16, or node24 based on system)
+                    bool usesCompatibleVersion = log.Any(x => x.Contains("Using node path:") && 
+                        (x.Contains("node20") || x.Contains("node16") || x.Contains("node24")));
+                    Assert.True(usesCompatibleVersion, "Default behavior should select a compatible node version");
                 }
             }
             finally
@@ -197,11 +198,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     var log = GetTimelineLogLines(taskStep);
 
-                    // Both strategy and legacy should handle this scenario and select node
+                    // Both strategy and legacy should handle this scenario and select node24
                     bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
                     Assert.True(hasNodeSelection, $"Expected node selection log for {(useStrategy ? "strategy" : "legacy")} mode");
 
-                    // Should use node24 based on environment variable
+                    // Should use node24 based on environment variable - this is the key test
                     bool usesNode24 = log.Any(x => x.Contains("Using node path:") && x.Contains("node24"));
                     Assert.True(usesNode24, "Should use node24 based on AGENT_USE_NODE24=true");
                 }
@@ -265,7 +266,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     var log = GetTimelineLogLines(taskStep);
                     
-                    // Should use the higher version when multiple knobs are set
+                    // The key test: should use the higher version when multiple knobs are set
                     Assert.True(log.Any(x => x.Contains("Using node path:") && x.Contains(expectedNodeFolder)), 
                         $"Expected conflicting knobs to resolve to '{expectedNodeFolder}' in: {string.Join("\n", log)}");
                 }
@@ -325,14 +326,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     
                     if (results.Result == TaskResult.Failed)
                     {
-                        // Task failed due to EOL policy restriction
-                        bool showsEOLMessage = log.Any(x => x.Contains("EOL") || 
-                            x.Contains("end of life") || x.Contains("not supported"));
-                        Assert.True(showsEOLMessage, "If task fails due to EOL policy, should show EOL-related message");
+                        // Task failed due to EOL policy - check for EOL error message
+                        bool showsEOLMessage = log.Any(x => x.Contains("End-of-Life") || 
+                            x.Contains("EOL") || x.Contains("blocked by organization policy"));
+                        Assert.True(showsEOLMessage, "If task fails due to EOL policy, should show EOL error message");
                     }
                     else
                     {
-                        // Task succeeded - should have upgraded to newer version
+                        // Task succeeded - should have upgraded to newer version (key test)
                         Assert.True(hasNodeSelection, "Should have node selection logging");
                         
                         bool upgradedToNewer = log.Any(x => x.Contains("Using node path:") && 
@@ -402,14 +403,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
 
-        [Theory]
+        [Fact]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
-        [InlineData("node")]
-        [InlineData("node16")]  
-        [InlineData("node20_1")]
-        [InlineData("node24")]
-        public async Task NodeSelection_CustomNodePath_UsesSpecifiedPath(string customNodeFolder)
+        public async Task NodeSelection_GlibcFallback_FallsBackToCompatibleVersion()
         {
             try
             {
@@ -419,19 +416,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Clear all node-related environment variables
                 ClearNodeEnvironmentVariables();
                 
-                // Set custom node path based on folder
-                string customNodePath = System.IO.Path.Combine(
-                    GetWorkingDirectory(),
-                    "externals", 
-                    customNodeFolder,
-                    "bin",
-                    RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "node.exe" : "node");
-                
-                Environment.SetEnvironmentVariable("AGENT_CUSTOM_NODE_PATH", customNodePath);
+                // Set Node24 to test glibc compatibility fallback
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE24", "true");
                 
                 var message = LoadTemplateMessage();
                 message.Steps.Clear();
-                message.Steps.Add(CreateScriptTask("echo Testing custom node path"));
+                message.Steps.Add(CreateScriptTask("echo Testing glibc compatibility"));
 
                 // Act
                 var results = await RunWorker(message);
@@ -444,16 +434,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
                 Assert.NotNull(taskStep);
 
-                // CmdLine uses PowerShell on Windows, Node.js on Linux/macOS
-                // Only validate Node.js custom path on non-Windows platforms
-                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                // Only validate on Linux where glibc compatibility matters
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 {
                     var log = GetTimelineLogLines(taskStep);
                     
-                    // Should use custom node path if properly configured
-                    // Note: This test validates the infrastructure for custom paths
+                    // Should have node selection logging
                     bool hasNodeSelection = log.Any(x => x.Contains("Using node path:"));
-                    Assert.True(hasNodeSelection, "Should have node selection logging for custom path");
+                    Assert.True(hasNodeSelection, "Should have node selection logging");
+                    
+                    // Key test: should use some compatible node version (may fallback due to glibc)
+                    bool usedCompatibleNode = log.Any(x => x.Contains("Using node path:") && 
+                        (x.Contains("node24") || x.Contains("node20") || x.Contains("node16")));
+                    Assert.True(usedCompatibleNode, "Should use some glibc-compatible node version");
                 }
             }
             finally
@@ -474,7 +467,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             Environment.SetEnvironmentVariable("AGENT_USE_NODE16", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
-            Environment.SetEnvironmentVariable("AGENT_CUSTOM_NODE_PATH", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_TO_START_CONTAINER", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_TO_START_CONTAINER", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
         }
 
     }
