@@ -61,14 +61,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
             
-            bool hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
-            Assert.True(hasNodeSelection, $"Should have node selection log: {modeDescription}");
-            
-            if (result != TaskResult.Succeeded && useStrategy)
+            bool hasNodeSelection;
+            if (useStrategy)
             {
-                // Strategy mode failed but attempted node selection - acceptable for testing
-                return;
+                // Strategy mode uses orchestrator logging: "[Host] Selected Node version: X.Y.Z (Strategy: NodeXXStrategy)"
+                hasNodeSelection = log.Any(x => x.Contains("Selected Node version:") && x.Contains("Strategy:")) ||
+                                   log.Any(x => x.Contains("Node path:"));
             }
+            else
+            {
+                // Legacy mode uses the traditional "Using node path:" pattern
+                hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
+            }
+            
+            Assert.True(hasNodeSelection, $"Should have node selection log: {modeDescription}");
             
             if (result != TaskResult.Succeeded && !useStrategy)
             {
@@ -84,7 +90,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
             
-            bool hasExpectedSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && x.Contains(expectedPattern));
+            bool hasExpectedSelection;
+            if (useStrategy)
+            {
+                // Strategy mode: Look for orchestrator logs mentioning the expected node version/folder
+                hasExpectedSelection = log.Any(x => 
+                    (x.Contains("Selected Node version:") || x.Contains("Node path:")) && 
+                    x.Contains(expectedPattern));
+            }
+            else
+            {
+                // Legacy mode: Look for traditional "Using node path:" pattern
+                hasExpectedSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && x.Contains(expectedPattern));
+            }
+            
             Assert.True(hasExpectedSelection, $"Expected node selection '{expectedPattern}': {modeDescription}");
         }
         
