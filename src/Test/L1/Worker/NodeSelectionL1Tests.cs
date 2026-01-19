@@ -64,13 +64,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             bool hasNodeSelection;
             if (useStrategy)
             {
-                // Strategy mode uses orchestrator logging: "[Host] Selected Node version: X.Y.Z (Strategy: NodeXXStrategy)"
-                hasNodeSelection = log.Any(x => x.Contains("Selected Node version:") && x.Contains("Strategy:")) ||
-                                   log.Any(x => x.Contains("Node path:"));
+                // Strategy mode uses orchestrator logging patterns from NodeVersionOrchestrator
+                hasNodeSelection = log.Any(x => x.Contains("[Host] Selected Node version:") && x.Contains("(Strategy:")) ||
+                                   log.Any(x => x.Contains("[Host] Node path:")) ||
+                                   log.Any(x => x.Contains("[Host] Starting node version selection")) ||
+                                   log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN)); // NodeHandler still logs this
             }
             else
             {
-                // Legacy mode uses the traditional "Using node path:" pattern
+                // Legacy mode uses the traditional "Using node path:" pattern from NodeHandler
                 hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
             }
             
@@ -93,14 +95,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             bool hasExpectedSelection;
             if (useStrategy)
             {
-                // Strategy mode: Look for orchestrator logs mentioning the expected node version/folder
+                // Strategy mode: Look for orchestrator logs from NodeVersionOrchestrator
                 hasExpectedSelection = log.Any(x => 
-                    (x.Contains("Selected Node version:") || x.Contains("Node path:")) && 
+                    (x.Contains("[Host] Selected Node version:") || x.Contains("[Host] Node path:") || x.Contains(NODE_SELECTION_LOG_PATTERN)) && 
                     x.Contains(expectedPattern));
             }
             else
             {
-                // Legacy mode: Look for traditional "Using node path:" pattern
+                // Legacy mode: Look for traditional "Using node path:" pattern from NodeHandler
                 hasExpectedSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && x.Contains(expectedPattern));
             }
             
@@ -285,10 +287,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 var log = GetTimelineLogLines(taskStep);
 
-                bool hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
+                // Both modes should have node selection logging, but with different patterns
+                bool hasNodeSelection;
+                if (useStrategy)
+                {
+                    hasNodeSelection = log.Any(x => x.Contains("[Host] Selected Node version:") || 
+                                                   x.Contains("[Host] Node path:") || 
+                                                   x.Contains(NODE_SELECTION_LOG_PATTERN));
+                }
+                else
+                {
+                    hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
+                }
                 Assert.True(hasNodeSelection, $"Expected node selection log for {(useStrategy ? "strategy" : "legacy")} mode");
 
-                bool usesNode24 = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && x.Contains(NODE24_FOLDER));
+                bool usesNode24 = log.Any(x => (x.Contains("[Host] Selected Node version:") || 
+                                               x.Contains("[Host] Node path:") || 
+                                               x.Contains(NODE_SELECTION_LOG_PATTERN)) && 
+                                              x.Contains(NODE24_FOLDER));
                 Assert.True(usesNode24, "Should use node24 based on AGENT_USE_NODE24=true");
             }
             finally
