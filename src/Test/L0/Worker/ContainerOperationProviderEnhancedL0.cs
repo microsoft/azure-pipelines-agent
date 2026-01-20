@@ -39,9 +39,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 
                 var provider = new ContainerOperationProviderEnhanced();
                 provider.Initialize(hc);
-                
-                typeof(ContainerOperationProviderEnhanced).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(provider, dockerManager.Object);
 
                 // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
@@ -81,9 +78,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 
                 var provider = new ContainerOperationProviderEnhanced();
                 provider.Initialize(hc);
-                
-                typeof(ContainerOperationProviderEnhanced).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(provider, dockerManager.Object);
 
                 // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
@@ -123,9 +117,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 
                 var provider = new ContainerOperationProviderEnhanced();
                 provider.Initialize(hc);
-                
-                typeof(ContainerOperationProviderEnhanced).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(provider, dockerManager.Object);
 
                 // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
@@ -166,9 +157,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 
                 var provider = new ContainerOperationProviderEnhanced();
                 provider.Initialize(hc);
-                
-                typeof(ContainerOperationProviderEnhanced).GetField("_dockerManger", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(provider, dockerManager.Object);
 
                 // Act - Call main container code with mocked Docker operations
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
