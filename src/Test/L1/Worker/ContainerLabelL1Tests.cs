@@ -3,9 +3,9 @@
 
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private const string TestImageNameLinuxNoLabel = "azure-pipelines-agent-test-container-nolabel-linux";
         private const string CustomNodePathWindows = "C:\\Program Files\\nodejs\\node.exe";
         private const string CustomNodePathLinux = "/usr/local/bin/node";
+        private const string AgentBundledNodePath = "externals";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
         [Fact]
@@ -31,7 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_Label_NodePath_Resolution_Windows_Test()
         {
-            await RunContainerLabelTest(TestImageNameWindows, CreateTestContainerImageWindows);
+            await RunContainerLabelTest(TestImageNameWindows, CreateTestContainerImageWindows, CustomNodePathWindows);
         }
 
         [Fact]
@@ -41,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_Label_NodePath_Resolution_Linux_Test()
         {
-            await RunContainerLabelTest(TestImageNameLinux, CreateTestContainerImageLinux);
+            await RunContainerLabelTest(TestImageNameLinux, CreateTestContainerImageLinux, CustomNodePathLinux);
         }
 
         [Fact]
@@ -51,7 +52,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Windows_Test()
         {
-            await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel);
+            // When no label, agent uses bundled node from externals directory
+            await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel, AgentBundledNodePath);
         }
 
         [Fact]
@@ -61,10 +63,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Linux_Test()
         {
-            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel);
+            // When no label, agent uses bundled node from externals directory
+            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel, AgentBundledNodePath);
         }
 
-        private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc)
+        private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc, string expectedNodePath)
         {
             try
             {
@@ -104,16 +107,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var results = await RunWorker(containerMessage);
 
                 Assert.NotNull(results);
+                AssertJobCompleted();
+                Assert.Equal(TaskResult.Succeeded, results.Result);
 
                 var steps = GetSteps();
                 Assert.NotNull(steps);
-                Assert.True(steps.Count() >= 1);
+                Assert.True(steps.Count() >= 1, "Expected at least one step to execute");
+
+                // Verify node path appears in logs
+                ValidateNodePathUsage(steps, expectedNodePath);
             }
             finally
             {
                 await CleanupTestContainerImage(imageName);
                 TearDown();
             }
+        }
+
+        private void ValidateNodePathUsage(IList<TimelineRecord> steps, string expectedPath)
+        {
+            var allLogs = steps
+                .Where(step => step.Log != null)
+                .SelectMany(step => GetTimelineLogLines(step))
+                .ToList();
+
+            string combinedLogs = string.Join(Environment.NewLine, allLogs);
+
+            Assert.Contains(expectedPath, combinedLogs, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task CreateTestContainerImageWindows()
