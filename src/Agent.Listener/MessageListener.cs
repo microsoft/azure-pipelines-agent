@@ -206,6 +206,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         encounteringError = true;
                     }
 
+                    Trace.Info($"Unable to create session in CreateSessionAsync (attempt {continuousError})");
                     Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _sessionCreationRetryInterval.TotalSeconds));
                     await HostContext.Delay(_sessionCreationRetryInterval, token);
                 }
