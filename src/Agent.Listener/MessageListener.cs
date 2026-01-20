@@ -115,10 +115,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             _progressiveBackoffFetched = true;
                             Trace.Info($"Progressive backoff feature flag fetched: {_enableProgressiveBackoff}");
                         }
-                        catch (Exception ffEx)
+                        catch (Exception ex)
                         {
                             // Will use default value (false)
-                            Trace.Verbose($"Unable to fetch progressive backoff feature flag: {ffEx.Message}");
+                            Trace.Info($"Unable to fetch progressive backoff feature flag: {ex.Message}");
                         }
                     }
                     
@@ -243,10 +243,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     _progressiveBackoffFetched = true;
                     Trace.Info($"Progressive backoff feature flag fetched: {_enableProgressiveBackoff}");
                 }
-                catch (Exception ffEx)
+                catch (Exception ex)
                 {   
                     // Will retry on next loop iteration
-                    Trace.Verbose($"Unable to fetch progressive backoff feature flag: {ffEx.Message}");
+                    Trace.Info($"Unable to fetch progressive backoff feature flag: {ex.Message}");
                 }
             }
             
@@ -352,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // re-create VssConnection before next retry
                         await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue);
                         
-                        Trace.Verbose($"Unable to get next message in GetNextMessageAsync (attempt {continuousError})");
+                        Trace.Info($"Unable to get next message in GetNextMessageAsync (attempt {continuousError})");
                         Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds));
                         await HostContext.Delay(_getNextMessageRetryInterval, token);
                     }
@@ -414,7 +414,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 catch (Exception ex)
                 {
                     continuousError++;
-                    Trace.Verbose($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
+                    Trace.Info($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
                     
                     // Use cached/default progressive backoff value
                     bool enableProgressiveBackoff = _enableProgressiveBackoff;
