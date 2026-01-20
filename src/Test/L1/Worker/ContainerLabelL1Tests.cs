@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Xunit;
 
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+
 namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 {
     [Collection("Worker L1 Tests")]
@@ -67,21 +69,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             try
             {
                 await createImageFunc();
-                
+
                 SetupL1();
                 var message = LoadTemplateMessage();
-                
-                var containerResource = new Microsoft.TeamFoundation.DistributedTask.Pipelines.ContainerResource()
+
+                var containerResource = new Pipelines.ContainerResource()
                 {
                     Alias = "test_container"
                 };
                 containerResource.Properties.Set("image", imageName);
-                
+
                 message.Resources.Containers.Add(containerResource);
-                
-                var containerMessage = new Microsoft.TeamFoundation.DistributedTask.Pipelines.AgentJobRequestMessage(
+
+                var containerMessage = new Pipelines.AgentJobRequestMessage(
                     message.Plan,
-                    message.Timeline, 
+                    message.Timeline,
                     message.JobId,
                     message.JobName,
                     message.JobDisplayName,
@@ -93,16 +95,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     message.Workspace,
                     message.Steps
                 );
-                
+
                 containerMessage.Steps.Clear();
-                
+
                 var nodeTask = CreateScriptTask("echo Testing container label node path resolution && node --version");
                 containerMessage.Steps.Add(nodeTask);
 
                 var results = await RunWorker(containerMessage);
 
                 Assert.NotNull(results);
-                
+
                 var steps = GetSteps();
                 Assert.NotNull(steps);
                 Assert.True(steps.Count() >= 1);
@@ -117,9 +119,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private async Task CreateTestContainerImageWindows()
         {
             string dockerfile = $@"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
-LABEL ""{ContainerLabelKey}""=""{CustomNodePathWindows}""
-RUN echo Container with custom node path label created
-";
+            LABEL ""{ContainerLabelKey}""=""{CustomNodePathWindows}""
+            RUN echo Container with custom node path label created
+            ";
 
             await BuildDockerImage(TestImageNameWindows, dockerfile);
         }
@@ -127,9 +129,9 @@ RUN echo Container with custom node path label created
         private async Task CreateTestContainerImageLinux()
         {
             string dockerfile = $@"FROM node:16-alpine
-LABEL ""{ContainerLabelKey}""=""{CustomNodePathLinux}""
-RUN node --version
-";
+            LABEL ""{ContainerLabelKey}""=""{CustomNodePathLinux}""
+            RUN node --version
+            ";
 
             await BuildDockerImage(TestImageNameLinux, dockerfile);
         }
@@ -137,8 +139,8 @@ RUN node --version
         private async Task CreateTestContainerImageWindowsNoLabel()
         {
             string dockerfile = @"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
-RUN echo Container without custom node path label created
-";
+            RUN echo Container without custom node path label created
+            ";
 
             await BuildDockerImage(TestImageNameWindowsNoLabel, dockerfile);
         }
@@ -146,8 +148,8 @@ RUN echo Container without custom node path label created
         private async Task CreateTestContainerImageLinuxNoLabel()
         {
             string dockerfile = @"FROM node:16-alpine
-RUN node --version
-";
+            RUN node --version
+            ";
 
             await BuildDockerImage(TestImageNameLinuxNoLabel, dockerfile);
         }
