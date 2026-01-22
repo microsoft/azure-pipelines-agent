@@ -44,14 +44,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private TaskAgentSession _session;
         private TimeSpan _getNextMessageRetryInterval;
         private TimeSpan _keepAliveRetryInterval;
-        private bool _enableProgressiveBackoff = false;
-        private bool _progressiveBackoffFetched = false;
+        private bool? _enableProgressiveBackoff = null;
         private TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _sessionConflictRetryLimit = TimeSpan.FromMinutes(4);
         private readonly TimeSpan _clockSkewRetryLimit = TimeSpan.FromMinutes(30);
         private readonly Dictionary<string, int> _sessionCreationExceptionTracker = new Dictionary<string, int>();
-        private Stopwatch _sessionConflictStopwatch;
-        private Stopwatch _clockSkewStopwatch;
+        private TimeSpan _sessionConflictElapsedTime = TimeSpan.Zero;
+        private TimeSpan _clockSkewElapsedTime = TimeSpan.Zero;
+
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -106,32 +106,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     await _agentServer.ConnectAsync(new Uri(serverUrl), creds);
                     Trace.Info("VssConnection created");
                     // Fetch progressive backoff feature flag now that we have a connection
-                    if (!_progressiveBackoffFetched)
+                    if (_enableProgressiveBackoff == null)
                     {
                         try
                         {
                             var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
                             _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
-                            _progressiveBackoffFetched = true;
-                            Trace.Info($"Progressive backoff feature flag fetched: {_enableProgressiveBackoff}");
+                            Trace.Info($"Progressive backoff feature flag value inside CreateSessionAsync method: {_enableProgressiveBackoff}");
                         }
                         catch (Exception ex)
                         {
                             // Will use default value (false)
-                            Trace.Info($"Unable to fetch progressive backoff feature flag: {ex.Message}");
+                            Trace.Info($"Unable to fetch progressive backoff feature flag inside CreateSessionAsync method: {ex.Message}");
                         }
                     }
-                    
+
                     _session = await _agentServer.CreateAgentSessionAsync(
                                                         _settings.PoolId,
                                                         taskAgentSession,
                                                         token);
 
                     Trace.Info($"Session created.");
-                    // Reset stopwatches on successful session creation
-                    _sessionConflictStopwatch?.Reset();
-                    _clockSkewStopwatch?.Reset();
-                    
+
+                    if (_enableProgressiveBackoff == true)
+                    {
+                        // Reset BOTH on successful session creation
+                        _sessionConflictElapsedTime = TimeSpan.Zero;
+                        _clockSkewElapsedTime = TimeSpan.Zero;
+                    }
+
                     if (encounteringError)
                     {
                         _term.WriteLine(StringUtil.Loc("QueueConnected", DateTime.UtcNow));
@@ -170,29 +173,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     continuousError++;
                     
-                    //We use the cached value if available, otherwise default behavior
-                    bool enableProgressiveBackoff = _enableProgressiveBackoff;
-                    string backoffSource = _progressiveBackoffFetched ? "FeatureFlag (cached)" : "Default (not fetched)";
-                    
-                    Trace.Info($"CreateSession - Progressive backoff enabled: {enableProgressiveBackoff} (source: {backoffSource})");
-                    
-                    if (enableProgressiveBackoff)
+                    if (_enableProgressiveBackoff == true)
                     {
-                        if (continuousError <= 2)
-                        {
-                            // random backoff [15, 30]
-                            _sessionCreationRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _sessionCreationRetryInterval);
-                        }
-                        else if (continuousError > 2 && continuousError <= 5)
-                        {
-                            // random backoff [60, 90]
-                            _sessionCreationRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(90), _sessionCreationRetryInterval);
-                        }
-                        else
-                        {
-                            // more aggressive backoff [150, 200]
-                            _sessionCreationRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(200), _sessionCreationRetryInterval);
-                        }
+                        //capping the max delay to 5 minutes
+                        double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
+                        _sessionCreationRetryInterval = TimeSpan.FromSeconds(delaySeconds);
                     }
                     else
                     {
@@ -235,19 +220,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             Stopwatch heartbeat = new Stopwatch();
             heartbeat.Restart();
             
-            if (!_progressiveBackoffFetched)
+            if (_enableProgressiveBackoff == null)
             {
                 try
                 {
                     var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
                     _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
-                    _progressiveBackoffFetched = true;
-                    Trace.Info($"Progressive backoff feature flag fetched: {_enableProgressiveBackoff}");
+                    Trace.Info($"Progressive backoff feature flag value inside GetNextMessageAsync method: {_enableProgressiveBackoff}");
                 }
                 catch (Exception ex)
                 {   
                     // Will retry on next loop iteration
-                    Trace.Info($"Unable to fetch progressive backoff feature flag: {ex.Message}");
+                    Trace.Info($"Unable to fetch progressive backoff feature flag inside GetNextMessageAsync method: {ex.Message}");
                 }
             }
             
@@ -304,30 +288,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     else
                     {
                         continuousError++;
-                        
-                        // Use cached/default progressive backoff value
-                        bool enableProgressiveBackoff = _enableProgressiveBackoff;
-                        string backoffSource = _progressiveBackoffFetched ? "FeatureFlag (cached)" : "Default (not fetched)";
-                        
-                        Trace.Info($"Progressive backoff enabled: {enableProgressiveBackoff} (source: {backoffSource})");
-                        
-                        if (enableProgressiveBackoff)
+               
+                        if (_enableProgressiveBackoff == true)
                         {
-                            if (continuousError <= 2)
-                            {
-                                // random backoff [15, 30]
-                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
-                            }
-                            else if (continuousError > 2 && continuousError <= 5)
-                            {
-                                // random backoff [60, 90]
-                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(90), _getNextMessageRetryInterval);
-                            }
-                            else
-                            {
-                                // more aggressive backoff [150, 200]
-                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(200), _getNextMessageRetryInterval);
-                            }
+                            //capping the max delay to 5 minutes
+                            double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
+                            _getNextMessageRetryInterval = TimeSpan.FromSeconds(delaySeconds);
                         }
                         else
                         {
@@ -401,6 +367,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int continuousError = 0;
             _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
 
+            if (_enableProgressiveBackoff == null)
+            {
+                try
+                {
+                    var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
+                    _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
+                    Trace.Info($"Progressive backoff feature flag value inside KeepAlive method: {_enableProgressiveBackoff}");
+                }
+                catch (Exception ex)
+                {   
+                    // Will retry on next loop iteration
+                    Trace.Info($"Unable to fetch progressive backoff feature flag inside KeepAlive method: {ex.Message}");
+                }
+            }
+            
             while (!token.IsCancellationRequested)
             {
                 try
@@ -414,32 +395,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    continuousError++;
-                    Trace.Info($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
-                    
-                    // Use cached/default progressive backoff value
-                    bool enableProgressiveBackoff = _enableProgressiveBackoff;
-                    string backoffSource = _progressiveBackoffFetched ? "FeatureFlag (cached)" : "Default (not fetched)";
-                    
-                    Trace.Info($"KeepAlive - Progressive backoff enabled: {enableProgressiveBackoff} (source: {backoffSource})");
-                    
-                    if (enableProgressiveBackoff)
+                    continuousError++;   
+                
+                    if (_enableProgressiveBackoff == true)
                     {
-                        if (continuousError <= 2)
-                        {
-                            // random backoff [30, 35]
-                            _keepAliveRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(35), _keepAliveRetryInterval);
-                        }
-                        else if (continuousError > 2 && continuousError <= 5)
-                        {
-                            // random backoff [35, 40]
-                            _keepAliveRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(35), TimeSpan.FromSeconds(40), _keepAliveRetryInterval);
-                        }
-                        else
-                        {
-                            // capped backoff [40, 45]
-                            _keepAliveRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(45), _keepAliveRetryInterval);
-                        }
+                        //capping the max delay to 5 minutes
+                        double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
+                        _keepAliveRetryInterval = TimeSpan.FromSeconds(delaySeconds);
                     }
                     else
                     {
@@ -447,6 +409,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
                     }
                     
+                    Trace.Info($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
                     Trace.Info($"KeepAlive will retry in {_keepAliveRetryInterval.TotalSeconds} seconds.");
                 }
 
@@ -525,33 +488,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Info("The session for this agent already exists.");
                 _term.WriteError(StringUtil.Loc("SessionExist"));
-                // Reset clock skew stopwatch since we're now tracking session conflict
-                _clockSkewStopwatch?.Reset();
-                
-                // Start or restart stopwatch for tracking continuous failures
-                if (_sessionConflictStopwatch == null)
-                {
-                    _sessionConflictStopwatch = Stopwatch.StartNew();
-                }
-                else if (!_sessionConflictStopwatch.IsRunning)
-                {
-                    _sessionConflictStopwatch.Restart();
-                }
-                
-                if (_sessionCreationExceptionTracker.ContainsKey(nameof(TaskAgentSessionConflictException)))
-                {
-                    _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)]++;
-                    // Use actual elapsed time instead of count * interval for accurate tracking with dynamic backoff
-                    if (_sessionConflictStopwatch.Elapsed >= _sessionConflictRetryLimit)
+
+                // when the EnableProgressiveRetryBackoff FF is enabled
+                if(_enableProgressiveBackoff == true){
+                    
+                    //update session conflict time
+                    _sessionConflictElapsedTime += _sessionCreationRetryInterval;
+                   
+                   //check the total elapsed time is within the retry limit
+                    if (_sessionConflictElapsedTime >= _sessionConflictRetryLimit)
                     {
-                        Trace.Info($"The session conflict exception have reached retry limit. Elapsed: {_sessionConflictStopwatch.Elapsed.TotalSeconds}s, Limit: {_sessionConflictRetryLimit.TotalSeconds}s");
-                        _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
-                        return false;
+                            Trace.Info($"The session conflict exception have reached retry limit. Elapsed: {_sessionConflictElapsedTime.TotalSeconds}s, Limit: {_sessionConflictRetryLimit.TotalSeconds}s");
+                            _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
+                            return false;
                     }
+                    
                 }
-                else
-                {
-                    _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] = 1;
+                // when the EnableProgressiveRetryBackoff FF is disabled
+                else{
+                    if (_sessionCreationExceptionTracker.ContainsKey(nameof(TaskAgentSessionConflictException)))
+                    {
+                        _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)]++;
+                        if (_sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] * _sessionCreationRetryInterval.TotalSeconds >= _sessionConflictRetryLimit.TotalSeconds)
+                        {
+                            Trace.Info("The session conflict exception have reached retry limit.");
+                            _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] = 1;
+                    }
                 }
 
                 Trace.Info("The session conflict exception haven't reached retry limit.");
@@ -561,35 +529,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Info("Local clock might skewed.");
                 _term.WriteError(StringUtil.Loc("LocalClockSkewed"));
-                // Reset session conflict stopwatch since we're now tracking clock skew
-                _sessionConflictStopwatch?.Reset();
-                
-                // Start or restart stopwatch for tracking continuous failures
-                if (_clockSkewStopwatch == null)
+
+                // when the EnableProgressiveRetryBackoff FF is enabled
+                if(_enableProgressiveBackoff == true)
                 {
-                    _clockSkewStopwatch = Stopwatch.StartNew();
-                }
-                else if (!_clockSkewStopwatch.IsRunning)
-                {
-                    _clockSkewStopwatch.Restart();
-                }
-                
-                if (_sessionCreationExceptionTracker.ContainsKey(nameof(VssOAuthTokenRequestException)))
-                {
-                    _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)]++;
-                    // Use actual elapsed time instead of count * interval for accurate tracking with dynamic backoff
-                    if (_clockSkewStopwatch.Elapsed >= _clockSkewRetryLimit)
+                    // Only update clock skew time
+                    _clockSkewElapsedTime += _sessionCreationRetryInterval;
+
+                    // check the total elapsed time is within the retry limit
+                    if (_clockSkewElapsedTime >= _clockSkewRetryLimit)
                     {
-                        Trace.Info($"The OAuth token request exception have reached retry limit. Elapsed: {_clockSkewStopwatch.Elapsed.TotalSeconds}s, Limit: {_clockSkewRetryLimit.TotalSeconds}s");
-                        _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
-                        return false;
+                            Trace.Info($"The OAuth token request exception have reached retry limit. Elapsed: {_clockSkewElapsedTime.TotalSeconds}s, Limit: {_clockSkewRetryLimit.TotalSeconds}s");
+                            _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
+                            return false;
                     }
                 }
-                else
-                {
-                    _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] = 1;
+                // when the EnableProgressiveRetryBackoff FF is disabled
+                else{
+                    if (_sessionCreationExceptionTracker.ContainsKey(nameof(VssOAuthTokenRequestException)))
+                    {
+                        _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)]++;
+                        if (_sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] * _sessionCreationRetryInterval.TotalSeconds >= _clockSkewRetryLimit.TotalSeconds)
+                        {
+                            Trace.Info("The OAuth token request exception have reached retry limit.");
+                            _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] = 1;
+                    }
                 }
-
+                
                 Trace.Info("The OAuth token request exception haven't reached retry limit.");
                 return true;
             }
