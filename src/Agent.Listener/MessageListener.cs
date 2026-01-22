@@ -299,13 +299,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         {
                             if (continuousError <= 5) 
                             {
-                            // Default behavior: random backoff [15, 30]
-                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
+                                // Default behavior: random backoff [15, 30]
+                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
                             }
                             else
                            {
-                            // more aggressive backoff [30, 60]
-                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
+                                // more aggressive backoff [30, 60]
+                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
                            }
                         }
 
@@ -498,9 +498,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                    //check the total elapsed time is within the retry limit
                     if (_sessionConflictElapsedTime >= _sessionConflictRetryLimit)
                     {
-                            Trace.Info($"The session conflict exception have reached retry limit. Elapsed: {_sessionConflictElapsedTime.TotalSeconds}s, Limit: {_sessionConflictRetryLimit.TotalSeconds}s");
-                            _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
-                            return false;
+                        Trace.Info($"The session conflict exception have reached retry limit. Elapsed: {_sessionConflictElapsedTime.TotalSeconds}s, Limit: {_sessionConflictRetryLimit.TotalSeconds}s");
+                        _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
+                        return false;
                     }
                     
                 }
@@ -539,9 +539,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     // check the total elapsed time is within the retry limit
                     if (_clockSkewElapsedTime >= _clockSkewRetryLimit)
                     {
-                            Trace.Info($"The OAuth token request exception have reached retry limit. Elapsed: {_clockSkewElapsedTime.TotalSeconds}s, Limit: {_clockSkewRetryLimit.TotalSeconds}s");
-                            _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
-                            return false;
+                        Trace.Info($"The OAuth token request exception have reached retry limit. Elapsed: {_clockSkewElapsedTime.TotalSeconds}s, Limit: {_clockSkewRetryLimit.TotalSeconds}s");
+                        _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
+                        return false;
                     }
                 }
                 // when the EnableProgressiveRetryBackoff FF is disabled
@@ -561,7 +561,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] = 1;
                     }
                 }
-                
                 Trace.Info("The OAuth token request exception haven't reached retry limit.");
                 return true;
             }
