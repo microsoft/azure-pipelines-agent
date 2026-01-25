@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private const string TestImageNameLinuxNoLabel = "azure-pipelines-agent-test-container-nolabel-linux";
         private const string CustomNodePathWindows = "C:\\Program Files\\nodejs\\node.exe";
         private const string CustomNodePathLinux = "/usr/local/bin/node";
-        private const string AgentBundledNodePath = "externals";
+        private const string DefaultNodeCommand = "node";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
         [Fact]
@@ -52,8 +52,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Windows_Test()
         {
-            // When no label, agent uses bundled node from externals directory
-            await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel, AgentBundledNodePath);
+            // When no label, Windows containers use node from PATH
+            await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel, DefaultNodeCommand);
         }
 
         [Fact]
@@ -63,8 +63,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Linux_Test()
         {
-            // When no label, agent uses bundled node from externals directory
-            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel, AgentBundledNodePath);
+            // When no label, Linux containers use bundled node from externals directory
+            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel, "externals");
         }
 
         private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc, string expectedNodePath)
@@ -81,6 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Alias = "test_container"
                 };
                 containerResource.Properties.Set("image", imageName);
+                containerResource.Properties.Set("localimage", "true");
 
                 message.Resources.Containers.Add(containerResource);
 
@@ -138,9 +139,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private async Task CreateTestContainerImageWindows()
         {
-            string dockerfile = $@"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
+            string dockerfile = $@"FROM mcr.microsoft.com/windows/servercore:ltsc2022
+            
+            # Download and install Node.js
+            RUN powershell -Command ""Invoke-WebRequest -Uri 'https://nodejs.org/dist/v16.20.2/node-v16.20.2-x64.msi' -OutFile node.msi; Start-Process msiexec.exe -ArgumentList '/i', 'node.msi', '/quiet', '/norestart', 'INSTALLDIR=\""C:\Program Files\nodejs\""' -Wait; Remove-Item node.msi""
+            
             LABEL ""{ContainerLabelKey}""=""{CustomNodePathWindows}""
-            RUN echo Container with custom node path label created
             ";
 
             await BuildDockerImage(TestImageNameWindows, dockerfile);
@@ -158,8 +162,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private async Task CreateTestContainerImageWindowsNoLabel()
         {
-            string dockerfile = @"FROM mcr.microsoft.com/windows/servercore/insider:10.0.20348.1
-            RUN echo Container without custom node path label created
+            string dockerfile = @"FROM mcr.microsoft.com/windows/servercore:ltsc2022
+            
+            # Download and install Node.js
+            RUN powershell -Command ""Invoke-WebRequest -Uri 'https://nodejs.org/dist/v16.20.2/node-v16.20.2-x64.msi' -OutFile node.msi; Start-Process msiexec.exe -ArgumentList '/i', 'node.msi', '/quiet', '/norestart' -Wait; Remove-Item node.msi""
             ";
 
             await BuildDockerImage(TestImageNameWindowsNoLabel, dockerfile);
