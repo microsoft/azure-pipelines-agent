@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
@@ -67,23 +69,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     var glibcCheckerMock = SetupMockedGlibcCompatibilityInfoProvider(scenario);
                     thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcCheckerMock.Object);
 
-                    ConfigureNodeHandlerHelper(scenario);
-
-                    NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
-                    nodeHandler.Initialize(thc);
-
-                    var executionContextMock = CreateTestExecutionContext(thc, scenario);
-                    nodeHandler.ExecutionContext = executionContextMock.Object;
-                    nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
+                    var dockerManagerMock = SetupMockedDockerCommandManager(scenario);
+                    thc.SetSingleton<IDockerCommandManager>(dockerManagerMock.Object);
 
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
-                    
                     try{
+                        string actualLocation;
 
-                        string actualLocation = nodeHandler.GetNodeLocation(
-                            node20ResultsInGlibCError: scenario.Node20GlibcError,
-                            node24ResultsInGlibCError: scenario.Node24GlibcError,
-                            inContainer: scenario.InContainer);
+                        if (scenario.InContainer)
+                        {
+                            actualLocation = TestActualContainerNodeSelection(thc, scenario);
+                        }
+                        else
+                        {
+                            ConfigureNodeHandlerHelper(scenario);
+
+                            NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
+                            nodeHandler.Initialize(thc);
+
+                            var executionContextMock = CreateTestExecutionContext(thc, scenario);
+                            nodeHandler.ExecutionContext = executionContextMock.Object;
+                            nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
+
+                            actualLocation = nodeHandler.GetNodeLocation(
+                                node20ResultsInGlibCError: scenario.Node20GlibcError,
+                                node24ResultsInGlibCError: scenario.Node24GlibcError,
+                                inContainer: false);
+                        }
 
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
@@ -118,14 +130,101 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 scenario.Node20GlibcError);
             
             glibcCheckerMock
-                .Setup(x => x.CheckGlibcCompatibilityAsync())
+                .Setup(x => x.Initialize(It.IsAny<IHostContext>()));
+            
+            glibcCheckerMock
+                .Setup(x => x.CheckGlibcCompatibilityAsync(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(glibcInfo);
             
             glibcCheckerMock
-                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>()))
+                .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>(), It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(glibcInfo);
             
             return glibcCheckerMock;
+        }
+
+        /// <summary>
+        /// Sets up a mocked DockerCommandManager for container scenarios in NodeHandler testing.
+        /// </summary>
+        private Mock<IDockerCommandManager> SetupMockedDockerCommandManager(TestScenario scenario)
+        {
+            var dockerManagerMock = new Mock<IDockerCommandManager>();
+            
+            dockerManagerMock
+                .Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync("mocked_inspect_result");
+                
+            dockerManagerMock
+                .Setup(x => x.DockerVersion(It.IsAny<IExecutionContext>()))
+                .ReturnsAsync(new DockerVersion(new Version("1.0.0"), new Version("1.0.0")));
+                
+            dockerManagerMock
+                .Setup(x => x.IsContainerRunning(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+            
+            dockerManagerMock
+                .Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
+                .Returns<IExecutionContext, string, string, string, List<string>>((execContext, containerId, workDir, command, output) =>
+                {
+                    if (command.Contains("node") && command.Contains("--version"))
+                    {
+                        bool isNode24 = command.Contains("node24");
+                        bool isNode20 = command.Contains("node20_1");
+                        bool isNode16 = command.Contains("node16");
+                        
+                        bool hasGlibcError = (isNode24 && scenario.Node24GlibcError) || 
+                                           (isNode20 && scenario.Node20GlibcError);
+                        
+                        if (hasGlibcError)
+                        {
+                            return Task.FromResult(127);
+                        }
+                        else
+                        {
+                            if (isNode24) output.Add("v24.0.0");
+                            else if (isNode20) output.Add("v20.1.0");
+                            else if (isNode16) output.Add("v16.20.2");
+                            else output.Add("v20.1.0");
+                            return Task.FromResult(0);
+                        }
+                    }
+                    return Task.FromResult(127);
+                });
+            
+            return dockerManagerMock;
+        }
+
+        private string TestActualContainerNodeSelection(TestHostContext thc, TestScenario scenario)
+        {
+            try
+            {
+                var executionContextMock = CreateTestExecutionContext(thc, scenario);
+                var orchestrator = new NodeVersionOrchestrator(executionContextMock.Object, thc);
+                var taskContext = new TaskContext
+                {
+                    HandlerData = CreateHandlerData(scenario.HandlerDataType),
+                    Container = new ContainerInfo
+                    {
+                        ContainerId = "test_container",
+                        CustomNodePath = scenario.CustomNodePath,
+                        IsJobContainer = true,
+                        ImageOS = PlatformUtil.RunningOnMacOS ? PlatformUtil.OS.OSX : 
+                                  PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
+                    },
+                    StepTarget = !string.IsNullOrWhiteSpace(scenario.CustomNodePath) 
+                        ? new ContainerInfo { CustomNodePath = scenario.CustomNodePath }
+                        : null
+                };
+            
+                var dockerManager = thc.GetService<IDockerCommandManager>();
+                var result = orchestrator.SelectNodeVersionForContainer(taskContext, dockerManager);
+                return result.NodePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"TestActualContainerNodeSelection error: {ex}");
+                throw;
+            }
         }
 
         private void ConfigureNodeHandlerHelper(TestScenario scenario)
@@ -152,15 +251,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 return scenario.CustomNodePath;
             }
             
-            return Path.Combine(
-                thc.GetDirectory(WellKnownDirectory.Externals),
-                expectedNode,
-                "bin",
-                $"node{IOUtil.ExeExtension}");
+            if (scenario.InContainer)
+            {
+                string hostPath = Path.Combine(
+                    thc.GetDirectory(WellKnownDirectory.Externals),
+                    expectedNode,
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+                
+                var containerInfo = new ContainerInfo
+                {
+                    ContainerId = "test_container",
+                    IsJobContainer = true,
+                    ImageOS = PlatformUtil.RunningOnMacOS ? PlatformUtil.OS.OSX : 
+                              PlatformUtil.RunningOnWindows ? PlatformUtil.OS.Windows : PlatformUtil.OS.Linux
+                };
+                
+                string containerPath = containerInfo.TranslateToContainerPath(hostPath);
+                
+                string containerExeExtension = containerInfo.ImageOS == PlatformUtil.OS.Windows ? ".exe" : "";
+                string finalPath = containerPath.Replace($"node{IOUtil.ExeExtension}", $"node{containerExeExtension}");
+                
+                return finalPath;
+            }
+            else
+            {
+                return Path.Combine(
+                    thc.GetDirectory(WellKnownDirectory.Externals),
+                    expectedNode,
+                    "bin",
+                    $"node{IOUtil.ExeExtension}");
+            }
         }
 
         protected ScenarioExpectations GetScenarioExpectations(TestScenario scenario, bool useStrategy)
-        {
+        {            
             // Check if this is an equivalent scenario by seeing if strategy-specific fields are populated
             bool isEquivalentScenario = string.IsNullOrEmpty(scenario.StrategyExpectedNode) && 
                                        string.IsNullOrEmpty(scenario.LegacyExpectedNode);
@@ -242,6 +367,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     return Environment.GetEnvironmentVariable(variableName);
                 });
 
+            executionContext
+                .Setup(x => x.GetHostContext())
+                .Returns(tc);
+
             return executionContext;
         }
 
@@ -311,14 +440,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE", null);
-            
+            Environment.SetEnvironmentVariable("AZP_AGENT_USE_NODE20_TO_START_CONTAINER", null); 
+            Environment.SetEnvironmentVariable("AZP_AGENT_USE_NODE24_TO_START_CONTAINER", null);
+       
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);            
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);         
             
         }
     }

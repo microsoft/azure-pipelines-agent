@@ -747,6 +747,7 @@ namespace Agent.Sdk.Knob
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
             new PipelineFeatureSource("UseNode20ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode24ToStartContainer = new Knob(
@@ -941,6 +942,7 @@ namespace Agent.Sdk.Knob
             nameof(UseNodeVersionStrategy),
             "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
             new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
     }

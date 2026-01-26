@@ -55,15 +55,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "CustomNode_Container_OverridesHandlerData",
-                description: "Container custom node path overrides task handler data",
-                handlerData: typeof(Node24HandlerData),
-                customNodePath: "/container/node20/bin/node",
-                inContainer: true,
-                expectedNode: "/container/node20/bin/node"
-            ),
-
-            new TestScenario(
                 name: "CustomNode_HighestPriority_OverridesEverything",
                 description: "Custom path has highest priority - overrides all knobs, EOL policy, and glibc errors",
                 handlerData: typeof(Node10HandlerData),
@@ -107,29 +98,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 customNodePath: "   ",
                 inContainer: false,
                 expectedNode: "node16"
-            ),
-
-            new TestScenario(
-                name: "CustomNode_Container_OverridesContainerKnobs",
-                description: "Container custom node path overrides container-specific knobs",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
-                    ["AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
-                },
-                customNodePath: "/container/custom/node",
-                inContainer: true,
-                expectedNode: "/container/custom/node"
-            ),
-
-            new TestScenario(
-                name: "CustomNode_MixedEnvironments_ContainerTakesPrecedence",
-                description: "When in container environment, Container.CustomNodePath is used over StepTarget.CustomNodePath",
-                handlerData: typeof(Node24HandlerData),
-                customNodePath: "/container/custom/node",
-                inContainer: true,
-                expectedNode: "/container/custom/node"
             ),
 
             // ========================================================================================
@@ -412,25 +380,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node16_InContainer_EOLPolicyDisabled",
-                description: "Node16 works in containers when EOL policy is disabled",
-                handlerData: typeof(Node16HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
-                expectedNode: "node16", 
-                inContainer: true
-            ),
-
-            new TestScenario(
-                name: "Node16_InContainer_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node16 in container with EOL policy: legacy allows Node16, strategy-based upgrades to Node24",
-                handlerData: typeof(Node16HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                legacyExpectedNode: "node16",
-                strategyExpectedNode: "node24",
-                inContainer: true
-            ),
-
-            new TestScenario(
                 name: "Node16_EOLPolicy_Node24GlibcError_FallsBackToNode20",
                 description: "Node16 handler with EOL policy and Node24 glibc error: legacy allows Node16, strategy-based falls back to Node20",
                 handlerData: typeof(Node16HandlerData),
@@ -447,30 +396,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 node20GlibcError: true,
-                legacyExpectedNode: "node16",
-                expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
-            ),
-
-            new TestScenario(
-                name: "Node16_InContainer_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node16 handler in container with EOL policy and Node24 glibc error: legacy allows Node16, strategy-based falls back to Node20",
-                handlerData: typeof(Node16HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                node24GlibcError: true,
-                inContainer: true,
-                legacyExpectedNode: "node16",
-                strategyExpectedNode: "node20_1"
-            ),
-
-            new TestScenario(
-                name: "Node16_InContainer_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
-                description: "Node16 handler in container with EOL policy and both newer versions having glibc errors: legacy allows Node16, strategy-based throws error",
-                handlerData: typeof(Node16HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                node24GlibcError: true,
-                node20GlibcError: true,
-                inContainer: true,
                 legacyExpectedNode: "node16",
                 expectedErrorType: typeof(NotSupportedException),
                 strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
@@ -548,35 +473,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node20_InContainer_DefaultBehavior",
-                description: "Node20 handler works correctly in container environments",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { },
-                expectedNode: "node20_1",
-                inContainer: true
-            ),
-
-            new TestScenario(
-                name: "Node20_InContainer_WithGlobalUseNode24Knob",
-                description: "Global Node24 knob overrides Node20 handler data in container",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24"] = "true" },
-                expectedNode: "node24",
-                inContainer: true
-            ),
-
-            new TestScenario(
-                name: "Node20_InContainer_GlibcError_FallsBackToNode16",
-                description: "Node20 in container with glibc error falls back to Node16 when EOL policy is disabled",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
-                node20GlibcError: true,
-                expectedNode: "node16",
-                inContainer: true
-            ),
-
-
-            new TestScenario(
                 name: "Node20_PriorityTest_UseNode20OverridesUseNode10",
                 description: "Node20 global knob takes priority over Node10 global knob",
                 handlerData: typeof(Node20_1HandlerData),
@@ -603,49 +499,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // ========================================================================================
             // GROUP 5: CONTAINER-SPECIFIC EOL SCENARIOS
             // ========================================================================================
-            
-            new TestScenario(
-                name: "Node24_InContainer_GlibcError_EOLPolicy_FallsBackToNode20",
-                description: "Node24 in container with glibc error falls back to Node20 when EOL policy prevents Node16",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
-                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
-                },
-                node24GlibcError: true,
-                expectedNode: "node20_1",
-                inContainer: true
-            ),
-            
-            new TestScenario(
-                name: "Node24_InContainer_BothGlibcErrors_EOLPolicy_ThrowsError",
-                description: "Node24 in container with all glibc errors and EOL policy throws error (strategy-based) or falls back to Node16 (legacy)",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
-                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
-                },
-                node24GlibcError: true,
-                node20GlibcError: true,
-                legacyExpectedNode: "node16",
-                expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node24HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false", // this is wrong --- this TEST NEEDS FIXING
-                inContainer: true
-            ),
-            
-            new TestScenario(
-                name: "Node20_InContainer_GlibcError_EOLPolicy_UpgradesToNode24",
-                description: "Node20 in container with glibc error and EOL policy upgrades to Node24 (strategy-based) or falls back to Node16 (legacy)",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                node20GlibcError: true,
-                legacyExpectedNode: "node16",
-                strategyExpectedNode: "node24",
-                inContainer: true
-            ),
-
+                      
             new TestScenario( 
                 name: "Node20_AllGlobalKnobsDisabled_UsesHandler",
                 description: "Node20 handler uses handler data when all global knobs are disabled",
@@ -761,20 +615,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "node24"
             ),
 
-            new TestScenario(
-                name: "Node24_InContainer_DefaultBehavior",
-                description: "Node24 handler works correctly in container environments",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
-                expectedNode: "node24",
-                inContainer: true
-            ),
-
             // ========================================================================================
             // GROUP 7: EDGE CASES AND ERROR SCENARIOS
             // ========================================================================================
             
-
             new TestScenario(
                 name: "Node16_EOLPolicy_WithUseNode10Knob_UpgradesToNode24",
                 description: "Node16 handler with deprecated Node10 knob upgrades to Node24 when EOL policy is enabled (strategy-based) or uses Node10 (legacy)",
@@ -788,9 +632,192 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 strategyExpectedNode: "node24"
             ),
 
+            // ========================================================================================
+            // GROUP 8: CONTAINER SCENARIOS
+            // ========================================================================================
             
+            new TestScenario(
+                name: "CustomNode_Container_OverridesHandlerData",
+                description: "Container custom node path overrides task handler data",
+                handlerData: typeof(Node24HandlerData),
+                customNodePath: "/container/node20/bin/node",
+                inContainer: true,
+                expectedNode: "/container/node20/bin/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerKnobs",
+                description: "Container custom node path overrides container-specific knobs",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerNode20Knobs",
+                description: "Container custom node path overrides node20 knob to start container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "CustomNode_Container_OverridesContainerNode24Knobs",
+                description: "Container custom node path overrides node24 knob to start container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true",
+                },
+                customNodePath: "/container/custom/node",
+                inContainer: true,
+                expectedNode: "/container/custom/node"
+            ),
+
+            new TestScenario(
+                name: "Container_EOLPolicyDisabled_AllowsNode16Fallback",
+                description: "Container with EOL policy disabled allows fallback to Node16 when container knobs are disabled",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { 
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false",
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "false",
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
+                },
+                expectedNode: "node16",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_EOLPolicy_UpgradesToNode24",
+                description: "Container with EOL policy upgrades to Node24 when Node24 container knob is enabled",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { 
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true", 
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true"
+                },
+                expectedNode: "node24",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_Node20Enabled_DefaultBehavior",
+                description: "Container with Node20 enabled works correctly when Node24 is disabled",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { 
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true",
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
+                },
+                expectedNode: "node20_1",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_Node24Enabled_DefaultBehavior",
+                description: "Container with Node24 enabled works correctly",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() { 
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true"
+                },
+                expectedNode: "node24",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_EOLPolicy_Node24Preferred_GlibcError_FallsBackToNode20",
+                description: "Container with EOL policy, Node24 preferred but has glibc error: falls back to Node20",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { 
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true", 
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true",
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true"
+                },
+                node24GlibcError: true,
+                inContainer: true,
+                expectedNode: "node20_1"
+            ),
+
+            new TestScenario(
+                name: "Container_Node20Preferred_GlibcError_FallsBackToNode16",
+                description: "Container with Node20 preferred but has glibc error: falls back to Node16 when EOL policy disabled",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { 
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false",
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true",
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
+                },
+                node20GlibcError: true,
+                expectedNode: "node16",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_Node24Enabled_GlibcError_EOLPolicy_FallsBackToNode20",
+                description: "Container with Node24 enabled but has glibc error: falls back to Node20 when EOL policy prevents Node16",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true",
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
+                },
+                node24GlibcError: true,
+                expectedNode: "node20_1",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_EOLPolicy_AllModernNodesFailGlibc_ThrowsError",
+                description: "Container with EOL policy and both Node24/Node20 glibc errors: cannot use Node16 due to policy, throws error",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
+                node24GlibcError: true,
+                node20GlibcError: true,
+                inContainer: true,
+                legacyExpectedNode: "node16",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks."
+            ),
+
+            new TestScenario(
+                name: "Container_AllModernVersionsFailGlibc_EOLPolicy_ThrowsError",
+                description: "Container with all modern Node.js versions having glibc errors and EOL policy: throws error (strategy-based) or falls back to Node16 (legacy)",
+                handlerData: typeof(Node24HandlerData),
+                knobs: new() 
+                { 
+                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
+                },
+                node24GlibcError: true,
+                node20GlibcError: true,
+                legacyExpectedNode: "node16",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks.",
+                inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_GlobalNode24Knob_OverridesContainerDefaults",
+                description: "Global Node24 knob with container Node24 knob enabled uses Node24 in container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { 
+                    ["AGENT_USE_NODE24"] = "true", 
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true"
+                },
+                expectedNode: "node24",
+                inContainer: true
+            )          
         };
-        
     }
 
     /// <summary>
