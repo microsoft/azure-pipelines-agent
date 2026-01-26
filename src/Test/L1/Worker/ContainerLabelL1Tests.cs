@@ -153,6 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private async Task CreateTestContainerImageLinux()
         {
             string dockerfile = $@"FROM node:16-alpine
+            RUN apk add --no-cache bash
             LABEL ""{ContainerLabelKey}""=""{CustomNodePathLinux}""
             RUN node --version
             ";
@@ -174,6 +175,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private async Task CreateTestContainerImageLinuxNoLabel()
         {
             string dockerfile = @"FROM node:16-alpine
+            RUN apk add --no-cache bash
             RUN node --version
             ";
 
