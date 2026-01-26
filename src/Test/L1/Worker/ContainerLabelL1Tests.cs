@@ -21,7 +21,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private const string TestImageNameWindowsNoLabel = "azure-pipelines-agent-test-container-nolabel-windows";
         private const string TestImageNameLinuxNoLabel = "azure-pipelines-agent-test-container-nolabel-linux";
         private const string CustomNodePathWindows = "C:\\Program Files\\nodejs\\node.exe";
-        private const string CustomNodePathLinux = "/usr/local/bin/node";
+        private const string CustomNodePathLinux = "/usr/bin/node";
         private const string DefaultNodeCommand = "node";
         private const string ContainerLabelKey = "com.azure.dev.pipelines.agent.handler.node.path";
 
@@ -52,7 +52,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Windows_Test()
         {
-            // When no label, Windows containers use node from PATH
             await RunContainerLabelTest(TestImageNameWindowsNoLabel, CreateTestContainerImageWindowsNoLabel, DefaultNodeCommand);
         }
 
@@ -63,8 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         public async Task Container_NoLabel_NodePath_Resolution_Linux_Test()
         {
-            // When no label, Linux containers use bundled node from externals directory
-            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel, "externals");
+            await RunContainerLabelTest(TestImageNameLinuxNoLabel, CreateTestContainerImageLinuxNoLabel, CustomNodePathLinux);
         }
 
         private async Task RunContainerLabelTest(string imageName, Func<Task> createImageFunc, string expectedNodePath)
@@ -152,8 +150,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private async Task CreateTestContainerImageLinux()
         {
-            string dockerfile = $@"FROM node:16-alpine
-            RUN apk add --no-cache bash
+            string dockerfile = $@"FROM ubuntu:22.04
+            RUN apt-get update && apt-get install -y curl && \
+                curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+                apt-get install -y nodejs && \
+                apt-get clean && rm -rf /var/lib/apt/lists/*
             LABEL ""{ContainerLabelKey}""=""{CustomNodePathLinux}""
             RUN node --version
             ";
@@ -174,8 +175,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private async Task CreateTestContainerImageLinuxNoLabel()
         {
-            string dockerfile = @"FROM node:16-alpine
-            RUN apk add --no-cache bash
+            string dockerfile = @"FROM ubuntu:22.04
+            RUN apt-get update && apt-get install -y curl && \
+                curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+                apt-get install -y nodejs && \
+                apt-get clean && rm -rf /var/lib/apt/lists/*
             RUN node --version
             ";
 
