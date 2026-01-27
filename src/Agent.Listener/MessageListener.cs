@@ -40,8 +40,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private AgentSettings _settings;
         private ITerminal _term;
         private IAgentServer _agentServer;
-        private IFeatureFlagProvider _featureFlagProvider;
         private TaskAgentSession _session;
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
         private TimeSpan _getNextMessageRetryInterval;
         private TimeSpan _keepAliveRetryInterval;
         private bool? _enableProgressiveBackoff = null;
@@ -59,7 +59,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _term = HostContext.GetService<ITerminal>();
             _agentServer = HostContext.GetService<IAgentServer>();
-            _featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
         }
 
         public async Task<Boolean> CreateSessionAsync(CancellationToken token)
@@ -105,21 +104,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Info("Connecting to the Agent Server...");
                     await _agentServer.ConnectAsync(new Uri(serverUrl), creds);
                     Trace.Info("VssConnection created");
-                    // Fetch progressive backoff feature flag now that we have a connection
-                    if (_enableProgressiveBackoff == null)
-                    {
-                        try
-                        {
-                            var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
-                            _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
-                            Trace.Info($"Progressive backoff feature flag value inside CreateSessionAsync method: {_enableProgressiveBackoff}");
-                        }
-                        catch (Exception ex)
-                        {
-                            // Will use default value (false)
-                            Trace.Info($"Unable to fetch progressive backoff feature flag inside CreateSessionAsync method: {ex.Message}");
-                        }
-                    }
+
+                    // Fetch progressive backoff knob value
+                    _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+                    Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
 
                     _session = await _agentServer.CreateAgentSessionAsync(
                                                         _settings.PoolId,
@@ -219,22 +207,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string errorMessage = string.Empty;
             Stopwatch heartbeat = new Stopwatch();
             heartbeat.Restart();
-            
-            if (_enableProgressiveBackoff == null)
-            {
-                try
-                {
-                    var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
-                    _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
-                    Trace.Info($"Progressive backoff feature flag value inside GetNextMessageAsync method: {_enableProgressiveBackoff}");
-                }
-                catch (Exception ex)
-                {   
-                    // Will retry on next loop iteration
-                    Trace.Info($"Unable to fetch progressive backoff feature flag inside GetNextMessageAsync method: {ex.Message}");
-                }
-            }
-            
+
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
+
             while (true)
             {
                 token.ThrowIfCancellationRequested();
@@ -367,21 +344,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int continuousError = 0;
             _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
 
-            if (_enableProgressiveBackoff == null)
-            {
-                try
-                {
-                    var progressiveBackoffFeatureFlag = await _featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
-                    _enableProgressiveBackoff = progressiveBackoffFeatureFlag?.EffectiveState == "On";
-                    Trace.Info($"Progressive backoff feature flag value inside KeepAlive method: {_enableProgressiveBackoff}");
-                }
-                catch (Exception ex)
-                {   
-                    // Will retry on next loop iteration
-                    Trace.Info($"Unable to fetch progressive backoff feature flag inside KeepAlive method: {ex.Message}");
-                }
-            }
-            
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
+
             while (!token.IsCancellationRequested)
             {
                 try
