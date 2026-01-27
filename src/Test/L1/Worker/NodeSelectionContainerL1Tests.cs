@@ -25,48 +25,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         
         // Log patterns for container node selection
         private const string CONTAINER_NODE_SELECTION_LOG_PATTERN = "[ContainerSetup] Legacy agent node:";
-        private const string CONTAINER_NODE_PATH_LOG_PATTERN = "[Container] Node path:";
         private const string CROSS_PLATFORM_LOG_PATTERN = "Cross-platform scenario";
         private const string NODE_SELECTION_LOG_PATTERN = "Using node path:";
         private const string CONTAINER_SELECTION_OUTPUT_PATTERN = "Container node selection:";
         private const string ORCHESTRATOR_SELECTED_PATTERN = "Using Node";
-        private const string CONTAINER_STARTUP_LOG_PATTERN = "Using Node .* for container startup";
         
-        // Linux container-specific patterns (uses container node instead of host node)
+        // Patterns from NodeVersionOrchestrator.cs
+        private const string ORCHESTRATOR_DEBUG_PATTERN = "DEBUG: Container node selection started";
+        private const string ORCHESTRATOR_SELECTION_PATTERN = "Selected Node version:";
+        private const string ORCHESTRATOR_CROSSPLATFORM_DETECTED_PATTERN = "Cross-platform scenario detected";
+        private const string ORCHESTRATOR_CONTAINER_DEFAULT_PATTERN = "Selected Node version: ContainerDefaultNode";
+        
+        // Linux container-specific patterns
         private const string LINUX_CONTAINER_SETUP_PATTERN = "Platform requirement - using container node";
-        private const string CONTAINER_SETUP_COMPLETE_PATTERN = "Container setup complete:";
         
         private void AssertContainerNodeSelectionAttempted(IEnumerable<string> log, TaskResult result, bool useStrategy, string context = "")
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
             
-            bool hasNodeSelection;
-            if (useStrategy)
-            {
-                hasNodeSelection = log.Any(x => x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_NODE_PATH_LOG_PATTERN)) ||
-                                   log.Any(x => x.Contains(CROSS_PLATFORM_LOG_PATTERN)) ||
-                                   log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN)) ||
-                                   log.Any(x => x.Contains(ORCHESTRATOR_SELECTED_PATTERN)) ||
-                                   log.Any(x => System.Text.RegularExpressions.Regex.IsMatch(x, CONTAINER_STARTUP_LOG_PATTERN)) ||
-                                   // Linux container patterns
-                                   log.Any(x => x.Contains(LINUX_CONTAINER_SETUP_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_SETUP_COMPLETE_PATTERN));
-            }
-            else
-            {
-                hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN)) ||
-                                   log.Any(x => x.Contains(ORCHESTRATOR_SELECTED_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN)) ||
-                                   log.Any(x => System.Text.RegularExpressions.Regex.IsMatch(x, CONTAINER_STARTUP_LOG_PATTERN)) ||
-                                   // Linux container patterns
-                                   log.Any(x => x.Contains(LINUX_CONTAINER_SETUP_PATTERN)) ||
-                                   log.Any(x => x.Contains(CONTAINER_SETUP_COMPLETE_PATTERN));
-            }
+            bool hasNodeSelection = 
+                log.Any(x => x.Contains(CROSS_PLATFORM_LOG_PATTERN)) ||
+                log.Any(x => x.Contains(ORCHESTRATOR_DEBUG_PATTERN)) ||
+                log.Any(x => x.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN)) ||
+                log.Any(x => x.Contains(ORCHESTRATOR_SELECTION_PATTERN)) ||
+                log.Any(x => x.Contains(LINUX_CONTAINER_SETUP_PATTERN)) ||
+                log.Any(x => x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN));
             
-
             Assert.True(hasNodeSelection, $"Should have container node selection log: {modeDescription}");
         }
         
@@ -74,47 +58,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
             
-            bool hasExpectedSelection;
-            
             // Check if this is a Linux container scenario (uses container node instead of host node)
             bool isLinuxContainer = log.Any(x => x.Contains(LINUX_CONTAINER_SETUP_PATTERN));
             
+            bool hasExpectedSelection;
             if (isLinuxContainer)
             {
-                // For Linux containers, the environment variables don't control the Node.js version inside the container
-                // Just verify that container setup completed successfully
-                hasExpectedSelection = log.Any(x => x.Contains(CONTAINER_SETUP_COMPLETE_PATTERN));
+                // For Linux containers, environment variables don't control Node.js version inside container
+                hasExpectedSelection = log.Any(x => x.Contains(ORCHESTRATOR_CROSSPLATFORM_DETECTED_PATTERN)) ||
+                                     log.Any(x => x.Contains(ORCHESTRATOR_CONTAINER_DEFAULT_PATTERN));
             }
             else
             {
                 // For Windows containers, check for specific Node version selection
-                if (useStrategy)
-                {
-                    hasExpectedSelection = log.Any(x => 
-                        (x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN) || 
-                         x.Contains(CONTAINER_NODE_PATH_LOG_PATTERN) || 
-                         x.Contains(NODE_SELECTION_LOG_PATTERN) ||
-                         x.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN) ||
-                         x.Contains(ORCHESTRATOR_SELECTED_PATTERN) ||
-                         System.Text.RegularExpressions.Regex.IsMatch(x, CONTAINER_STARTUP_LOG_PATTERN)) && 
-                        (x.Contains(expectedVersion.ToLower()) || 
-                         x.Contains(expectedVersion.Replace("Node", "").ToLower())));
-                }
-                else
-                {
-                    hasExpectedSelection = log.Any(x => 
-                        (x.Contains(NODE_SELECTION_LOG_PATTERN) ||
-                         x.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN) ||
-                         x.Contains(ORCHESTRATOR_SELECTED_PATTERN) ||
-                         x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN) ||
-                         System.Text.RegularExpressions.Regex.IsMatch(x, CONTAINER_STARTUP_LOG_PATTERN)) && 
-                        (x.Contains(expectedVersion.ToLower()) || 
-                         x.Contains(expectedVersion.Replace("Node", "").ToLower())));
-                }
+                hasExpectedSelection = log.Any(x => 
+                    (x.Contains(ORCHESTRATOR_SELECTION_PATTERN) ||
+                     x.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN)) &&
+                    (x.Contains(expectedVersion.ToLower()) || 
+                     x.Contains(expectedVersion.Replace("Node", "").ToLower())));
             }
             
             string expectedMessage = isLinuxContainer ? 
-                "container setup completion" : 
+                "cross-platform container setup" : 
                 $"container node selection '{expectedVersion}'";
                 
             Assert.True(hasExpectedSelection, $"Expected {expectedMessage}: {modeDescription}");
@@ -155,18 +120,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Check if Docker is available and supports the required platform
                 if (isWindows && !await IsWindowsContainerSupportAvailable())
                 {
-                    // Skip test if Windows containers are not available
-
                     return;
                 }
                 
                 if (!isWindows && !await IsLinuxContainerSupportAvailable())
                 {
-                    // Skip test if Linux containers are not available
                     return;
                 }
-                
-                await CreateTestContainerImage(testImageName, expectedNodeVersion, isWindows);
                 
                 SetupL1();
                 ClearNodeEnvironmentVariables();
@@ -203,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 
                 var containerLogs = GetTimelineLogLines(initContainersStep);
                 
-                AssertContainerNodeSelectionAttempted(containerLogs, results.Result, useStrategy, $"testing {knob} on {(isWindows ? "Windows" : "Linux")}");;
+                AssertContainerNodeSelectionAttempted(containerLogs, results.Result, useStrategy, $"testing {knob} on {(isWindows ? "Windows" : "Linux")}");
                 
                 if (results.Result == TaskResult.Succeeded)
                 {
@@ -212,7 +172,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
-                await CleanupTestContainerImage(testImageName);
                 ClearNodeEnvironmentVariables();
                 TearDown();
             }
@@ -241,11 +200,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     return false; // Docker not available
                 }
 
-                // Check if we can actually pull a Windows container image
+                // Check if image exists locally first
+                var imageInspectInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "docker",
+                    Arguments = "image inspect mcr.microsoft.com/windows/servercore:ltsc2025",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var inspectProcess = System.Diagnostics.Process.Start(imageInspectInfo);
+                await inspectProcess.WaitForExitAsync();
+
+                if (inspectProcess.ExitCode == 0)
+                {
+                    return true; // Image exists locally
+                }
+
+                // If image doesn't exist locally, try to pull it
                 var testPullInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    // Arguments = "pull mcr.microsoft.com/windows/nanoserver:ltsc2019",
                     Arguments = "pull mcr.microsoft.com/windows/servercore:ltsc2025",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -269,7 +246,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             try
             {
-                // Test if we can pull a simple Linux image
+                // First check if Docker is available
+                var dockerVersionInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "docker",
+                    Arguments = "version",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var dockerProcess = System.Diagnostics.Process.Start(dockerVersionInfo);
+                await dockerProcess.WaitForExitAsync();
+                
+                if (dockerProcess.ExitCode != 0)
+                {
+                    return false; // Docker not available
+                }
+
+                // Check if alpine image exists locally first
+                var imageInspectInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "docker",
+                    Arguments = "image inspect alpine:latest",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var inspectProcess = System.Diagnostics.Process.Start(imageInspectInfo);
+                await inspectProcess.WaitForExitAsync();
+
+                if (inspectProcess.ExitCode == 0)
+                {
+                    return true; // Image exists locally
+                }
+
+                // Only pull if image doesn't exist locally
                 var processInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
@@ -333,8 +348,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     return;
                 }
                 
-                await CreateTestContainerImage(testImageName, "Node16", isWindows);
-                
                 SetupL1();
                 ClearNodeEnvironmentVariables();
                 Environment.SetEnvironmentVariable(AGENT_USE_NODE_STRATEGY, useStrategy.ToString().ToLower());
@@ -384,7 +397,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
-                await CleanupTestContainerImage(testImageName);
                 ClearNodeEnvironmentVariables();
                 TearDown();
             }
@@ -394,39 +406,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             if (isWindows)
             {
-                // Use publicly available Windows images that actually exist
-                return "mcr.microsoft.com/windows/servercore:ltsc2019";
+                return "mcr.microsoft.com/windows/servercore:ltsc2025";
             }
             else
             {
-                // Use publicly available Node.js images
-                return nodeVersion switch
-                {
-                    "Node24" => "node:18-alpine",
-                    "Node20" => "node:16-alpine", 
-                    "Node16" => "node:14-alpine",
-                    _ => "alpine:latest"
-                };
+                // Use single Alpine image - tests verify agent node selection logic, not container Node versions
+                return "alpine:latest";
             }
         }
         
-        private async Task CreateTestContainerImage(string imageName, string nodeVersion, bool isWindows = false)
-        {
-            // For L1 tests, we use publicly available images rather than building custom ones
-            await Task.CompletedTask;
-        }
 
-        private async Task BuildDockerImage(string imageName, string dockerfileContent, bool isWindows = false)
-        {
-            // For L1 tests, we use publicly available images
-            await Task.CompletedTask;
-        }
-
-        private async Task CleanupTestContainerImage(string imageName)
-        {
-            // No cleanup needed for publicly available images
-            await Task.CompletedTask;
-        }
 
         private void ClearNodeEnvironmentVariables()
         {
