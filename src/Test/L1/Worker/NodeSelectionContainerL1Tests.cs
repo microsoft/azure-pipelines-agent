@@ -118,12 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             try
             {
                 // Check if Docker is available and supports the required platform
-                if (isWindows && !await IsWindowsContainerSupportAvailable())
-                {
-                    return;
-                }
-                
-                if (!isWindows && !await IsLinuxContainerSupportAvailable())
+                if (!await IsContainerSupportAvailable(isWindows))
                 {
                     return;
                 }
@@ -177,7 +172,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
         
-        private async Task<bool> IsWindowsContainerSupportAvailable()
+        private async Task<bool> IsContainerSupportAvailable(bool isWindows)
         {
             try
             {
@@ -200,11 +195,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     return false; // Docker not available
                 }
 
+                // Determine which image to test based on platform
+                string testImage = isWindows ? 
+                    "mcr.microsoft.com/windows/servercore:ltsc2025" : 
+                    "alpine:latest";
+
                 // Check if image exists locally first
                 var imageInspectInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    Arguments = "image inspect mcr.microsoft.com/windows/servercore:ltsc2025",
+                    Arguments = $"image inspect {testImage}",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -223,7 +223,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var testPullInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    Arguments = "pull mcr.microsoft.com/windows/servercore:ltsc2025",
+                    Arguments = $"pull {testImage}",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -237,75 +237,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             catch
             {
-                // If any step fails, Windows containers are not available
+                // If any step fails, container support is not available
                 return false;
             }
         }
-        
-        private async Task<bool> IsLinuxContainerSupportAvailable()
-        {
-            try
-            {
-                // First check if Docker is available
-                var dockerVersionInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "docker",
-                    Arguments = "version",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
 
-                using var dockerProcess = System.Diagnostics.Process.Start(dockerVersionInfo);
-                await dockerProcess.WaitForExitAsync();
-                
-                if (dockerProcess.ExitCode != 0)
-                {
-                    return false; // Docker not available
-                }
-
-                // Check if alpine image exists locally first
-                var imageInspectInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "docker",
-                    Arguments = "image inspect alpine:latest",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using var inspectProcess = System.Diagnostics.Process.Start(imageInspectInfo);
-                await inspectProcess.WaitForExitAsync();
-
-                if (inspectProcess.ExitCode == 0)
-                {
-                    return true; // Image exists locally
-                }
-
-                // Only pull if image doesn't exist locally
-                var processInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "docker",
-                    Arguments = "pull alpine:latest",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using var process = System.Diagnostics.Process.Start(processInfo);
-                await process.WaitForExitAsync();
-
-                return process.ExitCode == 0;
-            }
-            catch
-            {
-                // If we can't pull Linux images, assume Linux containers are not available
-                return false;
-            }
-        }
         
         [Theory]
         [Trait("Level", "L1")]
@@ -329,8 +265,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             await RunContainerDefaultTest(useStrategy, isWindows: true);
         }
         
-
-        
         private async Task RunContainerDefaultTest(bool useStrategy, bool isWindows)
         {
             string testImageName = GetTestImageName("Minimal", isWindows);
@@ -338,12 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             try
             {
                 // Check if Docker is available and supports the required platform
-                if (isWindows && !await IsWindowsContainerSupportAvailable())
-                {
-                    return;
-                }
-                
-                if (!isWindows && !await IsLinuxContainerSupportAvailable())
+                if (!await IsContainerSupportAvailable(isWindows))
                 {
                     return;
                 }
@@ -415,8 +344,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
         }
         
-
-
         private void ClearNodeEnvironmentVariables()
         {
             Environment.SetEnvironmentVariable(AGENT_USE_NODE24_TO_START_CONTAINER, null);
