@@ -66,32 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                                    log.Any(x => x.Contains(CONTAINER_SETUP_COMPLETE_PATTERN));
             }
             
-            if (!hasNodeSelection)
-            {
-                Console.WriteLine($"ASSERTION FAILURE DETAILS:");
-                Console.WriteLine($"  Mode: {modeDescription}");
-                Console.WriteLine($"  Total log lines: {log.Count()}");
-                Console.WriteLine($"  Task Result: {result}");
-                Console.WriteLine($"  Looking for patterns:");
-                Console.WriteLine($"    - '{CONTAINER_NODE_SELECTION_LOG_PATTERN}'");
-                Console.WriteLine($"    - '{CONTAINER_NODE_PATH_LOG_PATTERN}'");
-                Console.WriteLine($"    - '{CROSS_PLATFORM_LOG_PATTERN}'");
-                Console.WriteLine($"    - '{NODE_SELECTION_LOG_PATTERN}'");
-                Console.WriteLine($"    - '{CONTAINER_SELECTION_OUTPUT_PATTERN}'");
-                Console.WriteLine($"    - '{ORCHESTRATOR_SELECTED_PATTERN}'");
-                Console.WriteLine($"    - '{CONTAINER_STARTUP_LOG_PATTERN}'");
-                Console.WriteLine($"    - '{LINUX_CONTAINER_SETUP_PATTERN}'");
-                Console.WriteLine($"    - '{CONTAINER_SETUP_COMPLETE_PATTERN}'");
-                Console.WriteLine($"  Sample log lines (first 10):");
-                foreach (var logLine in log.Take(10))
-                {
-                    Console.WriteLine($"    {logLine}");
-                }
-                if (log.Count() > 10)
-                {
-                    Console.WriteLine($"    ... and {log.Count() - 10} more lines");
-                }
-            }
+
             Assert.True(hasNodeSelection, $"Should have container node selection log: {modeDescription}");
         }
         
@@ -181,14 +156,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 if (isWindows && !await IsWindowsContainerSupportAvailable())
                 {
                     // Skip test if Windows containers are not available
-                    Console.WriteLine($"SKIP: Windows containers not available");
+
                     return;
                 }
                 
                 if (!isWindows && !await IsLinuxContainerSupportAvailable())
                 {
                     // Skip test if Linux containers are not available
-                    Console.WriteLine($"SKIP: Linux containers not available");
                     return;
                 }
                 
@@ -229,17 +203,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 
                 var containerLogs = GetTimelineLogLines(initContainersStep);
                 
-                // Debug: Still dump ALL logs for comprehensive analysis if needed
-                var allSteps = GetSteps();
-                var allLogs = new List<string>();
-                foreach (var step in allSteps)
-                {
-                    var stepLogs = GetTimelineLogLines(step);
-                    allLogs.AddRange(stepLogs.Select(log => $"[{step.Name}] {log}"));
-                }
-                DumpLogsToFile(allLogs, $"testing {knob}", results.Result, useStrategy, isWindows);
-                
-                AssertContainerNodeSelectionAttempted(containerLogs, results.Result, useStrategy, $"testing {knob} on {(isWindows ? "Windows" : "Linux")}");
+                AssertContainerNodeSelectionAttempted(containerLogs, results.Result, useStrategy, $"testing {knob} on {(isWindows ? "Windows" : "Linux")}");;
                 
                 if (results.Result == TaskResult.Succeeded)
                 {
@@ -258,25 +222,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             try
             {
-                var processInfo = new System.Diagnostics.ProcessStartInfo
+                // First check if Docker is available
+                var dockerVersionInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "docker",
-                    Arguments = "version --format \"{{.Server.Os}}\"",
+                    Arguments = "version",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true
                 };
 
-                using var process = System.Diagnostics.Process.Start(processInfo);
-                string output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
+                using var dockerProcess = System.Diagnostics.Process.Start(dockerVersionInfo);
+                await dockerProcess.WaitForExitAsync();
+                
+                if (dockerProcess.ExitCode != 0)
+                {
+                    return false; // Docker not available
+                }
 
-                return process.ExitCode == 0 && output.Trim().Contains("windows", StringComparison.OrdinalIgnoreCase);
+                // Check if we can actually pull a Windows container image
+                var testPullInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "docker",
+                    // Arguments = "pull mcr.microsoft.com/windows/nanoserver:ltsc2019",
+                    Arguments = "pull mcr.microsoft.com/windows/servercore:ltsc2025",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var pullProcess = System.Diagnostics.Process.Start(testPullInfo);
+                await pullProcess.WaitForExitAsync();
+
+                return pullProcess.ExitCode == 0;
             }
             catch
             {
-                // If we can't detect Docker or it fails, assume Windows containers are not available
+                // If any step fails, Windows containers are not available
                 return false;
             }
         }
@@ -330,65 +314,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             await RunContainerDefaultTest(useStrategy, isWindows: true);
         }
         
-        [Fact]
-        [Trait("Level", "L1")]
-        [Trait("Category", "Worker")]
-        public async Task DEBUG_ContainerNodeSelection_LogDumping_Windows()
-        {
-            // Simple test that just runs a container and dumps all logs - no assertions
-            string testImageName = GetTestImageName("Minimal", true);
-            
-            try
-            {
-                if (!await IsWindowsContainerSupportAvailable())
-                {
-                    Console.WriteLine("SKIP: Windows containers not available");
-                    return;
-                }
-                
-                await CreateTestContainerImage(testImageName, "Node16", true);
-                
-                SetupL1();
-                ClearNodeEnvironmentVariables();
-                Environment.SetEnvironmentVariable(AGENT_USE_NODE20_TO_START_CONTAINER, "true");
-                Environment.SetEnvironmentVariable(AGENT_USE_NODE_STRATEGY, "true");
-                
-                var message = LoadTemplateMessage();
-                var containerResource = new ContainerResource()
-                {
-                    Alias = "debug_container"
-                };
-                containerResource.Properties.Set("image", testImageName);
-                message.Resources.Containers.Add(containerResource);
-                
-                var containerMessage = new Microsoft.TeamFoundation.DistributedTask.Pipelines.AgentJobRequestMessage(
-                    message.Plan, message.Timeline, message.JobId, message.JobName, message.JobDisplayName,
-                    "debug_container", message.JobSidecarContainers, message.Variables, message.MaskHints,
-                    message.Resources, message.Workspace, message.Steps);
-                
-                containerMessage.Steps.Clear();
-                containerMessage.Steps.Add(CreateScriptTask("echo DEBUG: Testing container node selection && echo Done"));
 
-                var results = await RunWorker(containerMessage);
-                
-                var steps = GetSteps();
-                foreach (var step in steps)
-                {
-                    Console.WriteLine($"STEP: {step.Name} - {step.Result}");
-                    var stepLogs = GetTimelineLogLines(step);
-                    DumpLogsToFile(stepLogs, $"DEBUG_STEP_{step.Name}", step.Result ?? TaskResult.Succeeded, true, true);
-                }
-                
-                // Always pass this test - it's just for log dumping
-                Assert.True(true, "Debug test completed");
-            }
-            finally
-            {
-                await CleanupTestContainerImage(testImageName);
-                ClearNodeEnvironmentVariables();
-                TearDown();
-            }
-        }
         
         private async Task RunContainerDefaultTest(bool useStrategy, bool isWindows)
         {
@@ -399,13 +325,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // Check if Docker is available and supports the required platform
                 if (isWindows && !await IsWindowsContainerSupportAvailable())
                 {
-                    Console.WriteLine($"SKIP: Windows containers not available");
                     return;
                 }
                 
                 if (!isWindows && !await IsLinuxContainerSupportAvailable())
                 {
-                    Console.WriteLine($"SKIP: Linux containers not available");
                     return;
                 }
                 
@@ -444,16 +368,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 Assert.NotNull(initContainersStep);
                 
                 var containerLogs = GetTimelineLogLines(initContainersStep);
-                
-                // Debug: Still dump ALL logs for comprehensive analysis if needed
-                var allSteps = GetSteps();
-                var allLogs = new List<string>();
-                foreach (var step in allSteps)
-                {
-                    var stepLogs = GetTimelineLogLines(step);
-                    allLogs.AddRange(stepLogs.Select(log => $"[{step.Name}] {log}"));
-                }
-                DumpLogsToFile(allLogs, "default behavior", results.Result, useStrategy, isWindows);
                 
                 AssertContainerNodeSelectionAttempted(containerLogs, results.Result, useStrategy, $"default behavior on {(isWindows ? "Windows" : "Linux")}");
                 
@@ -498,27 +412,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         
         private async Task CreateTestContainerImage(string imageName, string nodeVersion, bool isWindows = false)
         {
-            // For testing purposes, we don't actually need to build custom images
-            // The test is about node selection logic, not about specific Node versions in containers
-            // Just skip the image creation and let the test use whatever image name we provide
-            
-            // In a real scenario, these images would be pre-built or pulled from a registry
-            // For our L1 tests, we're testing the agent's node selection logic, not Docker image management
+            // For L1 tests, we use publicly available images rather than building custom ones
             await Task.CompletedTask;
         }
 
         private async Task BuildDockerImage(string imageName, string dockerfileContent, bool isWindows = false)
         {
-            // For L1 tests, we don't need to actually build Docker images
-            // We're testing the agent's node selection logic, not Docker image management
-            // The agent will pull the images we specify in GetTestImageName()
+            // For L1 tests, we use publicly available images
             await Task.CompletedTask;
         }
 
         private async Task CleanupTestContainerImage(string imageName)
         {
-            // For publicly available images, we don't need to remove them
-            // They weren't custom built by our tests
+            // No cleanup needed for publicly available images
             await Task.CompletedTask;
         }
 
@@ -530,85 +436,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             Environment.SetEnvironmentVariable(AGENT_USE_NODE_STRATEGY, null);
         }
         
-        private void DumpLogsToFile(IEnumerable<string> logs, string testContext, TaskResult result, bool useStrategy, bool isWindows)
-        {
-            try
-            {
-                string logFileName = $"NodeSelectionContainer_Debug_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{testContext.Replace(" ", "_").Replace(":", "_")}_{(isWindows ? "Windows" : "Linux")}_{(useStrategy ? "Strategy" : "Legacy")}.txt";
-                string logFilePath = Path.Combine("C:\\RISHABH\\azure-pipelines-agent\\logs\\", logFileName);
-                
-                var logContent = new List<string>
-                {
-                    $"=== NODE SELECTION CONTAINER L1 TEST DEBUG LOG ===",
-                    $"Test Context: {testContext}",
-                    $"Platform: {(isWindows ? "Windows" : "Linux")}",
-                    $"Strategy Mode: {(useStrategy ? "Enabled" : "Disabled")}",
-                    $"Task Result: {result}",
-                    $"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                    $"Log File: {logFilePath}",
-                    $"Environment Variables:",
-                    $"  AZP_AGENT_USE_NODE24_TO_START_CONTAINER: {Environment.GetEnvironmentVariable(AGENT_USE_NODE24_TO_START_CONTAINER)}",
-                    $"  AZP_AGENT_USE_NODE20_TO_START_CONTAINER: {Environment.GetEnvironmentVariable(AGENT_USE_NODE20_TO_START_CONTAINER)}",
-                    $"  AZP_AGENT_USE_NODE_STRATEGY: {Environment.GetEnvironmentVariable(AGENT_USE_NODE_STRATEGY)}",
-                    $"  AZP_AGENT_RESTRICT_EOL_NODE_VERSIONS: {Environment.GetEnvironmentVariable(AGENT_RESTRICT_EOL_NODE_VERSIONS)}",
-                    $"\n=== SEARCH PATTERNS ===",
-                    $"Looking for these patterns:",
-                    $"  CONTAINER_NODE_SELECTION_LOG_PATTERN: '{CONTAINER_NODE_SELECTION_LOG_PATTERN}'",
-                    $"  CONTAINER_NODE_PATH_LOG_PATTERN: '{CONTAINER_NODE_PATH_LOG_PATTERN}'",
-                    $"  CROSS_PLATFORM_LOG_PATTERN: '{CROSS_PLATFORM_LOG_PATTERN}'",
-                    $"  NODE_SELECTION_LOG_PATTERN: '{NODE_SELECTION_LOG_PATTERN}'",
-                    $"  CONTAINER_SELECTION_OUTPUT_PATTERN: '{CONTAINER_SELECTION_OUTPUT_PATTERN}'",
-                    $"  ORCHESTRATOR_SELECTED_PATTERN: '{ORCHESTRATOR_SELECTED_PATTERN}'",
-                    $"  CONTAINER_STARTUP_LOG_PATTERN: '{CONTAINER_STARTUP_LOG_PATTERN}'",
-                    $"\n=== ALL CAPTURED LOGS ({logs.Count()} lines) ==="
-                };
-                
-                int lineNumber = 1;
-                foreach (var logLine in logs)
-                {
-                    logContent.Add($"[{lineNumber:D4}] {logLine}");
-                    lineNumber++;
-                }
-                
-                logContent.Add($"\n=== PATTERN MATCH ANALYSIS ===");
-                foreach (var logLine in logs)
-                {
-                    bool hasContainer = logLine.Contains(CONTAINER_NODE_SELECTION_LOG_PATTERN);
-                    bool hasPath = logLine.Contains(CONTAINER_NODE_PATH_LOG_PATTERN);
-                    bool hasCross = logLine.Contains(CROSS_PLATFORM_LOG_PATTERN);
-                    bool hasNode = logLine.Contains(NODE_SELECTION_LOG_PATTERN);
-                    bool hasContainerOutput = logLine.Contains(CONTAINER_SELECTION_OUTPUT_PATTERN);
-                    bool hasOrchestratorSelected = logLine.Contains(ORCHESTRATOR_SELECTED_PATTERN);
-                    bool hasLinuxSetup = logLine.Contains(LINUX_CONTAINER_SETUP_PATTERN);
-                    bool hasContainerComplete = logLine.Contains(CONTAINER_SETUP_COMPLETE_PATTERN);
-                    
-                    if (hasContainer || hasPath || hasCross || hasNode || hasContainerOutput || hasOrchestratorSelected || hasLinuxSetup || hasContainerComplete)
-                    {
-                        logContent.Add($"MATCH FOUND: {logLine}");
-                        if (hasContainer) logContent.Add($"  -> Matches CONTAINER_NODE_SELECTION_LOG_PATTERN");
-                        if (hasPath) logContent.Add($"  -> Matches CONTAINER_NODE_PATH_LOG_PATTERN");
-                        if (hasCross) logContent.Add($"  -> Matches CROSS_PLATFORM_LOG_PATTERN");
-                        if (hasNode) logContent.Add($"  -> Matches NODE_SELECTION_LOG_PATTERN");
-                        if (hasContainerOutput) logContent.Add($"  -> Matches CONTAINER_SELECTION_OUTPUT_PATTERN");
-                        if (hasOrchestratorSelected) logContent.Add($"  -> Matches ORCHESTRATOR_SELECTED_PATTERN");
-                        if (hasLinuxSetup) logContent.Add($"  -> Matches LINUX_CONTAINER_SETUP_PATTERN");
-                        if (hasContainerComplete) logContent.Add($"  -> Matches CONTAINER_SETUP_COMPLETE_PATTERN");
-                    }
-                    else if (logLine.ToLower().Contains("node") || logLine.ToLower().Contains("container") || logLine.ToLower().Contains("select"))
-                    {
-                        logContent.Add($"POTENTIAL: {logLine}");
-                    }
-                }
-                
-                logContent.Add($"\n=== END OF DEBUG LOG ===");
-                
-                File.WriteAllLines(logFilePath, logContent);
-                Console.WriteLine($"Debug log written to: {logFilePath}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to write debug log: {ex.Message}");
-            }
-        }
+
     }
 }
