@@ -472,7 +472,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 string[] filteredPossibleNodeFolders = nodeHandlerHelper.GetFilteredPossibleNodeFolders(nodeFolder, possibleNodeFolders);
 
-                if (!String.IsNullOrWhiteSpace(useNodeKnob) && filteredPossibleNodeFolders.Length > 0)
+                if (!String.IsNullOrWhiteSpace(useNodeKnob))
                 {
                     Trace.Info($"Found UseNode knob with value \"{useNodeKnob}\", will try to find appropriate Node Runner");
 
