@@ -6,8 +6,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -39,15 +41,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             _strategies.Add(new Node6Strategy());
         }
 
-        public async Task<NodeRunnerInfo>  SelectNodeVersionAsync(TaskContext context)
+        /// <summary>
+        /// Host-specific node version selection using CanHandle methods.
+        /// Follows the standard strategy precedence: Custom Node → Node24 → Node20 → Node16 → Node10 → Node6.
+        /// </summary>
+        public async Task<NodeRunnerInfo> SelectNodeVersionForHostAsync(TaskContext context)
         {
-            ArgUtil.NotNull(context, nameof(context));
-
-            string environmentType = context.Container != null ? "Container" : "Host";
+            string environmentType = "Host";
             ExecutionContext.Debug($"[{environmentType}] Starting node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context);
+            var glibcInfo = await GlibcChecker.GetGlibcCompatibilityAsync(context, ExecutionContext);
 
             foreach (var strategy in _strategies)
             {
@@ -96,26 +100,128 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
         }
 
+        /// <summary>
+        /// Gets strategies that support container execution (Custom node, Node24, Node20, Node16).
+        /// Only these strategies have CanHandleInContainer implementations.
+        /// </summary>
+        private IEnumerable<INodeVersionStrategy> GetContainerCapableStrategies()
+        {
+            return _strategies.Take(4);
+        }
+
+        /// <summary>
+        /// Container-specific node version selection using CanHandleInContainer methods.
+        /// Follows the container knob precedence: Custom Node → Node24 → Node20 → Node16.
+        /// </summary>
+        public NodeRunnerInfo SelectNodeVersionForContainer(TaskContext context, IDockerCommandManager dockerManager)
+        {
+            string environmentType = "Container";
+            ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
+            ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
+
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
+                ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
+                
+                var crossPlatformResult = new NodeRunnerInfo
+                {
+                    NodePath = "node",
+                    NodeVersion = NodeVersion.ContainerDefaultNode,
+                    Reason = "Cross-platform scenario requires container's built-in Node.js"
+                };
+                
+                ExecutionContext.Output($"[{environmentType}] Selected Node version: {crossPlatformResult.NodeVersion} (Cross-platform fallback)");
+                ExecutionContext.Debug($"[{environmentType}] Node path: {crossPlatformResult.NodePath}");
+                ExecutionContext.Debug($"[{environmentType}] Reason: {crossPlatformResult.Reason}");
+                
+                return crossPlatformResult;
+            }
+
+            foreach (var strategy in GetContainerCapableStrategies())
+            {
+                ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
+
+                try
+                {
+                    var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager);
+                    if (selectionResult != null)
+                    {
+                        var result = CreateNodeRunnerInfoWithPath(context, selectionResult);
+                        
+                        PublishNodeVersionSelectionTelemetry(result, strategy, environmentType, context);
+                        
+                        ExecutionContext.Output(
+                            $"[{environmentType}] Selected Node version: {result.NodeVersion} (Strategy: {strategy.GetType().Name})");
+                        ExecutionContext.Debug($"[{environmentType}] Node path: {result.NodePath}");
+                        ExecutionContext.Debug($"[{environmentType}] Reason: {result.Reason}");
+
+                        if (!string.IsNullOrEmpty(result.Warning))
+                        {
+                            ExecutionContext.Warning(result.Warning);
+                        }
+
+                        return result;
+                    }
+                    else
+                    {
+                        ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' cannot handle this container context");
+                    }
+                }
+                catch (NotSupportedException ex)
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
+                    ExecutionContext.Error($"Container node version selection failed: {ex.Message}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    ExecutionContext.Warning($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw unexpected exception: {ex.Message} - trying next strategy");
+                }
+            }
+
+            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+        }
+
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
-            if (!string.IsNullOrEmpty(selection.NodePath))
+            if (selection.NodeVersion == NodeVersion.Custom)
             {
                 return selection;
             }
-            
             string externalsPath = HostContext.GetDirectory(WellKnownDirectory.Externals);
             string nodeFolder = NodeVersionHelper.GetFolderName(selection.NodeVersion);
-            string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            string finalPath = context.Container != null ? 
-                            context.Container.TranslateToContainerPath(hostPath) : hostPath;
-
-            return new NodeRunnerInfo
+            
+            if (context.Container != null)
             {
-                NodePath = finalPath,
-                NodeVersion = selection.NodeVersion,
-                Reason = selection.Reason,
-                Warning = selection.Warning
-            };
+                // Container execution: use agent binaries (cross-platform scenarios are handled earlier in SelectNodeVersionForContainer)
+                string containerExeExtension = context.Container.ImageOS == PlatformUtil.OS.Windows ? ".exe" : "";
+                string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                string containerNodePath = context.Container.TranslateToContainerPath(hostPath);
+                // Fix the executable extension for the container OS
+                string finalPath = containerNodePath.Replace($"node{IOUtil.ExeExtension}", $"node{containerExeExtension}");
+                
+                return new NodeRunnerInfo
+                {
+                    NodePath = finalPath,
+                    NodeVersion = selection.NodeVersion,
+                    Reason = selection.Reason,
+                    Warning = selection.Warning
+                };
+            }
+            else
+            {
+                // Host execution: use host OS executable extension
+                string hostPath = Path.Combine(externalsPath, nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+                
+                return new NodeRunnerInfo
+                {
+                    NodePath = hostPath,
+                    NodeVersion = selection.NodeVersion,
+                    Reason = selection.Reason,
+                    Warning = selection.Warning
+                };
+            }
         }
 
         private void PublishNodeVersionSelectionTelemetry(NodeRunnerInfo result, INodeVersionStrategy strategy, string environmentType, TaskContext context)
@@ -136,7 +242,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     { "IsContainer", (context.Container != null).ToString() }
                 };
                 
-            ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
             }
             catch (Exception ex)
             {

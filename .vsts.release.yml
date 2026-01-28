@@ -214,7 +214,9 @@ extends:
         ################################################################################
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
-            name: 1ES-Shared-Hosted-Pool_Windows-Server-2022
+            name: 1ES-ABTT-Shared-Pool
+            image: abtt-windows-2025
+            os: windows
             demands: AzurePS
           variables:
             IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
