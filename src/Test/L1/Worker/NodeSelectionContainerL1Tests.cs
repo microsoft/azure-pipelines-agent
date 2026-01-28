@@ -142,9 +142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     message.Resources, message.Workspace, message.Steps);
                 
                 containerMessage.Steps.Clear();
-                string testCommand = isWindows ? 
-                    $"echo Testing container node selection - {(useStrategy ? "strategy" : "legacy")} mode & node --version" :
-                    $"echo Testing container node selection - {(useStrategy ? "strategy" : "legacy")} mode && node --version";
+                string testCommand = $"echo Testing container node selection - {(useStrategy ? "strategy" : "legacy")} mode && node --version";
                 containerMessage.Steps.Add(CreateScriptTask(testCommand));
 
                 var results = await RunWorker(containerMessage);
@@ -295,9 +293,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     message.Resources, message.Workspace, message.Steps);
                 
                 containerMessage.Steps.Clear();
-                string testCommand = isWindows ?
-                    $"echo Testing container default node selection - {(useStrategy ? "strategy" : "legacy")} mode & node --version" :
-                    $"echo Testing container default node selection - {(useStrategy ? "strategy" : "legacy")} mode && node --version";
+                string testCommand = $"echo Testing container default node selection - {(useStrategy ? "strategy" : "legacy")} mode && node --version";
                 containerMessage.Steps.Add(CreateScriptTask(testCommand));
 
                 var results = await RunWorker(containerMessage);
