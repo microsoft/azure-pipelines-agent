@@ -217,6 +217,7 @@ extends:
             name: 1ES-ABTT-Shared-Pool
             image: abtt-windows-2025
             os: windows
+            demands: AzurePS
           variables:
             IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
             IsRelease: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isRelease'] ]
