@@ -113,6 +113,13 @@ jobs:
     CheckoutBranch: ${{ parameters.branch }}
     ${{ if ne(parameters.targetFramework, 'all') }}:
       targetFramework: ${{ parameters.targetFramework }}
+    # Map target framework to dotnet versions
+    ${{ if eq(variables['targetFramework'], 'net8.0') }}:
+      dotnetRuntimeVersionRange: '8.0.x'
+      dotnetSdkVersion: '8.0.416'
+    ${{ if eq(variables['targetFramework'], 'net10.0') }}:
+      dotnetRuntimeVersionRange: '10.0.x'
+      dotnetSdkVersion: '10.0.101'
   templateContext:
     outputs:
     - ${{ if or(parameters.unitTests, parameters.functionalTests) }}:
@@ -181,9 +188,9 @@ jobs:
   - ${{ if parameters.unitTests }}:
     - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
       - task: UseDotNet@2
-        displayName: Install .NET Core 6 Runtime
+        displayName: 'Install .NET Runtime - $(targetFramework)'
         inputs:
-          version: '6.0.x'
+          version: $(dotnetRuntimeVersionRange)
           packageType: 'runtime'
           installationPath: 'C:\Program Files (x86)\dotnet'
         env:
@@ -197,9 +204,9 @@ jobs:
   - ${{ if parameters.functionalTests }}:
     - ${{ if and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86')) }}:
       - task: UseDotNet@2
-        displayName: Install .NET Core 6 SDK
+        displayName: 'Install .NET SDK - $(targetFramework)'
         inputs:
-          version: '6.0.424'
+          version: $(dotnetSdkVersion)
           packageType: sdk
           performMultiLevelLookup: true
     - script: ${{ variables.devCommand }} testl1 $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}
@@ -233,9 +240,10 @@ jobs:
 
   - ${{ if eq(parameters.os, 'osx') }}:
     - task: UseDotNet@2
+      displayName: 'Install .NET SDK - $(targetFramework)'
       inputs:
         packageType: 'sdk'
-        version: '6.0.x'
+        version: $(dotnetSdkVersion)
 
   - ${{ if parameters.sign }}:
     # Signing steps
