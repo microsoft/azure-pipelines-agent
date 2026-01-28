@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
+using System.Runtime.InteropServices;
 using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
@@ -332,26 +333,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             switch (preferredNodeFolder)
             {
                 case var folder when folder == NodeHandler.Node24Folder:
-                    if (node24ResultsInGlibCError)
+                    // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86)
+                    bool node24NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node24Folder, HostContext);
+                    if (node24ResultsInGlibCError || node24NotAvailable)
                     {
-                        // Fallback to Node20, then Node16 if Node20 also fails
-                        if (node20ResultsInGlibCError)
+                        // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist
+                        bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
+                        if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
-                            NodeFallbackWarning("20", "16", inContainer);
+                            string fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            PublishNodeFallbackTelemetry("Node24", "Node16", fallbackReason, inContainer);
+                            NodeFallbackWarning("24", "16", inContainer, node24NotAvailable);
                             return NodeHandler.Node16Folder;
                         }
                         else
                         {
-                            NodeFallbackWarning("24", "20", inContainer);
+                            string fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            PublishNodeFallbackTelemetry("Node24", "Node20", fallbackReason, inContainer);
+                            NodeFallbackWarning("24", "20", inContainer, node24NotAvailable);
                             return NodeHandler.Node20_1Folder;
                         }
                     }
                     return NodeHandler.Node24Folder;
 
                 case var folder when folder == NodeHandler.Node20_1Folder:
-                    if (node20ResultsInGlibCError)
+                    // Fallback if Node20 has glibc error OR doesn't exist
+                    bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
+                    if (node20ResultsInGlibCError || node20NotAvailable)
                     {
-                        NodeFallbackWarning("20", "16", inContainer);
+                        string fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                        PublishNodeFallbackTelemetry("Node20", "Node16", fallbackReason, inContainer);
+                        NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
                         return NodeHandler.Node16Folder;
                     }
                     return NodeHandler.Node20_1Folder;
@@ -472,7 +484,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 string[] filteredPossibleNodeFolders = nodeHandlerHelper.GetFilteredPossibleNodeFolders(nodeFolder, possibleNodeFolders);
 
-                if (!String.IsNullOrWhiteSpace(useNodeKnob))
+                if (!String.IsNullOrWhiteSpace(useNodeKnob) && filteredPossibleNodeFolders.Length > 0)
                 {
                     Trace.Info($"Found UseNode knob with value \"{useNodeKnob}\", will try to find appropriate Node Runner");
 
@@ -520,10 +532,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer)
+        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notAvailable = false)
         {
             string systemType = inContainer ? "container" : "agent";
-            ExecutionContext.Warning($"The {systemType} operating system doesn't support Node{fromVersion}. Using Node{toVersion} instead. " +
+            string reason = notAvailable
+                ? $"Node{fromVersion} is not available on this platform"
+                : $"The {systemType} operating system doesn't support Node{fromVersion}";
+
+            ExecutionContext.Warning($"{reason}. Using Node{toVersion} instead. " +
                             $"Please upgrade the operating system of the {systemType} to remain compatible with future updates of tasks: " +
                             "https://github.com/nodesource/distributions");
         }
@@ -685,6 +701,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)}
             };
             ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+        }
+
+        private void PublishNodeFallbackTelemetry(string requestedNodeVersion, string fallbackNodeVersion, string fallbackReason, bool inContainer)
+        {
+            try
+            {
+                var systemVersion = PlatformUtil.GetSystemVersion();
+                string architecture = RuntimeInformation.ProcessArchitecture.ToString();
+
+                Dictionary<string, string> telemetryData = new Dictionary<string, string>
+                {
+                    { "RequestedNodeVersion", requestedNodeVersion },
+                    { "FallbackNodeVersion", fallbackNodeVersion },
+                    { "FallbackReason", fallbackReason },
+                    { "OS", PlatformUtil.HostOS.ToString() },
+                    { "OSName", systemVersion?.Name?.ToString() ?? "" },
+                    { "OSVersion", systemVersion?.Version?.ToString() ?? "" },
+                    { "Architecture", architecture },
+                    { "IsContainer", inContainer.ToString() },
+                    { "TaskName", Task?.Name ?? "" },
+                    { "TaskId", Task?.Id.ToString() ?? "" },
+                    { "TaskVersion", Task?.Version ?? "" },
+                    { "JobId", ExecutionContext.Variables.System_JobId.ToString() },
+                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId) ?? "" },
+                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name) ?? "" },
+                    { "AgentVersion", ExecutionContext.Variables.Get(Constants.Variables.Agent.Version) ?? "" },
+                    { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted) ?? "" },
+                    { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM) ?? "" },
+                    { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer) ?? "" }
+                };
+
+                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
+                Trace.Info($"Published node fallback telemetry: {requestedNodeVersion} -> {fallbackNodeVersion}, Reason: {fallbackReason}, Architecture: {architecture}");
+            }
+            catch (Exception ex)
+            {
+                Trace.Warning($"Failed to publish node fallback telemetry: {ex.Message}");
+                ExecutionContext.Debug($"Node fallback telemetry error: {ex}");
+            }
         }
     }
 }
