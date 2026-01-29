@@ -28,14 +28,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
     }
 
     [ServiceLocator(Default = typeof(NodeHandlerHelper))]
-    public interface INodeHandlerHelper
+    public interface INodeHandlerHelper : IAgentService
     {
         string[] GetFilteredPossibleNodeFolders(string nodeFolderName, string[] possibleNodeFolders);
         string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext);
         bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext);
     }
 
-    public class NodeHandlerHelper : INodeHandlerHelper
+    public class NodeHandlerHelper : AgentService, INodeHandlerHelper
     {
         public bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => File.Exists(GetNodeFolderPath(nodeFolderName, hostContext));
 

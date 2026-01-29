@@ -24,7 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             var hostContext = executionContext.GetHostContext();
-            var nodeHandlerHelper = new NodeHandlerHelper();
+            var nodeHandlerHelper = hostContext.GetService<INodeHandlerHelper>();
 
             // Check if Node24 binary exists on this platform (e.g., not available on win-x86)
             if (!nodeHandlerHelper.IsNodeFolderExist(Node24Folder, hostContext))
@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     : $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue";
                 
                 string warning = skipNode24Check
-                    ? null
+                    ? $"Node24 is not available on this {systemType} platform, using Node20 instead. Please ensure your tasks are compatible with Node20."
                     : StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20");
 
                 return new NodeRunnerInfo

@@ -72,6 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     var dockerManagerMock = SetupMockedDockerCommandManager(scenario);
                     thc.SetSingleton<IDockerCommandManager>(dockerManagerMock.Object);
 
+                    thc.SetSingleton<INodeHandlerHelper>(NodeHandlerHelper.Object);
+
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
                     try{
                         string actualLocation;
