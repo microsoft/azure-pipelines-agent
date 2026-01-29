@@ -15,6 +15,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
     public sealed class Node24Strategy : INodeVersionStrategy
     {
         private const string Node24Folder = "node24";
+        private readonly INodeExistenceChecker _nodeExistenceChecker;
+
+        /// <summary>
+        /// Default constructor used in production.
+        /// Creates a real NodeExistenceChecker that calls File.Exists().
+        /// </summary>
+        public Node24Strategy() : this(new NodeExistenceChecker())
+        {
+        }
+
+        /// <summary>
+        /// Constructor for testing.
+        /// Allows injecting a mock INodeExistenceChecker.
+        /// </summary>
+        public Node24Strategy(INodeExistenceChecker nodeExistenceChecker)
+        {
+            _nodeExistenceChecker = nodeExistenceChecker ?? throw new ArgumentNullException(nameof(nodeExistenceChecker));
+        }
 
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
@@ -24,10 +42,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             var hostContext = executionContext.GetHostContext();
-            var nodeHandlerHelper = hostContext.GetService<INodeHandlerHelper>();
 
             // Check if Node24 binary exists on this platform (e.g., not available on win-x86)
-            if (!nodeHandlerHelper.IsNodeFolderExist(Node24Folder, hostContext))
+            if (!_nodeExistenceChecker.DoesNodeFolderExist(Node24Folder, hostContext))
             {
                 executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, checking fallback options");
                 return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Node24 not available on this platform", executionContext, glibcInfo, skipNode24Check: true);
