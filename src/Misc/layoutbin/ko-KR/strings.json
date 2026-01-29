@@ -382,6 +382,7 @@
   "InvalidEndpointField": "잘못된 엔드포인트 필드입니다. 유효한 값은 url, dataParameter 및 authParameter입니다.",
   "InvalidEndpointId": "잘못된 엔드포인트 ID입니다.",
   "InvalidEndpointUrl": "잘못된 엔드포인트 URL입니다.",
+  "ServiceConnectionNotDeclared": "ID가 '{0}'인 서비스 연결이 파이프라인 작업에 선언되지 않았으므로 task.setendpoint 명령에서 참조할 수 없습니다.",
   "InvalidFileFormat": "잘못된 파일 형식입니다.",
   "InvalidGroupName": "잘못된 그룹 이름 - {0}",
   "InvalidMember": "구성원의 계정 유형이 잘못되어 새 구성원을 로컬 그룹에 추가할 수 없습니다. 도메인 컨트롤러에서 구성하는 경우 기본 제공 컴퓨터 계정을 로컬 그룹에 추가할 수 없습니다. 대신 도메인 사용자 계정을 사용해야 합니다.",

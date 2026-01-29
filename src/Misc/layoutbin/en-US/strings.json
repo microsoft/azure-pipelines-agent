@@ -613,6 +613,7 @@
   "ServerUrl": "server URL",
   "ServiceAlreadyExists": "The service already exists: {0}, it will be replaced",
   "ServiceConfigured": "Service {0} successfully configured",
+  "ServiceConnectionNotDeclared": "Service connection with id '{0}' is not declared in the pipeline job and therefore can't be referenced in task.setendpoint commands.",
   "ServiceDelayedStartOptionSet": "Service {0} successfully set to delayed auto start",
   "ServiceInstalled": "Service {0} successfully installed",
   "ServiceLockErrorRetry": "Service DB lock failed with code {0}. Retrying after {1} seconds...",

@@ -382,6 +382,7 @@
   "InvalidEndpointField": "Campo dell'endpoint non valido. I valori validi sono url, dataParameter e authParameter",
   "InvalidEndpointId": "ID endpoint non valido.",
   "InvalidEndpointUrl": "URL dell'endpoint non valido.",
+  "ServiceConnectionNotDeclared": "La connessione del servizio con ID '{0}' non è dichiarata nel processo della pipeline e pertanto non può essere referenziata nei comandi task.setendpoint.",
   "InvalidFileFormat": "Il formato di file non è valido.",
   "InvalidGroupName": "Nome gruppo non valido - {0}",
   "InvalidMember": "Non è stato possibile aggiungere un nuovo membro a un gruppo locale perché il tipo di account del membro è errato. Se si esegue la configurazione in un controller di dominio, non è possibile aggiungere account computer predefiniti ai gruppi locali. È invece necessario usare un account utente di dominio",

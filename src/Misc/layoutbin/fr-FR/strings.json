@@ -382,6 +382,7 @@
   "InvalidEndpointField": "Champ de point de terminaison non valide. Les valeurs valides sont url, dataParameter et authParameter",
   "InvalidEndpointId": "ID de point de terminaison non valide.",
   "InvalidEndpointUrl": "URL de point de terminaison non valide.",
+  "ServiceConnectionNotDeclared": "La connexion de service avec l'ID '{0}' n'est pas déclarée dans le travail de pipeline et ne peut donc pas être référencée dans les commandes task.setendpoint.",
   "InvalidFileFormat": "Format de fichier non valide.",
   "InvalidGroupName": "Nom de groupe non valide : {0}",
   "InvalidMember": "Un nouveau membre n’a pas pu être ajouté à un groupe local, car le membre a un type de compte incorrect. Si vous configurez un contrôleur de domaine, les comptes d’ordinateur intégrés ne peuvent pas être ajoutés aux groupes locaux. Vous devez utiliser un compte d’utilisateur de domaine à la place",
