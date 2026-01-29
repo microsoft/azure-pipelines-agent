@@ -161,9 +161,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "url");
                 // Use a valid GUID that is not in the Endpoints list (SetupMocks only adds Guid.Empty)
-                cmd.Properties.Add("id", "12345678-1234-1234-1234-123456789012");
+                var testEndpointId = "12345678-1234-1234-1234-123456789012";
+                cmd.Properties.Add("id", testEndpointId);
 
-                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                var exception = Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+                Assert.Contains(testEndpointId, exception.Message);
             }
         }
 
