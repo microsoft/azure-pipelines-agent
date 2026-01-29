@@ -28,12 +28,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 string architecture = RuntimeInformation.ProcessArchitecture.ToString();
                 bool inContainer = context.Container != null;
 
+                // Get task information from execution context variables
+                string taskDisplayName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "";
+                string taskInstanceName = executionContext.Variables.Get("system.taskInstanceName") ?? "";
+
                 Dictionary<string, string> telemetryData = new Dictionary<string, string>
                 {
                     { "RequestedNodeVersion", requestedNodeVersion },
                     { "FallbackNodeVersion", fallbackNodeVersion ?? "NextStrategy" },
                     { "FallbackReason", fallbackReason },
                     { "Strategy", strategyName },
+                    { "TaskDisplayName", taskDisplayName },
+                    { "TaskInstanceName", taskInstanceName },
                     { "OS", PlatformUtil.HostOS.ToString() },
                     { "OSName", systemVersion?.Name?.ToString() ?? "" },
                     { "OSVersion", systemVersion?.Version?.ToString() ?? "" },

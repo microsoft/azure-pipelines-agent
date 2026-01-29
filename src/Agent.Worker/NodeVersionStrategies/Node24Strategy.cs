@@ -29,16 +29,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // Check if Node24 binary exists on this platform (e.g., not available on win-x86)
             if (!nodeHandlerHelper.IsNodeFolderExist(Node24Folder, hostContext))
             {
-                executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, returning null for fallback");
-                NodeFallbackTelemetryHelper.PublishTelemetry(executionContext, "Node24", "NodeNotAvailable", context, "Node24Strategy");
-
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node20,
-                    Reason = "Node24 task detected but node24 folder not found, falling back to Node20",
-                    Warning = null
-                };
+                executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, checking fallback options");
+                return HandleNode24NotAvailableFallback(context, eolPolicyEnabled, glibcInfo, executionContext);
             }
 
             if (useNode24Globally)
@@ -112,6 +104,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodeVersion = NodeVersion.Node16,
                 Reason = $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues",
                 Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
+            };
+        }
+
+        /// <summary>
+        /// Handles fallback when Node24 binary is not available on the platform (e.g., win-x86).
+        /// Checks glibc compatibility and EOL policy to determine the appropriate fallback version.
+        /// </summary>
+        private NodeRunnerInfo HandleNode24NotAvailableFallback(TaskContext context, bool eolPolicyEnabled, GlibcCompatibilityInfo glibcInfo, IExecutionContext executionContext)
+        {
+            string systemType = context.Container != null ? "container" : "agent";
+
+            // Try Node20 first
+            if (!glibcInfo.Node20HasGlibcError)
+            {
+                NodeFallbackTelemetryHelper.PublishTelemetry(executionContext, "Node24", "NodeNotAvailable", context, "Node24Strategy", "Node20");
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Node24 not available on this platform, falling back to Node20",
+                    Warning = null
+                };
+            }
+
+            // Node20 also has glibc error, need to fall back to Node16
+            executionContext.Debug("[Node24Strategy] Node20 also has glibc error, checking EOL policy for Node16 fallback");
+
+            // Check EOL policy before falling back to Node16
+            if (eolPolicyEnabled)
+            {
+                executionContext.Debug("[Node24Strategy] EOL policy is enabled, cannot fall back to Node16");
+                string handlerType = context.HandlerData != null ? context.HandlerData.GetType().Name : "UnknownHandlerData";
+                throw new NotSupportedException($"No compatible Node.js version available. Node24 is not available on this platform and Node20 has glibc compatibility issues. Node16 fallback is blocked by EOL policy. Handler type: {handlerType}. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+            }
+
+            // EOL policy not enabled, fall back to Node16
+            NodeFallbackTelemetryHelper.PublishTelemetry(executionContext, "Node24", "NodeNotAvailable_Node20GlibcError", context, "Node24Strategy", "Node16");
+            return new NodeRunnerInfo
+            {
+                NodePath = null,
+                NodeVersion = NodeVersion.Node16,
+                Reason = "Node24 not available on this platform and Node20 has glibc error, falling back to Node16",
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
             };
         }
 
