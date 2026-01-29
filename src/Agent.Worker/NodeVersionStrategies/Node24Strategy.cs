@@ -30,20 +30,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             if (!nodeHandlerHelper.IsNodeFolderExist(Node24Folder, hostContext))
             {
                 executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, checking fallback options");
-                return HandleNode24NotAvailableFallback(context, eolPolicyEnabled, glibcInfo, executionContext);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Node24 not available on this platform", executionContext, glibcInfo, skipNode24Check: true);
             }
 
             if (useNode24Globally)
             {
                 executionContext.Debug("[Node24Strategy] AGENT_USE_NODE24=true → Global override");
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE24 override", executionContext, glibcInfo);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE24 override", executionContext, glibcInfo, skipNode24Check: false);
             }
             
             if (hasNode24Handler)
             {
                 if (useNode24WithHandlerData)
                 {
-                    return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node24 task with handler knob enabled", executionContext, glibcInfo);
+                    return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node24 task with handler knob enabled", executionContext, glibcInfo, skipNode24Check: false);
                 }
                 else
                 {
@@ -59,17 +59,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (eolPolicyEnabled)
             {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, skipNode24Check: false);
             }
             
             return null;
         }
 
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        /// <summary>
+        /// Determines the appropriate Node version based on glibc compatibility and EOL policy.
+        /// </summary>
+        /// <param name="skipNode24Check">When true, skips checking Node24 glibc (used when Node24 folder doesn't exist)</param>
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool skipNode24Check)
         {
             string systemType = context.Container != null ? "container" : "agent";
             
-            if (!glibcInfo.Node24HasGlibcError)
+            // Check Node24 availability (skip if Node24 folder doesn't exist)
+            if (!skipNode24Check && !glibcInfo.Node24HasGlibcError)
             {
                 return new NodeRunnerInfo
                 {
@@ -80,73 +85,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
+            // Try Node20
             if (!glibcInfo.Node20HasGlibcError)
             {
+                string fallbackReason = skipNode24Check
+                    ? $"{baseReason}, falling back to Node20"
+                    : $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue";
+                
+                string warning = skipNode24Check
+                    ? null
+                    : StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20");
+
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
-                    Reason = $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue",
-                    Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
-                };
-            }
-
-            if (eolPolicyEnabled)
-            {
-                executionContext.Debug("[Node24Strategy] Would need Node16 but EOL policy being enabled this is not supported");
-                string handlerType = context.HandlerData != null ? context.HandlerData.GetType().Name : "UnknownHandlerData";
-                throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
-            }
-
-            return new NodeRunnerInfo
-            {
-                NodePath = null,
-                NodeVersion = NodeVersion.Node16,
-                Reason = $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
-            };
-        }
-
-        /// <summary>
-        /// Handles fallback when Node24 binary is not available on the platform (e.g., win-x86).
-        /// Checks glibc compatibility and EOL policy to determine the appropriate fallback version.
-        /// </summary>
-        private NodeRunnerInfo HandleNode24NotAvailableFallback(TaskContext context, bool eolPolicyEnabled, GlibcCompatibilityInfo glibcInfo, IExecutionContext executionContext)
-        {
-            string systemType = context.Container != null ? "container" : "agent";
-
-            // Try Node20 first
-            if (!glibcInfo.Node20HasGlibcError)
-            {
-                NodeFallbackTelemetryHelper.PublishTelemetry(executionContext, "Node24", "NodeNotAvailable", context, "Node24Strategy", "Node20");
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node20,
-                    Reason = "Node24 not available on this platform, falling back to Node20",
-                    Warning = null
+                    Reason = fallbackReason,
+                    Warning = warning
                 };
             }
 
             // Node20 also has glibc error, need to fall back to Node16
-            executionContext.Debug("[Node24Strategy] Node20 also has glibc error, checking EOL policy for Node16 fallback");
+            executionContext.Debug("[Node24Strategy] Node20 has glibc error, checking EOL policy for Node16 fallback");
 
-            // Check EOL policy before falling back to Node16
             if (eolPolicyEnabled)
             {
                 executionContext.Debug("[Node24Strategy] EOL policy is enabled, cannot fall back to Node16");
                 string handlerType = context.HandlerData != null ? context.HandlerData.GetType().Name : "UnknownHandlerData";
-                throw new NotSupportedException($"No compatible Node.js version available. Node24 is not available on this platform and Node20 has glibc compatibility issues. Node16 fallback is blocked by EOL policy. Handler type: {handlerType}. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+                
+                string errorMessage = skipNode24Check
+                    ? $"No compatible Node.js version available. Node24 is not available on this platform and Node20 has glibc compatibility issues. Node16 fallback is blocked by EOL policy. Handler type: {handlerType}. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
+                    : $"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false";
+                
+                throw new NotSupportedException(errorMessage);
             }
 
             // EOL policy not enabled, fall back to Node16
-            NodeFallbackTelemetryHelper.PublishTelemetry(executionContext, "Node24", "NodeNotAvailable_Node20GlibcError", context, "Node24Strategy", "Node16");
+            string node16Reason = skipNode24Check
+                ? $"{baseReason}, Node20 has glibc error, falling back to Node16"
+                : $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues";
+            
+            string node16Warning = skipNode24Check
+                ? StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
+                : StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16");
+
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
-                Reason = "Node24 not available on this platform and Node20 has glibc error, falling back to Node16",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
+                Reason = node16Reason,
+                Warning = node16Warning
             };
         }
 
