@@ -608,7 +608,6 @@
   "ServerUrl": "サーバー URL",
   "ServiceAlreadyExists": "サービスは既に存在します: {0}、置き換えられます",
   "ServiceConfigured": "サービス {0} が正常に構成されました",
-  "ServiceConnectionNotDeclared": "ID '{0}' のサービス接続はパイプライン ジョブで宣言されていないため、task.setendpoint コマンドで参照できません。",
   "ServiceDelayedStartOptionSet": "サービス {0} が正常に遅延自動開始に設定されました",
   "ServiceInstalled": "サービス {0} は正しくインストールされました。",
   "ServiceLockErrorRetry": "サービス DB のロックがコード {0} で失敗しました。{1} 秒後に再試行しています...",
