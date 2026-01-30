@@ -14,6 +14,14 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
+  <!-- Copy localization strings to test output directory -->
+  <ItemGroup>
+    <Content Include="..\Misc\layoutbin\**\strings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
