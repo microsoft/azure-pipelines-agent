@@ -382,7 +382,6 @@
   "InvalidEndpointField": "Campo de punto de conexión no válido. Los valores válidos son url, dataParameter y authParameter.",
   "InvalidEndpointId": "Id. de punto de conexión no válido.",
   "InvalidEndpointUrl": "Dirección URL de punto de conexión no válida.",
-  "ServiceConnectionNotDeclared": "La conexión de servicio con el id. '{0}' no está declarada en el trabajo de canalización y, por lo tanto, no se puede hacer referencia a ella en los comandos task.setendpoint.",
   "InvalidFileFormat": "Formato de archivo no válido.",
   "InvalidGroupName": "Nombre de grupo no válido: {0}",
   "InvalidMember": "No se pudo agregar un nuevo miembro a un grupo local porque tiene un tipo de cuenta incorrecto. Si está configurando en un controlador de dominio, las cuentas de máquina integradas no se pueden agregar a grupos locales. En su lugar, debe usar una cuenta de usuario de dominio",

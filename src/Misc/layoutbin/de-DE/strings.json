@@ -382,7 +382,6 @@
   "InvalidEndpointField": "Ungültiges Endpunktfeld. Gültige Werte sind url, dataParameter und authParameter",
   "InvalidEndpointId": "Ungültige Endpunkt-ID.",
   "InvalidEndpointUrl": "Ungültige Endpunkt-Url.",
-  "ServiceConnectionNotDeclared": "Die Dienstverbindung mit der ID '{0}' ist im Pipelineauftrag nicht deklariert und kann daher nicht in task.setendpoint-Befehlen referenziert werden.",
   "InvalidFileFormat": "Ungültiges Dateiformat.",
   "InvalidGroupName": "Ungültiger Gruppenname – {0}",
   "InvalidMember": "Ein neues Mitglied konnte keiner lokalen Gruppe hinzugefügt werden, da das Mitglied den falschen Kontotyp aufweist. Wenn Sie die Konfiguration auf einem Domänencontroller durchführen, können integrierte Computerkonten nicht zu lokalen Gruppen hinzugefügt werden. Sie müssen stattdessen ein Domänenbenutzerkonto verwenden.",

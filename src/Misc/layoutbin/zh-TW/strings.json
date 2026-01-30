@@ -381,7 +381,7 @@
   "InvalidDateFormat": "因為從結果檔案 {0} 取得的日期格式無效 (開始日期: {1}，完成日期: {2})，所以在計算時間時，將會計入每個測試回合的持續時間。",
   "InvalidEndpointField": "端點欄位無效。有效值為 url、dataParameter 和 authParameter",
   "InvalidEndpointId": "端點識別碼無效。",
-  "InvalidEndpointUrl": "端點 URL 無效。",  "ServiceConnectionNotDeclared": "識別碼為 '{0}' 的服務連線未在管線作業中宣告，因此無法在 task.setendpoint 命令中參考。",  "InvalidFileFormat": "檔案格式無效。",
+  "InvalidEndpointUrl": "端點 URL 無效。",  
   "InvalidGroupName": "無效的群組名稱 - {0}",
   "InvalidMember": "無法將新成員新增至本機群組，因為成員的帳戶類型錯誤。如果您是在網域控制站上設定，則無法將內建電腦帳戶新增至本機群組。您必須改用網域使用者帳戶",
   "InvalidResultFiles": "無效的結果檔案。請確定檔案 '{0}' 的結果格式與測試結果格式 '{1}' 相符。",
