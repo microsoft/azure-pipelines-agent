@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.IO;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -14,7 +15,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node24Strategy : INodeVersionStrategy
     {
-        private const string Node24Folder = "node24";
         private readonly INodeHandlerHelper _nodeHandlerHelper;
 
         public Node24Strategy(INodeHandlerHelper nodeHandlerHelper)
@@ -30,8 +30,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             var hostContext = executionContext.GetHostContext();
+            string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
 
-            if (!_nodeHandlerHelper.IsNodeFolderExist(Node24Folder, hostContext))
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node24Folder, hostContext))
             {
                 executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, checking fallback options");
                 return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Node24 not available on this platform", executionContext, glibcInfo, skipNode24Check: true);
