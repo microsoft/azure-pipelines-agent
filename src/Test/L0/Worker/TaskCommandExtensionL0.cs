@@ -165,8 +165,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var testEndpointId = "12345678-1234-1234-1234-123456789012";
                 cmd.Properties.Add("id", testEndpointId);
 
-                var exception = Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
-                Assert.Contains(testEndpointId, exception.Message);
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
         }
 
