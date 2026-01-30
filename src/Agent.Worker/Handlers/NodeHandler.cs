@@ -14,7 +14,6 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
-using System.Runtime.InteropServices;
 using StringUtil = Microsoft.VisualStudio.Services.Agent.Util.StringUtil;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
@@ -90,6 +89,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private bool? supportsNode20;
         private bool? supportsNode24;
 
+        // Fallback tracking for telemetry
+        private string fallbackReason;
+        private bool fallbackOccurred;
+
         public NodeHandler()
         {
             this.nodeHandlerHelper = new NodeHandlerHelper();
@@ -101,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             this.nodeHandlerHelper = nodeHandlerHelper;
             this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
-                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext));
+                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext, nodeHandlerHelper));
         }
 
         public BaseNodeHandlerData Data { get; set; }
@@ -341,15 +344,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
-                            string fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
-                            PublishNodeFallbackTelemetry("Node24", "Node16", fallbackReason, inContainer);
+                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackOccurred = true;
                             NodeFallbackWarning("24", "16", inContainer, node24NotAvailable);
                             return NodeHandler.Node16Folder;
                         }
                         else
                         {
-                            string fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
-                            PublishNodeFallbackTelemetry("Node24", "Node20", fallbackReason, inContainer);
+                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackOccurred = true;
                             NodeFallbackWarning("24", "20", inContainer, node24NotAvailable);
                             return NodeHandler.Node20_1Folder;
                         }
@@ -361,8 +364,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                     if (node20ResultsInGlibCError || node20NotAvailable)
                     {
-                        string fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
-                        PublishNodeFallbackTelemetry("Node20", "Node16", fallbackReason, inContainer);
+                        fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                        fallbackOccurred = true;
                         NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
                         return NodeHandler.Node16Folder;
                     }
@@ -520,7 +523,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 try
                 {
-                    PublishHandlerTelemetry(nodeFolder);
+                    PublishHandlerTelemetry(nodeFolder, inContainer);
                 }
                 catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
                 {
@@ -669,7 +672,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return outputs;
         }
 
-        private void PublishHandlerTelemetry(string realHandler)
+        private void PublishHandlerTelemetry(string realHandler, bool inContainer)
         {
             var systemVersion = PlatformUtil.GetSystemVersion();
             string expectedHandler = "";
@@ -690,8 +693,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 { "OS", PlatformUtil.GetSystemId() ?? "" },
                 { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
                 { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                { "Architecture", PlatformUtil.HostArchitecture.ToString() },
                 { "ExpectedExecutionHandler", expectedHandler },
                 { "RealExecutionHandler", realHandler },
+                { "FallbackOccurred", fallbackOccurred.ToString() },
+                { "FallbackReason", fallbackReason ?? "" },
+                { "IsContainer", inContainer.ToString() },
                 { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                 { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                 { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
@@ -701,45 +708,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)}
             };
             ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
-        }
-
-        private void PublishNodeFallbackTelemetry(string requestedNodeVersion, string fallbackNodeVersion, string fallbackReason, bool inContainer)
-        {
-            try
-            {
-                var systemVersion = PlatformUtil.GetSystemVersion();
-                string architecture = RuntimeInformation.ProcessArchitecture.ToString();
-
-                Dictionary<string, string> telemetryData = new Dictionary<string, string>
-                {
-                    { "RequestedNodeVersion", requestedNodeVersion },
-                    { "FallbackNodeVersion", fallbackNodeVersion },
-                    { "FallbackReason", fallbackReason },
-                    { "OS", PlatformUtil.HostOS.ToString() },
-                    { "OSName", systemVersion?.Name?.ToString() ?? "" },
-                    { "OSVersion", systemVersion?.Version?.ToString() ?? "" },
-                    { "Architecture", architecture },
-                    { "IsContainer", inContainer.ToString() },
-                    { "TaskName", Task?.Name ?? "" },
-                    { "TaskId", Task?.Id.ToString() ?? "" },
-                    { "TaskVersion", Task?.Version ?? "" },
-                    { "JobId", ExecutionContext.Variables.System_JobId.ToString() },
-                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId) ?? "" },
-                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name) ?? "" },
-                    { "AgentVersion", ExecutionContext.Variables.Get(Constants.Variables.Agent.Version) ?? "" },
-                    { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted) ?? "" },
-                    { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM) ?? "" },
-                    { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer) ?? "" }
-                };
-
-                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
-                Trace.Info($"Published node fallback telemetry: {requestedNodeVersion} -> {fallbackNodeVersion}, Reason: {fallbackReason}, Architecture: {architecture}");
-            }
-            catch (Exception ex)
-            {
-                Trace.Warning($"Failed to publish node fallback telemetry: {ex.Message}");
-                ExecutionContext.Debug($"Node fallback telemetry error: {ex}");
-            }
         }
     }
 }
