@@ -159,6 +159,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "http://example.com/";
                 cmd.Properties.Add("field", "url");
                 // Use a valid GUID that is not in the Endpoints list (SetupMocks only adds Guid.Empty)
                 var testEndpointId = "12345678-1234-1234-1234-123456789012";
