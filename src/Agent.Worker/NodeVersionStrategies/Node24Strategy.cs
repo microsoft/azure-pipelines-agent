@@ -94,12 +94,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (!glibcInfo.Node20HasGlibcError)
             {
+                string fallbackReason = skipNode24Check 
+                    ? $"{baseReason}, fallback to Node20 because Node24 is not available"
+                    : $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue";
 
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
-                    Reason = $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue",
+                    Reason = fallbackReason,
                     Warning = upgradeWarning ?? StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
                 };
             }
