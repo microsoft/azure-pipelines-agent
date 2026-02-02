@@ -89,6 +89,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private bool? supportsNode20;
         private bool? supportsNode24;
 
+        // Fallback tracking for telemetry
+        private string fallbackReason;
+        private bool fallbackOccurred;
+
         public NodeHandler()
         {
             this.nodeHandlerHelper = new NodeHandlerHelper();
@@ -100,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             this.nodeHandlerHelper = nodeHandlerHelper;
             this.nodeVersionOrchestrator = new Lazy<NodeVersionOrchestrator>(() => 
-                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext));
+                new NodeVersionOrchestrator(this.ExecutionContext, this.HostContext, nodeHandlerHelper));
         }
 
         public BaseNodeHandlerData Data { get; set; }
@@ -332,26 +336,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             switch (preferredNodeFolder)
             {
                 case var folder when folder == NodeHandler.Node24Folder:
-                    if (node24ResultsInGlibCError)
+                    // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86)
+                    bool node24NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node24Folder, HostContext);
+                    if (node24ResultsInGlibCError || node24NotAvailable)
                     {
-                        // Fallback to Node20, then Node16 if Node20 also fails
-                        if (node20ResultsInGlibCError)
+                        // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist
+                        bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
+                        if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
-                            NodeFallbackWarning("20", "16", inContainer);
+                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackOccurred = true;
+                            NodeFallbackWarning("24", "16", inContainer, node24NotAvailable);
                             return NodeHandler.Node16Folder;
                         }
                         else
                         {
-                            NodeFallbackWarning("24", "20", inContainer);
+                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackOccurred = true;
+                            NodeFallbackWarning("24", "20", inContainer, node24NotAvailable);
                             return NodeHandler.Node20_1Folder;
                         }
                     }
                     return NodeHandler.Node24Folder;
 
                 case var folder when folder == NodeHandler.Node20_1Folder:
-                    if (node20ResultsInGlibCError)
+                    // Fallback if Node20 has glibc error OR doesn't exist
+                    bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
+                    if (node20ResultsInGlibCError || node20NotAvailable)
                     {
-                        NodeFallbackWarning("20", "16", inContainer);
+                        fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                        fallbackOccurred = true;
+                        NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
                         return NodeHandler.Node16Folder;
                     }
                     return NodeHandler.Node20_1Folder;
@@ -508,7 +523,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 try
                 {
-                    PublishHandlerTelemetry(nodeFolder);
+                    PublishHandlerTelemetry(nodeFolder, inContainer);
                 }
                 catch (Exception ex) when (ex is FormatException || ex is ArgumentNullException || ex is NullReferenceException)
                 {
@@ -520,10 +535,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer)
+        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notAvailable = false)
         {
             string systemType = inContainer ? "container" : "agent";
-            ExecutionContext.Warning($"The {systemType} operating system doesn't support Node{fromVersion}. Using Node{toVersion} instead. " +
+            string reason = notAvailable
+                ? $"Node{fromVersion} is not available on this platform"
+                : $"The {systemType} operating system doesn't support Node{fromVersion}";
+
+            ExecutionContext.Warning($"{reason}. Using Node{toVersion} instead. " +
                             $"Please upgrade the operating system of the {systemType} to remain compatible with future updates of tasks: " +
                             "https://github.com/nodesource/distributions");
         }
@@ -653,7 +672,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return outputs;
         }
 
-        private void PublishHandlerTelemetry(string realHandler)
+        private void PublishHandlerTelemetry(string realHandler, bool inContainer)
         {
             var systemVersion = PlatformUtil.GetSystemVersion();
             string expectedHandler = "";
@@ -674,8 +693,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 { "OS", PlatformUtil.GetSystemId() ?? "" },
                 { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
                 { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                { "Architecture", PlatformUtil.HostArchitecture.ToString() },
                 { "ExpectedExecutionHandler", expectedHandler },
                 { "RealExecutionHandler", realHandler },
+                { "FallbackOccurred", fallbackOccurred.ToString() },
+                { "FallbackReason", fallbackReason ?? "" },
+                { "IsContainer", inContainer.ToString() },
                 { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                 { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                 { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
