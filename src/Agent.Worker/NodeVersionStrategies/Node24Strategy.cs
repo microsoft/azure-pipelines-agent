@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (eolPolicyEnabled)
             {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, isUpgradeScenario: true, skipNode24Check: false);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, skipNode24Check: false, isUpgradeScenario: true);
             }
             
             return null;
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// Determines the appropriate Node version based on glibc compatibility and EOL policy.
         /// </summary>
         /// <param name="skipNode24Check">When true, skips checking Node24 glibc (used when Node24 folder doesn't exist)</param>
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo,  bool isUpgradeScenario = false, bool skipNode24Check)
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool skipNode24Check, bool isUpgradeScenario = false)
         {
             string systemType = context.Container != null ? "container" : "agent";
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
