@@ -10,6 +10,7 @@ using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -21,9 +22,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         private readonly IGlibcCompatibilityInfoProvider GlibcChecker;
 
         public NodeVersionOrchestrator(IExecutionContext executionContext, IHostContext hostContext)
+            : this(executionContext, hostContext, new NodeHandlerHelper())
+        {
+        }
+
+        public NodeVersionOrchestrator(IExecutionContext executionContext, IHostContext hostContext, INodeHandlerHelper nodeHandlerHelper)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(hostContext, nameof(hostContext));
+            ArgUtil.NotNull(nodeHandlerHelper, nameof(nodeHandlerHelper));
             ExecutionContext = executionContext;
             HostContext = hostContext;
             GlibcChecker = HostContext.GetService<IGlibcCompatibilityInfoProvider>();
@@ -34,7 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // Add strategies in descending priority order (newest/preferred versions first)
             // The orchestrator will try each strategy in order until one can handle the request
             _strategies.Add(new CustomNodeStrategy());
-            _strategies.Add(new Node24Strategy());
+            _strategies.Add(new Node24Strategy(nodeHandlerHelper));
             _strategies.Add(new Node20Strategy());
             _strategies.Add(new Node16Strategy());
             _strategies.Add(new Node10Strategy());
@@ -239,7 +246,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString() },
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId) ?? "" },
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name) ?? "" },
-                    { "IsContainer", (context.Container != null).ToString() }
+                    { "IsContainer", (context.Container != null).ToString() },
+                    { "Architecture", PlatformUtil.HostArchitecture.ToString() }
                 };
                 
                 ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
