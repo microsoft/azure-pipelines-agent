@@ -387,7 +387,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 bool progressiveBackoffEnabled = string.Equals(progressiveBackoffFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
 
                 Trace.Info($"Progressive backoff feature flag is {(progressiveBackoffEnabled ? "enabled" : "disabled")}");
-
                 // Ensure listener process picks up progressive backoff via knob
                 Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", progressiveBackoffEnabled ? "true" : null);
 

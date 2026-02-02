@@ -61,6 +61,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             _agentServer = HostContext.GetService<IAgentServer>();
         }
 
+        /// <summary>
+        /// Calculates the retry interval based on the progressive backoff setting and error count.
+        /// </summary>
+        /// <param name="continuousError">The number of consecutive errors.</param>
+        /// <param name="defaultInterval">The default interval when progressive backoff is disabled.</param>
+        /// <param name="currentInterval">The current interval (used for random backoff calculation).</param>
+        /// <param name="useRandomBackoff">If true, uses random backoff when progressive backoff is disabled.</param>
+        /// <returns>The calculated retry interval.</returns>
+        private TimeSpan GetRetryInterval(
+            int continuousError,
+            TimeSpan defaultInterval,
+            TimeSpan currentInterval = default,
+            bool useRandomBackoff = false)
+        {
+            if (_enableProgressiveBackoff == true)
+            {
+                double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
+                return TimeSpan.FromSeconds(delaySeconds);
+            }
+
+            if (useRandomBackoff)
+            {
+                // Random backoff for GetNextMessage: [15,30]s for first 5 errors, then [30,60]s
+                var minBackoff = continuousError <= 5
+                    ? TimeSpan.FromSeconds(15)
+                    : TimeSpan.FromSeconds(30);
+                var maxBackoff = continuousError <= 5
+                    ? TimeSpan.FromSeconds(30)
+                    : TimeSpan.FromSeconds(60);
+                return BackoffTimerHelper.GetRandomBackoff(minBackoff, maxBackoff, currentInterval);
+            }
+
+            // Default: fixed interval
+            return defaultInterval;
+        }
+
         public async Task<Boolean> CreateSessionAsync(CancellationToken token)
         {
             Trace.Entering();
@@ -95,6 +131,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             int continuousError = 0;
 
             _term.WriteLine(StringUtil.Loc("ConnectToServer"));
+
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
             while (true)
             {
                 token.ThrowIfCancellationRequested();
@@ -104,10 +144,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Trace.Info("Connecting to the Agent Server...");
                     await _agentServer.ConnectAsync(new Uri(serverUrl), creds);
                     Trace.Info("VssConnection created");
-
-                    // Fetch progressive backoff knob value
-                    _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
-                    Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
 
                     _session = await _agentServer.CreateAgentSessionAsync(
                                                         _settings.PoolId,
@@ -160,18 +196,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
 
                     continuousError++;
-                    
-                    if (_enableProgressiveBackoff == true)
-                    {
-                        //capping the max delay to 5 minutes
-                        double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
-                        _sessionCreationRetryInterval = TimeSpan.FromSeconds(delaySeconds);
-                    }
-                    else
-                    {
-                        // Default behavior: fixed 30 seconds
-                        _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
-                    }
+
+                    _sessionCreationRetryInterval = GetRetryInterval(
+                        continuousError,
+                        defaultInterval: TimeSpan.FromSeconds(30));
 
                     if (!encounteringError) //print the message only on the first error
                     {
@@ -265,26 +293,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     else
                     {
                         continuousError++;
-               
-                        if (_enableProgressiveBackoff == true)
-                        {
-                            //capping the max delay to 5 minutes
-                            double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
-                            _getNextMessageRetryInterval = TimeSpan.FromSeconds(delaySeconds);
-                        }
-                        else
-                        {
-                            if (continuousError <= 5) 
-                            {
-                                // Default behavior: random backoff [15, 30]
-                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
-                            }
-                            else
-                           {
-                                // more aggressive backoff [30, 60]
-                                _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
-                           }
-                        }
+
+                        _getNextMessageRetryInterval = GetRetryInterval(
+                            continuousError,
+                            defaultInterval: TimeSpan.FromSeconds(30),
+                            currentInterval: _getNextMessageRetryInterval,
+                            useRandomBackoff: true);
 
                         if (!encounteringError)
                         {
@@ -361,20 +375,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 }
                 catch (Exception ex)
                 {
-                    continuousError++;   
-                
-                    if (_enableProgressiveBackoff == true)
-                    {
-                        //capping the max delay to 5 minutes
-                        double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
-                        _keepAliveRetryInterval = TimeSpan.FromSeconds(delaySeconds);
-                    }
-                    else
-                    {
-                        // Default behavior: fixed 30 seconds
-                        _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
-                    }
-                    
+                    continuousError++;
+
+                    _keepAliveRetryInterval = GetRetryInterval(
+                        continuousError,
+                        defaultInterval: TimeSpan.FromSeconds(30));
+
                     Trace.Info($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
                     Trace.Info($"KeepAlive will retry in {_keepAliveRetryInterval.TotalSeconds} seconds.");
                 }
@@ -511,7 +517,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     }
                 }
                 // when the EnableProgressiveRetryBackoff FF is disabled
-                else{
+                else
+                {
                     if (_sessionCreationExceptionTracker.ContainsKey(nameof(VssOAuthTokenRequestException)))
                     {
                         _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)]++;
