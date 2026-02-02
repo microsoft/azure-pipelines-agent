@@ -199,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             try
             {
                 var executionContextMock = CreateTestExecutionContext(thc, scenario);
-                var orchestrator = new NodeVersionOrchestrator(executionContextMock.Object, thc);
+                var orchestrator = new NodeVersionOrchestrator(executionContextMock.Object, thc, NodeHandlerHelper.Object);
                 var taskContext = new TaskContext
                 {
                     HandlerData = CreateHandlerData(scenario.HandlerDataType),
