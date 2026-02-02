@@ -7,6 +7,7 @@ using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
@@ -43,6 +44,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 Reason = $"Custom Node.js path specified by user ({source})",
                 Warning = null
             };
+        }
+
+        public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
+        {
+            // Use the same logic as CanHandle, but specifically for container scenarios
+            return CanHandle(context, executionContext, null);
         }
     }
 }

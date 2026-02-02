@@ -722,6 +722,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob EnhancedWorkerCrashHandling = new Knob(
+            nameof(EnhancedWorkerCrashHandling),
+            "If true, enables enhanced worker crash handling with forced completion for Plan v8+ scenarios where worker crashes cannot send completion events",
+            new EnvironmentKnobSource("AZP_ENHANCED_WORKER_CRASH_HANDLING"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
             nameof(AllowWorkDirectoryRepositories),
             "Allows repositories to be checked out below work directory level on self hosted agents.",
@@ -747,6 +753,7 @@ namespace Agent.Sdk.Knob
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
             new PipelineFeatureSource("UseNode20ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode24ToStartContainer = new Knob(
@@ -941,6 +948,7 @@ namespace Agent.Sdk.Knob
             nameof(UseNodeVersionStrategy),
             "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
             new PipelineFeatureSource("UseNodeVersionStrategy"),
+            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
             new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
             new BuiltInDefaultKnobSource("false"));
     }

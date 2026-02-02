@@ -189,9 +189,9 @@ extends:
         - checkout: self
 
         - task: NodeTool@0
-          displayName: Use node 20.19.4
+          displayName: Use node 20.20.0
           inputs:
-            versionSpec: "20.19.4"
+            versionSpec: "20.20.0"
 
         - script: |
             cd release
@@ -214,7 +214,9 @@ extends:
         ################################################################################
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
-            name: 1ES-Shared-Hosted-Pool_Windows-Server-2022
+            name: 1ES-ABTT-Shared-Pool
+            image: abtt-windows-2025
+            os: windows
             demands: AzurePS
           variables:
             IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]

@@ -22,6 +22,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         private static bool? _supportsNode20;
         private static bool? _supportsNode24;
 
+        public GlibcCompatibilityInfoProvider()
+        {
+            // Parameterless constructor for dependency injection
+        }
+
         public GlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
@@ -35,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// This method combines the behavior from NodeHandler for both Node versions.
         /// </summary>
         /// <returns>GlibcCompatibilityInfo containing compatibility results for both Node versions</returns>
-        public virtual async Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync()
+        public virtual async Task<GlibcCompatibilityInfo> CheckGlibcCompatibilityAsync(IExecutionContext _executionContext)
         {
             bool useNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
             bool useNode24InUnsupportedSystem = AgentKnobs.UseNode24InUnsupportedSystem.GetValue(_executionContext).AsBoolean();
@@ -58,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
                 else
                 {
-                    node20HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node20_1");
+                    node20HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node20_1", _executionContext);
                     _executionContext.EmitHostNode20FallbackTelemetry(node20HasGlibcError);
                     _supportsNode20 = !node20HasGlibcError;
                 }
@@ -72,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
                 else
                 {
-                    node24HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node24");
+                    node24HasGlibcError = await CheckIfNodeResultsInGlibCErrorAsync("node24", _executionContext);
                     _executionContext.EmitHostNode24FallbackTelemetry(node24HasGlibcError);
                     _supportsNode24 = !node24HasGlibcError;
                 }
@@ -86,7 +91,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// </summary>
         /// <param name="context">The task context containing container and handler information</param>
         /// <returns>Glibc compatibility information for the current execution environment</returns>
-        public virtual async Task<GlibcCompatibilityInfo> GetGlibcCompatibilityAsync(TaskContext context)
+        public virtual async Task<GlibcCompatibilityInfo> GetGlibcCompatibilityAsync(TaskContext context, IExecutionContext _executionContext)
         {
             ArgUtil.NotNull(context, nameof(context));
 
@@ -95,7 +100,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             if (context.Container == null)
             {
                 // Host execution - check actual glibc compatibility
-                var glibcInfo = await CheckGlibcCompatibilityAsync();
+                var glibcInfo = await CheckGlibcCompatibilityAsync(_executionContext);
                 
                 _executionContext.Debug($"[{environmentType}] Host glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
                 
@@ -119,7 +124,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// </summary>
         /// <param name="nodeFolder">The node folder name (e.g., "node20_1", "node24")</param>
         /// <returns>True if glibc error is detected, false otherwise</returns>
-        public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder)
+        public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder, IExecutionContext _executionContext)
         {
             var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
