@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -46,15 +47,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (eolPolicyEnabled)
             {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, isUpgradeScenario: true);
             }
             
             return null;
         }
 
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool isUpgradeScenario = false)
         {
             string systemType = context.Container != null ? "container" : "agent";
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+            string upgradeWarning = isUpgradeScenario ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null;
             
             if (!glibcInfo.Node24HasGlibcError)
             {
@@ -63,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node24,
                     Reason = baseReason,
-                    Warning = null
+                    Warning = upgradeWarning
                 };
             }
 
@@ -74,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue",
-                    Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
+                    Warning = upgradeWarning ?? StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
                 };
             }
 
@@ -90,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
                 Reason = $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
+                Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
             };
         }
 
