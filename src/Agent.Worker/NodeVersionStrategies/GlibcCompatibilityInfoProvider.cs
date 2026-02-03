@@ -126,11 +126,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// <returns>True if glibc error is detected, false otherwise</returns>
         public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder, IExecutionContext _executionContext)
         {
-            var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            var nodePath = Path.Combine(GetHostContext().GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            if (!NodeBinaryExists(nodePath))
+            {
+                return true;
+            }
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
 
             return nodeResultsInGlibCError;
+        }
+
+        /// <summary>
+        /// Checks if the node binary exists at the specified path.
+        /// </summary>
+        protected virtual bool NodeBinaryExists(string nodePath)
+        {
+            return File.Exists(nodePath);
+        }
+
+        /// <summary>
+        /// Gets the host context, using _hostContext if set, otherwise HostContext from base class.
+        /// </summary>
+        private IHostContext GetHostContext()
+        {
+            return _hostContext ?? HostContext;
         }
 
         /// <summary>
