@@ -324,7 +324,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private async Task<bool> CheckIfNodeResultsInGlibCError(string nodeFolder)
         {
-            if(!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
+            if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
             {
                 return true;
             }
