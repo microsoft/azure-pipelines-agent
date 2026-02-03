@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// <returns>True if glibc error is detected, false otherwise</returns>
         public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder, IExecutionContext _executionContext)
         {
-            var nodePath = Path.Combine(GetHostContext().GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             if (!NodeBinaryExists(nodePath))
             {
                 return true;
@@ -140,11 +140,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         protected virtual bool NodeBinaryExists(string nodePath)
         {
             return File.Exists(nodePath);
-        }
-
-        private IHostContext GetHostContext()
-        {
-            return _hostContext ?? HostContext;
         }
 
         /// <summary>
