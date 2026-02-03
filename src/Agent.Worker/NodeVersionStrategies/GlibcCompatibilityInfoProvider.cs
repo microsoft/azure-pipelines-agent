@@ -137,17 +137,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             return nodeResultsInGlibCError;
         }
 
-        /// <summary>
-        /// Checks if the node binary exists at the specified path.
-        /// </summary>
         protected virtual bool NodeBinaryExists(string nodePath)
         {
             return File.Exists(nodePath);
         }
 
-        /// <summary>
-        /// Gets the host context, using _hostContext if set, otherwise HostContext from base class.
-        /// </summary>
         private IHostContext GetHostContext()
         {
             return _hostContext ?? HostContext;
