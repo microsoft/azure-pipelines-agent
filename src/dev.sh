@@ -20,7 +20,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/.helpers.sh"
 
-REPO_ROOT="${SCRIPT_DIR}/.."
+# Resolve REPO_ROOT to absolute path without '..' for proper runtime resolution
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
 DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
