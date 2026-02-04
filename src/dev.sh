@@ -40,6 +40,12 @@ if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
 fi
 
+# Validate target framework - only allow known values
+ALLOWED_FRAMEWORKS=("net8.0" "net10.0")
+if [[ ! " ${ALLOWED_FRAMEWORKS[*]} " =~ " ${TARGET_FRAMEWORK} " ]]; then
+    failed "Invalid target framework '${TARGET_FRAMEWORK}'. Allowed values: ${ALLOWED_FRAMEWORKS[*]}"
+fi
+
 function get_net_version() {
     local dotnet_versions="
         
@@ -492,7 +498,9 @@ heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
 export PATH=${DOTNET_DIR}/sdk/${DOTNET_SDK_VERSION}:${DOTNET_DIR}:$PATH
 export PATH=${NUGET_DIR}:$PATH
+export DOTNET_ROOT=${DOTNET_DIR}
 echo "Path = $PATH"
+echo "DOTNET_ROOT = $DOTNET_ROOT"
 echo ".NET Version = $(dotnet --version)"
 
 heading "Pre-caching external resources for $RUNTIME_ID"
