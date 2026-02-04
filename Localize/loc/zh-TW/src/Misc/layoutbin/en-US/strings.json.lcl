@@ -3766,6 +3766,51 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[會退回到 {1} (終止服務)，但終止服務原則已啟用]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[工作需要的 {0} 已達終止服務。此受組織原則封鎖。請將工作升級至 Node20 或 Node24。若要暫時停用此檢查，請設定 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{0} 已達終止服務。請升級至 Node20 或 Node24。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeGlibcFallbackWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The {0} operating system doesn't support {1}. Using {2} instead. Please upgrade the operating system to remain compatible with future updates.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{0} 作業系統不支援 {1}。正在改用 {2}。請升級作業系統，以確保與未來更新的相容性。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[無法提供相容的 Node.js 版本以供主機執行。處理常式類型: {0}。若所有可用版本均遭到終止服務原則封鎖，可能會發生此情況。請更新您的管線以使用 Node20 或 Node24 工作。若要暫時停用終止服務原則，請設定 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";OnPremIsNotSupported" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Pipeline Artifact Task is not supported in on-premises. Please use Build Artifact Task instead.]]></Val>
