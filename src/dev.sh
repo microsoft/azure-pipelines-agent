@@ -20,7 +20,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/.helpers.sh"
 
-REPO_ROOT="${SCRIPT_DIR}/.."
+# Resolve REPO_ROOT to absolute path without '..' for proper runtime resolution
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 AGENT_VERSION=$(cat "$SCRIPT_DIR/agentversion" | head -n 1 | tr -d "\n\r")
 
 DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
@@ -38,6 +39,12 @@ DEFAULT_TARGET_FRAMEWORK="net10.0"
 
 if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
+fi
+
+# Validate target framework - only allow known values
+ALLOWED_FRAMEWORKS=("net8.0" "net10.0")
+if [[ ! " ${ALLOWED_FRAMEWORKS[*]} " =~ " ${TARGET_FRAMEWORK} " ]]; then
+    failed "Invalid target framework '${TARGET_FRAMEWORK}'. Allowed values: ${ALLOWED_FRAMEWORKS[*]}"
 fi
 
 function get_net_version() {
@@ -492,7 +499,20 @@ heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
 export PATH=${DOTNET_DIR}/sdk/${DOTNET_SDK_VERSION}:${DOTNET_DIR}:$PATH
 export PATH=${NUGET_DIR}:$PATH
+
+# Set DOTNET_ROOT - on Windows, convert to Windows-style path for native dotnet commands
+if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
+    # Convert /c/path to C:\path format for Windows
+    dotnet_root_windows=${DOTNET_DIR:1}
+    dotnet_root_windows=${dotnet_root_windows:0:1}:${dotnet_root_windows:1}
+    dotnet_root_windows=$(echo "$dotnet_root_windows" | sed 's|/|\\|g')
+    export DOTNET_ROOT="$dotnet_root_windows"
+else
+    export DOTNET_ROOT=${DOTNET_DIR}
+fi
+
 echo "Path = $PATH"
+echo "DOTNET_ROOT = $DOTNET_ROOT"
 echo ".NET Version = $(dotnet --version)"
 
 heading "Pre-caching external resources for $RUNTIME_ID"
