@@ -29,6 +29,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
 
             protected override bool IsLinuxPlatform() => true;
+            
+            protected override bool NodeBinaryExists(string nodePath) => true;
         }
 
         public void Dispose()
