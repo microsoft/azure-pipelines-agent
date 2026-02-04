@@ -104,7 +104,6 @@
 
     <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime) /p:SelfContained=false /p:NetTargetFramework=$(TargetFramework) /p:NetRuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin" ConsoleToMSBuild="true" />
     <Exec Command="dotnet build Test/Test.csproj /t:CopyFilesL1 /p:NetTargetFramework=$(TargetFramework) /p:NetRuntimeFrameworkVersion=$(RuntimeFrameworkVersion)" Condition="'$(PackageRuntime)' == 'win-x86'"/>
-    
     <Exec Command="dotnet test Test/Test.csproj /p:NetTargetFramework=$(TargetFramework) /p:NetRuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
   </Target>
 
