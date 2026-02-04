@@ -324,6 +324,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private async Task<bool> CheckIfNodeResultsInGlibCError(string nodeFolder)
         {
+            if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
+            {
+                return true;
+            }
             var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             List<string> nodeVersionOutput = await ExecuteCommandAsync(ExecutionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, nodeVersionOutput, out string nodeInfoLine);

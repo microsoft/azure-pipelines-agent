@@ -127,10 +127,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public virtual async Task<bool> CheckIfNodeResultsInGlibCErrorAsync(string nodeFolder, IExecutionContext _executionContext)
         {
             var nodePath = Path.Combine(_hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            if (!NodeBinaryExists(nodePath))
+            {
+                return true;
+            }
             List<string> nodeVersionOutput = await ExecuteCommandAsync(_executionContext, nodePath, "-v", requireZeroExitCode: false, showOutputOnFailureOnly: true);
             var nodeResultsInGlibCError = WorkerUtilities.IsCommandResultGlibcError(_executionContext, nodeVersionOutput, out string nodeInfoLine);
 
             return nodeResultsInGlibCError;
+        }
+
+        protected virtual bool NodeBinaryExists(string nodePath)
+        {
+            return File.Exists(nodePath);
         }
 
         /// <summary>
