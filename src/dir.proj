@@ -15,6 +15,7 @@
 
   <PropertyGroup>
     <L1Root>$(MSBuildProjectDirectory)/../_l1</L1Root>
+    <DotNetSdkRoot>$(MSBuildProjectDirectory)/../_dotnetsdk</DotNetSdkRoot>
     <TreatWarningsAsErrors Condition="'$(BUILDCONFIG)'=='Release'">true</TreatWarningsAsErrors>
   </PropertyGroup>
 
@@ -111,10 +112,12 @@
     <Exec Command="which dotnet" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" ContinueOnError="true" />
     <Exec Command="echo DOTNET_ROOT=%DOTNET_ROOT%" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
     <Exec Command="echo DOTNET_ROOT=$DOTNET_ROOT" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
+    <Exec Command="echo DotNetSdkRoot=$(DotNetSdkRoot)" />
     <Exec Command="dotnet --list-runtimes" ContinueOnError="true" />
     <Exec Command="echo === End Diagnostics ===" />
     
-    <Exec Command="dotnet test Test/Test.csproj /p:NetTargetFramework=$(TargetFramework) /p:NetRuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" />
+    <!-- Run tests with DOTNET_ROOT explicitly set to ensure testhost finds the runtime -->
+    <Exec Command="dotnet test Test/Test.csproj /p:NetTargetFramework=$(TargetFramework) /p:NetRuntimeFrameworkVersion=$(RuntimeFrameworkVersion) -o $(L1Root)/bin --no-build --logger:trx --verbosity=detailed --filter &quot;$(TestFilters)&quot;" ConsoleToMSBuild="true" EnvironmentVariables="DOTNET_ROOT=$(DotNetSdkRoot)" />
   </Target>
 
   <Target Name="Layout" DependsOnTargets="Clean;Build">
