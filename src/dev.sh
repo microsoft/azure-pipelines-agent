@@ -498,7 +498,18 @@ heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
 export PATH=${DOTNET_DIR}/sdk/${DOTNET_SDK_VERSION}:${DOTNET_DIR}:$PATH
 export PATH=${NUGET_DIR}:$PATH
-export DOTNET_ROOT=${DOTNET_DIR}
+
+# Set DOTNET_ROOT - on Windows, convert to Windows-style path for native dotnet commands
+if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
+    # Convert /c/path to C:\path format for Windows
+    local dotnet_root_windows=${DOTNET_DIR:1}
+    dotnet_root_windows=${dotnet_root_windows:0:1}:${dotnet_root_windows:1}
+    dotnet_root_windows=$(echo "$dotnet_root_windows" | sed 's|/|\\|g')
+    export DOTNET_ROOT="$dotnet_root_windows"
+else
+    export DOTNET_ROOT=${DOTNET_DIR}
+fi
+
 echo "Path = $PATH"
 echo "DOTNET_ROOT = $DOTNET_ROOT"
 echo ".NET Version = $(dotnet --version)"
