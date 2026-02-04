@@ -503,7 +503,7 @@ export PATH=${NUGET_DIR}:$PATH
 # Set DOTNET_ROOT - on Windows, convert to Windows-style path for native dotnet commands
 if [[ "$CURRENT_PLATFORM" == 'windows' ]]; then
     # Convert /c/path to C:\path format for Windows
-    local dotnet_root_windows=${DOTNET_DIR:1}
+    dotnet_root_windows=${DOTNET_DIR:1}
     dotnet_root_windows=${dotnet_root_windows:0:1}:${dotnet_root_windows:1}
     dotnet_root_windows=$(echo "$dotnet_root_windows" | sed 's|/|\\|g')
     export DOTNET_ROOT="$dotnet_root_windows"
