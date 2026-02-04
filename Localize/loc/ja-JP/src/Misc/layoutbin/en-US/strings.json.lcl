@@ -3766,6 +3766,51 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{1} (EOL) にフォールバックしますが、EOL ポリシーが有効になっています]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[タスクにはサポート終了になった {0} が必要です。これは組織のポリシーでブロックされています。タスクを Node20 または Node24 にアップグレードしてください。このチェックを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{0} はサポート終了になりました。Node20 または Node24 にアップグレードしてください。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeGlibcFallbackWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The {0} operating system doesn't support {1}. Using {2} instead. Please upgrade the operating system to remain compatible with future updates.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{0} オペレーティング システムでは、{1} はサポートされていません。代わりに {2} を使用しています。今後の更新プログラムとの互換性を維持するには、オペレーティング システムをアップグレードしてください。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ホストの実行に使用できる互換性のある Node.js バージョンがありません。ハンドラーの種類: {0}。これは、使用可能なすべてのバージョンが EOL ポリシーによってブロックされている場合に発生することがあります。Node20 または Node24 のタスクを使用するようにパイプラインを更新してください。EOL ポリシーを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";OnPremIsNotSupported" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Pipeline Artifact Task is not supported in on-premises. Please use Build Artifact Task instead.]]></Val>

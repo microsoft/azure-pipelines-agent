@@ -3766,6 +3766,51 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[verrebbe eseguito il fallback a {1} (EOL) ma il criterio EOL è abilitato]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[L'attività richiede {0} che ha raggiunto la fine del servizio. Questa operazione è bloccata dal criterio dell'organizzazione. Aggiornare l'attività a Node20 o Node24. Per disabilitare temporaneamente questo criterio: impostare AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[{0} ha raggiunto la fine del servizio. Effettuare l'aggiornamento a Node20 o Node24.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeGlibcFallbackWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The {0} operating system doesn't support {1}. Using {2} instead. Please upgrade the operating system to remain compatible with future updates.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Il sistema operativo {0} non supporta {1}. Provare a usare {2}. Aggiornare il sistema operativo per mantenere la compatibilità con gli aggiornamenti futuri.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Nessuna versione compatibile di Node.js disponibile per l'esecuzione sull'host. Tipo di gestore: {0}. Questo può accadere se tutte le versioni disponibili sono bloccate dal criterio EOL. Aggiornare la pipeline per usare le attività Node20 o Node24. Per disabilitare temporaneamente il criterio EOL: impostare AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";OnPremIsNotSupported" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Pipeline Artifact Task is not supported in on-premises. Please use Build Artifact Task instead.]]></Val>
