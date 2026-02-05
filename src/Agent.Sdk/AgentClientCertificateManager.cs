@@ -35,7 +35,7 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(clientCertificateArchiveFile))
             {
-                _clientCertificates.Add(new X509Certificate2(clientCertificateArchiveFile, clientCertificatePassword));
+                _clientCertificates.Add(X509CertificateLoader.LoadPkcs12FromFile(clientCertificateArchiveFile, clientCertificatePassword));
             }
         }
     }

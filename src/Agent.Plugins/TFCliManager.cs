@@ -160,7 +160,7 @@ namespace Agent.Plugins.Repository
         public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
         {
             ArgUtil.File(clientCert, nameof(clientCert));
-            X509Certificate2 cert = new X509Certificate2(clientCert);
+            X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile(clientCert);
             ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
             AdditionalEnvironmentVariables["VstsClientCertificate"] = cert.Thumbprint;
 
