@@ -270,7 +270,7 @@ function cmd_test_l0() {
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -tl:off -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test_l1() {
@@ -292,7 +292,7 @@ function cmd_test_l1() {
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -tl:off -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test() {
