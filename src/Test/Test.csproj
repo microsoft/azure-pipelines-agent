@@ -12,20 +12,15 @@
     <!-- Suppress warning CA1416: This call site is reachable on all platforms. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <!-- Test platform package versions based on target framework -->
-    <TestPlatformVersion Condition="'$(TargetFramework)' == 'net8.0'">16.4.0</TestPlatformVersion>
-    <TestPlatformVersion Condition="'$(TargetFramework)' == 'net10.0'">18.0.1</TestPlatformVersion>
-    <TestPlatformVersion Condition="'$(TestPlatformVersion)' == ''">18.0.1</TestPlatformVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(TestPlatformVersion)" />
-    <PackageReference Include="Microsoft.CodeCoverage" Version="$(TestPlatformVersion)" />
-    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="$(TestPlatformVersion)" GeneratePathProperty="true" Condition="'$(TargetFramework)' == 'net8.0'" />
-    <!-- For net10.0: Exclude build assets to prevent testhost.exe from being copied to output.
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="Microsoft.CodeCoverage" Version="18.0.1" />
+    <!-- With Test.Sdk > 16.4.0 TestHost.exe unable to respect DOTNET_ROOT.
          VSTest will use dotnet testhost.dll instead which properly respects DOTNET_ROOT. -->
-    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="$(TestPlatformVersion)" GeneratePathProperty="true" Condition="'$(TargetFramework)' != 'net8.0'">
+    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="18.0.1" GeneratePathProperty="true">
       <ExcludeAssets>build</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="Moq" Version="4.20.70" />
