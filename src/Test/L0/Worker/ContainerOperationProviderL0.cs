@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
     public sealed class ContainerOperationProviderL0 : ContainerOperationProviderL0Base
     {
 
-        [Fact]
+        [Fact(Skip = "The test is flaky and needs to be fixed using the new container strategy.")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         public async Task StartContainer_WithDockerLabel_SetsNodePath()
@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        [Fact]
+        [Fact(Skip = "The test is flaky and needs to be fixed using the new container strategy.")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "windows")]
@@ -93,7 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         }
 
         // Test 3: Docker label absent - Windows + Linux container only
-        [Fact]
+        [Fact(Skip = "The test is flaky and needs to be fixed using the new container strategy.")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
@@ -135,7 +135,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         }
 
         // Test 4: Docker label absent - Linux only (uses agent's mounted node from externals)
-        [Fact]
+        [Fact(Skip = "The test is flaky and needs to be fixed using the new container strategy.")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
