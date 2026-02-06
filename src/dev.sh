@@ -34,7 +34,7 @@ fi
 
 pushd "$SCRIPT_DIR"
 
-DEFAULT_TARGET_FRAMEWORK="net8.0"
+DEFAULT_TARGET_FRAMEWORK="net10.0"
 
 if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
@@ -42,17 +42,18 @@ fi
 
 function get_net_version() {
     local dotnet_versions="
-        net6.0-sdk=6.0.424
-        net6.0-runtime=6.0.32
-
+        
         net8.0-sdk=8.0.416
         net8.0-runtime=8.0.22
+
+        net10.0-sdk=10.0.101
+        net10.0-runtime=10.0.1
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
 }
 
-DOTNET_SDK_VERSION=$(get_net_version "net8.0-sdk")
+DOTNET_SDK_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-sdk")
 DOTNET_RUNTIME_VERSION=$(get_net_version "${TARGET_FRAMEWORK}-runtime")
 
 if [[ ($DOTNET_SDK_VERSION == "") || ($DOTNET_RUNTIME_VERSION == "") ]]; then
@@ -115,23 +116,26 @@ function restore_sdk_and_runtime() {
 function warn_about_newer_versions() {
     echo "" 
     
+    # Extract major version from TARGET_FRAMEWORK (e.g., net10.0 -> 10.0, net8.0 -> 8.0)
+    local dotnet_major_version="${TARGET_FRAMEWORK#net}"
+    
     # Use official .NET APIs to get latest versions
     local latest_sdk latest_runtime
     local sdk_outdated=false
     local runtime_outdated=false
     
     # Get latest SDK version from official .NET feed
-    latest_sdk=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    latest_sdk=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Sdk/${dotnet_major_version}/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
     if [[ -z "$latest_sdk" ]]; then
         # Fallback to backup feed
-        latest_sdk=$(curl -s "https://ci.dot.net/public/Sdk/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_SDK_VERSION")
+        latest_sdk=$(curl -s "https://ci.dot.net/public/Sdk/${dotnet_major_version}/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_SDK_VERSION")
     fi
     
     # Get latest Runtime version from official .NET feed  
-    latest_runtime=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
+    latest_runtime=$(curl -s "https://builds.dotnet.microsoft.com/dotnet/Runtime/${dotnet_major_version}/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "")
     if [[ -z "$latest_runtime" ]]; then
         # Fallback to backup feed
-        latest_runtime=$(curl -s "https://ci.dot.net/public/Runtime/8.0/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_RUNTIME_VERSION")
+        latest_runtime=$(curl -s "https://ci.dot.net/public/Runtime/${dotnet_major_version}/latest.version" 2>/dev/null | tail -n 1 | tr -d '\r\n' || echo "$DOTNET_RUNTIME_VERSION")
     fi
     
     # Check SDK version
@@ -145,7 +149,7 @@ function warn_about_newer_versions() {
     fi
     
     if [[ "$sdk_outdated" == "true" || "$runtime_outdated" == "true" ]]; then
-        echo "⚠️  WARNING: Newer .NET 8.0 versions available:" >&2
+        echo "⚠️  WARNING: Newer .NET ${dotnet_major_version} versions available:" >&2
         if [[ "$sdk_outdated" == "true" ]]; then
             echo "   SDK: $latest_sdk (currently using $DOTNET_SDK_VERSION)" >&2
         fi
@@ -266,7 +270,7 @@ function cmd_test_l0() {
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl0 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl0 -tl:off -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test_l1() {
@@ -288,7 +292,7 @@ function cmd_test_l1() {
         TestFilters="$TestFilters&$DEV_TEST_FILTERS"
     fi
 
-    dotnet msbuild -t:testl1 -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
+    dotnet msbuild -t:testl1 -tl:off -p:PackageRuntime="${RUNTIME_ID}" -p:PackageType="${PACKAGE_TYPE}" -p:BUILDCONFIG="${BUILD_CONFIG}" -p:AgentVersion="${AGENT_VERSION}" -p:LayoutRoot="${LAYOUT_DIR}" -p:TestFilters="${TestFilters}" -p:TargetFramework="${TARGET_FRAMEWORK}" -p:RuntimeFrameworkVersion="${DOTNET_RUNTIME_VERSION}" "${DEV_ARGS[@]}" || failed "failed tests"
 }
 
 function cmd_test() {
@@ -389,7 +393,7 @@ function cmd_report() {
 
         # for some reason CodeCoverage.exe will only write the output file in the current directory
         pushd $COVERAGE_REPORT_DIR >/dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        "${HOME}/.nuget/packages/microsoft.codecoverage/18.0.1/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd >/dev/null
 
         if ! command -v reportgenerator.exe >/dev/null; then
@@ -483,9 +487,10 @@ REPORT_DIR="${REPO_ROOT}/_reports/${RUNTIME_ID}"
 restore_dotnet_install_script
 restore_sdk_and_runtime
 
+
 heading ".NET SDK to path"
 echo "Adding .NET SDK to PATH (${DOTNET_DIR})"
-export PATH=${DOTNET_DIR}:$PATH
+export PATH=${DOTNET_DIR}/sdk/${DOTNET_SDK_VERSION}:${DOTNET_DIR}:$PATH
 export PATH=${NUGET_DIR}:$PATH
 echo "Path = $PATH"
 echo ".NET Version = $(dotnet --version)"

@@ -16,9 +16,13 @@
 
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
-    <PackageReference Include="Microsoft.CodeCoverage" Version="16.4.0" />
-    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="16.4.0" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="Microsoft.CodeCoverage" Version="18.0.1" />
+    <!-- With Test.Sdk > 16.4.0 TestHost.exe unable to respect DOTNET_ROOT.
+         VSTest will use dotnet testhost.dll instead which properly respects DOTNET_ROOT. -->
+    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="18.0.1" GeneratePathProperty="true">
+      <ExcludeAssets>build</ExcludeAssets>
+    </PackageReference>
     <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.4.0" />
     <PackageReference Include="System.Threading.ThreadPool" Version="4.3.0" />
