@@ -1,3 +1,14 @@
+## Features
+ - Update node 20 and 24 minor versions to 20.20.0 and 24.13.0 (#5462)
+ - Fix fallback logic when the agent don't have node handler installed (#5461)
+ - Fixing the glibc check in linux platform when the node version is not available (#5469)
+
+## Bugs
+
+
+## Misc
+
+
 
 ## Agent Downloads
 
