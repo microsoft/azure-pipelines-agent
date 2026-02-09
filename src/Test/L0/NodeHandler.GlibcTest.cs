@@ -23,14 +23,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         private class TestableGlibcCompatibilityInfoProvider : GlibcCompatibilityInfoProvider
         {
-            public TestableGlibcCompatibilityInfoProvider(IExecutionContext executionContext, IHostContext hostContext)
-                : base(executionContext, hostContext)
+            public TestableGlibcCompatibilityInfoProvider(IHostContext hostContext)
+                : base(hostContext)
             {
             }
 
             protected override bool IsLinuxPlatform() => true;
-            
-            protected override bool NodeBinaryExists(string nodePath) => true;
+
+             protected override bool NodeBinaryExists(string nodePath) => true;
         }
 
         public void Dispose()
@@ -61,7 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: true);
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
                 Assert.True(result.Node24HasGlibcError);
@@ -82,7 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: false);
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
                 Assert.False(result.Node24HasGlibcError);
@@ -107,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: true);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
                 Assert.True(result.Node24HasGlibcError);
@@ -134,7 +134,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: true);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
                 Assert.False(result.Node24HasGlibcError);
@@ -160,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 };
                 var (processInvokerMock, executionContextMock) = SetupTestEnvironment(hc, knobs);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
                 Assert.False(result.Node24HasGlibcError);
@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 SetupNodeProcessInvocation(processInvokerMock, "node24", shouldHaveGlibcError: false);
                 SetupNodeProcessInvocation(processInvokerMock, "node20_1", shouldHaveGlibcError: false);
 
-                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(executionContextMock.Object, hc);
+                var glibcChecker = new TestableGlibcCompatibilityInfoProvider(hc);
                 var result1 = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
                 var result2 = await glibcChecker.CheckGlibcCompatibilityAsync(executionContextMock.Object);
 
