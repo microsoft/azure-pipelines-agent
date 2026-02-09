@@ -26,26 +26,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         private const string NODE_SELECTION_LOG_PATTERN = "Using node path:";
         private const string NODE20_LOG_PATTERN = "node20";
         
-        private void AssertTaskResult(TaskResult actualResult, bool useStrategy, string context = "")
-        {
-            string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
-            
-            if (actualResult == TaskResult.Succeeded)
-            {
-                // Both modes can succeed - this is fine
-                return;
-            }
-            else if (useStrategy)
-            {
-                // Strategy mode is allowed to fail during testing
-                Assert.True(actualResult == TaskResult.Failed, $"Strategy mode should either succeed or fail cleanly: {modeDescription}");
-            }
-            else
-            {
-                Assert.Equal(TaskResult.Succeeded, actualResult);
-            }
-        }
-        
+
+        /// <summary>
+        /// Verifies that node selection process was initiated and logs were generated.
+        /// Note: This tests observable behavior through logs since L1 tests run the full worker pipeline.
+        /// Unit tests should test the orchestrator/strategy interfaces directly.
+        /// </summary>
         private void AssertNodeSelectionAttempted(IEnumerable<string> log, TaskResult result, bool useStrategy, string context = "")
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
@@ -53,26 +39,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             bool hasNodeSelection;
             if (useStrategy)
             {
-                // Strategy mode uses orchestrator logging patterns from NodeVersionOrchestrator
+                // Strategy mode: Verify orchestrator was invoked
                 hasNodeSelection = log.Any(x => x.Contains("[Host] Selected Node version:") && x.Contains("(Strategy:")) ||
                                    log.Any(x => x.Contains("[Host] Node path:")) ||
                                    log.Any(x => x.Contains("[Host] Starting node version selection")) ||
-                                   log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN)); // NodeHandler still logs this
+                                   log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
             }
             else
             {
-                // Legacy mode uses the traditional "Using node path:" pattern from NodeHandler
+                // Legacy mode: Verify traditional node handler was used
                 hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
             }
             
-            Assert.True(hasNodeSelection, $"Should have node selection log: {modeDescription}");
+            Assert.True(hasNodeSelection, $"Node selection process should be initiated: {modeDescription}");
             
-            if (result != TaskResult.Succeeded && !useStrategy)
-            {
-                Assert.Equal(TaskResult.Succeeded, result);
-            }
+            Assert.Equal(TaskResult.Succeeded, result);
         }
         
+        /// <summary>
+        /// Verifies that the expected Node version was selected and is reflected in logs.
+        /// This validates the end-to-end selection result in L1 integration testing.
+        /// </summary>
         private void AssertNodeSelectionSuccess(IEnumerable<string> log, string expectedPattern, bool useStrategy, string context = "")
         {
             string modeDescription = $"{(useStrategy ? "strategy" : "legacy")} mode{(string.IsNullOrEmpty(context) ? "" : $" - {context}")}";
@@ -80,18 +67,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             bool hasExpectedSelection;
             if (useStrategy)
             {
-                // Strategy mode: Look for orchestrator logs from NodeVersionOrchestrator
+                // Strategy mode: Verify orchestrator selected the expected version
                 hasExpectedSelection = log.Any(x => 
                     (x.Contains("[Host] Selected Node version:") || x.Contains("[Host] Node path:") || x.Contains(NODE_SELECTION_LOG_PATTERN)) && 
                     x.Contains(expectedPattern));
             }
             else
             {
-                // Legacy mode: Look for traditional "Using node path:" pattern from NodeHandler
+                // Legacy mode: Verify legacy handler selected the expected version
                 hasExpectedSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && x.Contains(expectedPattern));
             }
             
-            Assert.True(hasExpectedSelection, $"Expected node selection '{expectedPattern}': {modeDescription}");
+            Assert.True(hasExpectedSelection, $"Expected node selection '{expectedPattern}' should be reflected in execution logs: {modeDescription}");
         }
         
         [Theory]
@@ -129,23 +116,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 
                 AssertNodeSelectionAttempted(log, results.Result, useStrategy, $"testing {knob}");
                 
-                if (results.Result == TaskResult.Succeeded)
+                // Note: NODE16 may fallback to newer versions for compatibility
+                string expectedLogPattern = expectedNodeFolder == NODE20_1_FOLDER ? NODE20_LOG_PATTERN : expectedNodeFolder;
+                
+                if (expectedNodeFolder == NODE16_FOLDER)
                 {
-                    if (expectedNodeFolder == NODE16_FOLDER)
-                    {
-                        var usesRequestedOrNewer = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
-                            (x.Contains(NODE16_FOLDER) || x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE24_FOLDER)));
-                        Assert.True(usesRequestedOrNewer, 
-                            $"Expected '{expectedNodeFolder}' or fallback to newer version - {(useStrategy ? "strategy" : "legacy")} mode");
-                    }
-                    else if (expectedNodeFolder == NODE20_1_FOLDER)
-                    {
-                        AssertNodeSelectionSuccess(log, NODE20_LOG_PATTERN, useStrategy, $"{expectedNodeFolder}");
-                    }
-                    else
-                    {
-                        AssertNodeSelectionSuccess(log, expectedNodeFolder, useStrategy);
-                    }
+                    // NODE16 special case: may use requested version or fallback to compatible newer version
+                    var usesRequestedOrNewer = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
+                        (x.Contains(NODE16_FOLDER) || x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE24_FOLDER)));
+                    Assert.True(usesRequestedOrNewer, 
+                        $"Expected '{expectedNodeFolder}' or compatible fallback - {(useStrategy ? "strategy" : "legacy")} mode");
+                }
+                else
+                {
+                    // All other versions should use exact match
+                    AssertNodeSelectionSuccess(log, expectedLogPattern, useStrategy, $"{expectedNodeFolder}");
                 }
             }
             finally
@@ -182,7 +167,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var results = await RunWorker(message);
 
                 AssertJobCompleted();
-                AssertTaskResult(results.Result, useStrategy, "Windows PowerShell execution");
+                Assert.Equal(TaskResult.Succeeded, results.Result);
                 
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
@@ -227,12 +212,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 
                 AssertNodeSelectionAttempted(log, results.Result, useStrategy, "default behavior");
                 
-                if (results.Result == TaskResult.Succeeded)
-                {
-                    bool usesCompatibleVersion = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
-                        (x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE16_FOLDER) || x.Contains(NODE24_FOLDER)));
-                    Assert.True(usesCompatibleVersion, $"Should select compatible node version - {(useStrategy ? "strategy" : "legacy")} mode");
-                }
+                Assert.Equal(TaskResult.Succeeded, results.Result);
+                bool usesCompatibleVersion = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
+                    (x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE16_FOLDER) || x.Contains(NODE24_FOLDER)));
+                Assert.True(usesCompatibleVersion, $"Should select compatible node version - {(useStrategy ? "strategy" : "legacy")} mode");
             }
             finally
             {
@@ -265,18 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 AssertJobCompleted();
                 
-                // Both modes should succeed, but with different tolerance for node selection
-                if (useStrategy)
-                {
-                    // Strategy mode should complete but may not always succeed in current implementation due to Not Supported exceptions in End-of-Life policy
-                    Assert.True(results.Result == TaskResult.Succeeded || results.Result == TaskResult.Failed,
-                        "Strategy mode should complete execution (success or failure expected)");
-                }
-                else
-                {
-                    // Legacy mode should succeed reliably
-                    Assert.Equal(TaskResult.Succeeded, results.Result);
-                }
+                Assert.Equal(TaskResult.Succeeded, results.Result);
                 
                 var steps = GetSteps();
                 var taskStep = steps.FirstOrDefault(s => s.Name == "CmdLine");
@@ -284,29 +256,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
                 var log = GetTimelineLogLines(taskStep);
 
-                // Validate node selection behavior based on task result
-                if (results.Result == TaskResult.Succeeded)
+                bool hasNodeSelection;
+                if (useStrategy)
                 {
-                    // Both modes should have node selection logging when successful
-                    bool hasNodeSelection;
-                    if (useStrategy)
-                    {
-                        hasNodeSelection = log.Any(x => x.Contains("[Host] Selected Node version:") || 
-                                                       x.Contains("[Host] Node path:") || 
-                                                       x.Contains(NODE_SELECTION_LOG_PATTERN));
-                    }
-                    else
-                    {
-                        hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
-                    }
-                    Assert.True(hasNodeSelection, $"Expected node selection log for successful {(useStrategy ? "strategy" : "legacy")} mode");
-
-                    bool usesNode24 = log.Any(x => (x.Contains("[Host] Selected Node version:") || 
+                    hasNodeSelection = log.Any(x => x.Contains("[Host] Selected Node version:") || 
                                                    x.Contains("[Host] Node path:") || 
-                                                   x.Contains(NODE_SELECTION_LOG_PATTERN)) && 
-                                                  x.Contains(NODE24_FOLDER));
-                    Assert.True(usesNode24, "Should use node24 based on AGENT_USE_NODE24=true");
+                                                   x.Contains(NODE_SELECTION_LOG_PATTERN));
                 }
+                else
+                {
+                    hasNodeSelection = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN));
+                }
+                Assert.True(hasNodeSelection, $"Expected node selection log for {(useStrategy ? "strategy" : "legacy")} mode");
+
+                bool usesNode24 = log.Any(x => (x.Contains("[Host] Selected Node version:") || 
+                                               x.Contains("[Host] Node path:") || 
+                                               x.Contains(NODE_SELECTION_LOG_PATTERN)) && 
+                                              x.Contains(NODE24_FOLDER));
+                Assert.True(usesNode24, "Should use node24 based on AGENT_USE_NODE24=true");
             }
             finally
             {
@@ -349,11 +316,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var log = GetTimelineLogLines(taskStep);
                 AssertNodeSelectionAttempted(log, results.Result, useStrategy, "conflicting knobs");
                 
-                if (results.Result == TaskResult.Succeeded)
-                {
-                    string expectedLogPattern = expectedNodeFolder == NODE20_1_FOLDER ? NODE20_LOG_PATTERN : expectedNodeFolder;
-                    AssertNodeSelectionSuccess(log, expectedLogPattern, useStrategy, "conflicting knobs resolution");
-                }
+                string expectedLogPattern = expectedNodeFolder == NODE20_1_FOLDER ? NODE20_LOG_PATTERN : expectedNodeFolder;
+                AssertNodeSelectionSuccess(log, expectedLogPattern, useStrategy, "conflicting knobs resolution");
             }
             finally
             {
@@ -394,20 +358,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var log = GetTimelineLogLines(taskStep);
                 AssertNodeSelectionAttempted(log, results.Result, useStrategy, "glibc compatibility");
                 
-                if (results.Result == TaskResult.Succeeded)
+                var usedCompatibleNode = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
+                    (x.Contains(NODE24_FOLDER) || x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE16_FOLDER)));
+                Assert.True(usedCompatibleNode, $"Should select glibc-compatible node version - {(useStrategy ? "strategy" : "legacy")} mode");
+                
+                var hasNode24ToNode20Fallback = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
+                    x.Contains(NODE20_LOG_PATTERN) && !x.Contains(NODE24_FOLDER));
+                if (hasNode24ToNode20Fallback)
                 {
-                    var usedCompatibleNode = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
-                        (x.Contains(NODE24_FOLDER) || x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE16_FOLDER)));
-                    Assert.True(usedCompatibleNode, $"Should select glibc-compatible node version - {(useStrategy ? "strategy" : "legacy")} mode");
-                    
-                    var hasNode24ToNode20Fallback = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
-                        x.Contains(NODE20_LOG_PATTERN) && !x.Contains(NODE24_FOLDER));
-                    if (hasNode24ToNode20Fallback)
-                    {
-                        string expectedGlibcWarning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20");
-                        var hasGlibcWarning = log.Any(x => x.Contains(expectedGlibcWarning));
-                        Assert.True(hasGlibcWarning, $"Should show glibc fallback warning - {(useStrategy ? "strategy" : "legacy")} mode");
-                    }
+                    string expectedGlibcWarning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20");
+                    var hasGlibcWarning = log.Any(x => x.Contains(expectedGlibcWarning));
+                    Assert.True(hasGlibcWarning, $"Should show glibc fallback warning - {(useStrategy ? "strategy" : "legacy")} mode");
                 }
             }
             finally
