@@ -158,7 +158,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             ArgUtil.File(clientCert, nameof(clientCert));
 #if NET9_0_OR_GREATER
-            X509Certificate2 cert = X509CertificateLoader.LoadCertificateFromFile(clientCert);
+            var contentType = X509Certificate2.GetCertContentType(clientCert);
+            X509Certificate2 cert = contentType == X509ContentType.Pkcs12 || contentType == X509ContentType.Pfx
+                ? X509CertificateLoader.LoadPkcs12FromFile(clientCert, clientCertPassword)
+                : X509CertificateLoader.LoadCertificateFromFile(clientCert);
 #else
             X509Certificate2 cert = new X509Certificate2(clientCert);
 #endif
