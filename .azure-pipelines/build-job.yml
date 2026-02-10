@@ -221,6 +221,28 @@ jobs:
     - script: dotnet tool install --global dotnet-reportgenerator-globaltool
       displayName: Install Report Generator
 
+    # DEBUG: Check if CodeCoverage.exe paths exist
+    - script: |
+        echo "=== Checking CodeCoverage.exe paths ==="
+        echo "HOME = $HOME"
+        echo ""
+        echo "--- Checking OLD path (16.4.0/netstandard1.0) ---"
+        ls -la "${HOME}/.nuget/packages/microsoft.codecoverage/16.4.0/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" 2>&1 || echo "NOT FOUND"
+        echo ""
+        echo "--- Checking NEW path (18.0.1/netstandard1.0) ---"
+        ls -la "${HOME}/.nuget/packages/microsoft.codecoverage/18.0.1/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" 2>&1 || echo "NOT FOUND"
+        echo ""
+        echo "--- Checking NEW path (18.0.1/netstandard2.0) ---"
+        ls -la "${HOME}/.nuget/packages/microsoft.codecoverage/18.0.1/build/netstandard2.0/CodeCoverage/CodeCoverage.exe" 2>&1 || echo "NOT FOUND"
+        echo ""
+        echo "--- Listing all microsoft.codecoverage versions ---"
+        ls -la "${HOME}/.nuget/packages/microsoft.codecoverage/" 2>&1 || echo "Folder not found"
+        echo ""
+        echo "--- NuGet global packages location ---"
+        dotnet nuget locals global-packages --list
+      displayName: DEBUG - Check CodeCoverage.exe paths
+      continueOnError: true
+
     - script: ${{ variables.devCommand }} report
       displayName: Generate Code Coverage report
       workingDirectory: src
