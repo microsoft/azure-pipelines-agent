@@ -1,6 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.VisualStudio.Services.Common;
 
@@ -37,13 +40,28 @@ namespace Agent.Sdk
             {
 #if NET9_0_OR_GREATER
                 var contentType = X509Certificate2.GetCertContentType(clientCertificateArchiveFile);
-                if (contentType == X509ContentType.Pkcs12 || contentType == X509ContentType.Pfx)
+                switch (contentType)
                 {
-                    _clientCertificates.Add(X509CertificateLoader.LoadPkcs12FromFile(clientCertificateArchiveFile, clientCertificatePassword));
-                }
-                else
-                {
-                    _clientCertificates.Add(X509CertificateLoader.LoadCertificateFromFile(clientCertificateArchiveFile));
+                    case X509ContentType.Pkcs12:
+                    case X509ContentType.Pfx:
+                        _clientCertificates.Add(X509CertificateLoader.LoadPkcs12FromFile(clientCertificateArchiveFile, clientCertificatePassword));
+                        break;
+                    case X509ContentType.Pkcs7:
+                        var signedCms = new SignedCms();
+                        signedCms.Decode(File.ReadAllBytes(clientCertificateArchiveFile));
+                        // Find end-entity certificate (non-CA), fallback to first certificate
+                        var cert = signedCms.Certificates
+                            .Cast<X509Certificate2>()
+                            .FirstOrDefault(c =>
+                            {
+                                var bc = c.Extensions.OfType<X509BasicConstraintsExtension>().FirstOrDefault();
+                                return bc == null || !bc.CertificateAuthority;
+                            }) ?? signedCms.Certificates[0];
+                        _clientCertificates.Add(cert);
+                        break;
+                    default:
+                        _clientCertificates.Add(X509CertificateLoader.LoadCertificateFromFile(clientCertificateArchiveFile));
+                        break;
                 }
 #else
                 _clientCertificates.Add(new X509Certificate2(clientCertificateArchiveFile, clientCertificatePassword));
