@@ -3,7 +3,6 @@
 
 #if NET9_0_OR_GREATER
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 
@@ -24,7 +23,7 @@ namespace Agent.Sdk.Util
             switch (contentType)
             {
                 case X509ContentType.Pkcs12:
-                case X509ContentType.Pfx:
+                    // Note: X509ContentType.Pfx has the same value as Pkcs12
                     return X509CertificateLoader.LoadPkcs12FromFile(certificatePath, password);
                 case X509ContentType.Pkcs7:
                     return LoadPkcs7Certificate(certificatePath);
@@ -34,21 +33,13 @@ namespace Agent.Sdk.Util
         }
 
         /// <summary>
-        /// Loads an end-entity certificate from a PKCS#7 file.
+        /// Loads a certificate from a PKCS#7 file.
         /// </summary>
         private static X509Certificate2 LoadPkcs7Certificate(string certificatePath)
         {
             var signedCms = new SignedCms();
             signedCms.Decode(File.ReadAllBytes(certificatePath));
-
-            // Find end-entity certificate (non-CA), fallback to first certificate
-            return signedCms.Certificates
-                .Cast<X509Certificate2>()
-                .FirstOrDefault(c =>
-                {
-                    var bc = c.Extensions.OfType<X509BasicConstraintsExtension>().FirstOrDefault();
-                    return bc == null || !bc.CertificateAuthority;
-                }) ?? signedCms.Certificates[0];
+            return signedCms.Certificates[0];
         }
     }
 }
