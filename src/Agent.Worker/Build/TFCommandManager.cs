@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,6 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using System.Text;
 using System.Xml;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using Agent.Sdk.Knob;
 
@@ -158,34 +158,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
         {
             ArgUtil.File(clientCert, nameof(clientCert));
+
 #if NET9_0_OR_GREATER
-            X509Certificate2 cert;
-            var contentType = X509Certificate2.GetCertContentType(clientCert);
-            switch (contentType)
-            {
-                case X509ContentType.Pkcs12:
-                case X509ContentType.Pfx:
-                    cert = X509CertificateLoader.LoadPkcs12FromFile(clientCert, clientCertPassword);
-                    break;
-                case X509ContentType.Pkcs7:
-                    var signedCms = new SignedCms();
-                    signedCms.Decode(File.ReadAllBytes(clientCert));
-                    // Find end-entity certificate (non-CA), fallback to first certificate
-                    cert = signedCms.Certificates
-                        .Cast<X509Certificate2>()
-                        .FirstOrDefault(c =>
-                        {
-                            var bc = c.Extensions.OfType<X509BasicConstraintsExtension>().FirstOrDefault();
-                            return bc == null || !bc.CertificateAuthority;
-                        }) ?? signedCms.Certificates[0];
-                    break;
-                default:
-                    cert = X509CertificateLoader.LoadCertificateFromFile(clientCert);
-                    break;
-            }
+            X509Certificate2 cert = CertificateUtil.LoadCertificate(clientCert, clientCertPassword);
 #else
             X509Certificate2 cert = new X509Certificate2(clientCert);
 #endif
+
             ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
             AdditionalEnvironmentVariables["VstsClientCertificate"] = cert.Thumbprint;
 
