@@ -6,6 +6,11 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
+  <!-- TODO: Remove this PropertyGroup after .NET 8 support is dropped -->
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net8')) And ($(RuntimeIdentifier.StartsWith('osx')) Or $(RuntimeIdentifier.StartsWith('linux-bionic')))">
+    <_UseManagedNtlm>true</_UseManagedNtlm>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Security.Utilities.Core" Version="1.19.0" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" Condition="$(TargetFramework.StartsWith('net8'))" />
