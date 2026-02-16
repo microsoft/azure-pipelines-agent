@@ -17,7 +17,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
     {
         private const string AGENT_USE_NODE24 = "AGENT_USE_NODE24";
         private const string AGENT_USE_NODE20_1 = "AGENT_USE_NODE20_1";
-        private const string AGENT_USE_NODE16 = "AGENT_USE_NODE16";
         private const string AGENT_RESTRICT_EOL_NODE_VERSIONS = "AGENT_RESTRICT_EOL_NODE_VERSIONS";
         private const string AGENT_USE_NODE_STRATEGY = "AGENT_USE_NODE_STRATEGY";
         private const string NODE24_FOLDER = "node24";
@@ -87,10 +86,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "windows")]
         [InlineData(AGENT_USE_NODE24, "true", NODE24_FOLDER, false)] // Legacy mode
         [InlineData(AGENT_USE_NODE20_1, "true", NODE20_1_FOLDER, false)]
-        [InlineData(AGENT_USE_NODE16, "true", NODE16_FOLDER, false)]
         [InlineData(AGENT_USE_NODE24, "true", NODE24_FOLDER, true)]  // Strategy mode
         [InlineData(AGENT_USE_NODE20_1, "true", NODE20_1_FOLDER, true)]
-        [InlineData(AGENT_USE_NODE16, "true", NODE16_FOLDER, true)]
         public async Task NodeSelection_EnvironmentKnobs_SelectsCorrectVersion_NonWindows(string knob, string value, string expectedNodeFolder, bool useStrategy)
         {
             try
@@ -113,25 +110,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 Assert.NotNull(taskStep);
 
                 var log = GetTimelineLogLines(taskStep);
-                
+
                 AssertNodeSelectionAttempted(log, results.Result, useStrategy, $"testing {knob}");
                 
-                // Note: NODE16 may fallback to newer versions for compatibility
                 string expectedLogPattern = expectedNodeFolder == NODE20_1_FOLDER ? NODE20_LOG_PATTERN : expectedNodeFolder;
-                
-                if (expectedNodeFolder == NODE16_FOLDER)
-                {
-                    // NODE16 special case: may use requested version or fallback to compatible newer version
-                    var usesRequestedOrNewer = log.Any(x => x.Contains(NODE_SELECTION_LOG_PATTERN) && 
-                        (x.Contains(NODE16_FOLDER) || x.Contains(NODE20_LOG_PATTERN) || x.Contains(NODE24_FOLDER)));
-                    Assert.True(usesRequestedOrNewer, 
-                        $"Expected '{expectedNodeFolder}' or compatible fallback - {(useStrategy ? "strategy" : "legacy")} mode");
-                }
-                else
-                {
-                    // All other versions should use exact match
-                    AssertNodeSelectionSuccess(log, expectedLogPattern, useStrategy, $"{expectedNodeFolder}");
-                }
+                AssertNodeSelectionSuccess(log, expectedLogPattern, useStrategy, $"{expectedNodeFolder}");
             }
             finally
             {
@@ -147,10 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("SkipOn", "darwin")]
         [InlineData(AGENT_USE_NODE24, "true", NODE24_FOLDER, false)] // Legacy mode
         [InlineData(AGENT_USE_NODE20_1, "true", NODE20_1_FOLDER, false)]
-        [InlineData(AGENT_USE_NODE16, "true", NODE16_FOLDER, false)]
         [InlineData(AGENT_USE_NODE24, "true", NODE24_FOLDER, true)]  // Strategy mode
         [InlineData(AGENT_USE_NODE20_1, "true", NODE20_1_FOLDER, true)]
-        [InlineData(AGENT_USE_NODE16, "true", NODE16_FOLDER, true)]
         public async Task NodeSelection_EnvironmentKnobs_SelectsCorrectVersion_Windows(string knob, string value, string expectedNodeFolder, bool useStrategy)
         {
             try
@@ -287,9 +268,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "windows")]
         [InlineData(AGENT_USE_NODE24, AGENT_USE_NODE20_1, NODE24_FOLDER, false)] // Legacy mode - node24 should win
-        [InlineData(AGENT_USE_NODE20_1, AGENT_USE_NODE16, NODE20_1_FOLDER, false)] // Legacy mode - node20_1 should win
         [InlineData(AGENT_USE_NODE24, AGENT_USE_NODE20_1, NODE24_FOLDER, true)]  // Strategy mode - node24 should win
-        [InlineData(AGENT_USE_NODE20_1, AGENT_USE_NODE16, NODE20_1_FOLDER, true)] // Strategy mode - node20_1 should win
         public async Task NodeSelection_ConflictingKnobs_HigherVersionWins(string winningKnob, string losingKnob, string expectedNodeFolder, bool useStrategy)
         {
             try
@@ -382,7 +361,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         {
             Environment.SetEnvironmentVariable(AGENT_USE_NODE24, null);
             Environment.SetEnvironmentVariable(AGENT_USE_NODE20_1, null);
-            Environment.SetEnvironmentVariable(AGENT_USE_NODE16, null);
             Environment.SetEnvironmentVariable(AGENT_USE_NODE_STRATEGY, null);
             Environment.SetEnvironmentVariable(AGENT_RESTRICT_EOL_NODE_VERSIONS, null);
         }
