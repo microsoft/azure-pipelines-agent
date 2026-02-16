@@ -692,6 +692,7 @@
   "UnregisteringAgent": "Removing agent from the server",
   "UnsupportedGitLfsVersion": "Your current Git LFS version is '{0}', which is unsupported by the agent. Please upgrade to at least version '{1}'. See https://github.com/git-lfs/git-lfs/issues/3571 for more details.",
   "UnsupportedOsVersionByNet8": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.",
+  "UnsupportedOsVersionByNet10": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net10.",
   "UpdateBuildNumber": "Update Build Number",
   "UpdateBuildNumberForBuild": "Update build number to {0} for build {1}",
   "UpdateInProgress": "Agent update in progress, do not shutdown agent.",
