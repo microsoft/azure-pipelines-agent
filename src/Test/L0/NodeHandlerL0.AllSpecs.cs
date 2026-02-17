@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System.Linq;
+using System.Runtime.InteropServices;
+using Agent.Sdk;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -31,7 +33,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public static object[][] GetAllNodeHandlerScenarios()
         {
-            return NodeHandlerTestSpecs.AllScenarios
+            var scenarios = NodeHandlerTestSpecs.AllScenarios.ToList();
+            
+            // Skip container tests on macOS since they always use cross-platform logic
+            // This is expected behavior - macOS agent binaries cannot run in typical Linux containers
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                scenarios = scenarios.Where(s => !s.InContainer).ToList();
+            }
+            
+            return scenarios
                 .Select(scenario => new object[] { scenario })
                 .ToArray();
         }
