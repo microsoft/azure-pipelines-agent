@@ -156,6 +156,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
         public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
         {
+            // Disable the warning. TODO: Remove this warning suppression after the code is refactored to use X509CertificateLoader instead.
+            #pragma warning disable SYSLIB0057
             ArgUtil.File(clientCert, nameof(clientCert));
             X509Certificate2 cert = new X509Certificate2(clientCert);
             ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
@@ -163,6 +165,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             // Script Tf commands in tasks
             ExecutionContext.SetVariable("VstsClientCertificate", cert.Thumbprint, false, false);
+
+            // Re-enable the warning.
+            #pragma warning restore SYSLIB0057
         }
 
         public async Task ShelveAsync(string shelveset, string commentFile, bool move)

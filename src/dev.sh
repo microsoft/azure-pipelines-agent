@@ -34,7 +34,7 @@ fi
 
 pushd "$SCRIPT_DIR"
 
-DEFAULT_TARGET_FRAMEWORK="net10.0"
+DEFAULT_TARGET_FRAMEWORK="net8.0"
 
 if [[ $TARGET_FRAMEWORK == "" ]]; then
     TARGET_FRAMEWORK=$DEFAULT_TARGET_FRAMEWORK
@@ -43,11 +43,11 @@ fi
 function get_net_version() {
     local dotnet_versions="
         
-        net8.0-sdk=8.0.416
-        net8.0-runtime=8.0.22
+        net8.0-sdk=8.0.418
+        net8.0-runtime=8.0.24
 
-        net10.0-sdk=10.0.101
-        net10.0-runtime=10.0.1
+        net10.0-sdk=10.0.103
+        net10.0-runtime=10.0.3
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
