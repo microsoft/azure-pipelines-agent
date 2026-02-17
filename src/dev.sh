@@ -391,9 +391,25 @@ function cmd_report() {
         COVERAGE_XML_FILE="$COVERAGE_REPORT_DIR/coverage.xml"
         echo "Converting to XML file $COVERAGE_XML_FILE"
 
+        # Find CodeCoverage.exe dynamically - get NuGet cache location and search for the exe
+        NUGET_PACKAGES_DIR=$(dotnet nuget locals global-packages --list 2>/dev/null | sed 's/global-packages: //')
+        if [[ -z "$NUGET_PACKAGES_DIR" ]]; then
+            NUGET_PACKAGES_DIR="${HOME}/.nuget/packages"
+        fi
+        
+        CODE_COVERAGE_EXE=$(find "$NUGET_PACKAGES_DIR/microsoft.codecoverage" -name "CodeCoverage.exe" -path "*/netstandard2.0/CodeCoverage/*" ! -path "*/amd64/*" 2>/dev/null | sort -V | tail -1)
+        
+        if [[ -z "$CODE_COVERAGE_EXE" || ! -f "$CODE_COVERAGE_EXE" ]]; then
+            echo "CodeCoverage.exe not found in NuGet cache at $NUGET_PACKAGES_DIR"
+            echo "Skipping coverage report generation."
+            exit 0
+        fi
+        
+        echo "Using CodeCoverage.exe: $CODE_COVERAGE_EXE"
+
         # for some reason CodeCoverage.exe will only write the output file in the current directory
         pushd $COVERAGE_REPORT_DIR >/dev/null
-        "${HOME}/.nuget/packages/microsoft.codecoverage/18.0.1/build/netstandard1.0/CodeCoverage/CodeCoverage.exe" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
+        "$CODE_COVERAGE_EXE" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
         popd >/dev/null
 
         if ! command -v reportgenerator.exe >/dev/null; then
