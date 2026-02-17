@@ -218,8 +218,10 @@ jobs:
 
   # Code coverage
   - ${{ if and(parameters.codeCoverage, parameters.unitTests, parameters.functionalTests) }}:
-    - script: dotnet tool install --global dotnet-reportgenerator-globaltool
-      displayName: Install Report Generator
+    - script: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool
+        dotnet tool install --global dotnet-coverage
+      displayName: Install Coverage Tools
 
     - script: ${{ variables.devCommand }} report $(targetFramework)
       displayName: Generate Code Coverage report

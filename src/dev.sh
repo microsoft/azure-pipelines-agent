@@ -391,26 +391,15 @@ function cmd_report() {
         COVERAGE_XML_FILE="$COVERAGE_REPORT_DIR/coverage.xml"
         echo "Converting to XML file $COVERAGE_XML_FILE"
 
-        # Find CodeCoverage.exe dynamically - get NuGet cache location and search for the exe
-        NUGET_PACKAGES_DIR=$(dotnet nuget locals global-packages --list 2>/dev/null | sed 's/global-packages: //')
-        if [[ -z "$NUGET_PACKAGES_DIR" ]]; then
-            NUGET_PACKAGES_DIR="${HOME}/.nuget/packages"
-        fi
-        
-        CODE_COVERAGE_EXE=$(find "$NUGET_PACKAGES_DIR/microsoft.codecoverage" -name "CodeCoverage.exe" -path "*/netstandard2.0/CodeCoverage/*" ! -path "*/amd64/*" 2>/dev/null | sort -V | tail -1)
-        
-        if [[ -z "$CODE_COVERAGE_EXE" || ! -f "$CODE_COVERAGE_EXE" ]]; then
-            echo "CodeCoverage.exe not found in NuGet cache at $NUGET_PACKAGES_DIR"
+        # Use dotnet-coverage tool (modern replacement for deprecated CodeCoverage.exe)
+        if ! command -v dotnet-coverage >/dev/null; then
+            echo "dotnet-coverage not found. Install it with: dotnet tool install --global dotnet-coverage"
             echo "Skipping coverage report generation."
             exit 0
         fi
-        
-        echo "Using CodeCoverage.exe: $CODE_COVERAGE_EXE"
 
-        # for some reason CodeCoverage.exe will only write the output file in the current directory
-        pushd $COVERAGE_REPORT_DIR >/dev/null
-        "$CODE_COVERAGE_EXE" analyze "/output:coverage.xml" "$LATEST_COVERAGE_FILE"
-        popd >/dev/null
+        echo "Using dotnet-coverage to convert coverage file"
+        dotnet-coverage merge "$LATEST_COVERAGE_FILE" --output "$COVERAGE_XML_FILE" --output-format xml
 
         if ! command -v reportgenerator.exe >/dev/null; then
             echo "reportgenerator not installed. Skipping generation of HTML reports"
