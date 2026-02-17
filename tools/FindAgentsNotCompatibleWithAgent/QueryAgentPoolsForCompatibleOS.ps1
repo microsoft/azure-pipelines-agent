@@ -1,10 +1,10 @@
 #!/usr/bin/env pwsh
 <# 
 .SYNOPSIS 
-    Predict whether agents will be able to upgrade from pipeline agent v2 or v3 to agent v4
+    Predict whether agents will be able to upgrade from pipeline agent v3 or v4 to agent v5
 
 .DESCRIPTION 
-    The Azure Pipeline agent v2 uses .NET 3.1 Core, and agent v3 uses .NET 6, while agent v4 runs on .NET 8. This means agent v4 will drop support for operating systems not supported by .NET 8 (https://github.com/dotnet/core/blob/main/release-notes/8.0/supported-os.md)
+    The Azure Pipeline agent v3 uses .NET 6, and agent v4 uses .NET 8, while agent v5 runs on .NET 10. This means agent v5 will drop support for operating systems not supported by .NET 10 (https://github.com/dotnet/core/blob/main/release-notes/10.0/supported-os.md)
     This script will try to predict whether an agent will be able to upgrade, using the osDescription attribute of the agent. For Linux and macOS, this contains the output of 'uname -a`.
     Note the Pipeline agent has more context about the operating system of the host it is running on (e.g. 'lsb_release -a' output), and is able to make a better informed decision on whether to upgrade or not.
     Hence the output of this script is an indication wrt what the agent will do, but will include results where there is no sufficient information to include a prediction.
@@ -17,7 +17,7 @@
     ./QueryAgentPoolsForCompatibleOS.ps1 -Token "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 .EXAMPLE
     $env:AZURE_DEVOPS_EXT_PAT = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    ./QueryAgentPoolsForCompatibleOS.ps1 -PoolId 1234 -Filter V4InCompatible -Verbose -OpenCsv
+    ./QueryAgentPoolsForCompatibleOS.ps1 -PoolId 1234 -Filter V5InCompatible -Verbose -OpenCsv
 #> 
 
 #Requires -Version 7.2
@@ -47,9 +47,9 @@ param (
     [parameter(Mandatory=$false)]
     [parameter(ParameterSetName="pool")]
     [parameter(ParameterSetName="os")]
-    [ValidateSet("All", "ExcludeMissingOS", "MissingOS", "V4Compatible", "V4CompatibilityIssues", "V4CompatibilityUnknown", "V4InCompatible")]
+    [ValidateSet("All", "ExcludeMissingOS", "MissingOS", "V5Compatible", "V5CompatibilityIssues", "V5CompatibilityUnknown", "V5InCompatible")]
     [string]
-    $Filter="V4CompatibilityIssues",
+    $Filter="V5CompatibilityIssues",
 
     [parameter(Mandatory=$false)]
     [switch]
@@ -66,11 +66,11 @@ param (
 
 class ClassificationResult {
     hidden [int]$_sortOrder = 1
-    hidden [string]$_upgradeStatement = "OS (version) unknown, agent won't upgrade to v4 automatically"
+    hidden [string]$_upgradeStatement = "OS (version) unknown, agent won't upgrade to v5 automatically"
     [ValidateSet($null, $true, $false)]
-    hidden [object]$_v4AgentSupportsOS
+    hidden [object]$_v5AgentSupportsOS
     [ValidateSet("MissingOS", "Unsupported", "Unknown", "UnknownOS", "UnknownOSVersion", "UnsupportedOSVersion", "Supported")]
-    hidden [string]$_v4AgentSupportsOSText = "Unknown"
+    hidden [string]$_v5AgentSupportsOSText = "Unknown"
     [string]$_reason
 
     ClassificationResult() {
@@ -95,36 +95,36 @@ class ClassificationResult {
 
             $this._upgradeStatement = $value
         }
-        $this | Add-Member -Name V4AgentSupportsOS -MemberType ScriptProperty -Value {
+        $this | Add-Member -Name V5AgentSupportsOS -MemberType ScriptProperty -Value {
             # Get
-            return $this._v4AgentSupportsOS
+            return $this._v5AgentSupportsOS
         } -SecondValue {
             # Set
             param($value)
 
-            $this._v4AgentSupportsOS = $value
+            $this._v5AgentSupportsOS = $value
             if ($null -eq $value) {
                 $this._sortOrder = 1
-                $this._v4AgentSupportsOSText = "Unknown"
-                $this._upgradeStatement = "OS (version) unknown, agent won't upgrade to v4 automatically"
+                $this._v5AgentSupportsOSText = "Unknown"
+                $this._upgradeStatement = "OS (version) unknown, agent won't upgrade to v5 automatically"
             } elseif ($value) {
                 $this._sortOrder = 2
-                $this._v4AgentSupportsOSText = "Supported"
-                $this._upgradeStatement = "OS supported by v4 agent, agent will automatically upgrade to v4"
+                $this._v5AgentSupportsOSText = "Supported"
+                $this._upgradeStatement = "OS supported by v5 agent, agent will automatically upgrade to v5"
             } else {
                 $this._sortOrder = 0
-                $this._v4AgentSupportsOSText = "Unsupported"
-                $this._upgradeStatement = "OS not supported by v4 agent, agent won't upgrade to v4"
+                $this._v5AgentSupportsOSText = "Unsupported"
+                $this._upgradeStatement = "OS not supported by v5 agent, agent won't upgrade to v5"
             }
         }
-        $this | Add-Member -Name V4AgentSupportsOSText -MemberType ScriptProperty -Value {
+        $this | Add-Member -Name V5AgentSupportsOSText -MemberType ScriptProperty -Value {
             # Get
-            return $this._v4AgentSupportsOSText 
+            return $this._v5AgentSupportsOSText 
         } -SecondValue {
             # Set
             param($value)
 
-            $this._v4AgentSupportsOSText = $value
+            $this._v5AgentSupportsOSText = $value
         }
     }
 }
@@ -153,17 +153,17 @@ function Filter-Agents (
             "MissingOS" {
                 $Agents | Where-Object {[string]::IsNullOrWhiteSpace($_.OS)}
             } 
-            "V4Compatible" {
-                $Agents | Where-Object {$_.ValidationResult.V4AgentSupportsOS -eq $true}
+            "V5Compatible" {
+                $Agents | Where-Object {$_.ValidationResult.V5AgentSupportsOS -eq $true}
             } 
-            "V4CompatibilityIssues" {
-                $Agents | Where-Object {$_.ValidationResult.V4AgentSupportsOS -ne $true} | Where-Object {![string]::IsNullOrWhiteSpace($_.OS)}
+            "V5CompatibilityIssues" {
+                $Agents | Where-Object {$_.ValidationResult.V5AgentSupportsOS -ne $true} | Where-Object {![string]::IsNullOrWhiteSpace($_.OS)}
             } 
-            "V4CompatibilityUnknown" {
-                $Agents | Where-Object {$null -eq $_.ValidationResult.V4AgentSupportsOS} 
+            "V5CompatibilityUnknown" {
+                $Agents | Where-Object {$null -eq $_.ValidationResult.V5AgentSupportsOS} 
             } 
-            "V4InCompatible" {
-                $Agents | Where-Object {$_.ValidationResult.V4AgentSupportsOS -eq $false}
+            "V5InCompatible" {
+                $Agents | Where-Object {$_.ValidationResult.V5AgentSupportsOS -eq $false}
             } 
             default {
                 $Agents
@@ -196,44 +196,46 @@ function Validate-OS {
     if (!$OSDescription) {
         $result = [ClassificationResult]::new()
         $result.UpgradeStatement = "OS description missing"
-        $result.V4AgentSupportsOSText = "MissingOS"
+        $result.V5AgentSupportsOSText = "MissingOS"
         return $result
     }
 
     # Parse operating system description
     switch -regex ($OSDescription) {
-        # Debian "Linux 4.9.0-16-amd64 #1 SMP Debian 4.9.272-2 (2021-07-19)"
+        # Debian 12 (Bookworm) "Linux 6.1.0-18-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.76-1 (2024-02-01)"
         "(?im)^Linux.* Debian (?<Major>[\d]+)(\.(?<Minor>[\d]+))(\.(?<Build>[\d]+))?.*$" {
             Write-Debug "Debian: '$OSDescription'"
+            # The regex captures the Debian token version from uname output (e.g. Debian 6.1.76-1 -> 6.1).
             [version]$kernelVersion = ("{0}.{1}" -f $Matches["Major"],$Matches["Minor"])
             Write-Debug "Debian Linux Kernel $($kernelVersion.ToString())"
-            [version]$minKernelVersion = '5.10' # https://wiki.debian.org/DebianBullseye
+            [version]$minKernelVersion = '6.1' # Debian 12 (Bookworm) baseline: https://wiki.debian.org/DebianBookworm
 
             if ($kernelVersion -ge $minKernelVersion) {
                 $result.Reason = "Supported Debian Linux kernel version: ${kernelVersion}"
-                $result.V4AgentSupportsOS = $true
+                $result.V5AgentSupportsOS = $true
                 return $result
             } else {
                 $result.Reason = "Unsupported Debian Linux kernel version: ${kernelVersion} (see https://wiki.debian.org/DebianReleases)"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
         }
-        # Fedora "Linux 5.11.22-100.fc32.x86_64 #1 SMP Wed May 19 18:58:25 UTC 2021"
+        # Fedora 42 "Linux 6.8.5-300.fc42.x86_64 #1 SMP PREEMPT_DYNAMIC Fedora 42"
         "(?im)^Linux.*\.fc(?<Major>[\d]+)\..*$" {
             Write-Debug "Fedora: '$OSDescription'"
+            # Parse Fedora release from the .fcNN token and require Fedora 42+.
             [int]$fedoraVersion = $Matches["Major"]
             Write-Debug "Fedora ${fedoraVersion}"
 
-            if ($fedoraVersion -ge 38) {
+            if ($fedoraVersion -ge 42) {
                 $result.Reason = "Supported Fedora version: ${fedoraVersion}"
-                $result.V4AgentSupportsOS = $true
+                $result.V5AgentSupportsOS = $true
                 return $result
             } else {
                 $result.Reason = "Unsupported Fedora version: ${fedoraVersion}"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
         }
@@ -245,85 +247,81 @@ function Validate-OS {
 
             if ($majorVersion -ge 8) {
                 $result.Reason = "Supported RHEL / CentOS / Oracle Linux version: ${majorVersion}"
-                $result.V4AgentSupportsOS = $true
+                $result.V5AgentSupportsOS = $true
                 return $result
             } else {
                 $result.Reason = "Unsupported RHEL / CentOS / Oracle Linux version: ${majorVersion}"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
         }
-        # Ubuntu "Linux 4.15.0-1113-azure #126~16.04.1-Ubuntu SMP Tue Apr 13 16:55:24 UTC 2021"
+        # Ubuntu "Linux 6.8.0-1018-azure #18-Ubuntu SMP Fri Jun 14 12:34:56 UTC 2024" (e.g. 24.04)
         "(?im)^Linux.*[^\d]+((?<Major>[\d]+)((\.(?<Minor>[\d]+))(\.(?<Build>[\d]+)))(\.(?<Revision>[\d]+))?)-Ubuntu.*$" {
             Write-Debug "Ubuntu: '$OSDescription'"
+            # Preferred Ubuntu path: parse distro version and allow-list supported releases only.
             [int]$majorVersion = $Matches["Major"]
+            [int]$minorVersion = $Matches["Minor"]
+            [string]$ubuntuVersion = ("{0}.{1:D2}" -f $majorVersion, $minorVersion)
+            [string[]]$supportedUbuntuVersions = @('22.04', '24.04', '25.10')
             Write-Debug "Ubuntu ${majorVersion}"
+            Write-Debug "Ubuntu version ${ubuntuVersion}"
 
-            if ($majorVersion -lt 20) {
-                $result.Reason = "Unsupported Ubuntu version: ${majorVersion}"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+            if ($ubuntuVersion -in $supportedUbuntuVersions) {
+                $result.Reason = "Supported Ubuntu version: ${ubuntuVersion}"
+                $result.V5AgentSupportsOS = $true
                 return $result
             }
-            if (($majorVersion % 2) -ne 0) {
-                $result.Reason = "non-LTS Ubuntu version: ${majorVersion}"
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
-                return $result
-            }
-            Write-Debug "Supported Ubuntu version: ${majorVersion}"
-            $result.V4AgentSupportsOS = $true
+
+            $result.Reason = "Unsupported Ubuntu version: ${ubuntuVersion}"
+            $result.V5AgentSupportsOS = $false
+            $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
             return $result
         }
-        # Ubuntu "Linux 3.19.0-26-generic #28-Ubuntu SMP Tue Aug 11 14:16:32 UTC 2015"
-        # Ubuntu 22 "Linux 5.15.0-1023-azure #29-Ubuntu SMP Wed Oct 19 22:37:08 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux"
+        # Ubuntu "Linux 5.15.0-1023-azure #29-Ubuntu SMP Wed Oct 19 22:37:08 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux" (22.04)
+        # Ubuntu "Linux 6.8.0-1018-azure #18-Ubuntu SMP Fri Jun 14 12:34:56 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux" (24.04)
         "(?im)^Linux (?<KernelMajor>[\d]+)(\.(?<KernelMinor>[\d]+)).*-Ubuntu.*$" {
             Write-Debug "Ubuntu (no version declared): '$OSDescription'"
+            # Fallback Ubuntu path when distro version is missing in osDescription.
+            # Uses kernel baseline heuristic (5.15+) aligned to supported set starting at Ubuntu 22.04.
             [version]$kernelVersion = ("{0}.{1}" -f $Matches["KernelMajor"],$Matches["KernelMinor"])
             Write-Debug "Ubuntu Linux Kernel $($kernelVersion.ToString())"
-            [version[]]$supportedKernelVersions = @(
-                '5.4',  # 20.04
-                '5.8',  # 20.04
-                '5.15', # 22.04
-                '6.18'  # 24.04
-            )
-            [version]$minKernelVersion = ($supportedKernelVersions | Measure-Object -Minimum | Select-Object -ExpandProperty Minimum)
+            [version]$minKernelVersion = '5.15' # 22.04 baseline for supported set (22.04, 24.04, 25.10)
 
             if ($kernelVersion -lt $minKernelVersion ) {
                 $result.Reason = "Unsupported Ubuntu Linux kernel version: ${kernelVersion}` (see https://ubuntu.com/kernel/lifecycle)"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
-                return $result
-            }
-            if ($kernelVersion -in $supportedKernelVersions) {
-                $result.Reason = "Supported Ubuntu Linux kernel version: ${kernelVersion}"
-                $result.V4AgentSupportsOS = $true
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
 
-            $result.Reason = "Unknown Ubuntu version: '$OSDescription'"
-            $result.V4AgentSupportsOSText = "UnknownOSVersion"
+            $result.Reason = "Supported Ubuntu Linux kernel version: ${kernelVersion} (>= ${minKernelVersion} baseline)"
+            $result.V5AgentSupportsOS = $true
             return $result
         }
-        # macOS "Darwin 17.6.0 Darwin Kernel Version 17.6.0: Tue May  8 15:22:16 PDT 2018; root:xnu-4570.61.1~1/RELEASE_X86_64"
+        # macOS 14+ "Darwin 23.6.0 Darwin Kernel Version 23.6.0: root:xnu-10063.141.1~1/RELEASE_ARM64_T6031"
         "(?im)^Darwin (?<DarwinMajor>[\d]+)(\.(?<DarwinMinor>[\d]+)).*$" {
             Write-Debug "macOS (Darwin): '$OSDescription'"
+            # Darwin major 23 corresponds to macOS 14 (Sonoma); require 23.0+.
             [version]$darwinVersion = ("{0}.{1}" -f $Matches["DarwinMajor"],$Matches["DarwinMinor"])
             Write-Debug "Darwin $($darwinVersion.ToString())"
-            [version]$minDarwinVersion = '21.0' 
+            [version]$minDarwinVersion = '23.0' # macOS 14 (Sonoma) and newer
 
             if ($darwinVersion -ge $minDarwinVersion) {
                 $result.Reason = "Supported Darwin (macOS) version: ${darwinVersion}"
-                $result.V4AgentSupportsOS = $true
+                $result.V5AgentSupportsOS = $true
                 return $result
             } else {
                 $result.Reason = "Unsupported Darwin (macOS) version): ${darwinVersion} (see https://en.wikipedia.org/wiki/Darwin_(operating_system)"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
         }
-        # Windows 10 / 11 / Server 2016+ "Microsoft Windows 10.0.20348"
+        # Windows support policy:
+        # - Windows Client: 10 (1607+) and 11 (22631+)
+        # - Windows Server / Server Core / Nano Server: 2016+
+        # Example: "Microsoft Windows 10.0.20348"
         "(?im)^(Microsoft Windows|Windows_NT) (?<Major>[\d]+)(\.(?<Minor>[\d]+))(\.(?<Build>[\d]+)).*$" {
             [int]$windowsMajorVersion = $Matches["Major"]
             [int]$windowsMinorVersion = $Matches["Minor"]
@@ -331,55 +329,48 @@ function Validate-OS {
             [version]$windowsVersion = ("{0}.{1}.{2}" -f $Matches["Major"],$Matches["Minor"],$Matches["Build"])
             Write-Debug "Windows: '$OSDescription'"
             Write-Debug "Windows $($windowsVersion.ToString())"
+            # Windows 10 and 11 both report NT version 10.0; distinguish by build number.
+            # Note: osDescription usually lacks explicit SKU (Client/Server/Core/Nano), so rules are build-based.
             if (($windowsMajorVersion -eq 10) -and ($windowsMinorVersion -eq 0)) {
-                if ($windowsBuild -eq 14393) {
-                    # Windows 10 / Windows Server 2016
+                if ($windowsBuild -ge 22631) {
+                    # Windows 11 (22631+) and newer Windows Server families
                     $result.Reason = "Supported Windows build: ${windowsVersion}"
-                    $result.V4AgentSupportsOS = $true
-                    return $result
-                } elseif ($windowsBuild -eq 17763) {
-                    # Windows 10 / Windows Server 2019
-                    $result.Reason = "Supported Windows build: ${windowsVersion}"
-                    $result.V4AgentSupportsOS = $true
-                    return $result
-                } elseif ($windowsBuild -ge 19044) {
-                    # Windows 10 / Windows Server 2022 / Windows 11
-                    $result.Reason = "Supported Windows build: ${windowsVersion}"
-                    $result.V4AgentSupportsOS = $true
-                    return $result
-                } else {
-                    $result.Reason = "Unsupported Windows build: ${windowsVersion}"
-                    $result.V4AgentSupportsOS = $false
-                    $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                    $result.V5AgentSupportsOS = $true
                     return $result
                 }
-            }
-            if (($windowsMajorVersion -eq 6) -and ($windowsMinorVersion -eq 2) -and ($windowsBuild -eq 9200)) {
-                # Windows Server 2012
-                $result.Reason = "Supported Windows Server 2012 version: ${windowsVersion}"
-                $result.V4AgentSupportsOS = $true
-                return $result
-            }
-            if (($windowsMajorVersion -eq 6) -and ($windowsMinorVersion -eq 3) -and ($windowsBuild -eq 9600)) {
-                # Windows Server 2012 R2
-                $result.Reason = "Supported Windows Server 2012-R2 version: ${windowsVersion}"
-                $result.V4AgentSupportsOS = $true
+                if (($windowsBuild -ge 22000) -and ($windowsBuild -lt 22631)) {
+                    # Windows 11 below required client baseline
+                    $result.Reason = "Unsupported Windows 11 build (< 22631): ${windowsVersion}"
+                    $result.V5AgentSupportsOS = $false
+                    $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
+                    return $result
+                }
+                if ($windowsBuild -ge 14393) {
+                    # Windows 10 (1607+) and Windows Server / Server Core / Nano Server (2016+)
+                    $result.Reason = "Supported Windows build: ${windowsVersion}"
+                    $result.V5AgentSupportsOS = $true
+                    return $result
+                }
+
+                $result.Reason = "Unsupported Windows build: ${windowsVersion}"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
             if ($windowsMajorVersion -eq 6) {
-                # Windows 7 / 8 / Windows Server 2012 R1
-                $result.Reason = "Windows 7 / Windows 8 / Windows Server 2012-R1 is not supported: ${windowsVersion}"
-                $result.V4AgentSupportsOS = $false
-                $result.V4AgentSupportsOSText = "UnsupportedOSVersion"
+                # Windows 7 / 8 / Windows Server 2012 / 2012 R2 and older
+                $result.Reason = "Windows major version 6 is not supported: ${windowsVersion}"
+                $result.V5AgentSupportsOS = $false
+                $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
             $result.Reason = "Unknown Windows version: '${OSDescription}'"
-            $result.V4AgentSupportsOSText = "UnknownOSVersion"
+            $result.V5AgentSupportsOSText = "UnknownOSVersion"
             return $result
         }
         default {
             $result.Reason = "Unknown operating system: '$OSDescription'"
-            $result.V4AgentSupportsOSText = "UnknownOS"
+            $result.V5AgentSupportsOSText = "UnknownOS"
             return $result
         }
     }
@@ -401,9 +392,9 @@ if ($OS) {
     } | Filter-Agents -AgentFilter $Filter `
       | Format-Table -Property OS,`
                                @{Label="UpgradeStatement"; Expression={
-                                if ($_.ValidationResult.V4AgentSupportsOS -eq $null) {
+                                if ($_.ValidationResult.V5AgentSupportsOS -eq $null) {
                                     "$($PSStyle.Formatting.Warning)$($_.ValidationResult.UpgradeStatement)$($PSStyle.Reset)"
-                                } elseif ($_.ValidationResult.V4AgentSupportsOS) {
+                                } elseif ($_.ValidationResult.V5AgentSupportsOS) {
                                     $_.ValidationResult.UpgradeStatement
                                 } else {
                                     "$($PSStyle.Formatting.Error)$($_.ValidationResult.UpgradeStatement)$($PSStyle.Reset)"
@@ -555,7 +546,7 @@ try {
                       | Select-Object -Property @{Label="Name"; Expression={$_.name}},`
                                                 @{Label="Id"; Expression={$_.id}},`
                                                 @{Label="OS"; Expression={$_.OS -replace ";",""}},`
-                                                @{Label="V4OS"; Expression={$_.ValidationResult.V4AgentSupportsOSText}},`
+                                                @{Label="V5OS"; Expression={$_.ValidationResult.V5AgentSupportsOSText}},`
                                                 @{Label="UpgradeStatement"; Expression={$_.ValidationResult.UpgradeStatement}},`
                                                 @{Label="Reason"; Expression={$_.ValidationResult.Reason}},`
                                                 @{Label="CreatedOn"; Expression={$_.createdOn}},`
@@ -576,15 +567,15 @@ try {
                           | Format-Table -Property @{Label="Name"; Expression={$_.name}},`
                                                    OS,`
                                                    @{Label="UpgradeStatement"; Expression={
-                                                    if ($_.ValidationResult.V4AgentSupportsOS -eq $null) {
+                                                    if ($_.ValidationResult.V5AgentSupportsOS -eq $null) {
                                                         "$($PSStyle.Formatting.Warning)$($_.ValidationResult.UpgradeStatement)$($PSStyle.Reset)"
-                                                    } elseif ($_.ValidationResult.V4AgentSupportsOS) {
+                                                    } elseif ($_.ValidationResult.V5AgentSupportsOS) {
                                                         $_.ValidationResult.UpgradeStatement
                                                     } else {
                                                         "$($PSStyle.Formatting.Error)$($_.ValidationResult.UpgradeStatement)$($PSStyle.Reset)"
                                                     }                                                    
                                                     }},`
-                                                   @{Label="V4OS"; Expression={$_.ValidationResult.V4AgentSupportsOSText}},`
+                                                   @{Label="V5OS"; Expression={$_.ValidationResult.V5AgentSupportsOSText}},`
                                                    PoolName,`
                                                    AgentUrl `
                           | Out-Host -Paging
@@ -596,13 +587,13 @@ try {
             Write-Host "`nRetrieved agents with filter '${Filter}' in organization (${OrganizationUrl}) have been saved to ${exportFilePath}"
             Write-Host "Processed ${totalNumberOfAgents} agents in ${totalNumberOfPools} in organization '${OrganizationUrl}'"
             $statisticsFilter = (($Filter -ieq "All") -or $IncludeMissingOSInStatistics ? "All" : "ExcludeMissingOS")
-            Write-Host "`nAgents by v2/v3 -> v4 compatibility (${statisticsFilter}):"
+            Write-Host "`nAgents by v2/v3 -> v5 compatibility (${statisticsFilter}):"
 
             $script:allAgents | Filter-Agents -AgentFilter $statisticsFilter `
-                              | Group-Object {$_.ValidationResult.V4AgentSupportsOSText} `
+                              | Group-Object {$_.ValidationResult.V5AgentSupportsOSText} `
                               | Set-Variable agentsSummary
             $agentsSummary    | Measure-Object -Property Count -Sum | Select-Object -ExpandProperty Sum | Set-Variable totalNumberOfFilteredAgents
-            $agentsSummary    | Format-Table -Property @{Label="V4AgentSupportsOS"; Expression={$_.Name}},`
+            $agentsSummary    | Format-Table -Property @{Label="V5AgentSupportsOS"; Expression={$_.Name}},`
                                                        Count,`
                                                        @{Label="Percentage"; Expression={($_.Count / $totalNumberOfFilteredAgents).ToString("p")}}
         }    
