@@ -221,7 +221,7 @@ jobs:
     - script: dotnet tool install --global dotnet-reportgenerator-globaltool
       displayName: Install Report Generator
 
-    - script: ${{ variables.devCommand }} report
+    - script: ${{ variables.devCommand }} report $(targetFramework)
       displayName: Generate Code Coverage report
       workingDirectory: src
 
