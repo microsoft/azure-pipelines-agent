@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Util;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -161,7 +162,10 @@ namespace Agent.Plugins.Repository
         {   // Disable the warning. TODO: Remove this warning suppression after the code is refactored to use X509CertificateLoader instead.
             #pragma warning disable SYSLIB0057
             ArgUtil.File(clientCert, nameof(clientCert));
-            X509Certificate2 cert = new X509Certificate2(clientCert);
+
+            // Pass null for password to maintain original behavior (certificate without password)
+            X509Certificate2 cert = CertificateUtil.LoadCertificate(clientCert, password: null);
+
             ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
             AdditionalEnvironmentVariables["VstsClientCertificate"] = cert.Thumbprint;
 
