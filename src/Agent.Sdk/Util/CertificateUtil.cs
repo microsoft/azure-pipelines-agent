@@ -1,12 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.IO;
 using System.Security.Cryptography.X509Certificates;
-#if NET9_0_OR_GREATER
-using System.Security.Cryptography.Pkcs;
-#endif
 
 namespace Agent.Sdk.Util
 {
@@ -14,9 +9,8 @@ namespace Agent.Sdk.Util
     {
         /// <summary>
         /// Loads an X509Certificate2 from a file, handling different certificate formats.
-        /// Uses X509CertificateLoader for .NET 9+ and falls back to X509Certificate2 constructor for earlier versions.
-        /// Supports: Cert (DER/PEM), PFX/PKCS#12, PKCS#7, SerializedCert, SerializedStore, and Authenticode formats.
-        /// Note: SerializedCert, SerializedStore, and Authenticode are Windows-only and use legacy APIs.
+        /// Uses X509CertificateLoader for .NET 9+ for Cert and Pkcs12 formats.
+        /// For all other formats, uses the legacy constructor with warning suppression.
         /// </summary>
         /// <param name="certificatePath">Path to the certificate file</param>
         /// <param name="password">Optional password for PKCS#12/PFX files</param>
@@ -28,34 +22,26 @@ namespace Agent.Sdk.Util
             switch (contentType)
             {
                 case X509ContentType.Cert:
+                    // DER-encoded or PEM-encoded certificate
                     return X509CertificateLoader.LoadCertificateFromFile(certificatePath);
 
                 case X509ContentType.Pkcs12:
+                    // Note: X509ContentType.Pfx has the same value (3) as Pkcs12 refer: https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.x509certificates.x509contenttype?view=net-10.0
                     return X509CertificateLoader.LoadPkcs12FromFile(certificatePath, password);
 
-                case X509ContentType.Pkcs7:
-                    return LoadPkcs7Certificate(certificatePath);
-
-                case X509ContentType.SerializedCert:
-                case X509ContentType.Authenticode:
-#pragma warning disable SYSLIB0057
-                    return new X509Certificate2(certificatePath);
-#pragma warning restore SYSLIB0057
-
-                case X509ContentType.SerializedStore:
-#pragma warning disable SYSLIB0057
-                    var collection = new X509Certificate2Collection();
-                    collection.Import(certificatePath);
-                    if (collection.Count == 0)
-                    {
-                        throw new InvalidOperationException("The serialized store does not contain any certificates.");
-                    }
-                    return collection[0];
-#pragma warning restore SYSLIB0057
-
-                case X509ContentType.Unknown:
                 default:
-                    return X509CertificateLoader.LoadCertificateFromFile(certificatePath);
+                    // For all other formats (Pkcs7, SerializedCert, SerializedStore, Authenticode, Unknown),
+                    // use the legacy constructor with warning suppression
+#pragma warning disable SYSLIB0057
+                    if (string.IsNullOrEmpty(password))
+                    {
+                        return new X509Certificate2(certificatePath);
+                    }
+                    else
+                    {
+                        return new X509Certificate2(certificatePath, password);
+                    }
+#pragma warning restore SYSLIB0057
             }
 #else
             // For .NET 8 and earlier, use the traditional constructor
@@ -70,23 +56,5 @@ namespace Agent.Sdk.Util
             }
 #endif
         }
-
-#if NET9_0_OR_GREATER
-        /// <summary>
-        /// Loads a certificate from a PKCS#7 file.
-        /// </summary>
-        private static X509Certificate2 LoadPkcs7Certificate(string certificatePath)
-        {
-            var signedCms = new SignedCms();
-            signedCms.Decode(File.ReadAllBytes(certificatePath));
-
-            if (signedCms.Certificates.Count == 0)
-            {
-                throw new InvalidOperationException("The PKCS#7 file does not contain any certificates.");
-            }
-
-            return signedCms.Certificates[0];
-        }
-#endif
     }
 }
