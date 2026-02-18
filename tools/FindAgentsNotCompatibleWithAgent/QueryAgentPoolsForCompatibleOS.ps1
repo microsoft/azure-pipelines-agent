@@ -487,11 +487,11 @@ try {
                                -o tsv `
                                | Set-Variable poolName
         
-        Write-Host "Retrieving v2 and v3 agents for pool '${poolName}' (${poolUrl})..."
-        Write-Debug "az pipelines agent list --pool-id ${individualPoolId} --include-capabilities --query `"[?starts_with(version,'2.') || starts_with(version,'3.')]`""
+        Write-Host "Retrieving v3 and v4 agents for pool '${poolName}' (${poolUrl})..."
+        Write-Debug "az pipelines agent list --pool-id ${individualPoolId} --include-capabilities --query `"[?starts_with(version,'3.') || starts_with(version,'4.')]`""
         az pipelines agent list --pool-id $individualPoolId `
                                 --include-capabilities `
-                                --query "[?starts_with(version,'2.') || starts_with(version,'3.')]" `
+                                --query "[?starts_with(version,'3.') || starts_with(version,'4.')]" `
                                 -o json `
                                 | ConvertFrom-Json `
                                 | Set-Variable agents
@@ -587,7 +587,7 @@ try {
             Write-Host "`nRetrieved agents with filter '${Filter}' in organization (${OrganizationUrl}) have been saved to ${exportFilePath}"
             Write-Host "Processed ${totalNumberOfAgents} agents in ${totalNumberOfPools} in organization '${OrganizationUrl}'"
             $statisticsFilter = (($Filter -ieq "All") -or $IncludeMissingOSInStatistics ? "All" : "ExcludeMissingOS")
-            Write-Host "`nAgents by v2/v3 -> v5 compatibility (${statisticsFilter}):"
+            Write-Host "`nAgents by v3/v4 -> v5 compatibility (${statisticsFilter}):"
 
             $script:allAgents | Filter-Agents -AgentFilter $statisticsFilter `
                               | Group-Object {$_.ValidationResult.V5AgentSupportsOSText} `
