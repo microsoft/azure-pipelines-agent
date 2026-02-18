@@ -346,6 +346,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_HTTP_RETRY"),
             new BuiltInDefaultKnobSource("3"));
 
+        public static readonly Knob EnableProgressiveRetryBackoff = new Knob(
+            nameof(EnableProgressiveRetryBackoff),
+            "If true, enables progressive backoff delays for agent message polling and keep-alive retries when encountering retriable errors",
+            new EnvironmentKnobSource("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob HttpTimeout = new Knob(
             nameof(HttpTimeout),
             "Timeout for Http requests",
