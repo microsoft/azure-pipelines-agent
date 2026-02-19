@@ -27,7 +27,7 @@ parameters:
 - name: targetFramework
   displayName: Target framework
   type: string
-  default: net10.0
+  default: net8.0
   values:
   - net8.0
   - net10.0

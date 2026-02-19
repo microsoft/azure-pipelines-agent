@@ -7,11 +7,6 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
-  <!-- TODO: Remove this PropertyGroup after .NET 8 support is dropped -->
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net8')) And ($(RuntimeIdentifier.StartsWith('osx')) Or $(RuntimeIdentifier.StartsWith('linux-bionic')))">
-    <_UseManagedNtlm>true</_UseManagedNtlm>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
     <ProjectReference Include="..\Microsoft.VisualStudio.Services.Agent\Microsoft.VisualStudio.Services.Agent.csproj" />
