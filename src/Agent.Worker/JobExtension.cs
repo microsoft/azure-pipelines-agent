@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             context.Warning(ex.Message);
                         }
                     }
-                    else if (!AgentKnobs.Net10UnsupportedOsWarning.GetValue(context).AsBoolean())
+                    if (!AgentKnobs.Net10UnsupportedOsWarning.GetValue(context).AsBoolean())
                     {
                         // Check if a system supports .NET 10
                         try
