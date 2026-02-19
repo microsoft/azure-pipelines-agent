@@ -199,7 +199,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v6.13.1/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
     if [[ "$INCLUDE_NODE6" == "true" ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin
@@ -239,7 +239,7 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
         cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
     fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
-    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v6.13.1/nuget.exe" nuget
+    acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
     if [[ "$INCLUDE_NODE6" == "true" ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin # Not available for Windows ARM
