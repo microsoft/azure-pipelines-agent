@@ -2,9 +2,9 @@
   <PropertyGroup>
     <LangVersion>10.0</LangVersion>
     <TargetFramework Condition="'$(NetTargetFramework)' != ''">$(NetTargetFramework)</TargetFramework>
-    <TargetFramework Condition="'$(NetTargetFramework)' == ''">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(NetTargetFramework)' == ''">net8.0</TargetFramework>
     <RuntimeFrameworkVersion Condition="'$(NetRuntimeFrameworkVersion)' != ''">$(NetRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
-    <RuntimeFrameworkVersion Condition="'$(NetRuntimeFrameworkVersion)' == ''">10.0.1</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion Condition="'$(NetRuntimeFrameworkVersion)' == ''">8.0.24</RuntimeFrameworkVersion>
     <RuntimeIdentifier Condition="'$(BuildingInsideVisualStudio)' != 'true'">$(PackageRuntime)</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
