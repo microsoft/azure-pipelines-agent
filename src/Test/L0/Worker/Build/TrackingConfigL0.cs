@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
             {
                 // Arrange.
-                var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl) };
+                var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl), Alias = "self" };
 
                 // Act.
                 var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository }, DefinitionId);
@@ -115,12 +115,125 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void TrackingConfig_ctor_multicheckout_selfrepo_first_should_fill_in_fields_correctly()
+        {
+            using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
+            {
+                // Arrange.
+                var repository1 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl), Alias = "self" };
+                var repository2 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl2), Alias = "MyRepo" };
+
+                // Act.
+                var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository1, repository2 }, DefinitionId);
+
+                // Assert.
+                Assert.Equal(Path.Combine("322", "a"), config.ArtifactsDirectory);
+                Assert.Equal("322", config.BuildDirectory);
+                Assert.Equal(CollectionId, config.CollectionId);
+                Assert.Equal(CollectionUrl, config.CollectionUrl);
+                Assert.Equal(DefinitionId.ToString(), config.DefinitionId);
+                Assert.Equal(DefinitionName, config.DefinitionName);
+                Assert.Equal(3, config.FileFormatVersion);
+                Assert.Equal(null, config.FileLocation);
+                Assert.Equal("19d0ed91d609014495fa47c9817f3d4f0a1e8573", config.HashKey);
+                Assert.Equal(RepositoryTypes.Git, config.RepositoryType);
+                Assert.Equal(RepositoryUrl, config.RepositoryUrl);
+                Assert.Equal(Path.Combine("322", "s"), config.SourcesDirectory);
+                Assert.Equal("build", config.System);
+                Assert.Equal(Path.Combine("322", "TestResults"), config.TestResultsDirectory);
+                Assert.NotNull(config.RepositoryTrackingInfo);
+                Assert.Equal(true, config.ShouldSerializeRepositoryTrackingInfo());
+                Assert.Equal(2, config.RepositoryTrackingInfo.Count);
+                Assert.Equal(RepositoryUrl, config.RepositoryTrackingInfo[0].RepositoryUrl);
+                Assert.Equal(RepositoryUrl2, config.RepositoryTrackingInfo[1].RepositoryUrl);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TrackingConfig_ctor_multicheckout_selfrepo_second_should_fill_in_fields_correctly()
+        {
+            using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
+            {
+                // Arrange.
+                var repository1 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl2), Alias = "MyRepo" };
+                var repository2 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl), Alias = "self" };
+
+                var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository1, repository2 }, DefinitionId);
+
+                // Assert.
+                Assert.Equal(Path.Combine("322", "a"), config.ArtifactsDirectory);
+                Assert.Equal("322", config.BuildDirectory);
+                Assert.Equal(CollectionId, config.CollectionId);
+                Assert.Equal(CollectionUrl, config.CollectionUrl);
+                Assert.Equal(DefinitionId.ToString(), config.DefinitionId);
+                Assert.Equal(DefinitionName, config.DefinitionName);
+                Assert.Equal(3, config.FileFormatVersion);
+                Assert.Equal(null, config.FileLocation);
+                Assert.Equal("19d0ed91d609014495fa47c9817f3d4f0a1e8573", config.HashKey);
+                Assert.Equal(RepositoryTypes.Git, config.RepositoryType);
+                Assert.Equal(RepositoryUrl, config.RepositoryUrl);
+                Assert.Equal(Path.Combine("322", "s"), config.SourcesDirectory);
+                Assert.Equal("build", config.System);
+                Assert.Equal(Path.Combine("322", "TestResults"), config.TestResultsDirectory);
+                Assert.NotNull(config.RepositoryTrackingInfo);
+                Assert.Equal(true, config.ShouldSerializeRepositoryTrackingInfo());
+                Assert.Equal(2, config.RepositoryTrackingInfo.Count);
+                Assert.Equal(RepositoryUrl2, config.RepositoryTrackingInfo[0].RepositoryUrl);
+                Assert.Equal(RepositoryUrl, config.RepositoryTrackingInfo[1].RepositoryUrl);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TrackingConfig_ctor_multicheckout_primaryrepo_second_should_fill_in_fields_correctly()
+        {
+            using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
+            {
+                // Arrange.
+                var repository1 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl2), Alias = "MyRepo" };
+                var repository2 = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl), Alias = "MyPrimaryRepo" };
+
+                // Set the second repository to be the primary repo, then check if tracking config will handle it correctly
+                repository2.Properties.Set(Agent.Util.RepositoryUtil.IsPrimaryRepository, true);
+
+                // Act.
+                var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository1, repository2 }, DefinitionId);
+
+                // Assert.
+                Assert.Equal(Path.Combine("322", "a"), config.ArtifactsDirectory);
+                Assert.Equal("322", config.BuildDirectory);
+                Assert.Equal(CollectionId, config.CollectionId);
+                Assert.Equal(CollectionUrl, config.CollectionUrl);
+                Assert.Equal(DefinitionId.ToString(), config.DefinitionId);
+                Assert.Equal(DefinitionName, config.DefinitionName);
+                Assert.Equal(3, config.FileFormatVersion);
+                Assert.Equal(null, config.FileLocation);
+                Assert.Equal("b11739abf5283ee3dc62d616e92597861eeb78d2", config.HashKey);
+                Assert.Equal(RepositoryTypes.Git, config.RepositoryType);
+                Assert.Equal(RepositoryUrl, config.RepositoryUrl);
+                Assert.Equal(Path.Combine("322", "s"), config.SourcesDirectory);
+                Assert.Equal("build", config.System);
+                Assert.Equal(Path.Combine("322", "TestResults"), config.TestResultsDirectory);
+                Assert.NotNull(config.RepositoryTrackingInfo);
+                Assert.Equal(true, config.ShouldSerializeRepositoryTrackingInfo());
+                Assert.Equal(2, config.RepositoryTrackingInfo.Count);
+                Assert.Equal(RepositoryUrl2, config.RepositoryTrackingInfo[0].RepositoryUrl);
+                Assert.Equal(RepositoryUrl, config.RepositoryTrackingInfo[1].RepositoryUrl);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void TrackingConfig_clone_should_fill_in_fields_correctly()
         {
             using (TestHostContext tc = Setup(out Mock<IExecutionContext> mockExecutionContext))
             {
                 // Arrange.
-                var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl) };
+                var repository = new RepositoryResource() { Type = RepositoryTypes.Git, Url = new Uri(RepositoryUrl), Alias = "self" };
 
                 // Act.
                 var config = new TrackingConfig(mockExecutionContext.Object, new[] { repository }, DefinitionId);
@@ -192,5 +305,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         private const int DefinitionId = 322;
         private const string DefinitionName = "Some definition name";
         private const string RepositoryUrl = "http://contoso:8080/tfs/DefaultCollection/_git/gitTest";
+        private const string RepositoryUrl2 = "http://contoso:8080/tfs/DefaultCollection/_git/gitOtherTest";
     }
 }
