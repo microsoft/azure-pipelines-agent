@@ -277,13 +277,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         var systemVersion = PlatformUtil.GetSystemVersion();
 
                         Dictionary<string, string> telemetryData = new Dictionary<string, string>
-                    {
-                        { "OS", PlatformUtil.GetSystemId() ?? "" },
-                        { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
-                        { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
-                        { "configuredAsService", $"{configuredAsService}"},
-                        { "startupType", startupTypeAsString }
-                    };
+                        {
+                            { "OS", PlatformUtil.GetSystemId() ?? "" },
+                            { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
+                            { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                            { "configuredAsService", $"{configuredAsService}"},
+                            { "startupType", startupTypeAsString }
+                        };
+
+                        // Check for EnableAgent fallback indicator
+                        string fallbackUsed = Environment.GetEnvironmentVariable("VSTS_AGENT_VMEXT_FALLBACK_USED");
+                        if (!string.IsNullOrEmpty(fallbackUsed) && fallbackUsed.Equals("true", StringComparison.OrdinalIgnoreCase))
+                        {
+                            telemetryData["EnableAgentVmExtFallbackUsed"] = "true";
+                            Trace.Info("EnableAgent VM extension fallback detected");
+                        }
+
                         var cmd = new Command("telemetry", "publish");
                         cmd.Data = JsonConvert.SerializeObject(telemetryData);
                         cmd.Properties.Add("area", "PipelinesTasks");
@@ -295,7 +304,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         Trace.Warning($"Unable to publish telemetry data. {ex}");
                     }
-
 
                     // Run the agent interactively or as service
                     return await RunAsync(settings, command.GetRunOnce());
