@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-                    if (!AgentKnobs.DisableUnsupportedOsWarningNet8.GetValue(context).AsBoolean())
+                    if (!AgentKnobs.Net8UnsupportedOsWarning.GetValue(context).AsBoolean())
                     {
                         // Check if a system supports .NET 8
                         try
