@@ -318,15 +318,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public string GetUrl(bool suppressPromptIfEmpty = false)
         {
+            // Check for URL from either Configure or Remove commands
+            string urlValue = Configure?.Url ?? Remove?.Url;
+            
             // Note, GetArg does not consume the arg (like GetArgOrPrompt does).
             if (suppressPromptIfEmpty &&
-                string.IsNullOrEmpty(GetArg(Configure?.Url, Constants.Agent.CommandLine.Args.Url)))
+                string.IsNullOrEmpty(GetArg(urlValue, Constants.Agent.CommandLine.Args.Url)))
             {
                 return string.Empty;
             }
-
+            
             return GetArgOrPrompt(
-                argValue: Configure?.Url,
+                argValue: urlValue,
                 name: Constants.Agent.CommandLine.Args.Url,
                 description: StringUtil.Loc("ServerUrl"),
                 defaultValue: string.Empty,
