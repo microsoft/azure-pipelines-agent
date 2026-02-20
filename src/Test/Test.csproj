@@ -16,20 +16,24 @@
 
   <ItemGroup>
     <PackageReference Include="azuredevops-testresultparser" Version="1.0.2" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
-    <PackageReference Include="Microsoft.CodeCoverage" Version="16.4.0" />
-    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="16.4.0" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="Microsoft.CodeCoverage" Version="18.0.1" />
+    <!-- With Test.Sdk > 16.4.0 TestHost.exe unable to respect DOTNET_ROOT.
+         VSTest will use dotnet testhost.dll instead which properly respects DOTNET_ROOT. -->
+    <PackageReference Include="Microsoft.TestPlatform.TestHost" Version="18.0.1" GeneratePathProperty="true">
+      <ExcludeAssets>build</ExcludeAssets>
+    </PackageReference>
     <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="System.Reflection.TypeExtensions" Version="4.4.0" />
-    <PackageReference Include="System.Threading.ThreadPool" Version="4.3.0" />
+    <PackageReference Include="System.Threading.ThreadPool" Version="4.3.0" Condition="$(TargetFramework.StartsWith('net8'))" />
     <PackageReference Include="vss-api-netcore" Version="$(VssApiVersion)" />
     <PackageReference Include="xunit" Version="2.2.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.2.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.2" />
     <PackageReference Include="Microsoft.Azure.Storage.DataMovement" Version="2.0.5" />
-    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
-    <PackageReference Include="System.Private.Uri" Version="4.3.2" />
-    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" Condition="$(TargetFramework.StartsWith('net8'))" />
+    <PackageReference Include="System.Private.Uri" Version="4.3.2" Condition="$(TargetFramework.StartsWith('net8'))" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" Condition="$(TargetFramework.StartsWith('net8'))" />
   </ItemGroup>
 
   <ItemGroup>
