@@ -18,7 +18,9 @@ using System.Text;
 using Microsoft.VisualStudio.Services.OAuth;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Agent.Sdk.Knob;
 using Agent.Sdk.Util;
+using Agent.Listener.Configuration;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -39,11 +41,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         private ITerminal _term;
         private IAgentServer _agentServer;
         private TaskAgentSession _session;
+        private static UtilKnobValueContext _knobContext = UtilKnobValueContext.Instance();
         private TimeSpan _getNextMessageRetryInterval;
-        private readonly TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
+        private TimeSpan _keepAliveRetryInterval;
+        private bool? _enableProgressiveBackoff = null;
+        private TimeSpan _sessionCreationRetryInterval = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _sessionConflictRetryLimit = TimeSpan.FromMinutes(4);
         private readonly TimeSpan _clockSkewRetryLimit = TimeSpan.FromMinutes(30);
         private readonly Dictionary<string, int> _sessionCreationExceptionTracker = new Dictionary<string, int>();
+        private TimeSpan _sessionConflictElapsedTime = TimeSpan.Zero;
+        private TimeSpan _clockSkewElapsedTime = TimeSpan.Zero;
+
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -51,6 +59,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _term = HostContext.GetService<ITerminal>();
             _agentServer = HostContext.GetService<IAgentServer>();
+        }
+
+        /// <summary>
+        /// Calculates the retry interval based on the progressive backoff setting and error count.
+        /// </summary>
+        /// <param name="continuousError">The number of consecutive errors.</param>
+        /// <param name="defaultInterval">The default interval when progressive backoff is disabled.</param>
+        /// <param name="currentInterval">The current interval (used for random backoff calculation).</param>
+        /// <param name="useRandomBackoff">If true, uses random backoff when progressive backoff is disabled.</param>
+        /// <returns>The calculated retry interval.</returns>
+        private TimeSpan GetRetryInterval(
+            int continuousError,
+            TimeSpan defaultInterval,
+            TimeSpan currentInterval = default,
+            bool useRandomBackoff = false)
+        {
+            if (_enableProgressiveBackoff == true)
+            {
+                double delaySeconds = Math.Min(Math.Pow(2, continuousError) * 1.5, 300);
+                return TimeSpan.FromSeconds(delaySeconds);
+            }
+
+            if (useRandomBackoff)
+            {
+                // Random backoff for GetNextMessage: [15,30]s for first 5 errors, then [30,60]s
+                var minBackoff = continuousError <= 5
+                    ? TimeSpan.FromSeconds(15)
+                    : TimeSpan.FromSeconds(30);
+                var maxBackoff = continuousError <= 5
+                    ? TimeSpan.FromSeconds(30)
+                    : TimeSpan.FromSeconds(60);
+                return BackoffTimerHelper.GetRandomBackoff(minBackoff, maxBackoff, currentInterval);
+            }
+
+            // Default: fixed interval
+            return defaultInterval;
         }
 
         public async Task<Boolean> CreateSessionAsync(CancellationToken token)
@@ -84,8 +128,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             string errorMessage = string.Empty;
             bool encounteringError = false;
+            int continuousError = 0;
 
             _term.WriteLine(StringUtil.Loc("ConnectToServer"));
+
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
             while (true)
             {
                 token.ThrowIfCancellationRequested();
@@ -102,11 +151,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                                         token);
 
                     Trace.Info($"Session created.");
+
+                    if (_enableProgressiveBackoff == true)
+                    {
+                        // Reset BOTH on successful session creation
+                        _sessionConflictElapsedTime = TimeSpan.Zero;
+                        _clockSkewElapsedTime = TimeSpan.Zero;
+                    }
+
                     if (encounteringError)
                     {
                         _term.WriteLine(StringUtil.Loc("QueueConnected", DateTime.UtcNow));
                         _sessionCreationExceptionTracker.Clear();
                         encounteringError = false;
+                        continuousError = 0;
                     }
 
                     return true;
@@ -137,12 +195,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         return false;
                     }
 
+                    continuousError++;
+
+                    _sessionCreationRetryInterval = GetRetryInterval(
+                        continuousError,
+                        defaultInterval: TimeSpan.FromSeconds(30));
+
                     if (!encounteringError) //print the message only on the first error
                     {
                         _term.WriteError(StringUtil.Loc("QueueConError", DateTime.UtcNow, ex.Message, _sessionCreationRetryInterval.TotalSeconds));
                         encounteringError = true;
                     }
 
+                    Trace.Info($"Unable to create session in CreateSessionAsync (attempt {continuousError})");
                     Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _sessionCreationRetryInterval.TotalSeconds));
                     await HostContext.Delay(_sessionCreationRetryInterval, token);
                 }
@@ -170,6 +235,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string errorMessage = string.Empty;
             Stopwatch heartbeat = new Stopwatch();
             heartbeat.Restart();
+
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
+
             while (true)
             {
                 token.ThrowIfCancellationRequested();
@@ -223,18 +293,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     else
                     {
                         continuousError++;
-                        //retry after a random backoff to avoid service throttling
-                        //in case of there is a service error happened and all agents get kicked off of the long poll and all agent try to reconnect back at the same time.
-                        if (continuousError <= 5)
-                        {
-                            // random backoff [15, 30]
-                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), _getNextMessageRetryInterval);
-                        }
-                        else
-                        {
-                            // more aggressive backoff [30, 60]
-                            _getNextMessageRetryInterval = BackoffTimerHelper.GetRandomBackoff(TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60), _getNextMessageRetryInterval);
-                        }
+
+                        _getNextMessageRetryInterval = GetRetryInterval(
+                            continuousError,
+                            defaultInterval: TimeSpan.FromSeconds(30),
+                            currentInterval: _getNextMessageRetryInterval,
+                            useRandomBackoff: true);
 
                         if (!encounteringError)
                         {
@@ -245,7 +309,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                         // re-create VssConnection before next retry
                         await _agentServer.RefreshConnectionAsync(AgentConnectionType.MessageQueue);
-
+                        
+                        Trace.Info($"Unable to get next message in GetNextMessageAsync (attempt {continuousError})");
                         Trace.Info(StringUtil.Format("Sleeping for {0} seconds before retrying.", _getNextMessageRetryInterval.TotalSeconds));
                         await HostContext.Delay(_getNextMessageRetryInterval, token);
                     }
@@ -290,20 +355,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
         public async Task KeepAlive(CancellationToken token)
         {
-           
+            int continuousError = 0;
+            _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
+
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
+
             while (!token.IsCancellationRequested)
             {
                 try
                 {
                     await _agentServer.GetAgentMessageAsync(_settings.PoolId, _session.SessionId, null, token);
                     Trace.Info($"Sent GetAgentMessage to keep alive agent {_settings.AgentId}, session '{_session.SessionId}'.");
+                    
+                    // Reset on success
+                    continuousError = 0;
+                    _keepAliveRetryInterval = TimeSpan.FromSeconds(30);
                 }
                 catch (Exception ex)
                 {
-                    Trace.Verbose("Unable to sent GetAgentMessage to keep alive", ex.Message);
+                    continuousError++;
+
+                    _keepAliveRetryInterval = GetRetryInterval(
+                        continuousError,
+                        defaultInterval: TimeSpan.FromSeconds(30));
+
+                    Trace.Info($"Unable to sent GetAgentMessage to keep alive (attempt {continuousError}): {ex.Message}");
+                    Trace.Info($"KeepAlive will retry in {_keepAliveRetryInterval.TotalSeconds} seconds.");
                 }
 
-                await HostContext.Delay(TimeSpan.FromSeconds(30), token);
+                await HostContext.Delay(_keepAliveRetryInterval, token);
             }
         }
         private TaskAgentMessage DecryptMessage(TaskAgentMessage message)
@@ -378,19 +460,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Info("The session for this agent already exists.");
                 _term.WriteError(StringUtil.Loc("SessionExist"));
-                if (_sessionCreationExceptionTracker.ContainsKey(nameof(TaskAgentSessionConflictException)))
-                {
-                    _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)]++;
-                    if (_sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] * _sessionCreationRetryInterval.TotalSeconds >= _sessionConflictRetryLimit.TotalSeconds)
+
+                // when the EnableProgressiveRetryBackoff FF is enabled
+                if(_enableProgressiveBackoff == true){
+                    
+                    //update session conflict time
+                    _sessionConflictElapsedTime += _sessionCreationRetryInterval;
+                   
+                   //check the total elapsed time is within the retry limit
+                    if (_sessionConflictElapsedTime >= _sessionConflictRetryLimit)
                     {
-                        Trace.Info("The session conflict exception have reached retry limit.");
+                        Trace.Info($"The session conflict exception have reached retry limit. Elapsed: {_sessionConflictElapsedTime.TotalSeconds}s, Limit: {_sessionConflictRetryLimit.TotalSeconds}s");
                         _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
                         return false;
                     }
+                    
                 }
-                else
-                {
-                    _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] = 1;
+                // when the EnableProgressiveRetryBackoff FF is disabled
+                else{
+                    if (_sessionCreationExceptionTracker.ContainsKey(nameof(TaskAgentSessionConflictException)))
+                    {
+                        _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)]++;
+                        if (_sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] * _sessionCreationRetryInterval.TotalSeconds >= _sessionConflictRetryLimit.TotalSeconds)
+                        {
+                            Trace.Info("The session conflict exception have reached retry limit.");
+                            _term.WriteError(StringUtil.Loc("SessionExistStopRetry", _sessionConflictRetryLimit.TotalSeconds));
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        _sessionCreationExceptionTracker[nameof(TaskAgentSessionConflictException)] = 1;
+                    }
                 }
 
                 Trace.Info("The session conflict exception haven't reached retry limit.");
@@ -400,21 +501,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             {
                 Trace.Info("Local clock might skewed.");
                 _term.WriteError(StringUtil.Loc("LocalClockSkewed"));
-                if (_sessionCreationExceptionTracker.ContainsKey(nameof(VssOAuthTokenRequestException)))
+
+                // when the EnableProgressiveRetryBackoff FF is enabled
+                if(_enableProgressiveBackoff == true)
                 {
-                    _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)]++;
-                    if (_sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] * _sessionCreationRetryInterval.TotalSeconds >= _clockSkewRetryLimit.TotalSeconds)
+                    // Only update clock skew time
+                    _clockSkewElapsedTime += _sessionCreationRetryInterval;
+
+                    // check the total elapsed time is within the retry limit
+                    if (_clockSkewElapsedTime >= _clockSkewRetryLimit)
                     {
-                        Trace.Info("The OAuth token request exception have reached retry limit.");
+                        Trace.Info($"The OAuth token request exception have reached retry limit. Elapsed: {_clockSkewElapsedTime.TotalSeconds}s, Limit: {_clockSkewRetryLimit.TotalSeconds}s");
                         _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
                         return false;
                     }
                 }
+                // when the EnableProgressiveRetryBackoff FF is disabled
                 else
                 {
-                    _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] = 1;
+                    if (_sessionCreationExceptionTracker.ContainsKey(nameof(VssOAuthTokenRequestException)))
+                    {
+                        _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)]++;
+                        if (_sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] * _sessionCreationRetryInterval.TotalSeconds >= _clockSkewRetryLimit.TotalSeconds)
+                        {
+                            Trace.Info("The OAuth token request exception have reached retry limit.");
+                            _term.WriteError(StringUtil.Loc("ClockSkewStopRetry", _clockSkewRetryLimit.TotalSeconds));
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        _sessionCreationExceptionTracker[nameof(VssOAuthTokenRequestException)] = 1;
+                    }
                 }
-
                 Trace.Info("The OAuth token request exception haven't reached retry limit.");
                 return true;
             }

@@ -84,10 +84,10 @@ jobs:
   ${{ if eq(parameters.targetFramework, 'all') }}:
     strategy:
       matrix:
-        NET6.0:
-          targetFramework: 'net6.0'
         NET8.0:
           targetFramework: 'net8.0'
+        NET10.0:
+          targetFramework: 'net10.0'
 
 
   ${{ if ne(parameters.container, '') }}:
@@ -218,10 +218,12 @@ jobs:
 
   # Code coverage
   - ${{ if and(parameters.codeCoverage, parameters.unitTests, parameters.functionalTests) }}:
-    - script: dotnet tool install --global dotnet-reportgenerator-globaltool
-      displayName: Install Report Generator
+    - script: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool
+        dotnet tool install --global dotnet-coverage
+      displayName: Install Code Coverage and Report Generator
 
-    - script: ${{ variables.devCommand }} report
+    - script: "${{ variables.devCommand }} report $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}"
       displayName: Generate Code Coverage report
       workingDirectory: src
 
