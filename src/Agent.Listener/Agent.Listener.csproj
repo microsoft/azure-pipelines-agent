@@ -28,8 +28,11 @@
     <PackageReference Include="System.Formats.Asn1" Version="8.0.1" Condition="$(TargetFramework.StartsWith('net8'))" />
   </ItemGroup>
 
-  <ItemGroup>
+ <ItemGroup>
     <None Update="net8.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="net10.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
