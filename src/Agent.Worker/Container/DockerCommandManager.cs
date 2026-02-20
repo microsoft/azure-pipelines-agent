@@ -270,16 +270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
 
             if (!String.IsNullOrEmpty(driver))
             {
-                if (networkDrivers.Contains(driver))
-                {
-                    options += $" --driver {driver}";
-                }
-                else
-                {
-                    string warningMessage = $"Specified '{driver}' driver not found!";
-                    Trace.Warning(warningMessage);
-                    context.Warning(warningMessage);
-                }
+                options += $" --driver {driver}";
             }
             else if (usingWindowsContainers && networkDrivers.Contains("nat"))
             {
@@ -291,7 +282,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
                 options += $" {additionalNetworCreateOptions}";
             }
 
-            return await ExecuteDockerCommandAsync(context, "network", options, context.CancellationToken);
+            // When originally introduced in #3751 the network driver check did automated fallback to "no network driver."
+            // In order to maintain that automated fallback behavior but not exclude custom network plugins we now attempt
+            // to create the network and, upon failure, retry with the network-driver-less invocation.
+            exitCode = await ExecuteDockerCommandAsync(context, "network", options, context.CancellationToken);
+            if (exitCode != 0)
+            {
+                string warningMessage = $"Specified '{driver}' driver not found! Retrying with unset driver.";
+                Trace.Warning(warningMessage);
+                context.Warning(warningMessage);
+                string networkDriverlessOptions = options.Replace($" --driver {driver}", "");
+                return await ExecuteDockerCommandAsync(context, "network", networkDriverlessOptions, context.CancellationToken)
+            }
+
+            return exitCode;
         }
 
         public async Task<int> DockerNetworkRemove(IExecutionContext context, string network)
