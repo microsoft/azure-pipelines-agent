@@ -858,16 +858,16 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UseDockerStdinPasswordOnWindows"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob Net8UnsupportedOsWarning = new Knob(
-            nameof(Net8UnsupportedOsWarning),
+        public static readonly Knob DisableUnsupportedOsWarningNet8 = new Knob(
+            nameof(DisableUnsupportedOsWarningNet8),
             "Show warning message on the OS which is not supported by .NET 8",
-            new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new PipelineFeatureSource("DisableUnsupportedOsWarningNet8"),
             new BuiltInDefaultKnobSource("true"));
 
-        public static readonly Knob Net10UnsupportedOsWarning = new Knob(
-            nameof(Net10UnsupportedOsWarning),
+        public static readonly Knob DisableUnsupportedOsWarningNet10 = new Knob(
+            nameof(DisableUnsupportedOsWarningNet10),
             "Show warning message on the OS which is not supported by .NET 10",
-            new PipelineFeatureSource("Net10UnsupportedOsWarning"),
+            new PipelineFeatureSource("DisableUnsupportedOsWarningNet10"),
             new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob UsePSScriptWrapper = new Knob(

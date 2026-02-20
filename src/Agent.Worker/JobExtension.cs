@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     PackageVersion agentVersion = new PackageVersion(BuildConstants.AgentPackage.Version);
 
-                    if (!AgentKnobs.Net8UnsupportedOsWarning.GetValue(context).AsBoolean())
+                    if (!AgentKnobs.DisableUnsupportedOsWarningNet8.GetValue(context).AsBoolean())
                     {
                         // Check if a system supports .NET 8
                         try
@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             context.Warning(ex.Message);
                         }
                     }
-                    if (!AgentKnobs.Net10UnsupportedOsWarning.GetValue(context).AsBoolean())
+                    if (!AgentKnobs.DisableUnsupportedOsWarningNet10.GetValue(context).AsBoolean())
                     {
                         // Check if a system supports .NET 10
                         try
