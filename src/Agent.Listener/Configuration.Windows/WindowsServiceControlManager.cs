@@ -110,7 +110,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             string serviceName;
             string serviceDisplayName;
-            CalculateServiceName(settings, ServiceNamePattern, ServiceDisplayNamePattern, out serviceName, out serviceDisplayName);
+
+            string serviceNamePattern = command.GetServiceNamePattern() ?? ServiceNamePattern;
+            string serviceDisplayNamePattern = command.GetServiceDisplayNamePattern() ?? ServiceDisplayNamePattern;
+
+            CalculateServiceName(settings, serviceNamePattern, serviceDisplayNamePattern, out serviceName, out serviceDisplayName);
             if (_windowsServiceHelper.IsServiceExists(serviceName))
             {
                 _term.WriteLine(StringUtil.Loc("ServiceAlreadyExists", serviceName));
