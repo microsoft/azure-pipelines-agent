@@ -641,7 +641,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
             if (startExitCode != 0)
             {
-                throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
+                if (startExitCode == 1 && (await _dockerManger.GetDockerLogs(executionContext, container.ContainerId)).LastOrDefault(row => row.Contains("context deadline exceeded")) != default)
+                {
+                    // Special handling for this case - the container may start running
+                    executionContext.Warning($"Docker start encountered 'context deadline exceeded' and returned exit code {startExitCode}");
+                    int statusCheckDelayTimeMs = 500;
+                    int statusCheckCount = 10;
+                    bool containerRunning = false;
+                    for (int i = 0; i < statusCheckCount; i++)
+                    {
+                        await Task.Delay(statusCheckDelayTimeMs, executionContext.CancellationToken);
+                        containerRunning = await _dockerManger.IsContainerRunning(executionContext, container.ContainerId);
+                        if (containerRunning)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (!containerRunning)
+                    {
+                        throw new InvalidOperationException($"Docker container is not running after docker start encountered 'context deadline exceeded'");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Docker start fail with exit code {startExitCode}");
+                }
             }
 
             try
