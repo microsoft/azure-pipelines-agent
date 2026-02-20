@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Security.Cryptography.X509Certificates;
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Sdk
@@ -35,11 +36,7 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(clientCertificateArchiveFile))
             {
-                // Disable the warning. TODO: Remove this warning suppression after the code is refactored to use X509CertificateLoader instead.
-                #pragma warning disable SYSLIB0057
-                _clientCertificates.Add(new X509Certificate2(clientCertificateArchiveFile, clientCertificatePassword));
-                // Re-enable the warning.
-                #pragma warning restore SYSLIB0057
+                _clientCertificates.Add(CertificateUtil.LoadCertificate(clientCertificateArchiveFile, clientCertificatePassword));
             }
         }
     }

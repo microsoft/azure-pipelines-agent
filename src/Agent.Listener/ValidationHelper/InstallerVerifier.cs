@@ -111,8 +111,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 CRYPT_PROVIDER_CERT provCert = (CRYPT_PROVIDER_CERT)Marshal.PtrToStructure(pProviderCertificate, typeof(CRYPT_PROVIDER_CERT));
 
                 // Check for our EKU in the certificate
-                // Disable the warning. TODO: Remove this warning suppression after the code is refactored to use X509CertificateLoader instead.
-                #pragma warning disable SYSLIB0057
                 using (X509Certificate2 x509Cert = new X509Certificate2(provCert.pCert))
                 {
                     if (((X509EnhancedKeyUsageExtension)x509Cert.Extensions[EXTENDED_KEY_USAGE]).EnhancedKeyUsages[expectedEKU] == null)
@@ -123,8 +121,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
                     trace.Info(String.Format("Authenticode signature for file {0} is signed with a certificate containing the EKU {1}.", filePath, expectedEKU));
                 }
-                // Re-enable the warning.
-                #pragma warning restore SYSLIB0057
             }
             finally
             {
