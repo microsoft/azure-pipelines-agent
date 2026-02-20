@@ -29,10 +29,10 @@
   </ItemGroup>
 
  <ItemGroup>
-    <None Update="net8.json" Condition="'$(TargetFramework)' == 'net8.0'">
+    <None Update="net8.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="net10.json" Condition="'$(TargetFramework)' == 'net10.0'">
+    <None Update="net10.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
