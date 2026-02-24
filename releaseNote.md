@@ -1,3 +1,12 @@
+## Features
+ - Enhancing the delay in the listener when there is exception in the connection (#5448)
+
+## Bugs
+
+
+## Misc
+
+
 
 ## Agent Downloads
 
