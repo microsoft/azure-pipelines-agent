@@ -6,6 +6,7 @@ using System.IO;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -64,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             
             if (eolPolicyEnabled)
             {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, skipNode24Check: false);
+                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, skipNode24Check: false, isUpgradeScenario: true);
             }
             
             return null;
@@ -74,9 +75,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// Determines the appropriate Node version based on glibc compatibility and EOL policy.
         /// </summary>
         /// <param name="skipNode24Check">When true, skips checking Node24 glibc (used when Node24 folder doesn't exist)</param>
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool skipNode24Check)
+        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool skipNode24Check, bool isUpgradeScenario = false)
         {
             string systemType = context.Container != null ? "container" : "agent";
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+            string upgradeWarning = isUpgradeScenario ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null;
 
             if (!skipNode24Check && !glibcInfo.Node24HasGlibcError)
             {
@@ -85,19 +88,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node24,
                     Reason = baseReason,
-                    Warning = null
+                    Warning = upgradeWarning
                 };
             }
 
             if (!glibcInfo.Node20HasGlibcError)
             {
+                string fallbackReason = skipNode24Check 
+                    ? $"{baseReason}, fallback to Node20 because Node24 is not available"
+                    : $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue";
 
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
-                    Reason = $"{baseReason}, fallback to Node20 due to Node24 glibc compatibility issue",
-                    Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
+                    Reason = fallbackReason,
+                    Warning = upgradeWarning ?? StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24", "Node20")
                 };
             }
 
@@ -115,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
                 Reason = $"{baseReason}, fallback to Node16 due to both Node24 and Node20 glibc compatibility issues",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node24 or Node20", "Node16")
+                Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
             };
         }
 

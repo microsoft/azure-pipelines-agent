@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             dockerManager.Setup(x => x.DockerVersion(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(new DockerVersion(new Version("1.35"), new Version("1.35")));
             dockerManager.Setup(x => x.DockerPS(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
-                .ReturnsAsync(new List<string>());
+                .ReturnsAsync(new List<string> { "container123 Up 5 seconds" });
             dockerManager.Setup(x => x.DockerNetworkCreate(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
                 .ReturnsAsync(0);
             dockerManager.Setup(x => x.DockerPull(It.IsAny<IExecutionContext>(), It.IsAny<string>()))

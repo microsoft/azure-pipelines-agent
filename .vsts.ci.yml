@@ -61,7 +61,7 @@ extends:
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     testProxyAgent: ${{ parameters.testProxyAgent }}
-    targetFramework: 'net8.0'
+    targetFramework: 'all'
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     win_arm64: ${{ parameters.win_arm64 }}

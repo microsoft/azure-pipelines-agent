@@ -30,6 +30,7 @@ parameters:
   default: net8.0
   values:
   - net8.0
+  - net10.0
   
 - name: derivedFrom
   type: string
@@ -145,9 +146,9 @@ extends:
 
                 ## Verify target framework for specified version
                 $majorVersion = $agentVersion.Split('.')[0]
-                if (("${{ parameters.targetFramework }}" -eq "net6.0" -and $majorVersion -ne "3") -or
-                   ("${{ parameters.targetFramework }}" -eq "net8.0" -and $majorVersion -ne "4")) {
-                  Write-Error "The major version should be 3 for net6.0 and 4 for net8.0" -ErrorAction Stop
+                if (("${{ parameters.targetFramework }}" -eq "net8.0" -and $majorVersion -ne "4") -or
+                   ("${{ parameters.targetFramework }}" -eq "net10.0" -and $majorVersion -ne "5")) {
+                  Write-Error "The major version should be 4 for net8.0 and 5 for net10.0" -ErrorAction Stop
                 }
               }
               if ($isTestRun) {
