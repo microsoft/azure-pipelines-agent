@@ -101,6 +101,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             Trace.Entering();
 
+            // Fetch progressive backoff knob value
+            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
+            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
+
             // Settings
             var configManager = HostContext.GetService<IConfigurationManager>();
             _settings = configManager.LoadSettings();
@@ -132,9 +136,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
             _term.WriteLine(StringUtil.Loc("ConnectToServer"));
 
-            // Fetch progressive backoff knob value
-            _enableProgressiveBackoff = AgentKnobs.EnableProgressiveRetryBackoff.GetValue(_knobContext).AsBoolean();
-            Trace.Info($"Progressive backoff knob value: {_enableProgressiveBackoff}");
             while (true)
             {
                 token.ThrowIfCancellationRequested();

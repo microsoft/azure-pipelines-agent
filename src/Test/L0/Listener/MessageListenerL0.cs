@@ -20,6 +20,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
+    [Collection("NonParallelTests")]
     public sealed class MessageListenerL0 : IDisposable
     {
         private AgentSettings _settings;
@@ -64,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void CreatesSession()
+        public async Task CreatesSession()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
@@ -104,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void DeleteSession()
+        public async Task DeleteSession()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
@@ -151,7 +152,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void GetNextMessage()
+        public async Task GetNextMessage()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
@@ -232,15 +233,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void CreateSessionUsesExponentialBackoffWhenFlagEnabled()
+        public async Task CreateSessionUsesExponentialBackoffWhenFlagEnabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
 
-                // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                 try
                 {
                     int callCount = 0;
@@ -265,6 +264,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     MessageListener listener = new MessageListener();
                     listener.Initialize(tc);
 
+                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside CreateSessionAsync
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                     bool result = await listener.CreateSessionAsync(tokenSource.Token);
                     trace.Info($"result: {result}");
 
@@ -290,15 +291,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void CreateSessionUsesConstantBackoffWhenFlagDisabled()
+        public async Task CreateSessionUsesConstantBackoffWhenFlagDisabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
-
-                // Arrange - Ensure environment variable is not set (simulating FF being off)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
 
                 try
                 {
@@ -323,6 +321,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Act
                     MessageListener listener = new MessageListener();
                     listener.Initialize(tc);
+                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside CreateSessionAsync
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     bool result = await listener.CreateSessionAsync(tokenSource.Token);
 
                     // Assert
@@ -347,15 +347,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void GetNextMessageUsesExponentialBackoffWhenFlagEnabled()
+        public async Task GetNextMessageUsesExponentialBackoffWhenFlagEnabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
-
-                // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
 
                 try
                 {
@@ -400,6 +397,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Clear delays from CreateSession - we only want GetNextMessage delays
                     tc.CapturedDelays.Clear();
 
+                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside GetNextMessageAsync
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                     TaskAgentMessage message = await listener.GetNextMessageAsync(tokenSource.Token);
 
                     // Assert - Check captured delays
@@ -427,15 +426,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void GetNextMessageUsesRandomBackoffWhenFlagDisabled()
+        public async Task GetNextMessageUsesRandomBackoffWhenFlagDisabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
-
-                // Arrange - Ensure environment variable is not set (simulating FF being off)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
 
                 try
                 {
@@ -479,7 +475,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     
                     // Clear delays from CreateSession - we only want GetNextMessage delays
                     tc.CapturedDelays.Clear();
-                    
+
+                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside GetNextMessageAsync
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     TaskAgentMessage message = await listener.GetNextMessageAsync(tokenSource.Token);
 
                     // Assert - Check captured delays
@@ -505,15 +503,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void KeepAliveUsesExponentialBackoffWhenFlagEnabled()
+        public async Task KeepAliveUsesExponentialBackoffWhenFlagEnabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
-
-                // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
 
                 try
                 {
@@ -556,6 +551,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Clear delays from CreateSession - we only want GetNextMessage delays
                     tc.CapturedDelays.Clear();
 
+                    // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                     // Start KeepAlive in a task and let it run until cancellation
                     var keepAliveTask = listener.KeepAlive(tokenSource.Token);
 
@@ -589,15 +586,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void KeepAliveUsesConstantBackoffWhenFlagDisabled()
+        public async Task KeepAliveUsesConstantBackoffWhenFlagDisabled()
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Tracing trace = tc.GetTrace();
-
-                // Arrange - Ensure environment variable is not set (simulating FF being off)
-                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
 
                 try
                 {
@@ -637,9 +631,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     listener.Initialize(tc);
                     await listener.CreateSessionAsync(tokenSource.Token);
 
-                    // Clear delays from CreateSession - we only want GetNextMessage delays
+                    // Clear delays from CreateSession - we only want KeepAlive delays
                     tc.CapturedDelays.Clear();
 
+                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside KeepAlive
+                    Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     // Start KeepAlive in a task and let it run until cancellation
                     var keepAliveTask = listener.KeepAlive(tokenSource.Token);
 
