@@ -235,6 +235,19 @@ namespace Agent.Plugins.Repository
 
             //define options for fetch
             string options = $"{forceTag} {tags} --prune {pruneTags} {progress} --no-recurse-submodules {remoteName} {depth} {string.Join(" ", filters.Select(filter => "--filter=" + filter))} {string.Join(" ", refSpec)}";
+            
+            // When fetching with specific refspecs and tags enabled, git doesn't prune conflicting tag refs properly
+            // even with --prune-tags. Run git remote prune to clean up conflicting tag refs before fetch.
+            if (refSpec != null && refSpec.Count > 0 && fetchTags && !string.IsNullOrEmpty(pruneTags))
+            {
+                context.Debug("Running git remote prune before fetch to clean up conflicting tag refs.");
+                int pruneExitCode = await GitRemotePrune(context, repositoryPath, remoteName);
+                if (pruneExitCode != 0)
+                {
+                    context.Debug($"Git remote prune completed with exit code {pruneExitCode}. Continuing with fetch.");
+                }
+            }
+            
             int retryCount = 0;
             int fetchExitCode = 0;
             while (retryCount < 3)
@@ -600,6 +613,13 @@ namespace Agent.Plugins.Repository
         {
             context.Debug("Delete unreachable objects under .git directory.");
             return await ExecuteGitCommandAsync(context, repositoryPath, "prune", "-v");
+        }
+
+        // git remote prune <remote>
+        public async Task<int> GitRemotePrune(AgentTaskPluginExecutionContext context, string repositoryPath, string remoteName)
+        {
+            context.Debug($"Prune remote tracking branches for remote: {remoteName}.");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "remote", $"prune {remoteName}");
         }
 
         // git lfs prune
