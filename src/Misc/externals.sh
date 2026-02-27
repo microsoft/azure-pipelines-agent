@@ -6,6 +6,7 @@ L1_MODE=$4
 
 INCLUDE_NODE6=${INCLUDE_NODE6:-true}
 INCLUDE_NODE10=${INCLUDE_NODE10:-true}
+INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
@@ -22,12 +23,17 @@ if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
     INCLUDE_NODE10=false;
 fi
 
+if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
+    INCLUDE_NODE24=false
+fi
+
 NODE_VERSION="6.17.1"
 NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
-NODE20_VERSION="20.18.2"
-MINGIT_VERSION="2.47.0.2"
+NODE20_VERSION="20.20.0"
+NODE24_VERSION="24.13.0"
+MINGIT_VERSION="2.50.1"
 LFS_VERSION="3.4.0"
 
 get_abs_path() {
@@ -173,7 +179,13 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         BIT="64"
         acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
-        acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom
+    fi
+    # Node.js dropped official support for Windows 32-bit (win-x86) starting with Node.js 20
+    # See: https://github.com/nodejs/node/blob/main/BUILDING.md#platform-list
+    # Node 24 is not available for win-x86, so we exclude it for this runtime
+    if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
+        INCLUDE_NODE24=false
+        echo "INFO: Node 24 is not available for win-x86. Node-based tasks will fall back to Node 20 or Node 16."
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
@@ -181,6 +193,11 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
+    if [[ "$PACKAGERUNTIME" == "win-x64" ]]; then
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
+    fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
@@ -196,6 +213,10 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    if [[ "$INCLUDE_NODE24" == "true" ]]; then
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
+    fi
 elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]]; then
     # Download external tools for Windows ARM
 
@@ -205,7 +226,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
 
         # acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy # Unavailable for Win ARM 64 - https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10?tabs=dnf#download-the-azcopy-portable-binary
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost  # Custom package. Will the same work for Win ARM 64?
-        acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" vstsom  # Custom package. Will the same work for Win ARM 64?
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # Unavailable for Win ARM 64 - https://github.com/git-for-windows/git/releases
@@ -213,6 +233,11 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/pdbstr/win-arm${BIT}/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/win-arm${BIT}/1/symstore.zip" symstore
     acquireExternalTool "$CONTAINER_URL/vstsom/m153_47c0856d_adhoc/vstsom.zip" tf
+    acquireExternalTool "$CONTAINER_URL/vstsom/dev17.11vs_c0748e6e/vstsom.zip" tf-latest
+    if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
+        # Copy tf to vstshost for default PowerShell handler behavior
+        cp -r "$LAYOUT_DIR/externals/tf/"* "$LAYOUT_DIR/externals/vstshost/"
+    fi
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
@@ -232,10 +257,12 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     # Official distribution of Node contains Node 20 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
     acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+
+    # Official distribution of Node contains Node 24 for Windows ARM
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
+    acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
 else
     # Download external tools for Linux and OSX.
-
-    acquireExternalTool "$CONTAINER_URL/vso-task-lib/0.5.5/vso-task-lib.tar.gz" vso-task-lib
 
     if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
         ARCH="darwin-x64"
@@ -250,6 +277,7 @@ else
         ARCH="darwin-arm64"
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
     elif [[ "$PACKAGERUNTIME" == "linux-musl-arm64" ]]; then
         ARCH="linux-arm64-musl"
 
@@ -259,6 +287,7 @@ else
 
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
+        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24/bin fix_nested_dir false node_alpine_arm64
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;
@@ -277,6 +306,9 @@ else
         fi
         acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        if [[ "$INCLUDE_NODE24" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
+        fi
     fi
     # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
     # they are installed along with node, but agent does not use them
@@ -297,18 +329,16 @@ else
     rm "$LAYOUT_DIR/externals/node20_1/bin/npm"
     rm "$LAYOUT_DIR/externals/node20_1/bin/npx"
     rm "$LAYOUT_DIR/externals/node20_1/bin/corepack"
+
+    if [[ "$INCLUDE_NODE24" == "true" ]]; then
+        rm -rf "$LAYOUT_DIR/externals/node24/lib"
+        rm "$LAYOUT_DIR/externals/node24/bin/npm"
+        rm "$LAYOUT_DIR/externals/node24/bin/npx"
+        rm "$LAYOUT_DIR/externals/node24/bin/corepack"
+    fi
 fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
-    # cmdline task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
-    # cmdline node10 task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/f9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
-
-    # with the current setup of this package there are backslashes so it fails to extract on non-windows at runtime
-    # we may need to fix this in the Agent
-    if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
-        # signed service tree task
-        acquireExternalTool "$CONTAINER_URL/l1Tasks/d9bafed4-0b18-4f58-0001-86655b4d2ce9.zip" "Tasks" false dont_uncompress
-    fi
+    # cmdline node20 task
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/b9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
 fi

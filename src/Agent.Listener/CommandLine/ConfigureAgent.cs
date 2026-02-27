@@ -102,6 +102,9 @@ namespace Agent.Listener.CommandLine
         [Option(Constants.Agent.CommandLine.Args.ProxyUrl)]
         public string ProxyUrl { get; set; }
 
+        [Option(Constants.Agent.CommandLine.Flags.UseBasicAuthForProxy)]
+        public bool UseBasicAuthForProxy { get; set; }
+
         [Option(Constants.Agent.CommandLine.Flags.Replace)]
         public bool Replace { get; set; }
 

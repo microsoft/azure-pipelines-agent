@@ -249,9 +249,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
 
                 Assert.Equal(actualPath, currentPath);
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
             }
         }
 
@@ -278,9 +278,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Assert.True(Directory.Exists(actualPath));
                 Assert.False(Directory.Exists(currentPath));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
             }
         }
 
@@ -350,9 +350,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Assert.True(Directory.Exists(actualPath));
                 Assert.False(Directory.Exists(currentPath));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
             }
         }
 
@@ -370,9 +370,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("should resolve to a directory under"));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.False(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
             }
         }
 
@@ -393,9 +393,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("should resolve to a directory under"));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.False(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
             }
         }
 
@@ -416,9 +416,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("should resolve to a directory under"));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.False(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
             }
         }
 
@@ -446,9 +446,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Assert.True(Directory.Exists(actualPath));
                 Assert.False(Directory.Exists(currentPath));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
             }
         }
 
@@ -468,9 +468,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
 
                 var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("should resolve to a directory under"));
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.False(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.False(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]"));
             }
         }
 
@@ -494,9 +494,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _checkoutTask.RunAsync(_executionContext, CancellationToken.None));
                 Assert.True(ex.Message.Contains("RIGHT"));
 
-                var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                File.Copy(tc.TraceFileName, temp);
-                Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{currentPath}"));
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{currentPath}"));
             }
         }
 
@@ -533,9 +533,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                     Assert.True(Directory.Exists(actualPath));
                     Assert.False(Directory.Exists(currentPath));
 
-                    var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-                    File.Copy(tc.TraceFileName, temp);
-                    Assert.True(File.ReadAllText(temp).Contains($"##vso[plugininternal.updaterepositorypath alias={repository.Alias};]{actualPath}"), $"Repo {repository.Alias} did not get updated to {actualPath}. CurrentPath = {currentPath}");
+                    var traceContent = tc.GetTraceContent();
+    
+                    Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias={repository.Alias};]{actualPath}"), $"Repo {repository.Alias} did not get updated to {actualPath}. CurrentPath = {currentPath}");
                 }
             }
         }

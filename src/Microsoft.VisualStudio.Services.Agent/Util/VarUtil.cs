@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.WebApi;
 using Newtonsoft.Json.Linq;
+using System.IO;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
@@ -214,6 +216,41 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             val = null;
             trace.Verbose($"Get '{name}' (not found)");
             return false;
+        }
+
+        public static string GetTfDirectoryPath(IKnobValueContext context)
+        {
+            var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
+            
+            return useLatest
+                ? Path.Combine(externalsPath, Constants.Path.TfLatestDirectory)
+                : useLegacy
+                    ? Path.Combine(externalsPath, Constants.Path.TfLegacyDirectory)
+                    : Path.Combine(externalsPath, Constants.Path.ServerOMDirectory);
+        }
+
+        public static string GetLegacyPowerShellHostDirectoryPath(IKnobValueContext context)
+        {
+            var (useLatest, useLegacy, externalsPath) = GetKnobsAndExternalsPath(context);
+            
+            return !useLatest && useLegacy
+                ? Path.Combine(externalsPath, Constants.Path.LegacyPSHostLegacyDirectory)
+                : Path.Combine(externalsPath, Constants.Path.LegacyPSHostDirectory);
+        }
+
+
+
+        private static (bool useLatest, bool useLegacy, string externalsPath) GetKnobsAndExternalsPath(IKnobValueContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            
+            bool useLatest = AgentKnobs.UseLatestTfExe.GetValue(context).AsBoolean();
+            bool useLegacy = AgentKnobs.InstallLegacyTfExe.GetValue(context).AsBoolean();
+            
+            string agentHomeDirectory = context.GetVariableValueOrDefault(Constants.Variables.Agent.HomeDirectory);
+            string externalsPath = Path.Combine(agentHomeDirectory, Constants.Path.ExternalsDirectory);
+            
+            return (useLatest, useLegacy, externalsPath);
         }
     }
 }

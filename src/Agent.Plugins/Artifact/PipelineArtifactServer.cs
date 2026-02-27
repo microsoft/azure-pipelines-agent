@@ -221,6 +221,7 @@ namespace Agent.Plugins
                 {
                     throw new InvalidOperationException($"Invalid {nameof(downloadOptions)}!");
                 }
+            context.SetVariable("DownloadPipelineArtifactResourceTypes", PipelineArtifactConstants.PipelineArtifact);
         }
 
         // Download for version 2. This decision was made because version 1 is sealed and we didn't want to break any existing customers.

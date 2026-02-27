@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Microsoft.VisualStudio.Services.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -22,10 +23,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         bool ForceDrainTimelineQueue { get; set; }
         event EventHandler<ThrottlingEventArgs> JobServerQueueThrottling;
         Task ShutdownAsync();
+        Task SendTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord);
         void Start(Pipelines.AgentJobRequestMessage jobRequest);
         void QueueWebConsoleLine(Guid stepRecordId, string line, long lineNumber);
         void QueueFileUpload(Guid timelineId, Guid timelineRecordId, string type, string name, string path, bool deleteSource);
         void QueueTimelineRecordUpdate(Guid timelineId, TimelineRecord timelineRecord);
+        void UpdateStateOnServer(Guid timelineId, TimelineRecord timelineRecord);
         void UpdateWebConsoleLineRate(Int32 rateInMillis);
     }
 
@@ -217,7 +220,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 DeleteSource = deleteSource
             };
 
-            Trace.Verbose("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId);
+            Trace.Verbose(StringUtil.Format("Enqueue file upload queue: file '{0}' attach to record {1}", newFile.Path, timelineRecordId));
             _fileUploadQueue.Enqueue(newFile);
         }
 
@@ -229,8 +232,46 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _timelineUpdateQueue.TryAdd(timelineId, new ConcurrentQueue<TimelineRecord>());
 
-            Trace.Verbose("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id);
+            Trace.Verbose(StringUtil.Format("Enqueue timeline {0} update queue: {1}", timelineId, timelineRecord.Id));
             _timelineUpdateQueue[timelineId].Enqueue(timelineRecord.Clone());
+        }
+        public void UpdateStateOnServer(Guid timelineId, TimelineRecord timelineRecord)
+        {
+            ArgUtil.NotEmpty(timelineId, nameof(timelineId));
+            ArgUtil.NotNull(timelineRecord, nameof(timelineRecord));
+            ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
+
+            //sending immediate server update for the job timeline records to server
+            if (string.Equals(timelineRecord.RecordType, "Job", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    // Attempting to send immediate update for job records
+                    SendTimelineRecordUpdateAsync(timelineId, timelineRecord).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Trace.Warning($"Failed to send immediate timeline record update: {ex.Message}. Falling back to queue mechanism.");
+                    Trace.Warning(ex.ToString());
+                    QueueTimelineRecordUpdate(timelineId, timelineRecord);
+                }
+            }
+            else
+            {
+                // All other record types use queue mechanism
+                QueueTimelineRecordUpdate(timelineId, timelineRecord);
+                Trace.Verbose($"Timeline record {timelineRecord.Id} queued for update (RecordType: {timelineRecord.RecordType})");
+            }
+        }
+        public async Task SendTimelineRecordUpdateAsync(Guid timelineId, TimelineRecord timelineRecord)
+        {
+            ArgUtil.NotEmpty(timelineId, nameof(timelineId));
+            ArgUtil.NotNull(timelineRecord, nameof(timelineRecord));
+            ArgUtil.NotEmpty(timelineRecord.Id, nameof(timelineRecord.Id));
+            var jobtimelinerecord = new List<TimelineRecord> { timelineRecord.Clone() };
+            await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, timelineId, jobtimelinerecord, CancellationToken.None);
+            string stateValue = timelineRecord.State?.ToString() ?? "Unknown";
+            Trace.Info($"Job timeline record {timelineRecord.Id} (state: {stateValue}) sent successfully to server");
         }
 
         public void ReportThrottling(TimeSpan delay, DateTime expiration)
@@ -346,7 +387,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                         }
 
-                        Trace.Info("Try to append {0} batches web console lines for record '{2}', success rate: {1}/{0}.", batchedLines.Count, batchedLines.Count - errorCount, stepRecordId);
+                        Trace.Info(StringUtil.Format("Try to append {0} batches web console lines for record '{1}', success rate: {2}/{3}.", batchedLines.Count, stepRecordId, batchedLines.Count - errorCount, batchedLines.Count));
                     }
                 }
 
@@ -417,7 +458,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         }
                     }
 
-                    Trace.Info("Try to upload {0} log files or attachments, success rate: {1}/{0}.", filesToUpload.Count, filesToUpload.Count - errorCount);
+                    Trace.Info(StringUtil.Format("Try to upload {0} log files or attachments, success rate: {1}/{2}.", filesToUpload.Count, filesToUpload.Count - errorCount, filesToUpload.Count));
                 }
 
                 if (runOnce)
@@ -502,7 +543,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             await _jobServer.UpdateTimelineRecordsAsync(_scopeIdentifier, _hubName, _planId, update.TimelineId, update.PendingRecords, CancellationToken.None);
                             if (_bufferedRetryRecords.Remove(update.TimelineId))
                             {
-                                Trace.Verbose("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId);
+                                Trace.Verbose(StringUtil.Format("Cleanup buffered timeline record for timeline: {0}.", update.TimelineId));
                             }
                         }
                         catch (Exception ex)

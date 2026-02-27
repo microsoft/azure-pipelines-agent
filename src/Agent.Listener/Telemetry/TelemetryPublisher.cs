@@ -95,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
             // We never want to break pipelines in case of telemetry failure.
             catch (Exception ex)
             {
-                Trace.Warning("Telemetry command failed: {0}", ex.ToString());
+                Trace.Warning(StringUtil.Format("Telemetry command failed: {0}", ex.ToString()));
             }
         }
 

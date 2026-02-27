@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -12,10 +13,12 @@ using System.Threading.Tasks;
 using System.Runtime.Loader;
 using System.Reflection;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using System.Net.Http.Headers;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Agent.Sdk.SecretMasking;
+using Moq;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -27,20 +30,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private readonly ITraceManager _traceManager;
         private readonly Terminal _term;
         private readonly ILoggedSecretMasker _secretMasker;
+        private readonly ICorrelationContextManager _correlationContextManager;
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
+        private CancellationTokenSource _workerShutdownForTimeoutTokenSource = new CancellationTokenSource();
         private string _suiteName;
         private string _testName;
         private Tracing _trace;
         private AssemblyLoadContext _loadContext;
         private string _tempDirectoryRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+        public bool UseRealDelays { get; set; } = false;  // Default: skip delays for speed
+        public List<TimeSpan> CapturedDelays { get; private set; } = new List<TimeSpan>();
         private StartupType _startupType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
+        public CancellationToken WorkerShutdownForTimeout => _workerShutdownForTimeoutTokenSource.Token;
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
+        public ICorrelationContextManager CorrelationContextManager => _correlationContextManager;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public TestHostContext(object testClass, [CallerMemberName] string testName = "")
+        public TestHostContext(object testClass, [CallerMemberName] string testName = "", bool useNewSecretMasker = true)
         {
             ArgUtil.NotNull(testClass, nameof(testClass));
             ArgUtil.NotNullOrEmpty(testName, nameof(testName));
@@ -66,18 +75,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             if (File.Exists(TraceFileName))
             {
-                File.Delete(TraceFileName);
+                try
+                {
+                    File.Delete(TraceFileName);
+                }
+                catch (IOException)
+                {
+                    // If another parallel test still holds the file open, fall back to a unique name
+                    string dir = Path.GetDirectoryName(TraceFileName);
+                    string name = Path.GetFileNameWithoutExtension(TraceFileName);
+                    string ext = Path.GetExtension(TraceFileName);
+                    TraceFileName = Path.Combine(dir, $"{name}_{Guid.NewGuid():N}{ext}");
+                }
             }
 
             var traceListener = new HostTraceListener(TraceFileName);
             traceListener.DisableConsoleReporting = true;
-            _secretMasker = new LoggedSecretMasker(new SecretMasker());
-            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape);
-            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape);
-            _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern);
-            _traceManager = new TraceManager(traceListener, _secretMasker);
+            _secretMasker = LoggedSecretMasker.Create(useNewSecretMasker ? new OssSecretMasker() : new LegacySecretMasker());
+            _secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, origin: "Test");
+            _secretMasker.AddValueEncoder(ValueEncoders.UriDataEscape, origin: "Test");
+            _secretMasker.AddValueEncoder(ValueEncoders.BackslashEscape, origin: "Test");
+            _secretMasker.AddRegex(AdditionalMaskingRegexes.UrlSecretPattern, origin: "Test");
+            _correlationContextManager = new CorrelationContextManager();
+            _traceManager = new TraceManager(traceListener, _secretMasker, this);
+            // Make the trace manager available via GetService in tests
+            SetSingleton<ITraceManager>(_traceManager);
             _trace = GetTrace(nameof(TestHostContext));
+            _secretMasker.SetTrace(_trace);
 
             // inject a terminal in silent mode so all console output
             // goes to the test trace file
@@ -85,6 +109,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _term.Silent = true;
             SetSingleton<ITerminal>(_term);
             EnqueueInstance<ITerminal>(_term);
+
+            // Register a mock configuration store for tests that use ExecutionContext.Initialize()
+            var configStore = new Tests.L1.Worker.FakeConfigurationStore
+            {
+                WorkingDirectoryName = $"test_{_suiteName}_{_testName}"
+            };
+            SetSingleton<IConfigurationStore>(configStore);
+
+            // Register a mock job server queue for tests that use ExecutionContext.Initialize()
+            var mockJobServerQueue = new Moq.Mock<IJobServerQueue>();
+            mockJobServerQueue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.IsAny<TimelineRecord>()));
+            SetSingleton<IJobServerQueue>(mockJobServerQueue.Object);
+
+            // Register a mock web proxy for tests that use ExecutionContext.InitializeJob()
+            var mockWebProxy = new Moq.Mock<IVstsAgentWebProxy>();
+            SetSingleton<IVstsAgentWebProxy>(mockWebProxy.Object);
+
+            // Register a mock certificate manager for tests that use ExecutionContext.InitializeJob()
+            var mockCertManager = new Moq.Mock<IAgentCertificateManager>();
+            SetSingleton<IAgentCertificateManager>(mockCertManager.Object);
 
             if (!TestUtil.IsWindows())
             {
@@ -113,6 +157,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public async Task Delay(TimeSpan delay, CancellationToken token)
         {
+            // Always capture the delay value for testing
+            CapturedDelays.Add(delay);
+            
+            if (UseRealDelays)
+            {
+                await Task.Delay(delay, token);
+                return;
+            }
             await Task.Delay(TimeSpan.Zero);
         }
 
@@ -233,6 +285,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfLegacyDirectory);
+                    break;
+
+                case WellKnownDirectory.TfLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfLatestDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:
@@ -399,6 +457,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return trace;
         }
 
+        // allow tests to retrieve their tracing output and assert things about it
+        public string GetTraceContent()
+        {
+            var temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            try
+            {
+                File.Copy(TraceFileName, temp);
+                return File.ReadAllText(temp);
+            }
+            finally
+            {
+                File.Delete(temp);
+            }
+        }
+
         public Tracing GetTrace(string name)
         {
             return _traceManager[name];
@@ -436,13 +509,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _agentShutdownTokenSource.Cancel();
         }
 
+        public void ShutdownWorkerForTimeout()
+        {
+            _workerShutdownForTimeoutTokenSource.Cancel();
+        }
+
         public void WritePerfCounter(string counter)
         {
         }
 
+        public void EnableHttpTrace()
+        {
+            // Test implementation - just trace that it was called
+            _trace?.Info("EnableHttpTrace() called in test context");
+        }
+
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
         {
-            throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.Tests.TestHostContext");
+            // Return null for unknown variables to allow knob fallback to other sources
+            return null;
         }
 
         IScopedEnvironment IKnobValueContext.GetScopedEnvironment()
@@ -469,7 +554,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _term?.Dispose();
                 _trace?.Dispose();
                 _secretMasker?.Dispose();
+                _correlationContextManager?.Dispose();
                 _agentShutdownTokenSource?.Dispose();
+                _workerShutdownForTimeoutTokenSource?.Dispose();
                 try
                 {
                     Directory.Delete(_tempDirectoryRoot);

@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         ? await processInvoker.ExecuteAsync("", "cmd.exe", "/c \"dir >nul\"", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c echo .", null, CancellationToken.None);
 
-                    trace.Info("Exit Code: {0}", exitCode);
+                    trace.Info($"Exit Code: {exitCode}");
                     Assert.Equal(0, exitCode);
                 }
             }
@@ -195,14 +195,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     try
                     {
                         exitCode = await proc;
-                        trace.Info("Exit Code: {0}", exitCode);
+                        trace.Info($"Exit Code: {exitCode}");
                     }
                     catch (Exception ex)
                     {
                         trace.Error(ex);
                     }
 
-                    trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                    trace.Info($"STDOUT: {string.Join(Environment.NewLine, stdout)}");
                     Assert.False(stdout.Contains("More line of STDIN"), "STDIN should be closed after first input line.");
                 }
             }
@@ -245,14 +245,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     try
                     {
                         exitCode = await proc;
-                        trace.Info("Exit Code: {0}", exitCode);
+                        trace.Info($"Exit Code: {exitCode}");
                     }
                     catch (Exception ex)
                     {
                         trace.Error(ex);
                     }
 
-                    trace.Info("STDOUT: {0}", string.Join(Environment.NewLine, stdout));
+                    trace.Info(StringUtil.Format("STDOUT: {0}", string.Join(Environment.NewLine, stdout)));
                     Assert.True(stdout.Contains("More line of STDIN"), "STDIN should keep open and accept more inputs after first input line.");
                 }
             }
@@ -409,7 +409,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
-                    trace.Info("Exit Code: {0}", exitCode);
+                    trace.Info($"Exit Code: {exitCode}");
                     Assert.Equal(0, exitCode);
 
                     Assert.False(stdout.Contains("##vso somecommand"), $"##vso commands should be escaped.");
@@ -440,7 +440,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         ? await processInvoker.ExecuteAsync("", "powershell.exe", $@"-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command ""Write-Host '##vso somecommand'""", null, CancellationToken.None)
                         : await processInvoker.ExecuteAsync("", "bash", "-c \"echo '##vso somecommand'\"", null, CancellationToken.None);
 
-                    trace.Info("Exit Code: {0}", exitCode);
+                    trace.Info($"Exit Code: {exitCode}");
                     Assert.Equal(0, exitCode);
 
                     Assert.True(stdout.Contains("##vso somecommand"), "##vso commands should not be escaped.");

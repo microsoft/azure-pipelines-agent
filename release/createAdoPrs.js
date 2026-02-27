@@ -209,7 +209,7 @@ async function main() {
             `Update agent publish script to version ${agentVersion}`,
             [
                 path.join(
-                    'tfs', `m${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1'
+                    'tfs', `M${sprint}`, 'PipelinesAgentRelease', agentVersion, 'Publish.ps1'
                 )
             ],
             dryrun

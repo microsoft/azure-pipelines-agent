@@ -56,6 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             catch (Exception ex)
             {
                 Trace.Info($"Unable to determine whether the command is rooted: {ex.Message}");
+                Trace.Info(ex.ToString());
             }
 
             Trace.Info($"Command is rooted: {isCommandRooted}");

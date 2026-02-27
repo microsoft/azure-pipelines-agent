@@ -23,6 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Update,
         Work,
         TfLegacy,
+        TfLatest,
         ServerOMLegacy,
         LegacyPSHostLegacy
     }
@@ -238,6 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string Unattended = "unattended";
                     public const string Version = "version";
                     public const string EnableServiceSidTypeUnrestricted = "enableservicesidtypeunrestricted";
+                    public const string UseBasicAuthForProxy = "usebasicauthforproxy";
                 }
             }
 
@@ -317,12 +319,13 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly string ExternalsDirectory = "externals";
             public static readonly string LegacyPSHostDirectory = "vstshost";
             public static readonly string LegacyPSHostLegacyDirectory = "vstshost-legacy";
-            public static readonly string ServerOMDirectory = "vstsom";
+            public static readonly string ServerOMDirectory = "tf";
             public static readonly string ServerOMLegacyDirectory = "vstsom-legacy";
             public static readonly string TempDirectory = "_temp";
             public static readonly string TeeDirectory = "tee";
             public static readonly string TfDirectory = "tf";
             public static readonly string TfLegacyDirectory = "tf-legacy";
+            public static readonly string TfLatestDirectory = "tf-latest";
             public static readonly string ToolDirectory = "_tool";
             public static readonly string TaskJsonFile = "task.json";
             public static readonly string TasksDirectory = "_tasks";
@@ -382,6 +385,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string ProxyUsername = "agent.proxyusername";
                 public static readonly string ProxyPassword = "agent.proxypassword";
                 public static readonly string ProxyBypassList = "agent.proxybypasslist";
+                public static readonly string UseBasicAuthForProxy = "agent.usebasicauthforproxy";
                 public static readonly string RetainDefaultEncoding = "agent.retainDefaultEncoding";
                 public static readonly string ReadOnlyVariables = "agent.readOnlyVariables";
                 public static readonly string RootDirectory = "agent.RootDirectory";
@@ -427,6 +431,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string SourceBranch = "build.sourcebranch";
                 public static readonly string SourceTfvcShelveset = "build.sourcetfvcshelveset";
                 public static readonly string SourceVersion = "build.sourceversion";
+                public static readonly string SourceVersionAuthor = "build.sourceversionauthor";
                 public static readonly string SourceVersionMessage = "build.sourceVersionMessage";
                 public static readonly string SourcesDirectory = "build.sourcesdirectory";
                 public static readonly string StagingDirectory = "build.stagingdirectory";
@@ -578,6 +583,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.OS,
                 Agent.OSArchitecture,
                 Agent.OSVersion,
+                Agent.UseBasicAuthForProxy,
                 Agent.ProxyBypassList,
                 Agent.ProxyPassword,
                 Agent.ProxyUrl,
@@ -621,6 +627,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Build.SourceBranch,
                 Build.SourceTfvcShelveset,
                 Build.SourceVersion,
+                Build.SourceVersionAuthor,
                 Build.SourceVersionMessage,
                 Build.SourcesDirectory,
                 Build.StagingDirectory,

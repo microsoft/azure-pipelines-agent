@@ -101,8 +101,8 @@ namespace Agent.Plugins.Repository
             if (PlatformUtil.RunningOnWindows)
             {
                 // Set TFVC_BUILDAGENT_POLICYPATH
-                string tfDirectoryName = AgentKnobs.InstallLegacyTfExe.GetValue(executionContext).AsBoolean() ? "tf-legacy" : "tf";
-                string policyDllPath = Path.Combine(executionContext.Variables.GetValueOrDefault("Agent.HomeDirectory")?.Value, "externals", tfDirectoryName, "Microsoft.TeamFoundation.VersionControl.Controls.dll");
+                string TfPath = VarUtil.GetTfDirectoryPath(executionContext);
+                string policyDllPath = Path.Combine(TfPath, "Microsoft.TeamFoundation.VersionControl.Controls.dll");
                 ArgUtil.File(policyDllPath, nameof(policyDllPath));
                 const string policyPathEnvKey = "TFVC_BUILDAGENT_POLICYPATH";
                 executionContext.Output(StringUtil.Loc("SetEnvVar", policyPathEnvKey));

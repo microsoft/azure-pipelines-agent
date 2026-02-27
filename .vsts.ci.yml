@@ -17,7 +17,7 @@ parameters:
 - name: win_arm64
   type: boolean
   displayName: Windows (ARM64)
-  default: false
+  default: true
 - name: linux_x64
   type: boolean
   displayName: Linux (x64)
@@ -61,6 +61,7 @@ extends:
     publishArtifacts: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
     buildAlternatePackage: false
     testProxyAgent: ${{ parameters.testProxyAgent }}
+    targetFramework: 'all'
     win_x64: ${{ parameters.win_x64 }}
     win_x86: ${{ parameters.win_x86 }}
     win_arm64: ${{ parameters.win_arm64 }}

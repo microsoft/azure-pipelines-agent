@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
                 // Now write the parameters to disk
                 IOUtil.SaveObject(new RSAParametersSerializable("", false, rsa.ExportParameters(true)), _keyFile);
-                Trace.Info("Successfully saved RSA key parameters to file {0}", _keyFile);
+                Trace.Info(StringUtil.Format("Successfully saved RSA key parameters to file {0}", _keyFile));
 
                 // Try to lock down the credentials_key file to the owner/group
                 var chmodPath = WhichUtil.Which("chmod", trace: Trace);
@@ -37,22 +37,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                         var exitCode = invoker.ExecuteAsync(HostContext.GetDirectory(WellKnownDirectory.Root), chmodPath, arguments, null, default(CancellationToken)).GetAwaiter().GetResult();
                         if (exitCode == 0)
                         {
-                            Trace.Info("Successfully set permissions for RSA key parameters file {0}", _keyFile);
+                            Trace.Info(StringUtil.Format("Successfully set permissions for RSA key parameters file {0}", _keyFile));
                         }
                         else
                         {
-                            Trace.Warning("Unable to succesfully set permissions for RSA key parameters file {0}. Received exit code {1} from {2}", _keyFile, exitCode, chmodPath);
+                            Trace.Warning(StringUtil.Format("Unable to succesfully set permissions for RSA key parameters file {0}. Received exit code {1} from {2}", _keyFile, exitCode, chmodPath));
                         }
                     }
                 }
                 else
                 {
-                    Trace.Warning("Unable to locate chmod to set permissions for RSA key parameters file {0}.", _keyFile);
+                    Trace.Warning(StringUtil.Format("Unable to locate chmod to set permissions for RSA key parameters file {0}.", _keyFile));
                 }
             }
             else
             {
-                Trace.Info("Found existing RSA key parameters file {0}", _keyFile);
+                Trace.Info(StringUtil.Format("Found existing RSA key parameters file {0}", _keyFile));
 
                 rsa = new RSACryptoServiceProvider();
                 rsa.ImportParameters(IOUtil.LoadObject<RSAParametersSerializable>(_keyFile).RSAParameters);
@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         {
             if (File.Exists(_keyFile))
             {
-                Trace.Info("Deleting RSA key parameters file {0}", _keyFile);
+                Trace.Info(StringUtil.Format("Deleting RSA key parameters file {0}", _keyFile));
                 File.Delete(_keyFile);
             }
         }
@@ -77,7 +77,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 throw new CryptographicException(StringUtil.Loc("RSAKeyFileNotFound", _keyFile));
             }
 
-            Trace.Info("Loading RSA key parameters from file {0}", _keyFile);
+            Trace.Info(StringUtil.Format("Loading RSA key parameters from file {0}", _keyFile));
 
             var parameters = IOUtil.LoadObject<RSAParametersSerializable>(_keyFile).RSAParameters;
             var rsa = new RSACryptoServiceProvider();

@@ -80,6 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
+                executionContext.SetCorrelationTask(task.Id.ToString());
                 if (task.Id == Pipelines.PipelineConstants.CheckoutTask.Id && task.Version == Pipelines.PipelineConstants.CheckoutTask.Version)
                 {
                     Trace.Info("Skip download checkout task.");
@@ -100,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
                     }
                 }
+                executionContext.ClearCorrelationTask();
             }
         }
 
@@ -150,7 +152,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             executionContext.Debug($"Extracting task {task.Name} from {zipFile} to {destinationDirectory}.");
 
-            Trace.Verbose("Deleting task destination folder: {0}", destinationDirectory);
+            Trace.Verbose(StringUtil.Format("Deleting task destination folder: {0}", destinationDirectory));
             IOUtil.DeleteDirectory(destinationDirectory, executionContext.CancellationToken);
 
             Directory.CreateDirectory(destinationDirectory);
@@ -182,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return;
             }
 
-            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{task.Version}.zip");
+            String taskZipPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.TaskZips), $"{task.Name}_{task.Id}_{NormalizeTaskVersion(task)}.zip");
             if (alwaysExtractTask && File.Exists(taskZipPath))
             {
                 executionContext.Debug($"Task '{task.Name}' already downloaded at '{taskZipPath}'.");
@@ -195,7 +197,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // delete existing task folder.
-            Trace.Verbose("Deleting task destination folder: {0}", destDirectory);
+            Trace.Verbose(StringUtil.Format("Deleting task destination folder: {0}", destDirectory));
             IOUtil.DeleteDirectory(destDirectory, CancellationToken.None);
 
             // Inform the user that a download is taking place. The download could take a while if
@@ -314,14 +316,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     //if the temp folder wasn't moved -> wipe it
                     if (Directory.Exists(tempDirectory))
                     {
-                        Trace.Verbose("Deleting task temp folder: {0}", tempDirectory);
+                        Trace.Verbose(StringUtil.Format("Deleting task temp folder: {0}", tempDirectory));
                         IOUtil.DeleteDirectory(tempDirectory, CancellationToken.None); // Don't cancel this cleanup and should be pretty fast.
                     }
                 }
                 catch (Exception ex)
                 {
                     //it is not critical if we fail to delete the temp folder
-                    Trace.Warning("Failed to delete temp folder '{0}'. Exception: {1}", tempDirectory, ex);
+                    Trace.Warning(StringUtil.Format("Failed to delete temp folder '{0}'. Exception: {1}", tempDirectory, ex?.ToString()));
                     executionContext.Warning(StringUtil.Loc("FailedDeletingTempDirectory0Message1", tempDirectory, ex.Message));
                 }
             }
@@ -374,7 +376,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void CheckIfTaskNodeRunnerIsDeprecated(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
             string[] deprecatedNodeRunners = { "Node", "Node10", "Node16" };
-            string[] approvedNodeRunners = { "Node20_1" }; // Node runners which are not considered as deprecated
+            string[] approvedNodeRunners = { "Node20_1", "Node24" }; // Node runners which are not considered as deprecated
             string[] executionSteps = { "prejobexecution", "execution", "postjobexecution" };
 
             JObject taskJson = GetTaskJson(task);
@@ -472,7 +474,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.Tasks),
                 $"{task.Name}_{task.Id}",
-                task.Version);
+                NormalizeTaskVersion(task));
+        }
+
+        private string NormalizeTaskVersion(Pipelines.TaskStepDefinitionReference task) 
+        {
+            ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
+            return task.Version.Replace("+", "_");
         }
 
         private string GetTaskZipPath(Pipelines.TaskStepDefinitionReference task)
@@ -482,7 +490,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNullOrEmpty(task.Version, nameof(task.Version));
             return Path.Combine(
                 HostContext.GetDirectory(WellKnownDirectory.TaskZips),
-                $"{task.Name}_{task.Id}_{task.Version}.zip"); // TODO: Move to shared string.
+                $"{task.Name}_{task.Id}_{NormalizeTaskVersion(task)}.zip"); // TODO: Move to shared string.
         }
 
         private Definition GetTaskDefiniton(Pipelines.TaskStep task)
@@ -607,6 +615,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private Node10HandlerData _node10;
         private Node16HandlerData _node16;
         private Node20_1HandlerData _node20_1;
+        private Node24HandlerData _node24;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -686,6 +695,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node20_1 = value;
+                Add(value);
+            }
+        }
+
+        public Node24HandlerData Node24
+        {
+            get
+            {
+                return _node24;
+            }
+
+            set
+            {
+                _node24 = value;
                 Add(value);
             }
         }
@@ -864,25 +887,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
     public sealed class NodeHandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 4;
+        public override int Priority => 105;
     }
 
     public sealed class Node10HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 3;
+        public override int Priority => 104;
     }
     public sealed class Node16HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 2;
+        public override int Priority => 103;
     }
     public sealed class Node20_1HandlerData : BaseNodeHandlerData
     {
-        public override int Priority => 1;
+        public override int Priority => 102;
+    }
+    public sealed class Node24HandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 101;
+    }
+    public sealed class CustomNodeHandlerData : BaseNodeHandlerData
+    {
+        public override int Priority => 100;
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
     {
-        public override int Priority => 5;
+        public override int Priority => 106;
     }
 
     public sealed class PowerShellHandlerData : HandlerData
@@ -900,7 +931,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 6;
+        public override int Priority => 107;
 
         public string WorkingDirectory
         {
@@ -931,7 +962,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 7;
+        public override int Priority => 108;
 
         public string WorkingDirectory
         {
@@ -988,7 +1019,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 7;
+        public override int Priority => 108;
 
         public string ScriptType
         {
@@ -1045,7 +1076,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public override int Priority => 8;
+        public override int Priority => 109;
 
         public string WorkingDirectory
         {

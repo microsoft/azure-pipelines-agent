@@ -82,9 +82,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Initialize our Azure Support (imports the module, sets up the Azure subscription)
-            string path = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost-legacy")
-                : Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vstshost");
+            string path = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
             string azurePSM1 = Path.Combine(path, "Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure\\Microsoft.TeamFoundation.DistributedTask.Task.Deployment.Azure.psm1");
 
@@ -99,7 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                                                                   }));
 
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddCommand(Initialize-AzurePowerShellSupport)");
-            Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter({0}={1})", _connectedServiceName, connectedServiceNameValue);
+            Trace.Verbose(StringUtil.Format("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter({0}={1})", _connectedServiceName, connectedServiceNameValue));
             Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - AddParameter(StorageAccount={0})", storageAccount);
 
             additionalCommands.Add(new Tuple<string, List<Tuple<string, string>>>("Initialize-AzurePowerShellSupport",
@@ -119,12 +117,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (inputs.TryGetValue(_connectedServiceNameSelector, out connectedServiceSelectorValue))
             {
                 connectedServiceName = connectedServiceSelectorValue;
-                Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - Found ConnectedServiceSelector value : {0}", connectedServiceName);
+                Trace.Verbose(StringUtil.Format("AzurePowerShellHandler.UpdatePowerShellEnvironment - Found ConnectedServiceSelector value : {0}", connectedServiceName?.ToString()));
             }
 
             if (!inputs.TryGetValue(connectedServiceName, out environment))
             {
-                Trace.Verbose("AzurePowerShellHandler.UpdatePowerShellEnvironment - Could not find {0}, so looking for DeploymentEnvironmentName.", connectedServiceName);
+                Trace.Verbose(StringUtil.Format("AzurePowerShellHandler.UpdatePowerShellEnvironment - Could not find {0}, so looking for DeploymentEnvironmentName.", connectedServiceName?.ToString()));
                 if (!inputs.TryGetValue("DeploymentEnvironmentName", out environment))
                 {
                     throw new ArgumentNullException($"The required {connectedServiceName} parameter was not found by the AzurePowerShellRunner.");
@@ -208,21 +206,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Copy the OM binaries into the legacy host folder.
-            ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
+            if (AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Output(StringUtil.Loc("PrepareTaskExecutionHandler"));
 
-            string sourceDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.ServerOM);
+                string sourceDirectory = HostContext.GetDirectory(WellKnownDirectory.ServerOMLegacy);
+                string targetDirectory = HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy);
 
-            string targetDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
-
-            IOUtil.CopyDirectory(
-                source: sourceDirectory,
-                target: targetDirectory,
-                cancellationToken: ExecutionContext.CancellationToken);
-            Trace.Info("Finished copying files.");
+                IOUtil.CopyDirectory(
+                    source: sourceDirectory,
+                    target: targetDirectory,
+                    cancellationToken: ExecutionContext.CancellationToken);
+                Trace.Info("Finished copying files.");
+            }
 
             // Add the legacy ps host environment variables.
             AddLegacyHostEnvironmentVariables(scriptFile: scriptFile, workingDirectory: workingDirectory);
@@ -243,9 +239,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 try
                 {
-                    String vstsPSHostExeDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                        ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                        : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+                    String vstsPSHostExeDirectory = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
                     String vstsPSHostExe = Path.Combine(vstsPSHostExeDirectory, "LegacyVSTSPowerShellHost.exe");
                     Int32 exitCode = await processInvoker.ExecuteAsync(workingDirectory: workingDirectory,
@@ -449,9 +443,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         private void AddProxySetting(IVstsAgentWebProxy agentProxy)
         {
-            string psHostDirectory = AgentKnobs.InstallLegacyTfExe.GetValue(ExecutionContext).AsBoolean()
-                ? HostContext.GetDirectory(WellKnownDirectory.LegacyPSHostLegacy)
-                : HostContext.GetDirectory(WellKnownDirectory.LegacyPSHost);
+            string psHostDirectory = VarUtil.GetLegacyPowerShellHostDirectoryPath(ExecutionContext);
 
             string appConfig = Path.Combine(psHostDirectory, _appConfigFileName);
 

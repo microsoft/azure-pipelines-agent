@@ -62,6 +62,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         void QueueAttachFile(string type, string name, string filePath);
         ITraceWriter GetTraceWriter();
 
+        // correlation context for enhanced tracing
+        void SetCorrelationStep(string stepId);
+        void ClearCorrelationStep();
+        void SetCorrelationTask(string taskId);
+        void ClearCorrelationTask();
+        string BuildCorrelationId();
+
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
@@ -89,10 +96,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// <returns></returns>
         void CancelForceTaskCompletion();
         void EmitHostNode20FallbackTelemetry(bool node20ResultsInGlibCErrorHost);
+        void EmitHostNode24FallbackTelemetry(bool node24ResultsInGlibCErrorHost);
         void PublishTaskRunnerTelemetry(Dictionary<string, string> taskRunnerData);
     }
 
-    public sealed class ExecutionContext : AgentService, IExecutionContext, IDisposable
+    public sealed class ExecutionContext : AgentService, IExecutionContext, ICorrelationContext, IDisposable
     {
         private const int _maxIssueCount = 10;
 
@@ -103,6 +111,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private readonly HashSet<string> _outputvariables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<TaskRestrictions> _restrictions = new List<TaskRestrictions>();
         private readonly string _buildLogsFolderName = "buildlogs";
+        private readonly AsyncLocal<string> _correlationStep = new AsyncLocal<string>();
+        private readonly AsyncLocal<string> _correlationTask = new AsyncLocal<string>();
         private IAgentLogPlugin _logPlugin;
         private IPagingLogger _logger;
         private IJobServerQueue _jobServerQueue;
@@ -123,6 +133,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private FileStream _buildLogsData;
         private StreamWriter _buildLogsWriter;
         private bool emittedHostNode20FallbackTelemetry = false;
+        private bool emittedHostNode24FallbackTelemetry = false;
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
@@ -200,6 +211,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             _jobServerQueue = HostContext.GetService<IJobServerQueue>();
+
+            // Register this ExecutionContext for enhanced correlation
+            HostContext.CorrelationContextManager.SetCurrentExecutionContext(this);
         }
 
         public void CancelToken()
@@ -268,13 +282,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return child;
         }
 
+
         public void Start(string currentOperation = null)
         {
             _record.CurrentOperation = currentOperation ?? _record.CurrentOperation;
             _record.StartTime = DateTime.UtcNow;
             _record.State = TimelineRecordState.InProgress;
 
-            _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            if (AgentKnobs.EnableImmediateTimelineRecordUpdates.GetValue(this).AsBoolean())
+            {
+                //update the state immediately on server
+                _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            }
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
 
             if (_logsStreamingOptions.HasFlag(LogsStreamingOptions.StreamToFiles))
             {
@@ -560,6 +583,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (Exception ex)
                 {
                     Trace.Warning($"Unable to generate workspace ID: {ex.Message}");
+                    Trace.Warning(ex.ToString());
                 }
             }
 
@@ -651,6 +675,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     Variables.Set(Constants.Variables.Agent.ProxyBypassList, JsonUtility.ToString(agentWebProxy.ProxyBypassList));
                 }
+
+                // Set UseBasicAuthForProxy flag
+                Variables.Set(Constants.Variables.Agent.UseBasicAuthForProxy, agentWebProxy.UseBasicAuthForProxy.ToString());
             }
 
             // Certificate variables
@@ -816,7 +843,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _record.WorkerName = configuration.GetSettings().AgentName;
             _record.Variables.Add(TaskWellKnownItems.AgentVersionTimelineVariable, BuildConstants.AgentPackage.Version);
 
-            _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            if (AgentKnobs.EnableImmediateTimelineRecordUpdates.GetValue(this).AsBoolean())
+            {
+                //update the state immediately on server
+                _jobServerQueue.UpdateStateOnServer(_mainTimelineId, _record);
+            }
+            else
+            {
+                _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
+            }
         }
 
         private void JobServerQueueThrottling_EventReceived(object sender, ThrottlingEventArgs data)
@@ -940,6 +975,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 emittedHostNode20FallbackTelemetry = true;
             }
         }
+        public void EmitHostNode24FallbackTelemetry(bool node24ResultsInGlibCErrorHost)
+        {
+            if (!emittedHostNode24FallbackTelemetry)
+            {
+                PublishTelemetry(new Dictionary<string, string>
+                        {
+                            {  "HostNode24to20Fallback", node24ResultsInGlibCErrorHost.ToString() }
+                        });
+
+                emittedHostNode24FallbackTelemetry = true;
+            }
+        }
 
         // This overload is to handle specific types some other way.
         private void PublishTelemetry<T>(
@@ -975,8 +1022,68 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             PublishTelemetry(taskRunnerData, IsAgentTelemetry: true);
         }
 
+        // Correlation context methods for enhanced tracing
+        public void SetCorrelationStep(string stepId)
+        {
+            _correlationStep.Value = stepId;
+        }
+
+        public void ClearCorrelationStep()
+        {
+            _correlationStep.Value = null;
+        }
+
+        public void SetCorrelationTask(string taskId)
+        {
+            _correlationTask.Value = taskId;
+        }
+
+        public void ClearCorrelationTask()
+        {
+            _correlationTask.Value = null;
+        }
+
+        public string BuildCorrelationId()
+        {
+            var step = _correlationStep.Value;
+            var task = _correlationTask.Value;
+
+            if (string.IsNullOrEmpty(step))
+            {
+                return string.IsNullOrEmpty(task) ? string.Empty : $"TASK-{ShortenGuid(task)}";
+            }
+
+            return string.IsNullOrEmpty(task) ? $"STEP-{ShortenGuid(step)}" : $"STEP-{ShortenGuid(step)}|TASK-{ShortenGuid(task)}";
+        }
+
+        /// <summary>
+        /// Shorten a GUID to first 12 characters for more readable logs while maintaining uniqueness
+        /// </summary>
+        private static string ShortenGuid(string guid)
+        {
+            if (string.IsNullOrEmpty(guid))
+                return guid;
+            
+            // Use first 12 characters total: 8 from first segment + 4 from second segment
+            // This ensures consistent output length regardless of input length
+            // e.g., "verylongstring-1234..." becomes "verylong1234" (12 chars)
+            // e.g., "60cf5508-70a7-..." becomes "60cf550870a7" (12 chars)
+            var parts = guid.Split('-');
+            if (parts.Length >= 2 && parts[0].Length >= 8 && parts[1].Length >= 4)
+            {
+                return parts[0].Substring(0, 8) + parts[1].Substring(0, 4);
+            }
+            
+            // Fallback: remove hyphens and take first 12 chars
+            var cleaned = guid.Replace("-", "");
+            return cleaned.Length > 12 ? cleaned.Substring(0, 12) : cleaned;
+        }
+
         public void Dispose()
         {
+            // Clear the correlation context registration
+            HostContext.CorrelationContextManager.ClearCurrentExecutionContext();
+            
             _cancellationTokenSource?.Dispose();
             _forceCompleteCancellationTokenSource?.Dispose();
 

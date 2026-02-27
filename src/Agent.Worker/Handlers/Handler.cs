@@ -285,6 +285,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     prepend.Add(ExecutionContext.TranslatePathForStepTarget(path));
                 }
                 containerStepHost.PrependPath = string.Join(Path.PathSeparator.ToString(), prepend.Reverse<string>());
+                // Set docker exec diagnostics feature flag from ExecutionContext
+                containerStepHost.EnableDockerExecDiagnostics = AgentKnobs.EnableDockerExecDiagnostics.GetValue(ExecutionContext).AsBoolean();
             }
             else
             {
@@ -303,7 +305,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         [SupportedOSPlatform("windows")]
         protected bool PsModulePathContainsPowershellCoreLocations()
         {
-            bool checkLocationsKnob = AgentKnobs.CheckPsModulesLocations.GetValue(HostContext).AsBoolean();
+            bool checkLocationsKnob = AgentKnobs.CheckPsModulesLocations.GetValue(ExecutionContext).AsBoolean();
 
             bool isPwshCore = Inputs.TryGetValue("pwsh", out string pwsh) && StringUtil.ConvertToBoolean(pwsh);
 

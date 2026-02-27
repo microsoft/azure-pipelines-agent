@@ -50,7 +50,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
                 }
                 catch (SocketException ex)
                 {
-                    ExceptionsUtil.HandleSocketException(ex, _connection.Uri.ToString(), Trace.Error);
+                    ExceptionsUtil.HandleSocketException(ex, _connection.Uri.ToString(), (message) => Trace.Error(message));
                 }
                 catch (Exception ex) when (attemptCount > 0)
                 {

@@ -23,8 +23,6 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.Logging;
 using Microsoft.Security.Utilities;
-using LegacySecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.SecretMasker;
-using ISecretMasker = Microsoft.TeamFoundation.DistributedTask.Logging.ISecretMasker;
 
 namespace Microsoft.VisualStudio.Services.Agent
 {
@@ -34,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         CancellationToken AgentShutdownToken { get; }
         ShutdownReason AgentShutdownReason { get; }
         ILoggedSecretMasker SecretMasker { get; }
+        ICorrelationContextManager CorrelationContextManager { get; }
         ProductInfoHeaderValue UserAgent { get; }
         string GetDirectory(WellKnownDirectory directory);
         string GetDiagDirectory(HostType hostType = HostType.Undefined);
@@ -46,7 +45,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         event EventHandler Unloading;
         void ShutdownAgent(ShutdownReason reason);
         void WritePerfCounter(string counter);
+        void EnableHttpTrace();
         ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
+        // Added for flush logs support
+        CancellationToken WorkerShutdownForTimeout { get; }
+        void ShutdownWorkerForTimeout();
     }
 
     public enum StartupType
@@ -73,8 +76,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         private readonly ConcurrentDictionary<Type, object> _serviceInstances = new ConcurrentDictionary<Type, object>();
         protected readonly ConcurrentDictionary<Type, Type> ServiceTypes = new ConcurrentDictionary<Type, Type>();
         private ILoggedSecretMasker _secretMasker;
+        private ICorrelationContextManager _correlationContextManager;
         private readonly ProductInfoHeaderValue _userAgent = new ProductInfoHeaderValue($"VstsAgentCore-{BuildConstants.AgentPackage.PackageName}", BuildConstants.AgentPackage.Version);
         private CancellationTokenSource _agentShutdownTokenSource = new CancellationTokenSource();
+        private CancellationTokenSource _workerShutdownForTimeout = new CancellationTokenSource();
         private object _perfLock = new object();
         private Tracing _trace;
         private Tracing _vssTrace;
@@ -88,8 +93,11 @@ namespace Microsoft.VisualStudio.Services.Agent
         private HostType _hostType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
+        public CancellationToken WorkerShutdownForTimeout => _workerShutdownForTimeout.Token;
+
         public ShutdownReason AgentShutdownReason { get; private set; }
         public ILoggedSecretMasker SecretMasker => _secretMasker;
+        public ICorrelationContextManager CorrelationContextManager => _correlationContextManager;
         public ProductInfoHeaderValue UserAgent => _userAgent;
 
         public HostContext(HostType hostType, string logFile = null)
@@ -105,6 +113,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             _loadContext.Unloading += LoadContext_Unloading;
 
             _secretMasker = CreateSecretMasker();
+            _correlationContextManager = new CorrelationContextManager();
 
             // Create the trace manager.
             if (string.IsNullOrEmpty(logFile))
@@ -125,12 +134,16 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 // this should give us _diag folder under agent root directory as default value for diagLogDirctory
                 string diagLogPath = GetDiagDirectory(_hostType);
-                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(diagLogPath, hostType.ToString(), logPageSize, logRetentionDays), this.SecretMasker, this, hostType);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
 
             }
             else
             {
-                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker);
+                _traceManager = new TraceManager(new HostTraceListener(logFile), this.SecretMasker, this, hostType);
+                // Make the trace manager available via the service locator.
+                _serviceInstances.TryAdd(typeof(ITraceManager), _traceManager);
             }
 
             _trace = GetTrace(nameof(HostContext));
@@ -138,18 +151,21 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             _vssTrace = GetTrace(nameof(VisualStudio) + nameof(VisualStudio.Services));  // VisualStudioService
 
-            // Enable Http trace
-            if (AgentKnobs.HttpTrace.GetValue(this).AsBoolean())
+            // Enable Http trace - check environment variable directly during initialization
+            // (RuntimeKnobSource not available during HostContext initialization)
+            string httpTraceEnvVar = Environment.GetEnvironmentVariable("VSTS_AGENT_HTTPTRACE");
+            _trace.Info($"HTTP Trace Environment Variable: '{httpTraceEnvVar}'");
+            
+            if (!string.IsNullOrEmpty(httpTraceEnvVar) && StringUtil.ConvertToBoolean(httpTraceEnvVar))
             {
-                _trace.Warning("*****************************************************************************************");
-                _trace.Warning("**                                                                                     **");
-                _trace.Warning("** Http trace is enabled, all your http traffic will be dumped into agent diag log.    **");
-                _trace.Warning("** DO NOT share the log in public place! The trace may contains secrets in plain text. **");
-                _trace.Warning("**                                                                                     **");
-                _trace.Warning("*****************************************************************************************");
-
+                _trace.Info("Enabling HTTP trace via environment variable");
+                PrintHttpTraceWarning();
                 _httpTrace = GetTrace("HttpTrace");
                 _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
+            }
+            else
+            {
+                _trace.Info("HTTP trace not enabled - environment variable not set or false");
             }
 
             // Enable perf counter trace
@@ -179,7 +195,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             bool enableNewMaskerAndRegexes = AgentKnobs.EnableNewMaskerAndRegexes.GetValue(this).AsBoolean();
 
 #pragma warning disable CA2000 // Dispose objects before losing scope. False positive: LoggedSecretMasker takes ownership.
-            ISecretMasker rawSecretMasker;
+            IRawSecretMasker rawSecretMasker;
             if (enableNewMaskerAndRegexes)
             {
                 rawSecretMasker = new OssSecretMasker(WellKnownRegexPatterns.PreciselyClassifiedSecurityKeys);
@@ -188,7 +204,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 rawSecretMasker = new LegacySecretMasker();
             }
-            ILoggedSecretMasker secretMasker = new LoggedSecretMasker(rawSecretMasker);
+            ILoggedSecretMasker secretMasker = LoggedSecretMasker.Create(rawSecretMasker);
 #pragma warning restore CA2000 // Dispose objects before losing scope.
 
             secretMasker.AddValueEncoder(ValueEncoders.JsonStringEscape, $"HostContext_{WellKnownSecretAliases.JsonStringEscape}");
@@ -259,6 +275,12 @@ namespace Microsoft.VisualStudio.Services.Agent
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Externals),
                         Constants.Path.TfLegacyDirectory);
+                    break;
+
+                case WellKnownDirectory.TfLatest:
+                    path = Path.Combine(
+                        GetDirectory(WellKnownDirectory.Externals),
+                        Constants.Path.TfLatestDirectory);
                     break;
 
                 case WellKnownDirectory.Tee:
@@ -547,6 +569,12 @@ namespace Microsoft.VisualStudio.Services.Agent
             AgentShutdownReason = reason;
             _agentShutdownTokenSource.Cancel();
         }
+        
+        public void ShutdownWorkerForTimeout()
+        {
+            _trace.Info($"Worker will be shutdown");
+            _workerShutdownForTimeout.Cancel();
+        }
 
         public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
         {
@@ -613,6 +641,31 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
+        private void PrintHttpTraceWarning()
+        {
+            _trace.Warning("*****************************************************************************************");
+            _trace.Warning("**                                                                                     **");
+            _trace.Warning("** Http trace is enabled, all your http traffic will be dumped into agent diag log.    **");
+            _trace.Warning("** DO NOT share the log in public place! The trace may contains secrets in plain text. **");
+            _trace.Warning("**                                                                                     **");
+            _trace.Warning("*****************************************************************************************");
+        }
+
+        public void EnableHttpTrace()
+        {
+            if (_httpTrace != null && _diagListenerSubscription != null)
+            {
+                _trace.Info("HTTP trace is already enabled");
+                return;
+            }
+            PrintHttpTraceWarning();
+
+            _httpTrace = GetTrace("HttpTrace");
+            _diagListenerSubscription = DiagnosticListener.AllListeners.Subscribe(this);
+             
+            _trace.Info("HTTP trace enabled dynamically via pipeline variable");
+        }
+
         string IKnobValueContext.GetVariableValueOrDefault(string variableName)
         {
             throw new NotSupportedException("Method not supported for Microsoft.VisualStudio.Services.Agent.HostContext");
@@ -646,8 +699,14 @@ namespace Microsoft.VisualStudio.Services.Agent
                 _secretMasker?.Dispose();
                 _secretMasker = null;
 
+                _correlationContextManager?.Dispose();
+                _correlationContextManager = null;
+
                 _agentShutdownTokenSource?.Dispose();
                 _agentShutdownTokenSource = null;
+
+                _workerShutdownForTimeout?.Dispose();
+                _workerShutdownForTimeout = null;
 
                 base.Dispose();
             }

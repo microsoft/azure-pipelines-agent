@@ -258,7 +258,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         // The package name is generated, check if there is already a file with the same name and path
                         if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
                         {
-                            Trace.Verbose("Deleting latest agent package zip '{0}'", archiveFile);
+                            Trace.Verbose(StringUtil.Format("Deleting latest agent package zip '{0}'", archiveFile));
                             try
                             {
                                 // Such a file already exists, so try deleting it
@@ -270,7 +270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             catch (Exception ex)
                             {
                                 // Couldn't delete the file for whatever reason, so generate another package name
-                                Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                                Trace.Warning(StringUtil.Format("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex));
                                 agentSuffix++;
                             }
                         }
@@ -316,7 +316,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         catch (SocketException ex)
                         {
-                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, Trace.Warning);
+                            ExceptionsUtil.HandleSocketException(ex, _targetPackage.DownloadUrl, (message) => Trace.Warning(message));
                         }
                         catch (Exception ex)
                         {
@@ -398,14 +398,14 @@ You can skip checksum validation for the agent package by setting the environmen
                     // delete .zip file
                     if (!string.IsNullOrEmpty(archiveFile) && File.Exists(archiveFile))
                     {
-                        Trace.Verbose("Deleting latest agent package zip: {0}", archiveFile);
+                        Trace.Verbose(StringUtil.Format("Deleting latest agent package zip: {0}", archiveFile));
                         IOUtil.DeleteFile(archiveFile);
                     }
                 }
                 catch (Exception ex)
                 {
                     //it is not critical if we fail to delete the .zip file
-                    Trace.Warning("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex);
+                    Trace.Warning(StringUtil.Format("Failed to delete agent package zip '{0}'. Exception: {1}", archiveFile, ex));
                 }
             }
 

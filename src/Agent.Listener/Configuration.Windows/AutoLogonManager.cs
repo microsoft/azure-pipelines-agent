@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     logonAccount = String.Format("{0}\\{1}", Environment.MachineName, userName);
                     domainName = Environment.MachineName;
                 }
-                Trace.Info("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName);
+                Trace.Info(StringUtil.Format("LogonAccount after transforming: {0}, user: {1}, domain: {2}", logonAccount, userName, domainName));
 
                 logonPassword = command.GetWindowsLogonPassword(logonAccount);
                 if (_windowsServiceHelper.IsValidAutoLogonCredential(domainName, userName, logonPassword))
@@ -208,7 +208,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 //ExecuteAsync API of ProcessInvoker waits for the process to exit
                 var args = $@"-r -t 15 -c ""{msg}""";
                 Trace.Info($"Shutdown.exe path: {shutdownExePath}. Arguments: {args}");
-                Process.Start(shutdownExePath, $@"{args}");
+
+                try
+                {
+                    Process.Start(shutdownExePath, $@"{args}");
+                }
+                catch (System.ComponentModel.Win32Exception w32Ex)
+                {
+                    Trace.Error($"Failed to start shutdown process: Win32 error {w32Ex.NativeErrorCode}: {w32Ex.Message}");
+                    _terminal.WriteError($"Failed to restart machine automatically. Please restart manually. Error: {w32Ex.Message}");
+                }
+                catch (FileNotFoundException fnfEx)
+                {
+                    Trace.Error($"Shutdown executable not found at '{shutdownExePath}': {fnfEx.Message}");
+                    _terminal.WriteError($"Cannot find shutdown.exe. Please restart machine manually.");
+                }
+                catch (Exception ex)
+                {
+                    Trace.Error($"Unexpected error starting shutdown process: {ex.Message} {ex}");
+                    _terminal.WriteError($"Failed to restart machine automatically. Please restart manually. Error: {ex.Message}");
+                }
             }
             else
             {

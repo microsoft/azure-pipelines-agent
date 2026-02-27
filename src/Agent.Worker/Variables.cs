@@ -139,6 +139,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public string Agent_ProxyPassword => Get(Constants.Variables.Agent.ProxyPassword);
 
+        public bool? Agent_UseBasicAuthForProxy => GetBoolean(Constants.Variables.Agent.UseBasicAuthForProxy);
+
         public int? Build_BuildId => GetInt(BuildWebApi.BuildVariables.BuildId);
 
         public string Build_BuildUri => Get(BuildWebApi.BuildVariables.BuildUri);
@@ -270,6 +272,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Constants.Variables.Build.SourceVersionMessage,
             Constants.Variables.Build.DefinitionName,
+            Constants.Variables.Build.SourceVersionAuthor,
             Constants.Variables.System.SourceVersionMessage,
             Constants.Variables.System.DefinitionName,
             Constants.Variables.System.JobDisplayName,
