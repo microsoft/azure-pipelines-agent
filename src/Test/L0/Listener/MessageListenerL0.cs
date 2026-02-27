@@ -264,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     MessageListener listener = new MessageListener();
                     listener.Initialize(tc);
 
-                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside CreateSessionAsync
+                    // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
                     Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                     bool result = await listener.CreateSessionAsync(tokenSource.Token);
                     trace.Info($"result: {result}");
@@ -321,7 +321,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Act
                     MessageListener listener = new MessageListener();
                     listener.Initialize(tc);
-                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside CreateSessionAsync
+                    // Arrange - Ensure environment variable is not set (simulating FF being off)
                     Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     bool result = await listener.CreateSessionAsync(tokenSource.Token);
 
@@ -397,7 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Clear delays from CreateSession - we only want GetNextMessage delays
                     tc.CapturedDelays.Clear();
 
-                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside GetNextMessageAsync
+                    // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
                     Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "true");
                     TaskAgentMessage message = await listener.GetNextMessageAsync(tokenSource.Token);
 
@@ -476,7 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Clear delays from CreateSession - we only want GetNextMessage delays
                     tc.CapturedDelays.Clear();
 
-                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside GetNextMessageAsync
+                    // Arrange - Ensure environment variable is not set (simulating FF being off)
                     Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     TaskAgentMessage message = await listener.GetNextMessageAsync(tokenSource.Token);
 
@@ -634,7 +634,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     // Clear delays from CreateSession - we only want KeepAlive delays
                     tc.CapturedDelays.Clear();
 
-                    // Set env var immediately before the call - no await between SetEnvVar and the knob read inside KeepAlive
+                    // Arrange - Ensure environment variable is not set (simulating FF being off)
                     Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", "false");
                     // Start KeepAlive in a task and let it run until cancellation
                     var keepAliveTask = listener.KeepAlive(tokenSource.Token);
