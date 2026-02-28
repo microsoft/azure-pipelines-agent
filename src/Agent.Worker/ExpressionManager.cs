@@ -1,13 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Microsoft.TeamFoundation.DistributedTask.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.Logging;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.TeamFoundation.DistributedTask.Expressions;
-using Microsoft.TeamFoundation.DistributedTask.Logging;
 using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
@@ -72,6 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             private readonly StringBuilder _traceBuilder = new StringBuilder();
 
             public string Trace => _traceBuilder.ToString();
+
+            bool ITraceWriter.VerboseTracing => false;
 
             public TraceWriter(Tracing trace, IExecutionContext executionContext)
             {
