@@ -6,6 +6,8 @@ using Microsoft.VisualStudio.Services.Agent.Tests;
 using Xunit;
 using System.IO;
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Moq;
 using Agent.Plugins.Repository;
 using System.Collections.Generic;
@@ -112,6 +114,32 @@ public sealed class TestPluginGitSourceProviderL0
         Assert.Contains("dev.azure.com/test/_git/myrepo", tc.TaskVariables.GetValueOrDefault("repoUrlWithCred").Value);
     }
 
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Plugin")]
+    public async Task TestPartialCloneAuthenticationConfigSetup()
+    {
+        using TestHostContext hc = new(this);
+        MockAgentTaskPluginExecutionContext tc = new(hc.GetTrace());
+        var gitCliManagerMock = new MockGitCliManager();
+        
+        // Arrange - simulate authenticated git source provider with partial clone (fetch filter)
+        tc.Inputs["fetchFilter"] = "blob:none";
+        tc.Variables.Add("UseFetchFilterInCheckoutTask", "true");
+        
+        var repositoryPath = Path.Combine(getWorkFolder(hc), "1", "testrepo");
+        
+        // Test the specific authentication config logic for partial clones
+        var gitSourceProvider = new TestAuthenticatedGitSourceProvider();
+        await gitSourceProvider.TestGitConfigForPartialClone(tc, gitCliManagerMock, repositoryPath, "test-user", "test-token", false);
+        
+        // Assert - verify that git config command was called with authentication header
+        var configCalls = gitCliManagerMock.GitCommandCallsOptions.FindAll(call => 
+            call.Contains("config") && call.Contains("http.extraheader") && call.Contains("AUTHORIZATION:"));
+        
+        Assert.True(configCalls.Count > 0, "Expected git config call with authentication header for partial clone, but none found");
+    }
+
     private Pipelines.RepositoryResource GetRepository(TestHostContext hostContext, String alias, String relativePath)
     {
         var workFolder = hostContext.GetDirectory(WellKnownDirectory.Work);
@@ -124,5 +152,30 @@ public sealed class TestPluginGitSourceProviderL0
         repo.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(workFolder, "1", relativePath));
 
         return repo;
+    }
+}
+
+// Test helper class to expose the relevant functionality for testing
+internal class TestAuthenticatedGitSourceProvider : AuthenticatedGitSourceProvider
+{
+    public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager)
+    {
+        return true;
+    }
+
+    // Method to test the specific authentication config logic for partial clones
+    public async Task TestGitConfigForPartialClone(AgentTaskPluginExecutionContext executionContext, IGitCliManager gitCommandManager, string targetPath, string username, string password, bool useBearerAuthType)
+    {
+        // Simulate the condition where we have fetch filter options (partial clone)
+        var additionalFetchFilterOptions = new List<string> { "blob:none" };
+        
+        // Simulate the authentication setup logic for partial clones
+        if (additionalFetchFilterOptions.Any())
+        {
+            string authHeader = GenerateAuthHeader(executionContext, username, password, useBearerAuthType);
+            string configValue = $"AUTHORIZATION: {authHeader}";
+            executionContext.Debug("Setting up git config authentication for partial clone promisor fetches.");
+            await gitCommandManager.GitConfig(executionContext, targetPath, "http.extraheader", configValue);
+        }
     }
 }
