@@ -20,7 +20,6 @@ using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
-    [Collection("NonParallelTests")]
     public sealed class MessageListenerL0 : IDisposable
     {
         private AgentSettings _settings;
@@ -548,7 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     listener.Initialize(tc);
                     await listener.CreateSessionAsync(tokenSource.Token);
 
-                    // Clear delays from CreateSession - we only want GetNextMessage delays
+                    // Clear delays from CreateSession - we only want KeepAlive delays
                     tc.CapturedDelays.Clear();
 
                     // Arrange - Set environment variable (simulating Agent.cs setting it after fetching FF)
