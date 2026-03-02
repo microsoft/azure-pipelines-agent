@@ -793,7 +793,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var endpoint = context.Endpoints.Find(a => a.Id == endpointId);
             if (endpoint == null)
             {
-                throw new ArgumentNullException(StringUtil.Loc("InvalidEndpointId"));
+                throw new ArgumentNullException(StringUtil.Loc("ServiceConnectionNotDeclared", endpointId));
             }
 
             if (String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
