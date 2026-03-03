@@ -30,6 +30,7 @@ parameters:
   default: net8.0
   values:
   - net8.0
+  - net10.0
   
 - name: derivedFrom
   type: string
@@ -92,7 +93,7 @@ extends:
       displayName: Verify it's a release run
       pool:
         name: 1ES-ABTT-Shared-Pool
-        image: abtt-ubuntu-2204
+        image: abtt-ubuntu-2404
         os: linux
       jobs:
       - job: Set_variables
@@ -145,9 +146,9 @@ extends:
 
                 ## Verify target framework for specified version
                 $majorVersion = $agentVersion.Split('.')[0]
-                if (("${{ parameters.targetFramework }}" -eq "net6.0" -and $majorVersion -ne "3") -or
-                   ("${{ parameters.targetFramework }}" -eq "net8.0" -and $majorVersion -ne "4")) {
-                  Write-Error "The major version should be 3 for net6.0 and 4 for net8.0" -ErrorAction Stop
+                if (("${{ parameters.targetFramework }}" -eq "net8.0" -and $majorVersion -ne "4") -or
+                   ("${{ parameters.targetFramework }}" -eq "net10.0" -and $majorVersion -ne "5")) {
+                  Write-Error "The major version should be 4 for net8.0 and 5 for net10.0" -ErrorAction Stop
                 }
               }
               if ($isTestRun) {
@@ -182,16 +183,16 @@ extends:
 
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-ubuntu-2204
+          image: abtt-ubuntu-2404
           os: linux
         steps:
 
         - checkout: self
 
         - task: NodeTool@0
-          displayName: Use node 20.19.4
+          displayName: Use node 20.20.0
           inputs:
-            versionSpec: "20.19.4"
+            versionSpec: "20.20.0"
 
         - script: |
             cd release
@@ -214,7 +215,9 @@ extends:
         ################################################################################
           displayName: Publish Agents (Windows/Linux/OSX)
           pool:
-            name: 1ES-Shared-Hosted-Pool_Windows-Server-2022
+            name: 1ES-ABTT-Shared-Pool
+            image: abtt-windows-2025
+            os: windows
             demands: AzurePS
           variables:
             IsTestRun: $[ stageDependencies.Verify_release.Set_variables.outputs['SetReleaseVariables.isTestRun'] ]
@@ -384,7 +387,7 @@ extends:
 
           pool:
             name: 1ES-ABTT-Shared-Pool
-            image: abtt-ubuntu-2204
+            image: abtt-ubuntu-2404
             os: linux
           steps:
           - checkout: self
@@ -413,7 +416,7 @@ extends:
         condition: and(succeeded(), not(${{ parameters.onlyGitHubRelease }}))
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-mariner
+          image: abtt-ubuntu-2404
           os: linux
         jobs:
         ################################################################################
@@ -462,7 +465,7 @@ extends:
         - CreatePRs
         pool:
           name: 1ES-ABTT-Shared-Pool
-          image: abtt-ubuntu-2204
+          image: abtt-ubuntu-2404
           os: linux
         jobs:
         - job: j_SendPRsNotifications

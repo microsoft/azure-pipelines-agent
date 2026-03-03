@@ -1,6 +1,6 @@
 # Node 6 support
 
-Agent tasks can be implemented in PowerShell or Node. The agent currently ships with three versions of Node that tasks can target: 6, 10 & 16.
+Agent tasks can be implemented in PowerShell or Node. The agent currently ships with multiple versions of Node that tasks can target: 6, 10, 16, 20 & 24.
 
 Since Node 6 has long passed out of the upstream maintenance window, and all officially supported tasks are migrated from Node 6 to Node 10, Node 6 soon will be removed from the agent package. 
 It's also highly recommended to third-party task maintainers migrate tasks to Node 10 or Node 16.

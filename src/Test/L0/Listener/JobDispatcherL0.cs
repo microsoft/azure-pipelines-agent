@@ -330,8 +330,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 Assert.True(firstJobRequestRenewed.Task.IsCompletedSuccessfully, "First renew should succeed.");
                 Assert.True(cancellationTokenSource.IsCancellationRequested);
                 _agentServer.Verify(x => x.RenewAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Exactly(8));
-                _agentServer.Verify(x => x.RefreshConnectionAsync(AgentConnectionType.JobRequest, It.IsAny<TimeSpan>()), Times.Exactly(3));
-                _agentServer.Verify(x => x.SetConnectionTimeout(AgentConnectionType.JobRequest, It.IsAny<TimeSpan>()), Times.Once);
+                _agentServer.Verify(x => x.RefreshConnectionAsync(AgentConnectionType.JobRequest, It.IsAny<TimeSpan?>()), Times.Exactly(3));
+                _agentServer.Verify(x => x.ResetConnectionTimeout(AgentConnectionType.JobRequest, It.IsAny<TimeSpan?>()), Times.Once);
             }
         }
 
@@ -453,8 +453,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 Assert.True(firstJobRequestRenewed.Task.IsCompletedSuccessfully, "First renew should succeed.");
                 Assert.False(cancellationTokenSource.IsCancellationRequested);
                 _agentServer.Verify(x => x.RenewAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Exactly(5));
-                _agentServer.Verify(x => x.RefreshConnectionAsync(AgentConnectionType.JobRequest, It.IsAny<TimeSpan>()), Times.Exactly(3));
-                _agentServer.Verify(x => x.SetConnectionTimeout(AgentConnectionType.JobRequest, It.IsAny<TimeSpan>()), Times.Never);
+                _agentServer.Verify(x => x.RefreshConnectionAsync(AgentConnectionType.JobRequest, It.IsAny<TimeSpan?>()), Times.Exactly(3));
+                _agentServer.Verify(x => x.ResetConnectionTimeout(AgentConnectionType.JobRequest, It.IsAny<TimeSpan?>()), Times.Never);
             }
         }
 
