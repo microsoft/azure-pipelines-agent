@@ -4,6 +4,7 @@
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -37,6 +38,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private Tracing _trace;
         private AssemblyLoadContext _loadContext;
         private string _tempDirectoryRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+        public bool UseRealDelays { get; set; } = false;  // Default: skip delays for speed
+        public List<TimeSpan> CapturedDelays { get; private set; } = new List<TimeSpan>();
         private StartupType _startupType;
         public event EventHandler Unloading;
         public CancellationToken AgentShutdownToken => _agentShutdownTokenSource.Token;
@@ -154,6 +157,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         public async Task Delay(TimeSpan delay, CancellationToken token)
         {
+            // Always capture the delay value for testing
+            CapturedDelays.Add(delay);
+            
+            if (UseRealDelays)
+            {
+                await Task.Delay(delay, token);
+                return;
+            }
             await Task.Delay(TimeSpan.Zero);
         }
 

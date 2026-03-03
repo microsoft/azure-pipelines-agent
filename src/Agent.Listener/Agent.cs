@@ -382,6 +382,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 // Ensure child processes (worker/plugin) pick up enhanced logging via knob
                 Environment.SetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING", enhancedLoggingEnabled ? "true" : null);
 
+                // Check progressive backoff feature flag
+                var progressiveBackoffFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
+                bool progressiveBackoffEnabled = string.Equals(progressiveBackoffFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
+                Trace.Info($"Progressive backoff feature flag is {(progressiveBackoffEnabled ? "enabled" : "disabled")}");
+                // Ensure listener process picks up progressive backoff via knob
+                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", progressiveBackoffEnabled ? "true" : null);
+
                 Trace.Info($"Enhanced worker crash handling feature flag is {(enhancedWorkerCrashHandlingEnabled ? "enabled" : "disabled")}");
                 // Ensure child processes (worker/plugin) pick up enhanced crash handling via knob
                 Environment.SetEnvironmentVariable("AZP_ENHANCED_WORKER_CRASH_HANDLING", enhancedWorkerCrashHandlingEnabled ? "true" : null);
