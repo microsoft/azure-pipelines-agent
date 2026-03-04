@@ -7,7 +7,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System.Linq;
-
+using System.Collections.Generic;
+using System.Globalization;
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
     internal static class TestResultUtils
@@ -198,8 +199,159 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 
             return string.Empty;
         }
+
+        #region Test retry helper
+        /// <summary>
+        /// Detects retry test runs by grouping them based on TestRunIdFromAttachmentFile.
+        /// Modifies the input list in place: retry runs are removed from the top-level list
+        /// and added to the primary run's <see cref="TestRunData.Retries"/> collection.
+        /// </summary>
+        /// <param name="testRunDataList">Mutable list of parsed test run data.</param>
+        public static void DetectAndSetRetriesForTestRun(IList<TestRunData> testRunDataList)
+        {
+            if (testRunDataList == null || testRunDataList.Count <= 1)
+            {
+                return;
+            }
+
+            // Group by TestRunIdFromAttachmentFile – runs that share the same ID are retries
+            var groupedByRunId = testRunDataList
+                .Where(t => !string.IsNullOrEmpty(t.TestRunIdFromAttachmentFile))
+                .GroupBy(t => t.TestRunIdFromAttachmentFile)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (groupedByRunId.Count == 0)
+            {
+                return;
+            }
+
+            var retryRunsToRemove = new HashSet<TestRunData>();
+
+            foreach (var group in groupedByRunId)
+            {
+                // Sort by TestRunStartDate – the earliest is the primary run, the rest are retries
+                var sortedRuns = group
+                    .OrderBy(t => t.TestRunStartDate)
+                    .ToList();
+
+                var primaryRun = sortedRuns[0];
+                primaryRun.Retries = new List<TestRunData>();
+
+                for (int i = 1; i < sortedRuns.Count; i++)
+                {
+                    primaryRun.Retries.Add(sortedRuns[i]);
+                    retryRunsToRemove.Add(sortedRuns[i]);
+                }
+            }
+
+            // Remove retry runs from the main list so only primary runs remain
+            foreach (var retryRun in retryRunsToRemove)
+            {
+                testRunDataList.Remove(retryRun);
+            }
+        }
+
+        /// <summary>
+        /// Gets the latest attempt result for each test in a run that has retries.
+        /// Returns a dictionary mapping test identifier to its latest outcome.
+        /// Later retry attempts override earlier outcomes for the same test.
+        /// </summary>
+        public static Dictionary<string, string> GetLatestAttemptResults(TestRunData testRunData)
+        {
+            var latestResults = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Process primary run results first
+            ProcessTestResults(testRunData, latestResults);
+
+            // Process each retry in order – later retries override earlier ones
+            if (testRunData.Retries != null)
+            {
+                foreach (var retry in testRunData.Retries)
+                {
+                    ProcessTestResults(retry, latestResults);
+                }
+            }
+
+            return latestResults;
+        }
+
+        /// <summary>
+        /// Checks whether any test is still marked as failed after all retry attempts.
+        /// For runs with retries, only the latest attempt outcome per test is considered.
+        /// For runs without retries, the standard outcome check is applied.
+        /// </summary>
+        /// <returns>
+        /// <c>true</c> if at least one test is still failing after all retry attempts;
+        /// <c>false</c> if all previously-failed tests were resolved by retries or there are no failures.
+        /// </returns>
+        public static bool IsAnyTestFailedAfterAllRetries(IList<TestRunData> testRunDataList)
+        {
+            if (testRunDataList == null || testRunDataList.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var testRunData in testRunDataList)
+            {
+                if (testRunData.Retries != null && testRunData.Retries.Count > 0)
+                {
+                    // Run has retries – check the latest outcome per test
+                    var latestAttemptResults = GetLatestAttemptResults(testRunData);
+                    foreach (var outcome in latestAttemptResults.Values)
+                    {
+                        if (string.Equals(outcome, "Failed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    // No retries – check individual test results directly
+                    if (testRunData.TestResults != null)
+                    {
+                        foreach (var testResult in testRunData.TestResults)
+                        {
+                            if (string.Equals(testResult.Outcome, "Failed", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(testResult.Outcome, "Aborted", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+
+        private static void ProcessTestResults(TestRunData testRunData, Dictionary<string, string> latestResults)
+        {
+            if (testRunData?.TestResults == null)
+            {
+                return;
+            }
+
+            foreach (var result in testRunData.TestResults)
+            {
+                // Use AutomatedTestName as the key to identify a unique test case.
+                // NOTE: If tests with the same name exist across different assemblies,
+                // a composite key (AutomatedTestStorage + "." + AutomatedTestName) can
+                // be used instead. This matches the default behaviour of the Windows
+                // TestResultsPublisher service.
+                string testName = result.AutomatedTestName;
+                if (!string.IsNullOrEmpty(testName))
+                {
+                    latestResults[testName] = result.Outcome;
+                }
+            }
+        }
+
     }
 
+    #endregion
     internal class TestRunSummary
     {
         public TestRunSummary()
