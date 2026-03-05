@@ -864,6 +864,12 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("Net8UnsupportedOsWarning"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob DisableUnsupportedOsWarningNet10 = new Knob(
+            nameof(DisableUnsupportedOsWarningNet10),
+            "Show warning message on the OS which is not supported by .NET 10",
+            new PipelineFeatureSource("DisableUnsupportedOsWarningNet10"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob UsePSScriptWrapper = new Knob(
             nameof(UsePSScriptWrapper),
             "Use PowerShell script wrapper to handle PowerShell ConstrainedLanguage mode.",
