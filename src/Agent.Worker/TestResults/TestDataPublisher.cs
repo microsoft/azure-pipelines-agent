@@ -76,12 +76,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null)
                 {
                     var testRunData = testDataProvider.GetTestRunData();
-                    //Detect and group retry test runs before publishing
-                    if (publishOptions.IsDetectTestRunRetry)
-                    {
-                        _executionContext.Debug("Detecting test run retries from result files.");
-                        DetectAndSetRetriesForTestRun(testRunData);
-                    }
                     Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
                     Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
 
@@ -98,7 +92,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        // For retry-aware publishing, determine test run outcome based on the latest attempt results across retries
+                        // Group retries after publishing – the library handles attempt creation,
+                        // but we still need the grouping for retry-aware outcome evaluation.
+                        _executionContext.Debug("Detecting test run retries for outcome evaluation.");
+                        DetectAndSetRetriesForTestRun(testRunData);
                         _executionContext.Debug("Re-evaluating test run outcome with retry awareness.");
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
@@ -147,11 +144,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null)
                 {
                     var testRunData = testDataProvider.GetTestRunData();
-                    if (publishOptions.IsDetectTestRunRetry)
-                    {
-                        _executionContext.Debug("Detecting test run retries from result files.");
-                        DetectAndSetRetriesForTestRun(testRunData);
-                    }
 
                     if (!testCaseResults.IsNullOrEmpty())
                     {
@@ -223,7 +215,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        // For retry-aware publishing, determine test run outcome based on the latest attempt results across retries
+                        // Group retries after publishing – the library handles attempt creation,
+                        // but we still need the grouping for retry-aware outcome evaluation.
+                        _executionContext.Debug("Detecting test run retries for outcome evaluation.");
+                        DetectAndSetRetriesForTestRun(testRunData);
                         _executionContext.Debug("Re-evaluating test run outcome with retry awareness.");
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
