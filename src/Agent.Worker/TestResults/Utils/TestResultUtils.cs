@@ -7,8 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Microsoft.TeamFoundation.TestClient.PublishTestResults;
 using System.Linq;
-using System.Collections.Generic;
-using System.Globalization;
+
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils
 {
     internal static class TestResultUtils
