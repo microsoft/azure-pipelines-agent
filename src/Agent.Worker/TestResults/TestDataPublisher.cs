@@ -363,7 +363,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// and added to the primary run's <see cref="TestRunData.Retries"/> collection.
         /// </summary>
         /// <param name="testRunDataList">Mutable list of parsed test run data.</param>
-        public static void DetectAndSetRetriesForTestRun(IList<TestRunData> testRunDataList)
+        internal void DetectAndSetRetriesForTestRun(IList<TestRunData> testRunDataList)
         {
             if (testRunDataList == null || testRunDataList.Count <= 1)
             {
@@ -413,7 +413,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// Returns a dictionary mapping test identifier to its latest outcome.
         /// Later retry attempts override earlier outcomes for the same test.
         /// </summary>
-        private Dictionary<string, string> GetLatestAttemptResults(TestRunData testRunData)
+        internal Dictionary<string, string> GetLatestAttemptResults(TestRunData testRunData)
         {
             var latestResults = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -447,7 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// <c>true</c> if at least one test is still failing after all retry attempts;
         /// <c>false</c> if all previously-failed tests were resolved by retries or there are no failures.
         /// </returns>
-        private bool GetTestRunOutcomeForRetries(IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
+        internal bool GetTestRunOutcomeForRetries(IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
         {
             testRunSummary = new TestRunSummary();
 
@@ -484,17 +484,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         default:
                             break;
                     }
-                    if (!_calculateTestRunSummary && anyFailedTests)
-                    {
-                        return anyFailedTests;
-                    }
                 }
             }
             return anyFailedTests;
         }
 
 
-        private static void ProcessTestResults(TestRunData testRunData, Dictionary<string, string> latestResults)
+        internal static void ProcessTestResults(TestRunData testRunData, Dictionary<string, string> latestResults)
         {
             if (testRunData?.TestResults == null)
             {
