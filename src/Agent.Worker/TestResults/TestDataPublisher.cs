@@ -92,11 +92,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        // Group retries after publishing – the library handles attempt creation,
-                        // but we still need the grouping for retry-aware outcome evaluation.
-                        _executionContext.Debug("Detecting test run retries for outcome evaluation.");
+                        _executionContext.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
                         DetectAndSetRetriesForTestRun(testRunData);
-                        _executionContext.Debug("Re-evaluating test run outcome with retry awareness.");
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
                     else
@@ -215,11 +212,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        // Group retries after publishing – the library handles attempt creation,
-                        // but we still need the grouping for retry-aware outcome evaluation.
-                        _executionContext.Debug("Detecting test run retries for outcome evaluation.");
+                        _executionContext.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
                         DetectAndSetRetriesForTestRun(testRunData);
-                        _executionContext.Debug("Re-evaluating test run outcome with retry awareness.");
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
                     else
@@ -490,9 +484,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                         default:
                             break;
                     }
+                    if (!_calculateTestRunSummary && anyFailedTests)
+                    {
+                        return anyFailedTests;
+                    }
                 }
             }
-
             return anyFailedTests;
         }
 
@@ -506,7 +503,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             foreach (var result in testRunData.TestResults)
             {
-                string testName = result.AutomatedTestName;
+                string testName = String.Concat(result.AutomatedTestName, " ", result.TestCaseTitle);
                 if (!string.IsNullOrEmpty(testName))
                 {
                     latestResults[testName] = result.Outcome;
