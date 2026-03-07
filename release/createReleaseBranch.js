@@ -6,7 +6,6 @@ const util = require('./util');
 
 const { Octokit } = require("@octokit/rest");
 const { graphql } = require("@octokit/graphql");
-const fetch = require('node-fetch');
 
 const OWNER = 'microsoft';
 const REPO = 'azure-pipelines-agent';
@@ -14,10 +13,7 @@ const GIT = 'git';
 const VALID_RELEASE_RE = /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/;
 const octokit = new Octokit({}); // only read-only operations, no need to auth
 
-const graphqlWithFetch = graphql.defaults({ // Create a reusable GraphQL instance with fetch
-    request: {
-        fetch,
-    },
+const graphqlWithAuth = graphql.defaults({
     headers: {
         authorization: process.env.PAT ? `token ${process.env.PAT}` : undefined,
     }
@@ -63,9 +59,8 @@ async function verifyNewReleaseTagOk(newRelease) {
 
 function writeAgentVersionFile(newRelease) {
     console.log('Writing agent version file')
-    if (!opt.options.dryrun) {
-        fs.writeFileSync(path.join(__dirname, '..', 'src', 'agentversion'), `${newRelease}\n`);
-    }
+    // Always write the agent version file, even in dry-run mode
+    fs.writeFileSync(path.join(__dirname, '..', 'src', 'agentversion'), `${newRelease}\n`);
     return newRelease;
 }
 
@@ -102,7 +97,7 @@ async function fetchPRsForSHAsGraphQL(commitSHAs) {
     `;
 
     try {
-        var response = await graphqlWithFetch(fullQuery, {
+        var response = await graphqlWithAuth(fullQuery, {
             repo: REPO,
             owner: OWNER,
         });
@@ -307,17 +302,17 @@ function editReleaseNotesFile(body) {
 }
 
 function commitAndPush(directory, release, branch) {
-    util.execInForeground(GIT + " checkout -b " + branch, directory, opt.options.dryrun);
-    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory, opt.options.dryrun);
-    util.execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory, opt.options.dryrun);
+    util.execInForeground(GIT + " checkout -b " + branch, directory, false); // Always execute checkout
+    util.execInForeground(`${GIT} commit -m "Agent Release ${release}" `, directory, false); // Always execute commit
+    util.execInForeground(`${GIT} -c credential.helper='!f() { echo "username=pat"; echo "password=$PAT"; };f' push --set-upstream origin ${branch}`, directory, opt.options.dryrun); // Only push respects dryrun
 }
 
 function commitAgentChanges(directory, release) {
     var newBranch = `releases/${release}`;
-    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory, opt.options.dryrun);
-    util.execInForeground(`${GIT} add releaseNote.md`, directory, opt.options.dryrun);
-    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, opt.options.dryrun);
-    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, opt.options.dryrun);
+    util.execInForeground(`${GIT} add ${path.join('src', 'agentversion')}`, directory, false); // Always execute add
+    util.execInForeground(`${GIT} add releaseNote.md`, directory, false); // Always execute add
+    util.execInForeground(`${GIT} config --global user.email "azure-pipelines-bot@microsoft.com"`, null, false); // Always execute config
+    util.execInForeground(`${GIT} config --global user.name "azure-pipelines-bot"`, null, false); // Always execute config
     commitAndPush(directory, release, newBranch);
 }
 
