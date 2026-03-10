@@ -2,19 +2,19 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
+using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
+using Microsoft.VisualStudio.Services.ServiceEndpoints.Common;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.ServiceEndpoints.Common;
-using Microsoft.TeamFoundation.DistributedTask.WebApi;
-using Microsoft.VisualStudio.Services.Agent.Util;
-using Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts.Definition;
-using Microsoft.VisualStudio.Services.ReleaseManagement.WebApi.Contracts;
 using ServiceEndpointContracts = Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 {
@@ -29,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
             ArgUtil.NotNull(artifactDefinition, nameof(artifactDefinition));
 
             EnsureVersionBelongsToLinkedDefinition(artifactDefinition);
+            IRsaProvider rsaProvider = new AsnRsaProvider();
 
             var customArtifactDetails = artifactDefinition.Details as CustomArtifactDetails;
             if (customArtifactDetails != null)
@@ -41,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     customArtifactDetails.ResultTemplate,
                     customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
                     customArtifactDetails.ArtifactVariables,
-                    new BouncyCastleRsaProvider());  
+                    rsaProvider);
 
                 var artifactDownloadDetailList = new List<CustomArtifactDownloadDetails>();
                 artifactDetails.ToList().ForEach(x => artifactDownloadDetailList.Add(JToken.Parse(x).ToObject<CustomArtifactDownloadDetails>()));
@@ -125,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     IEndpointAuthorizer authorizer = SchemeBasedAuthorizerFactory.GetEndpointAuthorizer(
                         ToServiceEndpoint(customArtifactDetails.Endpoint),
                         customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
-                        new BouncyCastleRsaProvider()); 
+                        new AsnRsaProvider());
 
                     using (HttpWebResponse webResponse = GetWebResponse(executionContext, artifact.DownloadUrl, authorizer))
                     {
@@ -171,9 +172,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
 
         private static HttpWebResponse GetWebResponse(IExecutionContext executionContext, string url, IEndpointAuthorizer authorizer)
         {
-            #pragma warning disable SYSLIB0014
+#pragma warning disable SYSLIB0014
             var request = WebRequest.Create(url) as HttpWebRequest;
-            #pragma warning restore SYSLIB0014
+#pragma warning restore SYSLIB0014
             if (request == null)
             {
                 string errorMessage = StringUtil.Loc("RMArtifactDownloadRequestCreationFailed", url);
@@ -181,7 +182,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 throw new InvalidOperationException(errorMessage);
             }
 
-            authorizer.AuthorizeRequest(request, null);
+            authorizer.TryAuthorizeRequest(request, null);
             var webResponse = request.GetResponseAsync().Result as HttpWebResponse;
             return webResponse;
         }
@@ -201,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                     customArtifactDetails.VersionsResultTemplate,
                     customArtifactDetails.AuthorizationHeaders?.Select(header => ToAuthorizationHeader(header)).ToList(),
                     customArtifactDetails.ArtifactVariables,
-                    new BouncyCastleRsaProvider());  
+                    new AsnRsaProvider());
 
                 foreach (var version in versions)
                 {
