@@ -577,7 +577,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
             nameof(EnableEOLNodeVersionPolicy),
             "When enabled, tasks that specify end-of-life Node.js versions (6, 10, 16) will run using a supported Node.js version available on the agent (Node 20.1 or Node 24), ignoring the  EOL Node.js version(s) in respective task. An error is thrown if no supported version is available.",
-            new PipelineFeatureSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new RuntimeKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
 
