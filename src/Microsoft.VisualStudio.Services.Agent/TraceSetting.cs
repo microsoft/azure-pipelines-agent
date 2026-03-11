@@ -25,6 +25,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
             DefaultTraceLevel = TraceLevel.Info;
 
+#if DEBUG
+            DefaultTraceLevel = TraceLevel.Verbose;
+#endif
+
             if (hostType == HostType.Worker)
             {
                 var contextToUse = knobContext ?? _knobContext;
