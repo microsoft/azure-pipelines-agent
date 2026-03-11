@@ -126,6 +126,15 @@ function acquireExternalTool() {
                 echo "Testing tar gz"
                 tar xzf "$download_target" -C "$extract_dir" > /dev/null || checkRC 'tar'
             fi
+
+            if [[ "$download_basename" == node-v*.tar.gz ]]; then
+                echo "Cleaning Node.js distribution extract - removing unused npm/lib"
+                find "$extract_dir" -path "*/lib/node_modules" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" \( -name "npm" -o -name "npx" -o -name "corepack" \) -not -type d -delete 2>/dev/null || true
+                find "$extract_dir" -path "*/include" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" -path "*/share" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" \( -name "CHANGELOG.md" -o -name "README.md" \) -delete 2>/dev/null || true
+            fi
         fi
     else
         # Extract to layout.
