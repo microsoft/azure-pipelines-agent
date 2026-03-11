@@ -78,13 +78,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 executionContext.Debug($"[Node24Strategy] Node folder does not exist: {nodeFolder}");
                 return false;
             }
-
+            var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
             try
             {
                 var processInvoker = hostContext.CreateService<IProcessInvoker>();
                 var exitCodeTask = processInvoker.ExecuteAsync(
                                         workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Work),
-                                        fileName: nodeFolder,
+                                        fileName: nodePath,
                                         arguments: "-v",
                                         environment: null,
                                         requireExitCodeZero: false,

@@ -342,11 +342,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return false;
             }
             var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            if (!File.Exists(nodePath))
-            {
-                ExecutionContext.Debug($"Node binary not found at {nodePath}, assuming executable");
-                return true;
-            }
             try
             {
                 var processInvoker = HostContext.CreateService<IProcessInvoker>();
