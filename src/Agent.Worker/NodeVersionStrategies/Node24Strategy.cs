@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -29,14 +30,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool hasNode24Handler = context.HandlerData is Node24HandlerData;
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-
-            var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
 
-            if (!_nodeHandlerHelper.IsNodeFolderExist(node24Folder, hostContext))
+            if (!IsNodeExecutable(node24Folder, executionContext))
             {
-                executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, checking fallback options");
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Node24 not available on this platform", executionContext, glibcInfo, skipNode24Check: true);
+                executionContext.Debug("[Node24Strategy] Node24 not executable on this platform (e.g., exit code 216 or node binary missing), checking fallback options");
+                return null;
             }
 
             if (useNode24Globally)
@@ -44,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 executionContext.Debug("[Node24Strategy] AGENT_USE_NODE24=true → Global override");
                 return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE24 override", executionContext, glibcInfo, skipNode24Check: false);
             }
-            
+
             if (hasNode24Handler)
             {
                 if (useNode24WithHandlerData)
@@ -62,13 +61,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     };
                 }
             }
-            
+
             if (eolPolicyEnabled)
             {
                 return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, skipNode24Check: false, isUpgradeScenario: true);
             }
-            
+
             return null;
+        }
+
+        private bool IsNodeExecutable(string nodeFolder, IExecutionContext executionContext)
+        {
+            var hostContext = executionContext.GetHostContext();
+            if (!_nodeHandlerHelper.IsNodeFolderExist(nodeFolder, hostContext))
+            {
+                executionContext.Debug($"[Node24Strategy] Node folder does not exist: {nodeFolder}");
+                return false;
+            }
+            var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            try
+            {
+                var processInvoker = hostContext.CreateService<IProcessInvoker>();
+                var exitCodeTask = processInvoker.ExecuteAsync(
+                                        workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Work),
+                                        fileName: nodePath,
+                                        arguments: "-v",
+                                        environment: null,
+                                        requireExitCodeZero: false,
+                                        outputEncoding: null,
+                                        cancellationToken: CancellationToken.None);
+
+                int exitCode = exitCodeTask.GetAwaiter().GetResult();
+                return exitCode != 216;
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"[Node24Strategy] Node executable test threw exception: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>
