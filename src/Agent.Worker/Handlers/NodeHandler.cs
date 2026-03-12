@@ -339,6 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
             {
+                ExecutionContext.Debug($"Node folder does not exist: {nodeFolder}");
                 return false;
             }
             var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");

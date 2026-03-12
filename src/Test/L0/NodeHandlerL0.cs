@@ -12,6 +12,9 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
 using Xunit;
 using Agent.Sdk;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -86,6 +89,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+                    var processInvokerMock = new Mock<IProcessInvoker>();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+                    }
+                    SetupNodeProcessInvocation(processInvokerMock, nodeVersion, true);
 
                     NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -140,6 +149,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
                     thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+                    var processInvokerMock = new Mock<IProcessInvoker>();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+                    }
+                    SetupNodeProcessInvocation(processInvokerMock, nodeVersion, true);
 
                     NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -166,6 +181,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             finally
             {
                 Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
+            }
+        }
+
+        [Theory]
+        [InlineData("node24")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void Node24NotExecutable(string nodeVersion)
+        {
+            ResetNodeKnobs();
+
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", "true");
+
+            try
+            {
+                // Use a unique test name per data row to avoid sharing the same trace file across parallel runs
+                using (TestHostContext thc = CreateTestHostContext($"{nameof(Node24NotExecutable)}_{nodeVersion}"))
+                {
+                    thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                    thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+                    var processInvokerMock = new Mock<IProcessInvoker>();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+                    }
+                    SetupNodeProcessInvocation(processInvokerMock, nodeVersion, false);
+
+                    NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
+
+                    nodeHandler.Initialize(thc);
+                    nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
+                    nodeHandler.Data = nodeVersion switch
+                    {
+                        "node" => new NodeHandlerData(),
+                        "node10" => new Node10HandlerData(),
+                        "node16" => new Node16HandlerData(),
+                        "node20_1" => new Node20_1HandlerData(),
+                        "node24" => new Node24HandlerData(),
+                        _ => throw new Exception("Invalid node version"),
+                    };
+
+                    string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
+                    string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
+                        "node20_1",
+                        "bin",
+                        $"node{IOUtil.ExeExtension}");
+                    Assert.Equal(expectedLocation, actualLocation);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
             }
         }
 
@@ -575,6 +642,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Returns(Array.Empty<string>);
 
             return nodeHandlerHelper;
+        }
+
+        private void SetupNodeProcessInvocation(Mock<IProcessInvoker> processInvokerMock, string nodeFolder, bool node24Executable)
+        {
+            string nodeExePath = Path.Combine("externals", nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+
+            processInvokerMock.Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.Is<string>(fileName => fileName.Contains(nodeExePath)),
+                    "-v",
+                    It.IsAny<IDictionary<string, string>>(),
+                    false,
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(node24Executable ? 0 : 216);
         }
 
         private void ResetNodeKnobs()

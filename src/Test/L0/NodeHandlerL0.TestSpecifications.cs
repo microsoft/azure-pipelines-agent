@@ -615,6 +615,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "node24"
             ),
 
+            new TestScenario(
+                name: "Node24NotExecutable_fallsBackToNode20_1",
+                description: "Node24 handler with Node24 not executable: falls back to Node20_1 in container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                node24Executable: false,
+                expectedNode: "node20_1"
+            ),
+
             // ========================================================================================
             // GROUP 7: EDGE CASES AND ERROR SCENARIOS
             // ========================================================================================
@@ -816,7 +825,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 expectedNode: "node24",
                 inContainer: true
-            )          
+            )
         };
     }
 
