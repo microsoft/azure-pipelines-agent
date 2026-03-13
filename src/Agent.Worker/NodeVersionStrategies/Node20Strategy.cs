@@ -18,55 +18,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
             bool hasNode20Handler = context.HandlerData is Node20_1HandlerData;
+            bool hasCompatibleHandler = hasNode20Handler || context.HandlerData is Node24HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-            
-            if (useNode20Globally)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE20_1 override", executionContext, glibcInfo);
-            }
-            
-            if (hasNode20Handler)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node20 task handler", executionContext, glibcInfo);
-            }
-            
-            if (eolPolicyEnabled)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", executionContext, glibcInfo, isUpgradeScenario: true);
-            }
-            
-            return null;
-        }
 
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo, bool isUpgradeScenario = false)
-        {
+            if (glibcInfo.Node20HasGlibcError)
+            {
+                executionContext.Debug("[Node20Strategy] Node20 has glibc compatibility issue, skipping");
+                return null;
+            }
+
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
-            string upgradeWarning = isUpgradeScenario ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null;
-            
-            if (!glibcInfo.Node20HasGlibcError)
+
+            if (useNode20Globally)
             {
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
-                    Reason = baseReason,
-                    Warning = upgradeWarning
+                    Reason = "Selected via global AGENT_USE_NODE20_1 override",
+                    Warning = null
+                };
+            }
+
+            if (hasCompatibleHandler)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = hasNode20Handler ? "Selected for Node20 task handler" : "Fallback to Node20 from higher version handler",
+                    Warning = null
                 };
             }
 
             if (eolPolicyEnabled)
             {
-                throw new NotSupportedException(StringUtil.Loc("NodeEOLFallbackBlocked", "Node20", "Node16"));
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
+                    Warning = StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
+                };
             }
-            
-            string systemType = context.Container != null ? "container" : "agent";
-            return new NodeRunnerInfo
-            {
-                NodePath = null,
-                NodeVersion = NodeVersion.Node16,
-                Reason = $"{baseReason}, fallback to Node16 due to Node20 glibc compatibility issue",
-                Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
-            };
+
+            return null;
         }
 
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
