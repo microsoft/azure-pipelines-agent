@@ -17,31 +17,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool hasNode16Handler = context.HandlerData is Node16HandlerData;
+            bool hasCompatibleHandler = hasNode16Handler || context.HandlerData is Node20_1HandlerData || context.HandlerData is Node24HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
-            if (hasNode16Handler)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node16 task handler", executionContext);
-            }
-
-            return null;
-        }
-
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext)
-        {
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
             if (eolPolicyEnabled)
             {
+                executionContext.Debug(StringUtil.Loc("NodeEOLFallbackBlocked", "Node16"));
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node16"));
             }
 
-            return new NodeRunnerInfo
+            if (hasCompatibleHandler)
             {
-                NodePath = null,
-                NodeVersion = NodeVersion.Node16,
-                Reason = baseReason,
-                Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
-            };
+                string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node16,
+                    Reason = hasNode16Handler ? "Selected for Node16 task handler" : "Fallback to Node16 from higher version handler",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
+                };
+            }
+            return null;
         }
 
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
