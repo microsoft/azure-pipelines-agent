@@ -17,17 +17,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
-            bool hasNode20Handler = context.HandlerData is Node20_1HandlerData;
-            bool hasCompatibleHandler = hasNode20Handler || context.HandlerData is Node24HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
             if (glibcInfo.Node20HasGlibcError)
             {
                 executionContext.Debug("[Node20Strategy] Node20 has glibc compatibility issue, skipping");
                 return null;
             }
-
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
             if (useNode20Globally)
             {
@@ -36,17 +34,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected via global AGENT_USE_NODE20_1 override",
-                    Warning = null
-                };
-            }
-
-            if (hasCompatibleHandler)
-            {
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node20,
-                    Reason = hasNode20Handler ? "Selected for Node20 task handler" : "Fallback to Node20 from higher version handler",
                     Warning = null
                 };
             }
@@ -62,7 +49,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            return null;
+            if (context.EffectiveMaxVersion < 20)
+            {
+                executionContext.Debug($"[Node20Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 20, skipping");
+                return null;
+            }
+
+            if (context.HandlerData is Node20_1HandlerData)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Selected for Node20 task handler",
+                    Warning = null
+                };
+            }
+
+            return new NodeRunnerInfo
+            {
+                NodePath = null,
+                NodeVersion = NodeVersion.Node20,
+                Reason = "Fallback to Node20",
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
+            };
         }
 
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)

@@ -26,12 +26,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(executionContext).AsBoolean();
-            bool hasNode24Handler = context.HandlerData is Node24HandlerData;
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
             if (!_nodeHandlerHelper.IsNodeFolderExist(node24Folder, hostContext))
             {
@@ -45,11 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
-
             if (useNode24Globally)
             {
-                executionContext.Debug("[Node24Strategy] AGENT_USE_NODE24=true → Global override");
+                executionContext.Debug("[Node24Strategy] AGENT_USE_NODE24=true, global override");
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
@@ -57,25 +55,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     Reason = "Selected via global AGENT_USE_NODE24 override",
                     Warning = null
                 };
-            }
-
-            if (hasNode24Handler)
-            {
-                if (useNode24WithHandlerData)
-                {
-                    return new NodeRunnerInfo
-                    {
-                        NodePath = null,
-                        NodeVersion = NodeVersion.Node24,
-                        Reason = "Selected for Node24 task with handler knob enabled",
-                        Warning = null
-                    };
-                }
-                else
-                {
-                    executionContext.Debug("[Node24Strategy] Node24 task detected but handler knob disabled, skipping to allow fallback");
-                    return null;
-                }
             }
 
             if (eolPolicyEnabled)
@@ -86,6 +65,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodeVersion = NodeVersion.Node24,
                     Reason = "Upgraded from end-of-life Node version due to EOL policy",
                     Warning = StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
+                };
+            }
+
+            if (context.EffectiveMaxVersion < 24)
+            {
+                executionContext.Debug($"[Node24Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 24, skipping");
+                return null;
+            }
+
+            if (context.HandlerData is Node24HandlerData)
+            {
+                if (!useNode24WithHandlerData)
+                {
+                    executionContext.Debug("[Node24Strategy] Node24 handler detected but UseNode24withHandlerData=false, skipping");
+                    return null;
+                }
+
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node24,
+                    Reason = "Selected for Node24 task handler",
+                    Warning = null
                 };
             }
 
