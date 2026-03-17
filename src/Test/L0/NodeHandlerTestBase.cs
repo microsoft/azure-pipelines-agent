@@ -251,6 +251,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeFolderName,
                     "bin",
                     $"node{IOUtil.ExeExtension}"));
+            NodeHandlerHelper
+                .Setup(x => x.IsNodeExecutable(It.IsAny<string>(), It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                .Returns(scenario.Node24Executable);
         }
 
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)

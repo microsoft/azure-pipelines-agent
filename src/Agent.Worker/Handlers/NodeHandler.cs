@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string[] GetFilteredPossibleNodeFolders(string nodeFolderName, string[] possibleNodeFolders);
         string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext);
         bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext);
+        bool IsNodeExecutable(string nodeFolder, IHostContext HostContext, IExecutionContext ExecutionContext);
     }
 
     public class NodeHandlerHelper : INodeHandlerHelper
@@ -51,6 +52,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeFolderIndex >= 0 ?
                 possibleNodeFolders.Skip(nodeFolderIndex + 1).ToArray()
                 : Array.Empty<string>();
+        }
+
+        public bool IsNodeExecutable(string nodeFolder, IHostContext HostContext, IExecutionContext ExecutionContext)
+        {
+            if (!this.IsNodeFolderExist(nodeFolder, HostContext))
+            {
+                ExecutionContext.Debug($"Node folder does not exist: {nodeFolder}");
+                return false;
+            }
+            var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            const int NodeNotExecutableExitCode = 216;
+            try
+            {
+                var processInvoker = HostContext.CreateService<IProcessInvoker>();
+                var exitCodeTask = processInvoker.ExecuteAsync(
+                                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                    fileName: nodePath,
+                                    arguments: "-v",
+                                    environment: null,
+                                    requireExitCodeZero: false,
+                                    outputEncoding: null,
+                                    cancellationToken: CancellationToken.None);
+                int exitCode = exitCodeTask.GetAwaiter().GetResult();
+                return exitCode != NodeNotExecutableExitCode;
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Debug($"Node executable test threw exception: {ex.Message}");
+                return false;
+            }
         }
     }
 
@@ -335,43 +366,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeResultsInGlibCError;
         }
 
-        private bool CheckIfNodeIsExecutable(string nodeFolder)
-        {
-            if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
-            {
-                ExecutionContext.Debug($"Node folder does not exist: {nodeFolder}");
-                return false;
-            }
-            var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            const int NodeNotExecutableExitCode = 216;
-            try
-            {
-                var processInvoker = HostContext.CreateService<IProcessInvoker>();
-                var exitCodeTask = processInvoker.ExecuteAsync(
-                                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                                    fileName: nodePath,
-                                    arguments: "-v",
-                                    environment: null,
-                                    requireExitCodeZero: false,
-                                    outputEncoding: null,
-                                    cancellationToken: CancellationToken.None);
-                int exitCode = exitCodeTask.GetAwaiter().GetResult();
-                return exitCode != NodeNotExecutableExitCode;
-            }
-            catch (Exception ex)
-            {
-                ExecutionContext.Debug($"Node executable test threw exception: {ex.Message}");
-                return false;
-            }
-        }
-
         private string GetNodeFolderWithFallback(string preferredNodeFolder, bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             switch (preferredNodeFolder)
             {
                 case var folder when folder == NodeHandler.Node24Folder:
                     // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86) or not executable (e.g, windows 2012 R2)
-                    bool node24NotExecutable = !CheckIfNodeIsExecutable(NodeHandler.Node24Folder);
+                    bool node24NotExecutable = !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, this.HostContext, this.ExecutionContext);
                     if (node24ResultsInGlibCError || node24NotExecutable)
                     {
                         // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist

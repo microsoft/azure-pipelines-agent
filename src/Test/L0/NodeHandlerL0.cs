@@ -208,6 +208,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     }
                     SetupNodeProcessInvocation(processInvokerMock, nodeVersion, false);
 
+                    nodeHandlerHalper
+                    .Setup(x => x.IsNodeExecutable(
+                        It.Is<string>(folder => folder == "node24"),
+                        It.IsAny<IHostContext>(),
+                        It.IsAny<IExecutionContext>()))
+                    .Returns(false);
                     NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
                     nodeHandler.Initialize(thc);
@@ -640,6 +646,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             nodeHandlerHelper
                 .Setup(x => x.GetFilteredPossibleNodeFolders(It.IsAny<string>(), It.IsAny<string[]>()))
                 .Returns(Array.Empty<string>);
+
+            nodeHandlerHelper
+                .Setup(x => x.IsNodeExecutable(It.IsAny<string>(), It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                .Returns(true);
 
             return nodeHandlerHelper;
         }

@@ -3,7 +3,6 @@
 
 using System;
 using System.IO;
-using System.Threading;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -29,10 +28,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(executionContext).AsBoolean();
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+            var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
-            if (!IsNodeExecutable(node24Folder, executionContext))
+            if (!_nodeHandlerHelper.IsNodeExecutable(node24Folder, hostContext, executionContext))
             {
                 executionContext.Debug("[Node24Strategy] Node24 not executable on this platform (e.g., node binary missing or incompatible or exit code 216), checking fallback options");
                 return null;
@@ -55,7 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     Warning = null
                 };
             }
-            
+
             if (eolPolicyEnabled)
             {
                 return new NodeRunnerInfo
@@ -91,38 +91,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             }
 
             return null;
-        }
-
-        private bool IsNodeExecutable(string nodeFolder, IExecutionContext executionContext)
-        {
-            var hostContext = executionContext.GetHostContext();
-            if (!_nodeHandlerHelper.IsNodeFolderExist(nodeFolder, hostContext))
-            {
-                executionContext.Debug($"[Node24Strategy] Node folder does not exist: {nodeFolder}");
-                return false;
-            }
-            var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            const int NodeNotExecutableExitCode = 216;
-            try
-            {
-                var processInvoker = hostContext.CreateService<IProcessInvoker>();
-                var exitCodeTask = processInvoker.ExecuteAsync(
-                                        workingDirectory: hostContext.GetDirectory(WellKnownDirectory.Work),
-                                        fileName: nodePath,
-                                        arguments: "-v",
-                                        environment: null,
-                                        requireExitCodeZero: false,
-                                        outputEncoding: null,
-                                        cancellationToken: CancellationToken.None);
-
-                int exitCode = exitCodeTask.GetAwaiter().GetResult();
-                return exitCode != NodeNotExecutableExitCode;
-            }
-            catch (Exception ex)
-            {
-                executionContext.Debug($"[Node24Strategy] Node executable test threw exception: {ex.Message}");
-                return false;
-            }
         }
 
         public NodeRunnerInfo CanHandleInContainer(TaskContext context, IExecutionContext executionContext, IDockerCommandManager dockerManager)
