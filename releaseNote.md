@@ -1,3 +1,14 @@
+## Features
+ - Update Agent to support OS (#5482)
+ - Updated mingit version to 2.53.0 (#5490)
+ - node24 fallback logic update (#5499)
+
+## Bugs
+
+
+## Misc
+
+
 
 ## Agent Downloads
 
