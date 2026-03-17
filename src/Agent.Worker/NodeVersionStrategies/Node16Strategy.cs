@@ -16,30 +16,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
     {
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
-            bool hasNode16Handler = context.HandlerData is Node16HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
-            if (hasNode16Handler)
+            if (context.EffectiveMaxVersion < 16)
             {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node16 task handler", executionContext);
+                executionContext.Debug($"[Node16Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 16, skipping");
+                return null;
             }
 
-            return null;
-        }
-
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext)
-        {
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
             if (eolPolicyEnabled)
             {
+                executionContext.Debug(StringUtil.Loc("NodeEOLFallbackBlocked", "Node16"));
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node16"));
+            }
+
+            if (context.HandlerData is Node16HandlerData)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node16,
+                    Reason = "Selected for Node16 task handler",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
+                };
             }
 
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
-                Reason = baseReason,
+                Reason = "Fallback to Node16 due to glibc issues",
                 Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
             };
         }
