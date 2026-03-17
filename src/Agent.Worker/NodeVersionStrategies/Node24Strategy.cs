@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (!IsNodeExecutable(node24Folder, executionContext))
             {
-                executionContext.Debug("[Node24Strategy] Node24 not executable on this platform (e.g., exit code 216 or node binary missing), checking fallback options");
+                executionContext.Debug("[Node24Strategy] Node24 not executable on this platform (e.g., node binary missing or incompatible or exit code 216), checking fallback options");
                 return null;
             }
 

@@ -371,24 +371,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 case var folder when folder == NodeHandler.Node24Folder:
                     // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86) or not executable (e.g, windows 2012 R2)
-                    bool node24NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node24Folder, HostContext);
                     bool node24NotExecutable = !CheckIfNodeIsExecutable(NodeHandler.Node24Folder);
-                    if (node24ResultsInGlibCError || node24NotAvailable || node24NotExecutable)
+                    if (node24ResultsInGlibCError || node24NotExecutable)
                     {
-                        // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist or not executable
+                        // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
-                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
+                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
-                            NodeFallbackWarning("24", "16", inContainer, node24NotAvailable, node24NotExecutable);
+                            NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
                             return NodeHandler.Node16Folder;
                         }
                         else
                         {
-                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
+                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
-                            NodeFallbackWarning("24", "20", inContainer, node24NotAvailable, node24NotExecutable);
+                            NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
                             return NodeHandler.Node20_1Folder;
                         }
                     }
@@ -570,13 +569,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notAvailable = false, bool notExecutable = false)
+        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notExecutable = false)
         {
             string systemType = inContainer ? "container" : "agent";
-            string reason = notAvailable
-                ? $"Node{fromVersion} is not available on this platform"
-                : notExecutable
-                ? $"Node{fromVersion} is not executable on this platform"
+            string reason = notExecutable
+                ? $"Node{fromVersion} is not executable on this platform(e.g.,node binary missing or incompatible) "
                 : $"The {systemType} operating system doesn't support Node{fromVersion}";
 
             ExecutionContext.Warning($"{reason}. Using Node{toVersion} instead. " +
