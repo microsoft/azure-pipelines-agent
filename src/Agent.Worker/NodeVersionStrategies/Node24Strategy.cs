@@ -102,6 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return false;
             }
             var nodePath = Path.Combine(hostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            const int NodeNotExecutableExitCode = 216;
             try
             {
                 var processInvoker = hostContext.CreateService<IProcessInvoker>();
@@ -115,7 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                                         cancellationToken: CancellationToken.None);
 
                 int exitCode = exitCodeTask.GetAwaiter().GetResult();
-                return exitCode != 216;
+                return exitCode != NodeNotExecutableExitCode;
             }
             catch (Exception ex)
             {
