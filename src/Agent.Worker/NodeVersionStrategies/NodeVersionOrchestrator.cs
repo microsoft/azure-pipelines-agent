@@ -93,9 +93,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
                 catch (NotSupportedException ex)
                 {
-                    ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
-                    ExecutionContext.Error($"Node version selection failed: {ex.Message}");
-                    throw;
+                    ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' blocked: {ex.Message} - trying next strategy");
                 }
                 catch (Exception ex)
                 {
@@ -104,7 +102,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             }
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
-            throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
+            ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
+            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
         }
 
         /// <summary>
