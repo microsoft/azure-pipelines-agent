@@ -72,6 +72,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     var dockerManagerMock = SetupMockedDockerCommandManager(scenario);
                     thc.SetSingleton<IDockerCommandManager>(dockerManagerMock.Object);
 
+                    // Mock IProcessInvoker for node executable checks (e.g., IsNodeExecutable in Node24Strategy)
+                    var processInvokerMock = new Mock<IProcessInvoker>();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+                    }
+
+                    SetupNodeProcessInvocation(processInvokerMock, scenario.HandlerDataType.Name, scenario.Node24Executable);
+
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
                     try{
                         string actualLocation;
@@ -242,6 +251,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeFolderName,
                     "bin",
                     $"node{IOUtil.ExeExtension}"));
+            NodeHandlerHelper
+                .Setup(x => x.IsNodeExecutable(It.IsAny<string>(), It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                .Returns(scenario.Node24Executable);
         }
 
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
@@ -451,6 +463,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);         
             
+        }
+
+        private void SetupNodeProcessInvocation(Mock<IProcessInvoker> processInvokerMock, string nodeFolder, bool node24Executable)
+        {
+            string nodeExePath = Path.Combine("externals", nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+
+            processInvokerMock.Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.Is<string>(fileName => fileName.Contains(nodeExePath)),
+                    "-v",
+                    It.IsAny<IDictionary<string, string>>(),
+                    false,
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(node24Executable ? 0 : 216);
         }
     }
 

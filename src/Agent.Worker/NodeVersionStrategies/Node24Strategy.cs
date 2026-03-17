@@ -28,14 +28,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(executionContext).AsBoolean();
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-
             var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
-            if (!_nodeHandlerHelper.IsNodeFolderExist(node24Folder, hostContext))
+            if (!_nodeHandlerHelper.IsNodeExecutable(node24Folder, hostContext, executionContext))
             {
-                executionContext.Debug("[Node24Strategy] Node24 binary not available on this platform, skipping");
+                executionContext.Debug("[Node24Strategy] Node24 not executable on this platform (e.g., node binary missing or incompatible or exit code 216), checking fallback options");
                 return null;
             }
 

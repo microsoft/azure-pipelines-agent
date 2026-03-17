@@ -32,6 +32,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         string[] GetFilteredPossibleNodeFolders(string nodeFolderName, string[] possibleNodeFolders);
         string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext);
         bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext);
+        bool IsNodeExecutable(string nodeFolder, IHostContext HostContext, IExecutionContext ExecutionContext);
     }
 
     public class NodeHandlerHelper : INodeHandlerHelper
@@ -51,6 +52,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeFolderIndex >= 0 ?
                 possibleNodeFolders.Skip(nodeFolderIndex + 1).ToArray()
                 : Array.Empty<string>();
+        }
+
+        public bool IsNodeExecutable(string nodeFolder, IHostContext HostContext, IExecutionContext ExecutionContext)
+        {
+            if (!this.IsNodeFolderExist(nodeFolder, HostContext))
+            {
+                ExecutionContext.Debug($"Node folder does not exist: {nodeFolder}");
+                return false;
+            }
+            var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+            const int NodeNotExecutableExitCode = 216;
+            try
+            {
+                var processInvoker = HostContext.CreateService<IProcessInvoker>();
+                var exitCodeTask = processInvoker.ExecuteAsync(
+                                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                    fileName: nodePath,
+                                    arguments: "-v",
+                                    environment: null,
+                                    requireExitCodeZero: false,
+                                    outputEncoding: null,
+                                    cancellationToken: CancellationToken.None);
+                int exitCode = exitCodeTask.GetAwaiter().GetResult();
+                return exitCode != NodeNotExecutableExitCode;
+            }
+            catch (Exception ex)
+            {
+                ExecutionContext.Debug($"Node executable test threw exception: {ex.Message}");
+                return false;
+            }
         }
     }
 
@@ -215,7 +246,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         supportsNode20 = !node20ResultsInGlibCErrorHost;
                     }
                 }
-                
+
                 if (!useNode24InUnsupportedSystem)
                 {
                     if (supportsNode24.HasValue)
@@ -340,24 +371,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             switch (preferredNodeFolder)
             {
                 case var folder when folder == NodeHandler.Node24Folder:
-                    // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86)
-                    bool node24NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node24Folder, HostContext);
-                    if (node24ResultsInGlibCError || node24NotAvailable)
+                    // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86) or not executable (e.g, windows 2012 R2)
+                    bool node24NotExecutable = !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, this.HostContext, this.ExecutionContext);
+                    if (node24ResultsInGlibCError || node24NotExecutable)
                     {
                         // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
-                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
-                            NodeFallbackWarning("24", "16", inContainer, node24NotAvailable);
+                            NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
                             return NodeHandler.Node16Folder;
                         }
                         else
                         {
-                            fallbackReason = node24NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
-                            NodeFallbackWarning("24", "20", inContainer, node24NotAvailable);
+                            NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
                             return NodeHandler.Node20_1Folder;
                         }
                     }
@@ -383,15 +414,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
-            
+
             if (useStrategyPattern)
             {
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
-            
+
             return GetNodeLocationLegacy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
         }
-        
+
         private async Task<string> GetNodeLocationUsingStrategy(bool inContainer)
         {
             try
@@ -413,7 +444,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 throw;
             }
         }
-        
+
         private string GetNodeLocationLegacy(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             if (!string.IsNullOrEmpty(ExecutionContext.StepTarget()?.CustomNodePath))
@@ -539,11 +570,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notAvailable = false)
+        private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notExecutable = false)
         {
             string systemType = inContainer ? "container" : "agent";
-            string reason = notAvailable
-                ? $"Node{fromVersion} is not available on this platform"
+            string reason = notExecutable
+                ? $"Node{fromVersion} is not executable on this platform(e.g.,node binary missing or incompatible) "
                 : $"The {systemType} operating system doesn't support Node{fromVersion}";
 
             ExecutionContext.Warning($"{reason}. Using Node{toVersion} instead. " +
