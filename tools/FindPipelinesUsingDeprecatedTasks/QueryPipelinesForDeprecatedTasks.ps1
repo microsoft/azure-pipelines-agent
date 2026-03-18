@@ -23,7 +23,7 @@
     Optional path to export results as CSV.
 
 .EXAMPLE
-    .\Find-DeprecatedTaskUsage.ps1 -accountUrl https://dev.azure.com/myorg -pat $myPat -project MyProject
+    .\QueryPipelinesForDeprecatedTasks.ps1 -accountUrl https://dev.azure.com/myorg -pat $myPat -project MyProject
 #>
 
 param (
