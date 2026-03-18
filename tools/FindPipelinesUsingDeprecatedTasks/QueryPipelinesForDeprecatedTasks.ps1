@@ -7,7 +7,8 @@
 .DESCRIPTION
     Fetches the list of deprecated tasks from the azure-pipelines-tasks
     DEPRECATION.md on GitHub, then queries all pipeline definitions in the
-    specified Azure DevOps project and reports which pipelines reference
+    specified Azure DevOps project (or all projects in the organization if
+    no project is specified) and reports which pipelines reference
     deprecated tasks.
 
 .PARAMETER accountUrl
@@ -17,13 +18,17 @@
     A Personal Access Token with permissions to read pipeline definitions.
 
 .PARAMETER project
-    The Azure DevOps project name to scan.
+    Optional. The Azure DevOps project name to scan. If omitted, all
+    projects in the organization are scanned.
 
 .PARAMETER outputCsv
     Optional path to export results as CSV.
 
 .EXAMPLE
     .\QueryPipelinesForDeprecatedTasks.ps1 -accountUrl https://dev.azure.com/myorg -pat $myPat -project MyProject
+
+.EXAMPLE
+    .\QueryPipelinesForDeprecatedTasks.ps1 -accountUrl https://dev.azure.com/myorg -pat $myPat
 #>
 
 param (
@@ -33,7 +38,7 @@ param (
     [Parameter(Mandatory = $true)]
     [string] $pat,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string] $project,
 
     [Parameter(Mandatory = $false)]
@@ -79,104 +84,133 @@ $taskPatterns = $deprecatedTasks.Keys | ForEach-Object {
 }
 $combinedPattern = ($taskPatterns -join '|')
 
-# --- Step 2: Get all pipeline definitions ---
-Write-Host "Querying pipeline definitions from $project..." -ForegroundColor Cyan
+# --- Step 2: Determine projects to scan ---
+if ($project) {
+    $projectsToScan = @($project)
+} else {
+    Write-Host "No project specified. Fetching all projects in the organization..." -ForegroundColor Cyan
+    $projectsToScan = @()
+    $continuationToken = $null
+    do {
+        $projUrl = "$accountUrl/_apis/projects?api-version=7.0&`$top=100"
+        if ($continuationToken) {
+            $projUrl += "&continuationToken=$continuationToken"
+        }
+        $projResponse = Invoke-WebRequest -Uri $projUrl -Headers $headers -Method GET
+        $continuationToken = $projResponse.Headers.'x-ms-continuationtoken'
+        $projJson = ConvertFrom-Json $projResponse.Content
+        $projectsToScan += $projJson.value | ForEach-Object { $_.name }
+    } while ($continuationToken)
+    Write-Host ("Found " + $projectsToScan.Count + " project(s) in the organization`n") -ForegroundColor Green
+}
 
-$allPipelines = @()
-$continuationToken = $null
-
-do {
-    $url = "$accountUrl/$project/_apis/pipelines?api-version=7.0&`$top=100"
-    if ($continuationToken) {
-        $url += "&continuationToken=$continuationToken"
-    }
-
-    $response = Invoke-WebRequest -Uri $url -Headers $headers -Method GET
-    if ($response.StatusCode -ne 200) {
-        throw "Failed to query pipelines: $($response.Content)"
-    }
-
-    $continuationToken = $response.Headers.'x-ms-continuationtoken'
-    $json = ConvertFrom-Json $response.Content
-    $allPipelines += $json.value
-
-    Write-Host ("  Fetched " + $json.value.Count + " pipelines (total: " + $allPipelines.Count + ")")
-} while ($continuationToken)
-
-Write-Host ("Total pipelines found: " + $allPipelines.Count + "`n") -ForegroundColor Green
-
-# --- Step 3: Check each pipeline's YAML for deprecated tasks ---
-Write-Host "Scanning pipelines for deprecated task usage..." -ForegroundColor Cyan
-
+# --- Step 3: Get pipeline definitions and scan for deprecated tasks ---
 $results = @()
-$scanned = 0
-$errorCount = 0
+$totalScanned = 0
+$totalErrors = 0
 
-foreach ($pipeline in $allPipelines) {
-    $scanned++
-    if ($scanned % 50 -eq 0) {
-        Write-Host ("  Scanned $scanned / " + $allPipelines.Count + " pipelines...")
-    }
+foreach ($proj in $projectsToScan) {
+    Write-Host "Querying pipeline definitions from $proj..." -ForegroundColor Cyan
 
-    try {
-        # Get the pipeline YAML content
-        $yamlUrl = "$accountUrl/$project/_apis/pipelines/$($pipeline.id)?api-version=7.0&`$expand=yaml"
-        $yamlResponse = Invoke-WebRequest -Uri $yamlUrl -Headers $headers -Method GET
+    $allPipelines = @()
+    $continuationToken = $null
 
-        if ($yamlResponse.StatusCode -ne 200) {
-            continue
+    do {
+        $url = "$accountUrl/$proj/_apis/pipelines?api-version=7.0&`$top=100"
+        if ($continuationToken) {
+            $url += "&continuationToken=$continuationToken"
         }
 
-        $pipelineDetail = ConvertFrom-Json $yamlResponse.Content
-        $yamlContent = $null
+        $response = Invoke-WebRequest -Uri $url -Headers $headers -Method GET
+        if ($response.StatusCode -ne 200) {
+            throw "Failed to query pipelines: $($response.Content)"
+        }
 
-        # The YAML may be in the configuration property
-        if ($pipelineDetail.configuration -and $pipelineDetail.configuration.type -eq 'yaml') {
-            # For YAML pipelines, fetch the YAML file content
-            $repoId = $pipelineDetail.configuration.repository.id
-            $yamlPath = $pipelineDetail.configuration.path
-            $branch = $pipelineDetail.configuration.repository.defaultBranch
+        $continuationToken = $response.Headers.'x-ms-continuationtoken'
+        $json = ConvertFrom-Json $response.Content
+        $allPipelines += $json.value
 
-            if ($yamlPath -and $repoId) {
-                $fileUrl = "$accountUrl/$project/_apis/git/repositories/$repoId/items?path=$([Uri]::EscapeDataString($yamlPath))&api-version=7.0"
-                if ($branch) {
-                    $fileUrl += "&versionDescriptor.version=$([Uri]::EscapeDataString($branch -replace '^refs/heads/',''))&versionDescriptor.versionType=branch"
+        Write-Host ("  Fetched " + $json.value.Count + " pipelines (total: " + $allPipelines.Count + ")")
+    } while ($continuationToken)
+
+    Write-Host ("Total pipelines found in $proj`: " + $allPipelines.Count + "`n") -ForegroundColor Green
+
+    Write-Host "Scanning pipelines in $proj for deprecated task usage..." -ForegroundColor Cyan
+
+    $scanned = 0
+    $errorCount = 0
+
+    foreach ($pipeline in $allPipelines) {
+        $scanned++
+        if ($scanned % 50 -eq 0) {
+            Write-Host ("  Scanned $scanned / " + $allPipelines.Count + " pipelines...")
+        }
+
+        try {
+            # Get the pipeline YAML content
+            $yamlUrl = "$accountUrl/$proj/_apis/pipelines/$($pipeline.id)?api-version=7.0&`$expand=yaml"
+            $yamlResponse = Invoke-WebRequest -Uri $yamlUrl -Headers $headers -Method GET
+
+            if ($yamlResponse.StatusCode -ne 200) {
+                continue
+            }
+
+            $pipelineDetail = ConvertFrom-Json $yamlResponse.Content
+            $yamlContent = $null
+
+            # The YAML may be in the configuration property
+            if ($pipelineDetail.configuration -and $pipelineDetail.configuration.type -eq 'yaml') {
+                # For YAML pipelines, fetch the YAML file content
+                $repoId = $pipelineDetail.configuration.repository.id
+                $yamlPath = $pipelineDetail.configuration.path
+                $branch = $pipelineDetail.configuration.repository.defaultBranch
+
+                if ($yamlPath -and $repoId) {
+                    $fileUrl = "$accountUrl/$proj/_apis/git/repositories/$repoId/items?path=$([Uri]::EscapeDataString($yamlPath))&api-version=7.0"
+                    if ($branch) {
+                        $fileUrl += "&versionDescriptor.version=$([Uri]::EscapeDataString($branch -replace '^refs/heads/',''))&versionDescriptor.versionType=branch"
+                    }
+                    try {
+                        $fileResponse = Invoke-WebRequest -Uri $fileUrl -Headers $headers -Method GET
+                        $yamlContent = $fileResponse.Content
+                    } catch {
+                        # File may not be accessible
+                    }
                 }
-                try {
-                    $fileResponse = Invoke-WebRequest -Uri $fileUrl -Headers $headers -Method GET
-                    $yamlContent = $fileResponse.Content
-                } catch {
-                    # File may not be accessible
+            }
+
+            if (-not $yamlContent) {
+                continue
+            }
+
+            # Find all deprecated task references in the YAML
+            $matches = [regex]::Matches($yamlContent, $combinedPattern)
+            if ($matches.Count -gt 0) {
+                $foundTasks = ($matches | ForEach-Object { $_.Value } | Sort-Object -Unique)
+                foreach ($taskRef in $foundTasks) {
+                    $results += [PSCustomObject]@{
+                        Project        = $proj
+                        PipelineId     = $pipeline.id
+                        PipelineName   = $pipeline.name
+                        PipelineUrl    = "$accountUrl/$proj/_build?definitionId=$($pipeline.id)"
+                        DeprecatedTask = $taskRef
+                        YamlPath       = $yamlPath
+                    }
                 }
             }
         }
-
-        if (-not $yamlContent) {
-            continue
-        }
-
-        # Find all deprecated task references in the YAML
-        $matches = [regex]::Matches($yamlContent, $combinedPattern)
-        if ($matches.Count -gt 0) {
-            $foundTasks = ($matches | ForEach-Object { $_.Value } | Sort-Object -Unique)
-            foreach ($taskRef in $foundTasks) {
-                $results += [PSCustomObject]@{
-                    PipelineId   = $pipeline.id
-                    PipelineName = $pipeline.name
-                    PipelineUrl  = "$accountUrl/$project/_build?definitionId=$($pipeline.id)"
-                    DeprecatedTask = $taskRef
-                    YamlPath     = $yamlPath
-                }
-            }
+        catch {
+            $errorCount++
         }
     }
-    catch {
-        $errorCount++
-    }
+
+    $totalScanned += $scanned
+    $totalErrors += $errorCount
+    Write-Host ("Scan complete for $proj`. Scanned $scanned pipelines ($errorCount errors).`n") -ForegroundColor Cyan
 }
 
 # --- Step 4: Report results ---
-Write-Host ("`nScan complete. Scanned $scanned pipelines ($errorCount errors).`n") -ForegroundColor Cyan
+Write-Host ("`nScan complete. Scanned $totalScanned pipelines across " + $projectsToScan.Count + " project(s) ($totalErrors errors).`n") -ForegroundColor Cyan
 
 if ($results.Count -eq 0) {
     Write-Host "No deprecated task usage found." -ForegroundColor Green
@@ -191,7 +225,7 @@ else {
     }
 
     Write-Host ("`n=== Detailed Results ===") -ForegroundColor Cyan
-    $results | Format-Table -Property PipelineName, DeprecatedTask, PipelineUrl -AutoSize
+    $results | Format-Table -Property Project, PipelineName, DeprecatedTask, PipelineUrl -AutoSize
 
     if ($outputCsv) {
         $results | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
