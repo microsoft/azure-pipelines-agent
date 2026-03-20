@@ -182,7 +182,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release.Artifacts
                 throw new InvalidOperationException(errorMessage);
             }
 
-            authorizer.TryAuthorizeRequest(request, null);
+            if (!authorizer.TryAuthorizeRequest(request, null))
+            {
+                string authError = StringUtil.Loc("RMErrorDuringArtifactDownload", $"Authorization failed for URL: {url}");
+                executionContext.Output(authError);
+                throw new InvalidOperationException(authError);
+            }
+
             var webResponse = request.GetResponseAsync().Result as HttpWebResponse;
             return webResponse;
         }

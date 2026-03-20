@@ -33,7 +33,7 @@ NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.20.0"
 NODE24_VERSION="24.13.0"
-MINGIT_VERSION="2.50.1"
+MINGIT_VERSION="2.53.0"
 LFS_VERSION="3.4.0"
 
 get_abs_path() {
@@ -125,6 +125,15 @@ function acquireExternalTool() {
                 # Extract the tar gz.
                 echo "Testing tar gz"
                 tar xzf "$download_target" -C "$extract_dir" > /dev/null || checkRC 'tar'
+            fi
+
+            if [[ "$download_basename" == node-v*.tar.gz ]]; then
+                echo "Cleaning Node.js distribution extract - removing unused npm/lib"
+                find "$extract_dir" -path "*/lib/node_modules" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" \( -name "npm" -o -name "npx" -o -name "corepack" \) -not -type d -delete 2>/dev/null || true
+                find "$extract_dir" -path "*/include" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" -path "*/share" -type d -exec rm -rf {} + 2>/dev/null || true
+                find "$extract_dir" \( -name "CHANGELOG.md" -o -name "README.md" \) -delete 2>/dev/null || true
             fi
         fi
     else
