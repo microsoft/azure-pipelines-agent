@@ -688,6 +688,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             if (logLine.Contains(labelContainerStartupUsingNode24))
                             {
+                                executionContext.Debug("Using Node 24 for container startup.");
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node24ContainerPath;
                                 break;
