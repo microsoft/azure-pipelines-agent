@@ -694,10 +694,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
-                                string warningMsg = useNode24ToStartContainer 
-                                    ? "Cannot run Node 24 in container. Falling back to Node 20 for container startup."
-                                    : "Using Node 20 for container startup.";
-                                executionContext.Warning(warningMsg);
+                                if (useNode24ToStartContainer)
+                                {
+                                    executionContext.Warning("Cannot run Node 24 in container. Falling back to Node 20 for container startup.");
+                                }
+                                else
+                                {
+                                    executionContext.Debug("Using Node 20 for container startup.");
+                                }
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node20ContainerPath;
                                 break;
