@@ -147,7 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
             ArgUtil.NotNull(command, nameof(command));
 
-            string data = command.Data;
+            string data = command.Data?.Trim();
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
