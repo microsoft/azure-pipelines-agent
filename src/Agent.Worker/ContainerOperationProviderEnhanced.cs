@@ -245,7 +245,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         const int maxRetries = 3;
                         const int initialDelayMs = 5000;
 
-                        for (int attempt = 1; attempt <= maxRetries; attempt++)
+                        for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
                         {
                             try
                             {
@@ -258,11 +258,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     claims: null,
                                     cancellationToken: cancellationToken
                                 );
+                                trace.Info("OIDC token created successfully");
                                 return idToken.OidcToken;
                             }
-                            catch (Exception ex) when (attempt < maxRetries && ex.Message.Contains("Pending", StringComparison.OrdinalIgnoreCase))
+                            catch (Exception ex) when (attempt <= maxRetries && ex.Message.Contains("Pending", StringComparison.OrdinalIgnoreCase))
                             {
-                                int delayMs = 2000 + initialDelayMs * attempt;
+                                int delayMs = initialDelayMs * attempt;
                                 executionContext.Warning($"Failed to acquire OIDC token (attempt {attempt}/{maxRetries}): job is still in 'Pending' state. Retrying in {delayMs / 1000} seconds...");
                                 await Task.Delay(delayMs, cancellationToken);
                             }
