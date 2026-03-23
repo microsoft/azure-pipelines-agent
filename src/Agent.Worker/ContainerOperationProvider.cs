@@ -223,17 +223,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
-                    var idToken = await taskClient.CreateOidcTokenAsync(
-                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
-                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
-                        planId: new Guid(executionContext.Variables.System_PlanId),
-                        jobId: new Guid(executionContext.Variables.System_JobId),
-                        serviceConnectionId: registryEndpoint.Id,
-                        claims: null,
-                        cancellationToken: cancellationToken
-                    );
+                    const int maxRetries = 3;
+                    const int initialDelayMs = 5000;
 
-                    return idToken.OidcToken;
+                    for (int attempt = 1; attempt <= maxRetries; attempt++)
+                    {
+                        try
+                        {
+                            var idToken = await taskClient.CreateOidcTokenAsync(
+                                scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
+                                hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                                planId: new Guid(executionContext.Variables.System_PlanId),
+                                jobId: new Guid(executionContext.Variables.System_JobId),
+                                serviceConnectionId: registryEndpoint.Id,
+                                claims: null,
+                                cancellationToken: cancellationToken
+                            );
+                            return idToken.OidcToken;
+                        }
+                        catch (Exception ex) when (attempt < maxRetries && ex.Message.Contains("Pending", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int delayMs = initialDelayMs * attempt;
+                            executionContext.Warning($"Failed to acquire OIDC token (attempt {attempt}/{maxRetries}): job is still in 'Pending' state. Retrying in {delayMs / 1000} seconds...");
+                            await Task.Delay(delayMs, cancellationToken);
+                        }
+                    }
+
+                    throw new InvalidOperationException("Failed to acquire OIDC token after all retry attempts.");
                 })
                 .Build();
 
