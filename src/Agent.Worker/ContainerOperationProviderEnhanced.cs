@@ -264,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             catch (Exception ex) when (attempt <= maxRetries && ex.Message.Contains("Pending", StringComparison.OrdinalIgnoreCase))
                             {
                                 int delayMs = initialDelayMs * attempt;
-                                executionContext.Warning($"Failed to acquire OIDC token (attempt {attempt}/{maxRetries}): job is still in 'Pending' state. Retrying in {delayMs / 1000} seconds...");
+                                executionContext.Debug($"Failed to acquire OIDC token (attempt {attempt}/{maxRetries}): job is still in 'Pending' state. Retrying in {delayMs / 1000} seconds...");
                                 await Task.Delay(delayMs, cancellationToken);
                             }
                         }
