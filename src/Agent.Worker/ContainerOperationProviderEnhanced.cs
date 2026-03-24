@@ -261,10 +261,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 trace.Info("OIDC token created successfully");
                                 return idToken.OidcToken;
                             }
-                            catch (Exception ex) when (attempt <= maxRetries && ex.Message.Contains("Pending", StringComparison.OrdinalIgnoreCase))
+                            catch (Exception ex) when (attempt <= maxRetries && ex.GetType() == typeof(Microsoft.TeamFoundation.DistributedTask.WebApi.TaskOrchestrationPlanSecurityException))
                             {
                                 int delayMs = initialDelayMs * attempt;
-                                executionContext.Debug($"Failed to acquire OIDC token (attempt {attempt}/{maxRetries}): job is still in 'Pending' state. Retrying in {delayMs / 1000} seconds...");
+                                executionContext.Debug($"Exception message: {ex.Message}");
+                                executionContext.Debug($"Failed to acquire OIDC token. Retrying (attempt {attempt}/{maxRetries}) in {delayMs / 1000} seconds...");
                                 await Task.Delay(delayMs, cancellationToken);
                             }
                         }
