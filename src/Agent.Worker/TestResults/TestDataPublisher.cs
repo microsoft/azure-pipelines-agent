@@ -92,7 +92,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        _executionContext.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
                         DetectAndSetRetriesForTestRun(testRunData);
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
@@ -212,7 +211,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     TestRunSummary testRunSummary;
                     if (publishOptions.IsDetectTestRunRetry)
                     {
-                        _executionContext.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
                         DetectAndSetRetriesForTestRun(testRunData);
                         isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
                     }
@@ -413,9 +411,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// Returns a dictionary mapping test identifier to its latest outcome.
         /// Later retry attempts override earlier outcomes for the same test.
         /// </summary>
-        internal Dictionary<string, string> GetLatestAttemptResults(TestRunData testRunData)
+        internal Dictionary<string, TestOutcome> GetLatestAttemptResults(TestRunData testRunData)
         {
-            var latestResults = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var latestResults = new Dictionary<string, TestOutcome>();
 
             // Process primary run results first
             ProcessTestResults(testRunData, latestResults);
@@ -449,6 +447,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         /// </returns>
         internal bool GetTestRunOutcomeForRetries(IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
         {
+            _executionContext?.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
             testRunSummary = new TestRunSummary();
 
             if (testRunDataList == null || testRunDataList.Count == 0)
@@ -467,8 +466,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 foreach (var outcome in latestAttemptResults.Values)
                 {
                     testRunSummary.Total += 1;
-                    Enum.TryParse(outcome, true, out TestOutcome parsedOutcome);
-                    switch (parsedOutcome)
+                    switch (outcome)
                     {
                         case TestOutcome.Failed:
                         case TestOutcome.Aborted:
@@ -490,7 +488,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         }
 
 
-        internal static void ProcessTestResults(TestRunData testRunData, Dictionary<string, string> latestResults)
+        internal static void ProcessTestResults(TestRunData testRunData, Dictionary<string, TestOutcome> latestResults)
         {
             if (testRunData?.TestResults == null)
             {
@@ -500,9 +498,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             foreach (var result in testRunData.TestResults)
             {
                 string testName = String.Concat(result.AutomatedTestName, " ", result.TestCaseTitle);
-                if (!string.IsNullOrEmpty(testName))
+                if (!string.IsNullOrEmpty(testName) && Enum.TryParse(result.Outcome, true, out TestOutcome parsedOutcome))
                 {
-                    latestResults[testName] = result.Outcome;
+                    latestResults[testName] = parsedOutcome;
                 }
             }
         }

@@ -312,7 +312,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
         [Trait("Category", "TestRetryHelper")]
         public void ProcessTestResults_NullTestRunData_DoesNotThrow()
         {
-            var dict = new Dictionary<string, string>();
+            var dict = new Dictionary<string, TestOutcome>();
             TestDataPublisher.ProcessTestResults(null, dict);
             Assert.Empty(dict);
         }
@@ -326,12 +326,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 ("Namespace.TestA", "Test A Title", "Passed"),
                 ("Namespace.TestB", "Test B Title", "Failed"));
 
-            var dict = new Dictionary<string, string>();
+            var dict = new Dictionary<string, TestOutcome>();
             TestDataPublisher.ProcessTestResults(run, dict);
 
             Assert.Equal(2, dict.Count);
-            Assert.Equal("Passed", dict["Namespace.TestA Test A Title"]);
-            Assert.Equal("Failed", dict["Namespace.TestB Test B Title"]);
+            Assert.Equal(TestOutcome.Passed, dict["Namespace.TestA Test A Title"]);
+            Assert.Equal(TestOutcome.Failed, dict["Namespace.TestB Test B Title"]);
         }
 
         #endregion
@@ -356,7 +356,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             var results = _publisher.GetLatestAttemptResults(primaryRun);
 
             Assert.Single(results);
-            Assert.Equal("Passed", results["Test1 Title1"]);
+            Assert.Equal(TestOutcome.Passed, results["Test1 Title1"]);
         }
 
         #endregion
