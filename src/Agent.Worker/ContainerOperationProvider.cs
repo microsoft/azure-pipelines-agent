@@ -224,7 +224,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
                     const int maxRetries = 3;
-                    const int initialDelayMs = 5000;
 
                     for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
                     {
@@ -239,14 +238,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 claims: null,
                                 cancellationToken: cancellationToken
                             );
+                            Trace.Info("OIDC token created successfully");
                             return idToken.OidcToken;
                         }
-                        catch (Exception ex) when (attempt <= maxRetries && ex.GetType() == typeof(Microsoft.TeamFoundation.DistributedTask.WebApi.TaskOrchestrationPlanSecurityException))
+                        catch (TaskOrchestrationPlanSecurityException ex) when (attempt <= maxRetries)
                         {
-                            int delayMs = initialDelayMs * attempt;
-                            executionContext.Debug($"Exception message: {ex.Message}");
-                            executionContext.Debug($"Failed to acquire OIDC token. Retrying (attempt {attempt}/{maxRetries}) in {delayMs / 1000} seconds...");
-                            await Task.Delay(delayMs, cancellationToken);
+                            TimeSpan backoff = TimeSpan.FromSeconds(Math.Pow(5, attempt - 1));
+                            executionContext.Debug($"Failed to acquire OIDC token(attempt {attempt}/{maxRetries}): {ex.Message}. Retrying in {backoff.TotalSeconds} seconds...");
+                            await Task.Delay(backoff, cancellationToken);
                         }
                     }
 
