@@ -223,17 +223,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
-                    var idToken = await taskClient.CreateOidcTokenAsync(
-                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
-                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
-                        planId: new Guid(executionContext.Variables.System_PlanId),
-                        jobId: new Guid(executionContext.Variables.System_JobId),
-                        serviceConnectionId: registryEndpoint.Id,
-                        claims: null,
-                        cancellationToken: cancellationToken
-                    );
+                    const int maxRetries = 3;
 
-                    return idToken.OidcToken;
+                    for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
+                    {
+                        try
+                        {
+                            var idToken = await taskClient.CreateOidcTokenAsync(
+                                scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
+                                hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                                planId: new Guid(executionContext.Variables.System_PlanId),
+                                jobId: new Guid(executionContext.Variables.System_JobId),
+                                serviceConnectionId: registryEndpoint.Id,
+                                claims: null,
+                                cancellationToken: cancellationToken
+                            );
+                            Trace.Info("OIDC token created successfully");
+                            return idToken.OidcToken;
+                        }
+                        catch (TaskOrchestrationPlanSecurityException ex) when (attempt <= maxRetries)
+                        {
+                            TimeSpan backoff = TimeSpan.FromSeconds(Math.Pow(5, attempt - 1));
+                            executionContext.Debug($"Failed to acquire OIDC token(attempt {attempt}/{maxRetries}): {ex.Message}. Retrying in {backoff.TotalSeconds} seconds...");
+                            await Task.Delay(backoff, cancellationToken);
+                        }
+                    }
+
+                    throw new InvalidOperationException("Failed to acquire OIDC token after all retry attempts.");
                 })
                 .Build();
 
