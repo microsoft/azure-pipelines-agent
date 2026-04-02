@@ -54,10 +54,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             _testRunner = testRunner;
             _testRunPublisher = new TestRunPublisher(connection, new CommandTraceListener(context));
             _testLogStore = new TestLogStore(connection, new CommandTraceListener(context));
-            _testResultsServer = HostContext.GetService<ITestResultsServer>();
+            _testResultsServer = HostContext.CreateService<ITestResultsServer>();
             _testResultsServer.InitializeServer(connection, _executionContext);
             var extensionManager = HostContext.GetService<IExtensionManager>();
-            _featureFlagService = HostContext.GetService<IFeatureFlagService>();
+            _featureFlagService = HostContext.CreateService<IFeatureFlagService>();
             _featureFlagService.InitializeFeatureService(_executionContext, connection);
             _calculateTestRunSummary = _featureFlagService.GetFeatureFlagState(TestResultsConstants.CalculateTestRunSummaryFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
             _isFlakyCheckEnabled = _featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableFlakyCheckInAgentFeatureFlag, TestResultsConstants.TCMServiceInstanceGuid); ;
@@ -255,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             {
                 throw new ArgumentException("Unknown test runner");
             }
-            return _parser.ParseTestResultFiles(_executionContext, runContext, testResultFiles);
+            return _parser.ParseTestResultFiles(_executionContext, runContext, testResultFiles, _featureFlagService);
         }
 
         private bool GetTestRunOutcome(IExecutionContext executionContext, IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)

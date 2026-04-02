@@ -151,6 +151,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             _hc.SetSingleton(_mockCustomerIntelligenceServer.Object);
             _hc.SetSingleton(_mockFeatureFlagService.Object);
+            _hc.EnqueueInstance<IFeatureFlagService>(_mockFeatureFlagService.Object);
+            _hc.EnqueueInstance<ITestDataPublisher>(_mockTestRunDataPublisher.Object);
 
             _mockExtensionManager = new Mock<IExtensionManager>();
             _mockExtensionManager.Setup(x => x.GetExtensions<IParser>()).Returns(new List<IParser> { _mockParser.Object, new JUnitParser(), new NUnitParser() });
