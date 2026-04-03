@@ -455,7 +455,7 @@ namespace Agent.Plugins.Repository
             {
                 options = options + $" --depth={fetchDepth}";
             }
-            if (filters != null)
+            if (AgentKnobs.UseFetchFilterInGitSubmoduleUpdate.GetValue(context).AsBoolean() && filters != null)
             {
                 options += " " + string.Join(" ", filters.Select(f => "--filter=" + f));
             }
