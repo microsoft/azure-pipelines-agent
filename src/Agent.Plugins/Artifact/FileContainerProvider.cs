@@ -503,10 +503,13 @@ namespace Agent.Plugins
             Directory.CreateDirectory(extractedFilesDir);
             var extractionProcessInfo = new ProcessStartInfo("tar")
             {
-                Arguments = $"xf {tarArchivePath} --directory {extractedFilesDir}",
                 UseShellExecute = false,
                 RedirectStandardError = true
             };
+            extractionProcessInfo.ArgumentList.Add("xf");
+            extractionProcessInfo.ArgumentList.Add(tarArchivePath);
+            extractionProcessInfo.ArgumentList.Add("--directory");
+            extractionProcessInfo.ArgumentList.Add(extractedFilesDir);
             Process extractionProcess = Process.Start(extractionProcessInfo);
             extractionProcess.WaitForExit();
 

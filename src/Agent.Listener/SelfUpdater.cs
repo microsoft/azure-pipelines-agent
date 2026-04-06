@@ -103,12 +103,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             if (PlatformUtil.RunningOnWindows)
             {
                 invokeScript.StartInfo.FileName = WhichUtil.Which("cmd.exe", trace: Trace);
-                invokeScript.StartInfo.Arguments = $"/c \"{updateScript}\"";
+                invokeScript.StartInfo.ArgumentList.Add("/c");
+                invokeScript.StartInfo.ArgumentList.Add(updateScript);
             }
             else
             {
                 invokeScript.StartInfo.FileName = WhichUtil.Which("bash", trace: Trace);
-                invokeScript.StartInfo.Arguments = $"\"{updateScript}\"";
+                invokeScript.StartInfo.ArgumentList.Add(updateScript);
             }
             invokeScript.Start();
             Trace.Info($"Update script start running");
