@@ -56,23 +56,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            if (eolPolicyEnabled)
-            {
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node24,
-                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
-                    Warning = StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
-                };
-            }
-
-            if (context.EffectiveMaxVersion < 24)
-            {
-                executionContext.Debug($"[Node24Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 24, skipping");
-                return null;
-            }
-
             if (context.HandlerData is Node24HandlerData)
             {
                 if (!useNode24WithHandlerData)
@@ -88,6 +71,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     Reason = "Selected for Node24 task handler",
                     Warning = null
                 };
+            }
+
+            if (eolPolicyEnabled && (context.EffectiveMaxVersion <= 16 || glibcInfo.Node20HasGlibcError))
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node24,
+                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
+                    Warning = StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
+                };
+            }
+
+            if (context.EffectiveMaxVersion < 24)
+            {
+                executionContext.Debug($"[Node24Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 24, skipping");
+                return null;
             }
 
             return null;

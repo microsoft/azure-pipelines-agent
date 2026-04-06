@@ -38,7 +38,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            if (eolPolicyEnabled)
+            if (context.HandlerData is Node20_1HandlerData)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Selected for Node20 task handler",
+                    Warning = null
+                };
+            }
+
+            if (eolPolicyEnabled && context.EffectiveMaxVersion <= 16)
             {
                 return new NodeRunnerInfo
                 {
@@ -53,17 +64,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 executionContext.Debug($"[Node20Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 20, skipping");
                 return null;
-            }
-
-            if (context.HandlerData is Node20_1HandlerData)
-            {
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node20,
-                    Reason = "Selected for Node20 task handler",
-                    Warning = null
-                };
             }
 
             return new NodeRunnerInfo
