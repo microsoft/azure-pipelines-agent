@@ -814,7 +814,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob UseFetchFilterInGitSubmoduleUpdate = new Knob(
             nameof(UseFetchFilterInGitSubmoduleUpdate),
             "If true, agent will pass fetch filter options in checkout task to git submodule update.",
-            new PipelineFeatureSource("DistributedTask.Agent.UseFetchFilterInGitSubmoduleUpdate"),
+            new PipelineFeatureSource("UseFetchFilterInGitSubmoduleUpdate"),
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
             new EnvironmentKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
             new BuiltInDefaultKnobSource("false"));
