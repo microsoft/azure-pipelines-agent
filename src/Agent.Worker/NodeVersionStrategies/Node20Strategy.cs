@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Upgraded from end-of-life Node version due to EOL policy",
-                    Warning = context.EffectiveMaxVersion <= 16 ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null
+                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null
                 };
             }
 
