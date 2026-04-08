@@ -1,3 +1,13 @@
+## Features
+ - Feat(PTRV2): Detection of re-run TRX files in PTR (#5496)
+ - Add fetchFilter option to the git submodules (#5518)
+
+## Bugs
+
+
+## Misc
+
+
 
 ## Agent Downloads
 
