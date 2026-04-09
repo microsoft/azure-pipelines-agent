@@ -3768,10 +3768,13 @@
       </Item>
       <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Val><![CDATA[Would fallback to {0} (EOL) but EOL policy is enabled]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[将回退到 {1} (EOL)，但已启用 EOL 策略]]></Val>
+            <Val><![CDATA[将回退到 {0} (EOL)，但已启用 EOL 策略]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3784,11 +3787,20 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+      <Item ItemId=";NodeEOLRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. Unsupported Node versions (6, 10, and 16) are being retired, and any pipelines using tasks dependent on these versions will begin to fail. Learn More https://aka.ms/node-runner-guidance]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[{0} 已达到生命周期结束阶段。请升级到 Node20 或 Node24。]]></Val>
+            <Val><![CDATA[任务 {0} 依赖的 Node.js 版本不受支持。不受支持的 Node 版本(6、10 和 16)即将停用，使用依赖这些版本的任务的所有管道将开始失败。了解详细信息: https://aka.ms/node-runner-guidance]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLUpgradeWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. To avoid use of unsupported Node.js the task is being run on the latest available version of Node.js. The task may fail or work unexpectedly. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[任务 {0} 依赖的 Node.js 版本不受支持。为避免使用不受支持的 Node.js，任务将在最新可用的 Node.js 版本上运行。任务可能会失败或出现异常。了解详细信息: https://aka.ms/node-runner-guidance]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />
@@ -5968,12 +5980,24 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";UnsupportedOsVersionByNet10" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net10 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net10.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[根据 Net10 要求，此代理当前运行的操作系统版本({0})不受支持，并且在即将发布的 Pipelines 代理更新中也不受支持。有关支持的操作系统版本，请参阅 https://aka.ms/azdo-pipeline-agent-net10。]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";UnsupportedOsVersionByNet8" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net8 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[管道代理即将更新的版本不支持此代理目前在其中运行的操作系统版本 ({0})。有关支持的操作系统版本，请参阅 https://aka.ms/azdo-pipeline-agent-net8。]]></Val>
+            <Val><![CDATA[根据 Net8 要求，此代理当前运行的操作系统版本({0})不受支持，并且在即将发布的 Pipelines 代理更新中也不受支持。有关支持的操作系统版本，请参阅 https://aka.ms/azdo-pipeline-agent-net8。]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
