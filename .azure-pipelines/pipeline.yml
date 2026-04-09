@@ -131,7 +131,7 @@ extends:
           - template: /.azure-pipelines/get-pat.yml@self
           - bash: |
               cd ./.azure-pipelines/scripts/
-              npm install axios minimist
+              npm install axios@1.14.0 minimist@1.2.8 --ignore-scripts
 
               releaseBranch="${{ parameters.branch }}"
               sourceBranch="$(Build.SourceBranch)"
