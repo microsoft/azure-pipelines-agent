@@ -167,6 +167,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string ProjectName = "projectname";
                     public const string ProxyUrl = "proxyurl";
                     public const string ProxyUserName = "proxyusername";
+                    public const string ServiceDisplayNamePattern = "servicedisplaynamepattern";
+                    public const string ServiceNamePattern = "servicenamepattern";
                     public const string SslCACert = "sslcacert";
                     public const string SslClientCert = "sslclientcert";
                     public const string SslClientCertKey = "sslclientcertkey";
@@ -593,6 +595,8 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Agent.RootDirectory,
                 Agent.RunMode,
                 Agent.ServerOMDirectory,
+                Agent.ServiceDisplayNamePattern,
+                Agent.ServiceNamePattern,
                 Agent.ServicePortPrefix,
                 Agent.SslCAInfo,
                 Agent.SslClientCert,
