@@ -811,6 +811,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseFetchFilterInGitSubmoduleUpdate = new Knob(
+            nameof(UseFetchFilterInGitSubmoduleUpdate),
+            "If true, agent will pass fetch filter options in checkout task to git submodule update.",
+            new PipelineFeatureSource("UseFetchFilterInGitSubmoduleUpdate"),
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new EnvironmentKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
             nameof(StoreAgentKeyInCSPContainer),
             "Store agent key in named container (Windows).",
