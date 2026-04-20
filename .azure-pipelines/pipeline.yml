@@ -129,9 +129,12 @@ extends:
           timeoutInMinutes: 300
           steps:
           - template: /.azure-pipelines/get-pat.yml@self
+          - task: NpmAuthenticate@0
+            inputs:
+              workingFile: .azure-pipelines/scripts/.npmrc
           - bash: |
               cd ./.azure-pipelines/scripts/
-              npm install axios@1.14.0 minimist@1.2.8 --ignore-scripts
+              npm ci --ignore-scripts
 
               releaseBranch="${{ parameters.branch }}"
               sourceBranch="$(Build.SourceBranch)"
