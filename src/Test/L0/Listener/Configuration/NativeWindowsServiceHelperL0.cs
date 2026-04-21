@@ -35,7 +35,38 @@ namespace Test.L0.Listener.Configuration
 
                 trace.Info("Trying to get the Default Service Account when a BuildRelease Agent is being configured");
                 var defaultServiceAccount = windowsServiceHelper.GetDefaultServiceAccount();
-                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\NETWORK SERVICE"), "If agent is getting configured as build-release agent, default service accout should be 'NT AUTHORITY\\NETWORK SERVICE'");
+                var defaultServiceAccountName = defaultServiceAccount.ToString().ToUpper();
+
+                // English/Default network service account
+                bool isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT AUTHORITY\NETWORK SERVICE");
+
+                if (!isDefaultServiceAccountName)
+                {
+                    // German network service account
+                    isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT-AUTORITÄT\NETZWERKDIENST");
+
+                    if (!isDefaultServiceAccountName)
+                    {
+                        // French network service account
+                        isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"AUTORITE NT\SERVICE RÉSEAU");
+
+                        if (!isDefaultServiceAccountName)
+                        {
+                            // Italian network service account
+                            isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT AUTHORITY\SERVIZIO DI RETE");
+
+                            if (!isDefaultServiceAccountName)
+                            {
+                                // Spanish network service account
+                                isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT AUTHORITY\SERVICIO DE RED");
+
+                                // Account name in rest of the languages is the same as in English
+                            }
+                        }
+                    }
+                }
+
+                Assert.True(isDefaultServiceAccountName, "If agent is getting configured as build-release agent, default service accout should be 'NT AUTHORITY\\NETWORK SERVICE' or its localized counterpart (tried English/Default name, German name, French name, Italian name and Spanish name).");
             }
         }
 
@@ -53,7 +84,26 @@ namespace Test.L0.Listener.Configuration
 
                 trace.Info("Trying to get the Default Service Account when a DeploymentAgent is being configured");
                 var defaultServiceAccount = windowsServiceHelper.GetDefaultAdminServiceAccount();
-                Assert.True(defaultServiceAccount.ToString().Equals(@"NT AUTHORITY\SYSTEM"), "If agent is getting configured as deployment agent, default service accout should be 'NT AUTHORITY\\SYSTEM'");
+                var defaultServiceAccountName = defaultServiceAccount.ToString().ToUpper();
+
+                // English/Default network service account
+                bool isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT AUTHORITY\SYSTEM");
+
+                if (!isDefaultServiceAccountName)
+                {
+                    // German network service account
+                    isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"NT-AUTORITÄT\SYSTEM");
+
+                    if (!isDefaultServiceAccountName)
+                    {
+                        // French network service account
+                        isDefaultServiceAccountName = defaultServiceAccountName.Equals(@"AUTORITE NT\SYSTEM");
+
+                        // Account name in Italian, Spanish and rest of the languages is the same as in English
+                    }
+                }
+
+                Assert.True(isDefaultServiceAccountName, "If agent is getting configured as deployment agent, default service accout should be 'NT AUTHORITY\\SYSTEM' or its localized counterpart (tried English/Default name, German name and French name).");
             }
         }
 
