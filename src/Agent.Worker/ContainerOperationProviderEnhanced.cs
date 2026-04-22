@@ -695,7 +695,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows; 
                         
                         container.ContainerCommand = isWindowsContainer
-                            ? "cmd.exe /c ping -t localhost > nul"
+                            ? "cmd.exe /c timeout /t -1 /nobreak > nul"
                             : "sleep infinity";
                     }
                     else
