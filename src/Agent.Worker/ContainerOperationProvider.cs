@@ -583,12 +583,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (UseNodeVersionStrategy)
                 {
-                    bool isWindowsContainer = container.ContainerImage.ToLowerInvariant().Contains("windows") ||
-                                            container.ContainerImage.ToLowerInvariant().Contains("nanoserver") ||
-                                            container.ContainerImage.ToLowerInvariant().Contains("servercore");
+                    bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows;            
                     
                     container.ContainerCommand = isWindowsContainer
-                        ? "cmd.exe /c ping -t localhost > nul"
+                        ? "cmd.exe /c timeout /t -1 /nobreak > nul"
                         : "sleep infinity";
                 }
                 else
