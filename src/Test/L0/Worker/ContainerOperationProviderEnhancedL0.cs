@@ -176,8 +176,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
         // =============================================
         // UseNodeVersionStrategy path tests
-        // The knob is activated via the mock's GetVariableValueOrDefault
-        // returning "true" for "AGENT_USE_NODE_STRATEGY".
+        // Knob activated via Moq-specific matcher overrides
+        // in CreateExecutionContextMock(hc, useNodeVersionStrategy: true).
+        // No env vars used — avoids parallel test pollution.
         // =============================================
 
         [Fact]
