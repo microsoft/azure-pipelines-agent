@@ -189,10 +189,10 @@ extends:
 
         - checkout: self
 
-        - task: NodeTool@0
-          displayName: Use node 20.20.0
+        - task: UseNode@1
+          displayName: Use node 20.20.2
           inputs:
-            versionSpec: "20.20.0"
+            version: "20.20.2"
 
         - script: |
             cd release
