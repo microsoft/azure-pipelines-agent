@@ -53,7 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return dockerManager;
         }
 
-        protected Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc)
+        protected Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc, bool useNodeVersionStrategy = false)
         {
             var executionContext = new Mock<IExecutionContext>();
             var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out var warnings);
@@ -62,6 +62,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
             executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());
             executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+
+            if (useNodeVersionStrategy)
+            {
+                // Override specific knob variables to activate UseNodeVersionStrategy
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_USE_NODE_STRATEGY")).Returns("true");
+            }
+
             return executionContext;
         }
 
