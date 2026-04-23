@@ -4,7 +4,7 @@
   "private": true,
   "description": "CI scripts for Azure Pipelines Agent canary tests",
   "dependencies": {
-    "axios": "1.14.0",
+    "axios": "1.15.0",
     "minimist": "1.2.8"
   }
 }
