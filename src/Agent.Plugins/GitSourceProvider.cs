@@ -1228,6 +1228,27 @@ namespace Agent.Plugins.Repository
                             throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
                         }
                     }
+
+                    // persist credentials for authorityUrl so submodules at the same root domain can authenticate
+                    if (checkoutSubmodules)
+                    {
+                        string authorityUrl = repositoryUrl.AbsoluteUri.Replace(repositoryUrl.PathAndQuery, string.Empty);
+                        string submoduleConfigKey = $"http.{authorityUrl}.extraheader";
+                        configModifications[submoduleConfigKey] = configValue.Trim('\"');
+
+                        if (gitUseSecureParameterPassing)
+                        {
+                            await SetAuthTokenInGitConfig(executionContext, gitCommandManager, targetPath, submoduleConfigKey, configValue.Trim('\"'));
+                        }
+                        else
+                        {
+                            int exitCode_config = await gitCommandManager.GitConfig(executionContext, targetPath, submoduleConfigKey, configValue);
+                            if (exitCode_config != 0)
+                            {
+                                throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
+                            }
+                        }
+                    }
                 }
 
                 if (!gitSupportAuthHeader && !exposeCred)
