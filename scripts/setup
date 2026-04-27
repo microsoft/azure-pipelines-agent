@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Bootstrap dependencies and layout for agent builds/tests.
+./src/dev.sh layout
