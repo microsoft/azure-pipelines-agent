@@ -78,10 +78,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             string teamProject = context.Variables.System_TeamProject;
 
             TestRunContext runContext = CreateTestRunContext();
+
+            // Capture mutable instance fields as locals before the async boundary.
+            // Execute() can be called again (overwriting fields) while PublishTestRunDataAsync is still running.
+            var executionContext = _executionContext;
+            var testResultFiles = _testResultFiles;
+            var testRunner = _testRunner;
+            var mergeResults = _mergeResults;
+            var runTitle = _runTitle;
+            var publishRunLevelAttachments = _publishRunLevelAttachments;
+            var testCaseResults = _testCaseResults;
+            var testPlanId = _testPlanId;
+            var publishTestResultsLibFeatureState = _publishTestResultsLibFeatureState;
+            var triggerCoverageMergeJobFeatureState = _triggerCoverageMergeJobFeatureState;
+            var failTaskOnFailedTests = _failTaskOnFailedTests;
+            var isDetectTestRunRetry = _isDetectTestRunRetry;
+            var telemetryProperties = _telemetryProperties;
+
             var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("PublishTestResults"));
-            commandContext.Task = PublishTestRunDataAsync(teamProject, runContext);
-            _executionContext.AsyncCommands.Add(commandContext);
+            commandContext.Task = PublishTestRunDataAsync(
+                executionContext, teamProject, runContext,
+                testResultFiles, testRunner, mergeResults, runTitle,
+                publishRunLevelAttachments, testCaseResults, testPlanId,
+                publishTestResultsLibFeatureState, triggerCoverageMergeJobFeatureState,
+                failTaskOnFailedTests, isDetectTestRunRetry, telemetryProperties);
+            executionContext.AsyncCommands.Add(commandContext);
         }
 
         private void LoadPublishTestResultsInputs(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
@@ -298,59 +320,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         }
 
-        private PublishOptions GetPublishOptions()
+        private PublishOptions GetPublishOptions(bool mergeResults, bool publishRunLevelAttachments, bool isDetectTestRunRetry)
         {
             var publishOptions = new PublishOptions()
             {
-                IsMergeTestResultsToSingleRun = _mergeResults,
-                IsAddTestRunAttachments = _publishRunLevelAttachments,
-                IsDetectTestRunRetry = _isDetectTestRunRetry
+                IsMergeTestResultsToSingleRun = mergeResults,
+                IsAddTestRunAttachments = publishRunLevelAttachments,
+                IsDetectTestRunRetry = isDetectTestRunRetry
             };
 
             return publishOptions;
         }
 
-        private async Task PublishTestRunDataAsync(string teamProject, TestRunContext testRunContext)
+        private async Task PublishTestRunDataAsync(
+            IExecutionContext executionContext, string teamProject, TestRunContext testRunContext,
+            List<string> testResultFiles, string testRunner, bool mergeResults, string runTitle,
+            bool publishRunLevelAttachments, TestCaseResult[] testCaseResults, string testPlanId,
+            bool publishTestResultsLibFeatureState, bool triggerCoverageMergeJobFeatureState,
+            bool failTaskOnFailedTests, bool isDetectTestRunRetry,
+            Dictionary<string, object> telemetryProperties)
         {
             bool isTestRunOutcomeFailed = false;
 
-            _telemetryProperties.Add("UsePublishTestResultsLib", _publishTestResultsLibFeatureState);
-            using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
+            telemetryProperties.Add("UsePublishTestResultsLib", publishTestResultsLibFeatureState);
+            using (var connection = WorkerUtilities.GetVssConnection(executionContext))
             {
 
                 //This check is to determine to use "Microsoft.TeamFoundation.PublishTestResults" Library or the agent code to parse and publish the test results.
-                if (_publishTestResultsLibFeatureState)
+                if (publishTestResultsLibFeatureState)
                 {
-                    var publisher = _executionContext.GetHostContext().GetService<ITestDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner);
+                    var publisher = executionContext.GetHostContext().CreateService<ITestDataPublisher>();
+                    publisher.InitializePublisher(executionContext, teamProject, connection, testRunner);
 
-                    if (!_testCaseResults.IsNullOrEmpty() && !_testPlanId.IsNullOrEmpty())
+                    var publishOptions = GetPublishOptions(mergeResults, publishRunLevelAttachments, isDetectTestRunRetry);
+                    if (!testCaseResults.IsNullOrEmpty() && !testPlanId.IsNullOrEmpty())
                     {
-                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _testCaseResults, GetPublishOptions(), _executionContext.CancellationToken);
+                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, testResultFiles, testCaseResults, publishOptions, executionContext.CancellationToken);
                     }
                     else
                     {
-                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, GetPublishOptions(), _executionContext.CancellationToken);
+                        isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, testResultFiles, publishOptions, executionContext.CancellationToken);
                     }
                 }
                 else
                 {
-                    var publisher = _executionContext.GetHostContext().GetService<ILegacyTestRunDataPublisher>();
-                    publisher.InitializePublisher(_executionContext, teamProject, connection, _testRunner, _publishRunLevelAttachments);
+                    var publisher = executionContext.GetHostContext().CreateService<ILegacyTestRunDataPublisher>();
+                    publisher.InitializePublisher(executionContext, teamProject, connection, testRunner, publishRunLevelAttachments);
 
-                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, _testResultFiles, _runTitle, _executionContext.Variables.Build_BuildId, _mergeResults);
+                    isTestRunOutcomeFailed = await publisher.PublishAsync(testRunContext, testResultFiles, runTitle, executionContext.Variables.Build_BuildId, mergeResults);
                 }
 
-                if (isTestRunOutcomeFailed && _failTaskOnFailedTests)
+                if (isTestRunOutcomeFailed && failTaskOnFailedTests)
                 {
-                    _executionContext.Result = TaskResult.Failed;
-                    _executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
+                    executionContext.Result = TaskResult.Failed;
+                    executionContext.Error(StringUtil.Loc("FailedTestsInResults"));
                 }
 
-                await PublishEventsAsync(connection);
-                if (_triggerCoverageMergeJobFeatureState)
+                await PublishEventsAsync(connection, executionContext, telemetryProperties);
+                if (triggerCoverageMergeJobFeatureState)
                 {
-                    TriggerCoverageMergeJob(_testResultFiles, _executionContext);
+                    TriggerCoverageMergeJob(testResultFiles, executionContext);
                 }
             }
         }
@@ -361,7 +390,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             try
             {
                 ITestResultsServer _testResultsServer = context.GetHostContext().GetService<ITestResultsServer>();
-                using (var connection = WorkerUtilities.GetVssConnection(_executionContext))
+                using (var connection = WorkerUtilities.GetVssConnection(context))
                 {
                     foreach (var resultFile in resultFilesInput)
                     {
@@ -381,14 +410,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                                     Path.GetExtension(file).Equals(".coverage", StringComparison.OrdinalIgnoreCase)
                                     )
                                 {
-                                    _testResultsServer.InitializeServer(connection, _executionContext);
+                                    _testResultsServer.InitializeServer(connection, context);
                                     try
                                     {
-                                        var codeCoverageResults = _testResultsServer.UpdateCodeCoverageSummaryAsync(connection, _executionContext.Variables.System_TeamProjectId.ToString(), _executionContext.Variables.Build_BuildId.GetValueOrDefault());
+                                        var codeCoverageResults = _testResultsServer.UpdateCodeCoverageSummaryAsync(connection, context.Variables.System_TeamProjectId.ToString(), context.Variables.Build_BuildId.GetValueOrDefault());
                                     }
                                     catch (Exception e)
                                     {
-                                        _executionContext.Section($"Could not queue code coverage merge:{e}");
+                                        context.Section($"Could not queue code coverage merge:{e}");
                                     }
                                 }
                             }
@@ -398,11 +427,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             }
             catch (Exception e)
             {
-                _executionContext.Debug($"Exception in Method:{e.Message}");
+                context.Debug($"Exception in Method:{e.Message}");
             }
         }
 
-        private async Task PublishEventsAsync(VssConnection connection)
+        private async Task PublishEventsAsync(VssConnection connection, IExecutionContext executionContext, Dictionary<string, object> telemetryProperties)
         {
             try
             {
@@ -410,16 +439,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 {
                     Area = _telemetryArea,
                     Feature = _telemetryFeature,
-                    Properties = _telemetryProperties
+                    Properties = telemetryProperties
                 };
 
-                var ciService = _executionContext.GetHostContext().GetService<ICustomerIntelligenceServer>();
+                var ciService = executionContext.GetHostContext().GetService<ICustomerIntelligenceServer>();
                 ciService.Initialize(connection);
                 await ciService.PublishEventsAsync(new CustomerIntelligenceEvent[] { ciEvent });
             }
             catch (Exception ex)
             {
-                _executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
+                executionContext.Debug(StringUtil.Loc("TelemetryCommandFailed", ex.Message));
             }
         }
 
