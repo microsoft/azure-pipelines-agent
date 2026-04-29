@@ -274,7 +274,7 @@ jobs:
         path: ${{ variables.layoutRoot }}
 
     # Verify all binaries are signed (check report)
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@1
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-postanalysis.PostAnalysis@2
       displayName: 'Verify Codesign Report'
       inputs:
         CodesignValidation: true
