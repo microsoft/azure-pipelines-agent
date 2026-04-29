@@ -1,3 +1,12 @@
+## Features
+ - Add Windows ARM64 agent to release notes (#5533)
+
+## Bugs
+
+
+## Misc
+ - Updating Node24 version to 24.15.0 (#5539)
+
 
 ## Agent Downloads
 
