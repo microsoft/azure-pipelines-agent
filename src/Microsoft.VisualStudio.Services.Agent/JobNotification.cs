@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         Task JobStarted(Guid jobId, string accessToken, Uri serverUrl, Guid planId, string identifier, string definitionId, string planType);
         Task JobCompleted(Guid jobId);
-        void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
+        Task StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
         void StartClient(string socketAddress, string monitorSocketAddress);
     }
 
@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public async void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken)
+        public async Task StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken)
         {
             if (pipeName != null && !_configured)
             {

@@ -817,6 +817,71 @@ dotnet_diagnostic.CA5403.severity = error
 # Analyzer version mismatch
 dotnet_diagnostic.CA9999.severity = error
 
+# Microsoft.VisualStudio.Threading.Analyzers rules
+
+# Avoid async void methods
+dotnet_diagnostic.VSTHRD100.severity = warning
+
+# Use .ConfigureAwait(bool)
+dotnet_diagnostic.VSTHRD002.severity = silent
+
+# Avoid awaiting foreign Tasks
+dotnet_diagnostic.VSTHRD003.severity = silent
+
+# Invoke single-threaded types on Main thread
+dotnet_diagnostic.VSTHRD010.severity = silent
+
+# Use AsyncLazy<T>
+dotnet_diagnostic.VSTHRD011.severity = silent
+
+# Provide JoinableTaskFactory where allowed
+dotnet_diagnostic.VSTHRD012.severity = silent
+
+# Avoid async void event handlers
+dotnet_diagnostic.VSTHRD101.severity = silent
+
+# Implement internal logic as async method
+dotnet_diagnostic.VSTHRD102.severity = silent
+
+# Call async methods when in an async method
+dotnet_diagnostic.VSTHRD103.severity = silent
+
+# Offer async methods
+dotnet_diagnostic.VSTHRD104.severity = silent
+
+# Avoid method overloads that assume TaskScheduler.Current
+dotnet_diagnostic.VSTHRD105.severity = silent
+
+# Use InvokeAsync to raise async events
+dotnet_diagnostic.VSTHRD106.severity = silent
+
+# Observe awaitable values in object initializers
+dotnet_diagnostic.VSTHRD107.severity = silent
+
+# Assert thread affinity unconditionally
+dotnet_diagnostic.VSTHRD108.severity = silent
+
+# Switch instead of assert in async methods
+dotnet_diagnostic.VSTHRD109.severity = silent
+
+# Observe result of async calls
+dotnet_diagnostic.VSTHRD110.severity = silent
+
+# Use .ConfigureAwait(bool) (instance)
+dotnet_diagnostic.VSTHRD111.severity = silent
+
+# Implement System.IAsyncDisposable
+dotnet_diagnostic.VSTHRD112.severity = silent
+
+# Use CancellationToken in awaited methods
+dotnet_diagnostic.VSTHRD113.severity = silent
+
+# Avoid returning null from a Task-returning method
+dotnet_diagnostic.VSTHRD114.severity = silent
+
+# Use Async suffix for async methods
+dotnet_diagnostic.VSTHRD200.severity = silent
+
 dotnet_naming_style.underscored_camel_case.capitalization = camel_case
 dotnet_naming_style.underscored_camel_case.required_prefix = _
 

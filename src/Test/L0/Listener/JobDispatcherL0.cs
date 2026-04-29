@@ -48,7 +48,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void DispatchesJobRequest()
+        public async Task DispatchesJobRequest()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -98,7 +98,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequest()
+        public async Task DispatcherRenewJobRequest()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -157,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequestStopOnJobNotFoundExceptions()
+        public async Task DispatcherRenewJobRequestStopOnJobNotFoundExceptions()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -217,7 +217,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequestStopOnJobTokenExpiredExceptions()
+        public async Task DispatcherRenewJobRequestStopOnJobTokenExpiredExceptions()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -277,7 +277,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequestRecoverFromExceptions()
+        public async Task DispatcherRenewJobRequestRecoverFromExceptions()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -339,7 +339,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequestFirstRenewRetrySixTimes()
+        public async Task DispatcherRenewJobRequestFirstRenewRetrySixTimes()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -395,7 +395,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void DispatcherRenewJobRequestStopOnExpiredRequest()
+        public async Task DispatcherRenewJobRequestStopOnExpiredRequest()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -461,7 +461,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void DispatchesOneTimeJobRequest()
+        public async Task DispatchesOneTimeJobRequest()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
