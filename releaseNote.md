@@ -1,3 +1,18 @@
+## Features
+ - Updated mingit version to 2.53.0 (#5490)
+ - Refactor Node version strategies to enforce single-responsibility (#5500)
+ - Upgrading package of vss-api-netcore dependency: TestLogStore proxy changes (#5489)
+ - node24 fallback logic update (#5499)
+ - Feat(PTRV2): Detection of re-run TRX files in PTR (#5496)
+ - Add fetchFilter option to the git submodules (#5518)
+ - Add Windows ARM64 agent to release notes (#5533)
+
+## Bugs
+
+
+## Misc
+ - Updating Node24 version to 24.15.0 (#5539)
+
 
 ## Agent Downloads
 
