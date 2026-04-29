@@ -202,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         runtimeVariables = new Variables(HostContext, variableCopy, out expansionWarnings);
                         expansionWarnings?.ForEach(x => ExecutionContext.Warning(x));
                     }
-                    else if (handlerData is BaseNodeHandlerData || handlerData is PowerShell3HandlerData)
+                    else if (handlerData is BaseNodeHandlerData || handlerData is PowerShell3HandlerData || handlerData is PwshHandlerData)
                     {
                         // Only the node, node10, and powershell3 handlers support running inside container.
                         // Make sure required container is already created.
@@ -580,7 +580,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 targetOS = stepTarget.ExecutionOS;
                 if (stepTarget is ContainerInfo)
                 {
-                    if ((currentExecution.All.Any(x => x is PowerShell3HandlerData)) &&
+                    if ((currentExecution.All.Any(x => x is PowerShell3HandlerData || x is PwshHandlerData)) &&
                         (currentExecution.All.Any(x => x is BaseNodeHandlerData)))
                     {
                         Trace.Info($"Since we are targeting a container, we will prefer a node handler if one is available");
@@ -590,7 +590,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             Trace.Info($"Get handler data for target platform {targetOS.ToString()}");
             return currentExecution.All
-                    .OrderBy(x => !(x.PreferredOnPlatform(targetOS) && (preferPowershellHandler || !(x is PowerShell3HandlerData)))) // Sort true to false.
+                    .OrderBy(x => !(x.PreferredOnPlatform(targetOS) && (preferPowershellHandler || !(x is PowerShell3HandlerData || x is PwshHandlerData)))) // Sort true to false.
                     .ThenBy(x => x.Priority)
                     .FirstOrDefault();
         }
@@ -742,9 +742,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Trace.Info($"Node SDK version: {nodeSdkVer}. Correlation ID is required: {isIdRequired}.");
                 }
             }
-            else if (handler is IPowerShell3Handler)
+            else if (handler is IPowerShell3Handler || handler is IPwshHandler)
             {
-                Trace.Info("Current handler is PowerShell3. Trying to determing the SDK version.");
+                Trace.Info("Current handler is PowerShell. Trying to determing the SDK version.");
                 var psSdkVer = task.GetPowerShellSDKVersion();
                 if (psSdkVer == null)
                 {
