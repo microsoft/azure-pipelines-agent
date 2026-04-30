@@ -820,7 +820,7 @@ dotnet_diagnostic.CA9999.severity = error
 # Microsoft.VisualStudio.Threading.Analyzers rules
 
 # Avoid async void methods
-dotnet_diagnostic.VSTHRD100.severity = warning
+dotnet_diagnostic.VSTHRD100.severity = error
 
 # Use .ConfigureAwait(bool)
 dotnet_diagnostic.VSTHRD002.severity = silent
