@@ -73,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void TestRunAsync()
+        public async Task TestRunAsync()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -191,7 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [MemberData("RunAsServiceTestData")]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestExecuteCommandForRunAsService(string[] args, bool configureAsService, Times expectedTimes)
+        public async Task TestExecuteCommandForRunAsService(string[] args, bool configureAsService, Times expectedTimes)
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -226,7 +226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
-        public async void TestMachineProvisionerCLI()
+        public async Task TestMachineProvisionerCLI()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -264,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
         //process 2 new job messages, and one cancel message
-        public async void TestMachineProvisionerCLICompat()
+        public async Task TestMachineProvisionerCLICompat()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -301,7 +301,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestRunOnce()
+        public async Task TestRunOnce()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -400,7 +400,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestRunOnceOnlyTakeOneJobMessage()
+        public async Task TestRunOnceOnlyTakeOneJobMessage()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -506,7 +506,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestRunOnceHandleUpdateMessage()
+        public async Task TestRunOnceHandleUpdateMessage()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())
@@ -604,7 +604,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData("--version")]
         [InlineData("--commit")]
         [InlineData("--bad-argument", Constants.Agent.ReturnCode.TerminatedError)]
-        public async void TestInfoArgumentsCLI(string arg, int expected = Constants.Agent.ReturnCode.Success)
+        public async Task TestInfoArgumentsCLI(string arg, int expected = Constants.Agent.ReturnCode.Success)
         {
             using (var hc = new TestHostContext(this))
             {
@@ -638,7 +638,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestExitsIfUnconfigured()
+        public async Task TestExitsIfUnconfigured()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -675,7 +675,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData("configure", true)] //TODO: this passes. If already configured, probably should error out asked to configure again
         [InlineData("remove", false)] //TODO: this passes. If already not configured, probably should error out
         [InlineData("remove", true)]
-        public async void TestConfigureCLI(string arg, bool IsConfigured, int expected = Constants.Agent.ReturnCode.Success)
+        public async Task TestConfigureCLI(string arg, bool IsConfigured, int expected = Constants.Agent.ReturnCode.Success)
         {
             using (var hc = new TestHostContext(this))
             {
@@ -728,7 +728,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Category", "Agent")]
         //process 1 job message and one metadata message
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope")]
-        public async void TestMetadataUpdate()
+        public async Task TestMetadataUpdate()
         {
             using (var hc = new TestHostContext(this))
             using (var agent = new Agent.Listener.Agent())

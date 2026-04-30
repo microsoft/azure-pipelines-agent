@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -59,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void TfsGitArtifactShouldCallGetSourceWithCorrectParameter()
+        public async Task TfsGitArtifactShouldCallGetSourceWithCorrectParameter()
         {
             using (TestHostContext tc = Setup())
             {

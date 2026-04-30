@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -61,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void GitHubArtifactShouldCallGetSourceWithCorrectParameter()
+        public async Task GitHubArtifactShouldCallGetSourceWithCorrectParameter()
         {
             using (TestHostContext tc = Setup())
             {
