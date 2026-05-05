@@ -6,7 +6,6 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -1368,11 +1367,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         public void TryCreateDirectory_ReturnsFalseOnInvalidPath()
         {
-            // Use a path under a known read-only/special location that triggers IOException
-            var invalidPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? @"C:\Windows\System32\config\systemprofile\impossible_test_" + Guid.NewGuid().ToString()
-                : "/proc/impossible_dir";
-            Assert.False(IOUtil.TryCreateDirectory(invalidPath));
+            // Creating a directory at a path where a file already exists triggers IOException
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                Assert.False(IOUtil.TryCreateDirectory(tempFile));
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
         }
     }
 }
