@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void IfNoCommitVersionExistsInArtifactDetailsNoIssueShouldBeAdded()
+        public async Task IfNoCommitVersionExistsInArtifactDetailsNoIssueShouldBeAdded()
         {
             using (TestHostContext tc = Setup())
             {
@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void ShouldLogAnIssueIfEndVersionIsInvalidInArtifactDetail()
+        public async Task ShouldLogAnIssueIfEndVersionIsInvalidInArtifactDetail()
         {
             using (TestHostContext tc = Setup())
             {
@@ -65,7 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void MissingStartVersionShouldDownloadCommitsFromSingleBuild()
+        public async Task MissingStartVersionShouldDownloadCommitsFromSingleBuild()
         {
             using (TestHostContext tc = Setup())
             {
@@ -83,7 +83,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void JenkinsCommitsShouldBeFetchedBetweenBuildRange()
+        public async Task JenkinsCommitsShouldBeFetchedBetweenBuildRange()
         {
             using (TestHostContext tc = Setup())
             {
@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void JenkinsRollbackCommitsShouldBeFetched()
+        public async Task JenkinsRollbackCommitsShouldBeFetched()
         {
             using (TestHostContext tc = Setup())
             {
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void JenkinsCommitsShouldLogAnIssueIfBuildIsDeleted()
+        public async Task JenkinsCommitsShouldLogAnIssueIfBuildIsDeleted()
         {
             using (TestHostContext tc = Setup())
             {
@@ -147,7 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void CommitsShouldBeUploadedAsAttachment()
+        public async Task CommitsShouldBeUploadedAsAttachment()
         {
             using (TestHostContext tc = Setup())
             {
@@ -184,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [TraitAttribute("Level", "L0")]
         [TraitAttribute("Category", "Worker")]
-        public async void CommitsShoulHaveUrlIfItsGitRepo()
+        public async Task CommitsShoulHaveUrlIfItsGitRepo()
         {
             using (TestHostContext tc = Setup())
             {

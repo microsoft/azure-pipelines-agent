@@ -14,6 +14,7 @@ using Agent.Sdk;
 using System.Diagnostics;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Test.L0.Worker.Handlers;
 
@@ -24,7 +25,7 @@ public class ProcessHandlerL0
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_BasicExecution()
+    public async Task ProcessHandlerV2_BasicExecution()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -70,7 +71,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_FileExecution()
+    public async Task ProcessHandlerV2_FileExecution()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -126,7 +127,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_Validation_passes()
+    public async Task ProcessHandlerV2_Validation_passes()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -176,7 +177,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_Validation_fails()
+    public async Task ProcessHandlerV2_Validation_fails()
     {
         using var hostContext = CreateTestHostContext();
 

@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void BubblesCancellation()
+        public async Task BubblesCancellation()
         {
             try
             {
@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void RetryNetworkException()
+        public async Task RetryNetworkException()
         {
             try
             {
@@ -170,7 +170,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void RetryStreamException()
+        public async Task RetryStreamException()
         {
             try
             {
@@ -283,7 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void DownloadsTasks()
+        public async Task DownloadsTasks()
         {
             try
             {
@@ -356,17 +356,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void PreservesTaskZipTaskWhenInSignatureVerification()
+        public async Task PreservesTaskZipTaskWhenInSignatureVerification()
         {
-            PreservesTaskZipTask(signatureVerification: true);
+            await PreservesTaskZipTask(signatureVerification: true);
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void PreservesTaskZipTaskWhenAlwaysExtractTask()
+        public async Task PreservesTaskZipTaskWhenAlwaysExtractTask()
         {
-            PreservesTaskZipTask(alwaysExtractTask: true);
+            await PreservesTaskZipTask(alwaysExtractTask: true);
         }
 
         // TODO: Add test for Extract
@@ -792,7 +792,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        private async void PreservesTaskZipTask(bool signatureVerification = false, bool alwaysExtractTask = false)
+        private async Task PreservesTaskZipTask(bool signatureVerification = false, bool alwaysExtractTask = false)
         {
             try
             {
