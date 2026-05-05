@@ -719,7 +719,7 @@ namespace Agent.Sdk.Knob
             "Ignores the VSTSTaskLib folder when copying tasks.",
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob FailJobWhenAgentDies = new Knob(
             nameof(FailJobWhenAgentDies),

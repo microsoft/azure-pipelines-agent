@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -1332,6 +1333,46 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     requireExitCodeZero: true,
                     cancellationToken: CancellationToken.None);
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_CreatesNewDirectory()
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            try
+            {
+                Assert.True(IOUtil.TryCreateDirectory(tempPath));
+                Assert.True(Directory.Exists(tempPath));
+            }
+            finally
+            {
+                if (Directory.Exists(tempPath))
+                {
+                    Directory.Delete(tempPath, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsTrueForExistingDirectory()
+        {
+            Assert.True(IOUtil.TryCreateDirectory(Path.GetTempPath()));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsFalseOnInvalidPath()
+        {
+            // Use a path under a known read-only/special location that triggers IOException
+            var invalidPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? @"C:\Windows\System32\config\systemprofile\impossible_test_" + Guid.NewGuid().ToString()
+                : "/proc/impossible_dir";
+            Assert.False(IOUtil.TryCreateDirectory(invalidPath));
         }
     }
 }
