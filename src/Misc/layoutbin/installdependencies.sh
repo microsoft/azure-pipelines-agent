@@ -76,7 +76,8 @@ then
         command -v apt
         if [ $? -eq 0 ]
         then
-            apt update && apt install -y libkrb5-3 zlib1g debsums && (apt install -y liblttng-ust1 || apt install -y liblttng-ust0)
+            timeout 120 apt update || echo "WARNING: apt update failed or timed out, proceeding with cached package index"
+            apt install -y libkrb5-3 zlib1g debsums && (apt install -y liblttng-ust1 || apt install -y liblttng-ust0)
             if [ $? -ne 0 ]
             then
                 echo "'apt' failed with exit code '$?'"
@@ -110,7 +111,8 @@ then
             command -v apt-get
             if [ $? -eq 0 ]
             then
-                apt-get update && apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust1 || apt-get install -y liblttng-ust0)
+                timeout 120 apt-get update || echo "WARNING: apt-get update failed or timed out, proceeding with cached package index"
+                apt-get install -y libkrb5-3 zlib1g debsums && (apt-get install -y liblttng-ust1 || apt-get install -y liblttng-ust0)
                 if [ $? -ne 0 ]
                 then
                     echo "'apt-get' failed with exit code '$?'"
