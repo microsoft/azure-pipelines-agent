@@ -12,10 +12,12 @@ fi
 
 # insert anything to setup env when running as a service
 
-# fallback on Node16 if Node20 is not supported by the host
+# fallback on Node24 or Node16 if Node20 is not supported by the host
 ./externals/node20_1/bin/node --version
 if [ $? == 0 ]; then
     NODE_VER="node20_1"
+elif ./externals/node24/bin/node --version 2>/dev/null; then
+    NODE_VER="node24"
 else    
     NODE_VER="node16"
 fi
