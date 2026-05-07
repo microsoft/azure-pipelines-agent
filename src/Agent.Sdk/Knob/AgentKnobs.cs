@@ -964,12 +964,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNodeVersionStrategy = new Knob(
-            nameof(UseNodeVersionStrategy),
-            "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
-            new PipelineFeatureSource("UseNodeVersionStrategy"),
-            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
-            new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
+        public static readonly Knob UseEnhancedNodeSelection = new Knob(
+            nameof(UseEnhancedNodeSelection),
+            "If true, use the enhanced Node.js version selection logic (both host and container). This provides centralized node selection with EOL policy enforcement and correct container keepalive. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseEnhancedNodeSelection"),
+            new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -553,7 +553,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
             }
 
-            bool UseNodeVersionStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+            bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useAgentNode = false;
@@ -581,7 +581,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                                     dockerObject: container.ContainerImage,
                                                                     options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
 
-                if (UseNodeVersionStrategy)
+                if (useEnhancedNodeSelection)
                 {
                     bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows;            
                     
@@ -674,7 +674,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                 }
-                else if (UseNodeVersionStrategy && container.IsJobContainer)
+                else if (useEnhancedNodeSelection && container.IsJobContainer)
                 {
                     try
                     {

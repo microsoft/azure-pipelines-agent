@@ -16,7 +16,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
     public sealed class ContainerOperationProviderEnhancedL0 : ContainerOperationProviderL0Base
     {
         // =============================================
-        // Legacy path tests (UseNodeVersionStrategy = false)
+        // Legacy path tests (UseEnhancedNodeSelection = false)
         // =============================================
 
         [Fact]
@@ -175,7 +175,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         }
 
         // =============================================
-        // UseNodeVersionStrategy path tests
+        // UseEnhancedNodeSelection path tests
         // Knob activated via Moq-specific matcher overrides
         // in CreateExecutionContextMock(hc, useNodeVersionStrategy: true).
         // No env vars used — avoids parallel test pollution.
@@ -184,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async Task StartContainer_UseNodeVersionStrategy_WithDockerLabel_UsesSleepOrTimeout()
+        public async Task StartContainer_UseNodeVersionStrategy_WithDockerLabel_UsesSleepOrPing()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -209,7 +209,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Equal(NodePathFromLabel, container.CustomNodePath);
                 if (PlatformUtil.RunningOnWindows)
                 {
-                    Assert.Contains("timeout", container.ContainerCommand);
+                    Assert.Contains("ping -t localhost", container.ContainerCommand);
                 }
                 else
                 {
@@ -255,7 +255,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async Task StartContainer_UseNodeVersionStrategy_OnWindows_WindowsContainer_UsesTimeout()
+        public async Task StartContainer_UseNodeVersionStrategy_OnWindows_WindowsContainer_UsesPing()
         {
             if (!PlatformUtil.RunningOnWindows)
             {
@@ -278,7 +278,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
-                Assert.Contains("timeout", container.ContainerCommand);
+                Assert.Contains("ping -t localhost", container.ContainerCommand);
                 Assert.Contains("nul", container.ContainerCommand);
             }
         }

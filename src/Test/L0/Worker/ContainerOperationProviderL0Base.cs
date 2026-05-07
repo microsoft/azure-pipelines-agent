@@ -64,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
 
             string knobValue = useNodeVersionStrategy ? "true" : "false";
-            executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_USE_NODE_STRATEGY")).Returns(knobValue);
+            executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_USE_ENHANCED_NODE_SELECTION")).Returns(knobValue);
 
             return executionContext;
         }

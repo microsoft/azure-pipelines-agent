@@ -421,7 +421,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
+            bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
 
             if (useStrategyPattern)
             {

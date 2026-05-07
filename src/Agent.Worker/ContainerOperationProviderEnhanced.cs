@@ -662,7 +662,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     $"{m.SourceVolumePath ?? "anonymous"}:{m.TargetVolumePath}{(m.ReadOnly ? ":ro" : "")}");
                 trace.Info($"Configured {container.MountVolumes.Count} volume mounts: {string.Join(", ", mountSummary)}");
 
-                bool useNodeVersionStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+                bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
                 bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
                 bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
                 bool useAgentNode = false;
@@ -690,7 +690,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                                         dockerObject: container.ContainerImage,
                                                                         options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
 
-                    if (useNodeVersionStrategy)
+                    if (useEnhancedNodeSelection)
                     {
                         bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows; 
                         
@@ -814,7 +814,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                     }
-                    else if (useNodeVersionStrategy && container.IsJobContainer)
+                    else if (useEnhancedNodeSelection && container.IsJobContainer)
                     {
                         try
                         {
