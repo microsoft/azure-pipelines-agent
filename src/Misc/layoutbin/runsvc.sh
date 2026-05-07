@@ -16,10 +16,13 @@ fi
 ./externals/node20_1/bin/node --version
 if [ $? == 0 ]; then
     NODE_VER="node20_1"
-elif ./externals/node24/bin/node --version 2>/dev/null; then
-    NODE_VER="node24"
-else    
-    NODE_VER="node16"
+else
+    ./externals/node24/bin/node --version 2>/dev/null
+    if [ $? == 0 ]; then
+        NODE_VER="node24"
+    else    
+        NODE_VER="node16"
+    fi
 fi
 
 # run the host process which keep the listener alive
