@@ -692,6 +692,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (useEnhancedNodeSelection)
                     {
+                        executionContext.Debug("[ContainerSetup] Using enhanced node selection path for container startup.");
                         bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows; 
                         
                         container.ContainerCommand = isWindowsContainer
@@ -700,7 +701,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else
                     {
-                        
+                        executionContext.Debug("[ContainerSetup] Using legacy node selection path for container startup.");
                         // Legacy approach: Use node-based startup command
                         string nodeSetInterval(string node)
                         {
@@ -818,6 +819,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     {
                         try
                         {
+                            executionContext.Debug("[ContainerSetup] Calling enhanced node selection path for container startup.");
                             SetContainerNodePathWithOrchestrator(executionContext, container);
                         }
                         catch (Exception ex)
