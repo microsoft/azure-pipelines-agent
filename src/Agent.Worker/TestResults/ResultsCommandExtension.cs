@@ -99,7 +99,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             bool triggerCoverageMergeJobFeatureState;
             using (var connection = WorkerUtilities.GetVssConnection(context))
             {
-                var featureFlagService = context.GetHostContext().GetService<IFeatureFlagService>();
+                var featureFlagService = context.GetHostContext().CreateService<IFeatureFlagService>();
                 featureFlagService.InitializeFeatureService(context, connection);
                 publishTestResultsLibFeatureState = featureFlagService.GetFeatureFlagState(TestResultsConstants.UsePublishTestResultsLibFeatureFlag, TestResultsConstants.TFSServiceInstanceGuid);
                 triggerCoverageMergeJobFeatureState = featureFlagService.GetFeatureFlagState(CodeCoverageConstants.TriggerCoverageMergeJobFF, TestResultsConstants.TFSServiceInstanceGuid);
