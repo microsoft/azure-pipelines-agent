@@ -421,13 +421,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
-
+            bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
+            
             if (useStrategyPattern)
             {
+                ExecutionContext.Debug("Using enhanced node selection path for handler node resolution.");
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
 
+            ExecutionContext.Debug("Using legacy node selection path for handler node resolution.");
             return GetNodeLocationLegacy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
         }
 

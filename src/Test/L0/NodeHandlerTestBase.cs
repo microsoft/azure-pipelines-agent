@@ -58,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Environment.SetEnvironmentVariable(knob.Key, knob.Value);
             }
             
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", useStrategy ? "true" : "false");
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", useStrategy ? "true" : "false");
 
             try
             {
@@ -476,7 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
        
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
