@@ -9,6 +9,7 @@ INCLUDE_NODE10=${INCLUDE_NODE10:-true}
 INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
+MINGIT_URL=https://github.com/git-for-windows/git/releases/download # This should be temporary until v2.54.0+ is available in the container
 
 NODE_URL=https://nodejs.org/dist
 NODE_UNOFFICIAL_URL=https://unofficial-builds.nodejs.org/download/release
@@ -33,7 +34,7 @@ NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.20.2"
 NODE24_VERSION="24.15.0"
-MINGIT_VERSION="2.53.0"
+MINGIT_VERSION="2.54.0" # https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/MinGit-2.54.0-64-bit.zip
 LFS_VERSION="3.4.0"
 
 get_abs_path() {
@@ -197,7 +198,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         echo "INFO: Node 24 is not available for win-x86. Node-based tasks will fall back to Node 20 or Node 16."
     fi
 
-    acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
+    acquireExternalTool "$MINGIT_URL/v${MINGIT_VERSION}.windows.1/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git # This URL is different from the usual container URL and should only be temporary.
     acquireExternalTool "$CONTAINER_URL/git-lfs/${LFS_VERSION}/x${BIT}/git-lfs.exe" "git/mingw${BIT}/bin"
     acquireExternalTool "$CONTAINER_URL/pdbstr/1/pdbstr.zip" pdbstr
     acquireExternalTool "$CONTAINER_URL/symstore/1/symstore.zip" symstore
