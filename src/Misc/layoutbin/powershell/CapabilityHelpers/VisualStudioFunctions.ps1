@@ -2,14 +2,14 @@ function Get-VisualStudio {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet(15, 16, 17)]
+        [ValidateSet(15, 16, 17, 18)]
         [int]$MajorVersion
         )
 
     try {
-        # Query for the latest 15.*/16.*/17.* version.
+        # Query for the latest 15.*/16.*/17.*/18.* version.
         #
-        # Note, the capability is registered as VisualStudio_15.0/VisualStudio_16.0/VisualStudio_17.0 however the actual
+        # Note, the capability is registered as VisualStudio_15.0/VisualStudio_16.0/VisualStudio_17.0/VisualStudio_18.0 however the actual
         # version may something like 15.2/16.2.
         $preReleaseFlag = [string]::Empty;
         if ($env:IncludePrereleaseVersions -eq $true)

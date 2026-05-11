@@ -123,10 +123,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         {
             var chmodProcessInfo = new ProcessStartInfo("chmod")
             {
-                Arguments = $"{(recursive ? "-R" : "")} {permissions} {path}",
                 UseShellExecute = false,
                 RedirectStandardError = true
             };
+            if (recursive)
+            {
+                chmodProcessInfo.ArgumentList.Add("-R");
+            }
+            chmodProcessInfo.ArgumentList.Add(permissions);
+            chmodProcessInfo.ArgumentList.Add(path);
             Process chmodProcess = Process.Start(chmodProcessInfo);
             chmodProcess.WaitForExit();
 

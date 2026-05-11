@@ -8,7 +8,7 @@ As Node versions exit out of the upstream maintenance window, some Pipelines tas
 
 To accommodate this, we have 2 flavors of packages:
 
-| Packages             | Node versions | Description                |
-|----------------------|---------------|----------------------------|
-| `vsts-agent-*`       | 6, 10, 16, 20 | Includes all Node versions that can be used as task execution handler |
-| `pipelines-agents-*` | 16, 20        | Includes only recent Node versions. The goal for these packages is to not include any end-of-life version of Node. |
+| Packages             | Node versions    | Description                |
+|----------------------|------------------|----------------------------|
+| `vsts-agent-*`       | 6, 10, 16, 20, 24 | Includes all Node versions that can be used as task execution handler |
+| `pipelines-agents-*` | 16, 20, 24       | Includes only recent Node versions. The goal for these packages is to not include any end-of-life version of Node. |

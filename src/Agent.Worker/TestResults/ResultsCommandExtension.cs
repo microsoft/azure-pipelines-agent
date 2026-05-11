@@ -51,10 +51,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         private string _testPlanId;
         private bool _publishTestResultsLibFeatureState;
         private bool _triggerCoverageMergeJobFeatureState;
-
         private bool _failTaskOnFailedTests;
-
         private string _testRunSystem;
+        private bool _isDetectTestRunRetry;
 
         //telemetry parameter
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -171,6 +170,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             if (!string.IsNullOrEmpty(testPlanId))
             {
                 _testPlanId = testPlanId;
+            }
+            string isDetectTestRunRetry;
+            eventProperties.TryGetValue(PublishTestResultsEventProperties.IsDetectTestRunRetry, out isDetectTestRunRetry);
+            if (string.IsNullOrEmpty(isDetectTestRunRetry) || !bool.TryParse(isDetectTestRunRetry, out _isDetectTestRunRetry))
+            {
+                // if no proper input is provided by default we do not detect test run retry.
+                _isDetectTestRunRetry = false;
             }
         }
 
@@ -297,7 +303,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             var publishOptions = new PublishOptions()
             {
                 IsMergeTestResultsToSingleRun = _mergeResults,
-                IsAddTestRunAttachments = _publishRunLevelAttachments
+                IsAddTestRunAttachments = _publishRunLevelAttachments,
+                IsDetectTestRunRetry = _isDetectTestRunRetry
             };
 
             return publishOptions;
@@ -457,5 +464,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         public static readonly string FailTaskOnFailedTests = "failTaskOnFailedTests";
         public static readonly string ListOfAutomatedTestPoints = "listOfAutomatedTestPoints";
         public static readonly string TestPlanId = "testPlanId";
+        public static readonly string IsDetectTestRunRetry = "isDetectTestRunRetry";
     }
 }

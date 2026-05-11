@@ -65,6 +65,8 @@ Get-MSBuildCapabilities -MajorVersion 16
 
 Get-MSBuildCapabilities -MajorVersion 17
 
+Get-MSBuildCapabilities -MajorVersion 18
+
 # Add 64-bit.
 $latest = $null
 $null = Add-CapabilityFromRegistry -Name "MSBuild_2.0_x64" -Hive 'LocalMachine' -View 'Registry64' -KeyName $keyName20 -ValueName 'MSBuildToolsPath' -Value ([ref]$latest)
@@ -85,3 +87,5 @@ if ($vs15 -and $vs15.installationPath) {
 Get-MSBuildCapabilities -MajorVersion 16 -Add_x64
 
 Get-MSBuildCapabilities -MajorVersion 17 -Add_x64
+
+Get-MSBuildCapabilities -MajorVersion 18 -Add_x64

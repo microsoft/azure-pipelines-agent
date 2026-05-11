@@ -9,6 +9,7 @@
             <ModulePaths>              
               <Exclude>                
                 <ModulePath>.*buildxl.*</ModulePath>
+                <ModulePath>.*System.*</ModulePath>
                 <ModulePath>.*ncrontab.*</ModulePath>
                 <ModulePath>.*runtimecontracts\.dll</ModulePath>
                 <ModulePath>.*test\.dll</ModulePath>

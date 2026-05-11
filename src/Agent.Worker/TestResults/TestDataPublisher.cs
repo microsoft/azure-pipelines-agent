@@ -76,7 +76,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 if (testDataProvider != null)
                 {
                     var testRunData = testDataProvider.GetTestRunData();
-                    //publishing run level attachment
                     Task<IList<TestRun>> publishtestRunDataTask = Task.Run(() => _testRunPublisher.PublishTestRunDataAsync(runContext, _projectName, testRunData, publishOptions, cancellationToken));
                     Task uploadBuildDataAttachmentTask = Task.Run(() => UploadBuildDataAttachment(runContext, testDataProvider.GetBuildData(), cancellationToken));
 
@@ -89,7 +88,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+                    bool isTestRunOutcomeFailed;
+                    TestRunSummary testRunSummary;
+                    if (publishOptions.IsDetectTestRunRetry)
+                    {
+                        DetectAndSetRetriesForTestRun(testRunData);
+                        isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
+                    }
+                    else
+                    {
+                        // For non-retry-aware publishing, determine test run outcome based on the primary run results (legacy behavior)
+                        isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out testRunSummary);
+                    }
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
                     if (_calculateTestRunSummary)
@@ -197,7 +207,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
                     IList<TestRun> publishedRuns = publishtestRunDataTask.Result;
 
-                    var isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out TestRunSummary testRunSummary);
+                    bool isTestRunOutcomeFailed;
+                    TestRunSummary testRunSummary;
+                    if (publishOptions.IsDetectTestRunRetry)
+                    {
+                        DetectAndSetRetriesForTestRun(testRunData);
+                        isTestRunOutcomeFailed = GetTestRunOutcomeForRetries(testRunData, out testRunSummary);
+                    }
+                    else
+                    {
+                        // For non-retry-aware publishing, determine test run outcome based on the primary run results (legacy behavior)
+                        isTestRunOutcomeFailed = GetTestRunOutcome(_executionContext, testRunData, out testRunSummary);
+                    }
 
                     // Storing testrun summary in environment variable, which will be read by PublishPipelineMetadataTask and publish to evidence store.
                     if (_calculateTestRunSummary)
@@ -332,5 +353,159 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
             return proj.Id;
         }
+
+        #region Test retry helper
+        /// <summary>
+        /// Detects retry test runs by grouping them based on TestRunIdFromAttachmentFile.
+        /// Modifies the input list in place: retry runs are removed from the top-level list
+        /// and added to the primary run's <see cref="TestRunData.Retries"/> collection.
+        /// </summary>
+        /// <param name="testRunDataList">Mutable list of parsed test run data.</param>
+        internal void DetectAndSetRetriesForTestRun(IList<TestRunData> testRunDataList)
+        {
+            if (testRunDataList == null || testRunDataList.Count <= 1)
+            {
+                return;
+            }
+
+            // Group by TestRunIdFromAttachmentFile – runs that share the same ID are retries
+            var groupedByRunId = testRunDataList
+                .Where(t => !string.IsNullOrEmpty(t.TestRunIdFromAttachmentFile))
+                .GroupBy(t => t.TestRunIdFromAttachmentFile)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            if (groupedByRunId.Count == 0)
+            {
+                return;
+            }
+
+            var retryRunsToRemove = new HashSet<TestRunData>();
+
+            foreach (var group in groupedByRunId)
+            {
+                // Sort by TestRunStartDate – the earliest is the primary run, the rest are retries
+                var sortedRuns = group
+                    .OrderBy(t => t.TestRunStartDate)
+                    .ToList();
+
+                var primaryRun = sortedRuns[0];
+                primaryRun.Retries = new List<TestRunData>();
+
+                for (int i = 1; i < sortedRuns.Count; i++)
+                {
+                    primaryRun.Retries.Add(sortedRuns[i]);
+                    retryRunsToRemove.Add(sortedRuns[i]);
+                }
+            }
+
+            // Remove retry runs from the main list so only primary runs remain
+            foreach (var retryRun in retryRunsToRemove)
+            {
+                testRunDataList.Remove(retryRun);
+            }
+        }
+
+        /// <summary>
+        /// Gets the latest attempt result for each test in a run that has retries.
+        /// Returns a dictionary mapping test identifier to its latest outcome.
+        /// Later retry attempts override earlier outcomes for the same test.
+        /// </summary>
+        internal Dictionary<string, TestOutcome> GetLatestAttemptResults(TestRunData testRunData)
+        {
+            var latestResults = new Dictionary<string, TestOutcome>();
+
+            // Process primary run results first
+            ProcessTestResults(testRunData, latestResults);
+
+            // Process each retry in order – later retries override earlier ones
+            if (testRunData.Retries != null)
+            {
+                foreach (var retry in testRunData.Retries)
+                {
+                    ProcessTestResults(retry, latestResults);
+                }
+            }
+
+            return latestResults;
+        }
+
+        /// <summary>
+        /// Checks whether any test is still marked as failed after all retry attempts
+        /// and computes a <see cref="TestRunSummary"/> based on the final outcome per test.
+        /// For runs with retries, only the latest attempt outcome per test is considered.
+        /// For runs without retries, the standard outcome check is applied.
+        /// </summary>
+        /// <param name="testRunDataList">The list of test run data (primary runs only; retries are nested).</param>
+        /// <param name="testRunSummary">
+        /// When this method returns, contains a <see cref="TestRunSummary"/> whose counters
+        /// reflect only the latest attempt per test (i.e., intermediate retry results are not double-counted).
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if at least one test is still failing after all retry attempts;
+        /// <c>false</c> if all previously-failed tests were resolved by retries or there are no failures.
+        /// </returns>
+        internal bool GetTestRunOutcomeForRetries(IList<TestRunData> testRunDataList, out TestRunSummary testRunSummary)
+        {
+            _executionContext?.Debug("isDetectTestRunRetry: Detecting test run retries for outcome evaluation.");
+            testRunSummary = new TestRunSummary();
+
+            if (testRunDataList == null || testRunDataList.Count == 0)
+            {
+                return false;
+            }
+
+            bool anyFailedTests = false;
+
+            foreach (var testRunData in testRunDataList)
+            {
+                // GetLatestAttemptResults works for both cases:
+                // - With retries: returns only the final outcome per test across all attempts
+                // - Without retries: returns each test's outcome from the primary run
+                var latestAttemptResults = GetLatestAttemptResults(testRunData);
+                foreach (var outcome in latestAttemptResults.Values)
+                {
+                    testRunSummary.Total += 1;
+                    switch (outcome)
+                    {
+                        case TestOutcome.Failed:
+                        case TestOutcome.Aborted:
+                            testRunSummary.Failed += 1;
+                            anyFailedTests = true;
+                            break;
+                        case TestOutcome.Passed:
+                            testRunSummary.Passed += 1;
+                            break;
+                        case TestOutcome.Inconclusive:
+                            testRunSummary.Skipped += 1;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            return anyFailedTests;
+        }
+
+
+        internal static void ProcessTestResults(TestRunData testRunData, Dictionary<string, TestOutcome> latestResults)
+        {
+            if (testRunData?.TestResults == null)
+            {
+                return;
+            }
+
+            foreach (var result in testRunData.TestResults)
+            {
+                string testName = String.Concat(result.AutomatedTestName, " ", result.TestCaseTitle);
+                if (!string.IsNullOrEmpty(testName) && Enum.TryParse(result.Outcome, true, out TestOutcome parsedOutcome))
+                {
+                    latestResults[testName] = parsedOutcome;
+                }
+            }
+        }
+
+        #endregion
+
     }
 }
