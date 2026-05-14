@@ -719,7 +719,7 @@ namespace Agent.Sdk.Knob
             "Ignores the VSTSTaskLib folder when copying tasks.",
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob FailJobWhenAgentDies = new Knob(
             nameof(FailJobWhenAgentDies),
@@ -809,6 +809,14 @@ namespace Agent.Sdk.Knob
             nameof(UseFetchFilterInCheckoutTask),
             "If true, agent will use fetch filter in checkout task.",
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseFetchFilterInGitSubmoduleUpdate = new Knob(
+            nameof(UseFetchFilterInGitSubmoduleUpdate),
+            "If true, agent will pass fetch filter options in checkout task to git submodule update.",
+            new PipelineFeatureSource("UseFetchFilterInGitSubmoduleUpdate"),
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new EnvironmentKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
@@ -956,12 +964,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNodeVersionStrategy = new Knob(
-            nameof(UseNodeVersionStrategy),
-            "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
-            new PipelineFeatureSource("UseNodeVersionStrategy"),
-            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
-            new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
+        public static readonly Knob UseEnhancedNodeSelection = new Knob(
+            nameof(UseEnhancedNodeSelection),
+            "If true, use the enhanced Node.js version selection logic (both host and container). This provides centralized node selection with EOL policy enforcement and correct container keepalive. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseEnhancedNodeSelection"),
+            new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public abstract class NodeHandlerTestBase : IDisposable
     {
         protected Mock<INodeHandlerHelper> NodeHandlerHelper { get; private set; }
+        protected List<string> CapturedWarnings { get; private set; } = new List<string>();
         private bool disposed = false;
 
         protected NodeHandlerTestBase()
@@ -57,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Environment.SetEnvironmentVariable(knob.Key, knob.Value);
             }
             
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", useStrategy ? "true" : "false");
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", useStrategy ? "true" : "false");
 
             try
             {
@@ -108,6 +109,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
+
+                        // Assert warning expectations for strategy-based mode
+                        if (useStrategy && scenario.StrategyExpectedWarning != null)
+                        {
+                            if (string.IsNullOrEmpty(scenario.StrategyExpectedWarning))
+                            {
+                                Assert.DoesNotContain(CapturedWarnings, w => w.Contains("NodeEOLUpgradeWarning"));
+                            }
+                            else
+                            {
+                                Assert.Contains(CapturedWarnings, w => w.Contains(scenario.StrategyExpectedWarning));
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -383,6 +397,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.GetHostContext())
                 .Returns(tc);
 
+            CapturedWarnings.Clear();
+            executionContext
+                .Setup(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Warning)))
+                .Callback<Issue>(issue => CapturedWarnings.Add(issue.Message));
+
             return executionContext;
         }
 
@@ -457,7 +476,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
        
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
