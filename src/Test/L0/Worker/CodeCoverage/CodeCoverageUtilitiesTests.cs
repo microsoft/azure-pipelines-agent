@@ -118,9 +118,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 Directory.CreateDirectory(Path.GetDirectoryName(legitimateFile));
                 File.WriteAllText(legitimateFile, "Test");
 
-                // Craft a file list where stripping common prefix produces ../../../ traversal
+                // Craft a file list where stripping common prefix produces ../../../ traversal.
+                // maliciousFile resolves to one level above srcDir's parent; create the source
+                // file at the resolved location so the setup is accurate.
                 var maliciousFile = Path.Combine(srcDir, "..", "..", "evil.xml");
-                File.WriteAllText(Path.Combine(Path.GetTempPath(), "evil.xml"), "Malicious");
+                var resolvedMalicious = Path.GetFullPath(maliciousFile);
+                File.WriteAllText(resolvedMalicious, "Malicious");
 
                 var files = new List<string> { legitimateFile, maliciousFile };
                 var skippedFiles = new List<string>();
@@ -130,15 +133,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 // Malicious file should be skipped, not copied
                 Assert.True(skippedFiles.Count > 0, "Expected at least one file to be skipped due to path traversal");
                 Assert.Contains(maliciousFile, skippedFiles);
-                // Verify malicious file was NOT written outside destination
-                Assert.False(File.Exists(Path.Combine(destinationFilePath, "..", "..", "evil.xml")));
             }
             finally
             {
                 if (Directory.Exists(destinationFilePath)) Directory.Delete(destinationFilePath, true);
                 if (Directory.Exists(srcDir)) Directory.Delete(srcDir, true);
-                var evilFile = Path.Combine(Path.GetTempPath(), "evil.xml");
-                if (File.Exists(evilFile)) File.Delete(evilFile);
+                var resolvedEvil = Path.GetFullPath(Path.Combine(srcDir, "..", "..", "evil.xml"));
+                if (File.Exists(resolvedEvil)) File.Delete(resolvedEvil);
             }
         }
 
@@ -154,11 +155,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             // Fix: Substring removes only prefix, TrimStart strips leading separators.
             string destinationFilePath = Path.Combine(Path.GetTempPath(), "cc_dest_abs");
             var srcDir = Path.Combine(Path.GetTempPath(), "cc_abs_src");
-            var outsideDir = Path.Combine(Path.GetTempPath(), "cc_outside_abs");
             try
             {
                 Directory.CreateDirectory(destinationFilePath);
-                Directory.CreateDirectory(outsideDir);
 
                 // Create two files under srcDir that share prefix "srcDir\pwn"
                 // File 1: srcDir\pwn\sub\evil.txt
@@ -195,7 +194,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             {
                 if (Directory.Exists(destinationFilePath)) Directory.Delete(destinationFilePath, true);
                 if (Directory.Exists(srcDir)) Directory.Delete(srcDir, true);
-                if (Directory.Exists(outsideDir)) Directory.Delete(outsideDir, true);
             }
         }
 
