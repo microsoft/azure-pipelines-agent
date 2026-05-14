@@ -13,7 +13,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 {
     public static class CodeCoverageUtilities
     {
-        public static void CopyFilesFromFileListWithDirStructure(List<string> files, ref string destinatonFilePath)
+        public static void CopyFilesFromFileListWithDirStructure(List<string> files, ref string destinatonFilePath, List<string> skippedFiles = null)
         {
             string commonPath = null;
             if (files != null)
@@ -26,22 +26,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                     commonPath = SharedSubstring(files[0], files[files.Count - 1]);
                 }
 
+                var canonicalDest = Path.GetFullPath(destinatonFilePath + Path.DirectorySeparatorChar);
+
                 foreach (var file in files)
                 {
                     string newFile = null;
 
-                    if (!string.IsNullOrEmpty(commonPath))
+                    // FIX 1: Use Substring instead of Replace to safely remove only the prefix
+                    if (!string.IsNullOrEmpty(commonPath) && file.StartsWith(commonPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        newFile = file.Replace(commonPath, "");
+                        newFile = file.Substring(commonPath.Length);
                     }
                     else
                     {
                         newFile = Path.GetFileName(file);
                     }
 
+                    // FIX 2: Strip leading directory separators to prevent Path.Combine
+                    // from treating newFile as an absolute path and ignoring destinatonFilePath
+                    newFile = newFile.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
                     newFile = Path.Combine(destinatonFilePath, newFile);
-                    Directory.CreateDirectory(Path.GetDirectoryName(newFile));
-                    File.Copy(file, newFile, true);
+                    var canonicalNewFile = Path.GetFullPath(newFile);
+
+                    // FIX 3: Canonicalization boundary check - skip files that resolve outside destination
+                    if (!canonicalNewFile.StartsWith(canonicalDest, StringComparison.OrdinalIgnoreCase))
+                    {
+                        skippedFiles?.Add(file);
+                        continue;
+                    }
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(canonicalNewFile));
+                    File.Copy(file, canonicalNewFile, true);
                 }
             }
         }
