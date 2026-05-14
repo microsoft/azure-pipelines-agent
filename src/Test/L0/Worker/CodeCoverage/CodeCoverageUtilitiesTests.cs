@@ -110,17 +110,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
         public void CopyFilesSkipsPathTraversalFiles()
         {
             string destinationFilePath = Path.Combine(Path.GetTempPath(), "cc_dest_traversal1");
-            var srcDir = Path.Combine(Path.GetTempPath(), "cc_traversal_src");
+            // Nest srcDir 3 levels deep so ../../ traversal stays within temp directory
+            var srcDir = Path.Combine(Path.GetTempPath(), "cc_traversal_src", "level1", "level2");
+            var srcRoot = Path.Combine(Path.GetTempPath(), "cc_traversal_src");
             try
             {
                 Directory.CreateDirectory(destinationFilePath);
                 var legitimateFile = Path.Combine(srcDir, "legit.xml");
-                Directory.CreateDirectory(Path.GetDirectoryName(legitimateFile));
+                Directory.CreateDirectory(srcDir);
                 File.WriteAllText(legitimateFile, "Test");
 
-                // Craft a file list where stripping common prefix produces ../../../ traversal.
-                // maliciousFile resolves to one level above srcDir's parent; create the source
-                // file at the resolved location so the setup is accurate.
+                // Craft a path that traverses above srcDir.
+                // srcDir/../../evil.xml resolves to cc_traversal_src/evil.xml (within temp)
                 var maliciousFile = Path.Combine(srcDir, "..", "..", "evil.xml");
                 var resolvedMalicious = Path.GetFullPath(maliciousFile);
                 File.WriteAllText(resolvedMalicious, "Malicious");
@@ -137,9 +138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             finally
             {
                 if (Directory.Exists(destinationFilePath)) Directory.Delete(destinationFilePath, true);
-                if (Directory.Exists(srcDir)) Directory.Delete(srcDir, true);
-                var resolvedEvil = Path.GetFullPath(Path.Combine(srcDir, "..", "..", "evil.xml"));
-                if (File.Exists(resolvedEvil)) File.Delete(resolvedEvil);
+                if (Directory.Exists(srcRoot)) Directory.Delete(srcRoot, true);
             }
         }
 
