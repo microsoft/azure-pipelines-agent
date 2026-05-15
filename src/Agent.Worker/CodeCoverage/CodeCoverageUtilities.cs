@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -13,6 +14,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
 {
     public static class CodeCoverageUtilities
     {
+        private static readonly StringComparison PathComparison =
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
         public static void CopyFilesFromFileListWithDirStructure(List<string> files, ref string destinatonFilePath, List<string> skippedFiles = null)
         {
             string commonPath = null;
@@ -33,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                     string newFile = null;
 
                     // FIX 1: Use Substring instead of Replace to safely remove only the prefix
-                    if (!string.IsNullOrEmpty(commonPath) && file.StartsWith(commonPath, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrEmpty(commonPath) && file.StartsWith(commonPath, PathComparison))
                     {
                         newFile = file.Substring(commonPath.Length);
                     }
@@ -50,7 +56,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                     var canonicalNewFile = Path.GetFullPath(newFile);
 
                     // FIX 3: Canonicalization boundary check - skip files that resolve outside destination
-                    if (!canonicalNewFile.StartsWith(canonicalDest, StringComparison.OrdinalIgnoreCase))
+                    if (!canonicalNewFile.StartsWith(canonicalDest, PathComparison))
                     {
                         skippedFiles?.Add(file);
                         continue;
