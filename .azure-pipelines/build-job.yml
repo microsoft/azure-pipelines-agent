@@ -110,6 +110,9 @@ jobs:
     DisableCFSDetector: true
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
+    # Clear GDN_FILEPATH on ARM64 Linux to prevent Guardian from using the pre-installed x64 binary
+    ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'win'), ne(parameters.os, 'osx')) }}:
+      GDN_FILEPATH: ''
     CheckoutBranch: ${{ parameters.branch }}
     ${{ if ne(parameters.targetFramework, 'all') }}:
       targetFramework: ${{ parameters.targetFramework }}
