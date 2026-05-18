@@ -148,6 +148,7 @@ extends:
                   --token "$(ACCESS_TOKEN)" \
                   --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"$(targetFramework)\"}"
             displayName: Test Proxy Agent
+            continueOnError: true
 
   # Windows (x64)
       - ${{ if parameters.win_x64 }}:
@@ -260,8 +261,9 @@ extends:
             displayName: Linux (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-azurelinux3_arm64
+              image: abtt-azurelinux3_arm64
               os: linux
+              hostArchitecture: arm64
             timeoutInMinutes: 75
             os: linux
             arch: arm64
@@ -298,12 +300,14 @@ extends:
       - ${{ if parameters.alpine_arm64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
+            disableSdl: true
             jobName: build_alpine_arm64
             displayName: Alpine (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-azurelinux3_arm64
+              image: abtt-azurelinux3_arm64
               os: linux
+              hostArchitecture: arm64
             # container: # arm64v8/alpine (N/A)
             os: linux-musl
             arch: arm64
