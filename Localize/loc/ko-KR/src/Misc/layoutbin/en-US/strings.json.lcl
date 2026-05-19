@@ -3768,10 +3768,13 @@
       </Item>
       <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Val><![CDATA[Would fallback to {0} (EOL) but EOL policy is enabled]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[{1}(EOL)(으)로 대체되지만 EOL 정책이 사용하도록 설정되어 있습니다.]]></Val>
+            <Val><![CDATA[{0}(EOL)(으)로 대체되지만 EOL 정책이 사용하도록 설정되어 있습니다.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3784,11 +3787,20 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+      <Item ItemId=";NodeEOLRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. Unsupported Node versions (6, 10, and 16) are being retired, and any pipelines using tasks dependent on these versions will begin to fail. Learn More https://aka.ms/node-runner-guidance]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[{0}이(가) 수명 종료에 도달했습니다. Node20 또는 Node24로 업그레이드하세요.]]></Val>
+            <Val><![CDATA[작업 {0}이(가) 지원되지 않는 버전의 Node.js에 의존하고 있습니다. 지원되지 않는 Node.js 버전(6, 10, 16)이 사용 중단되며, 이 버전에 의존하는 작업을 사용하는 파이프라인은 실패하기 시작할 것입니다. 자세한 내용은 https://aka.ms/node-runner-guidance를 참고하세요.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLUpgradeWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. To avoid use of unsupported Node.js the task is being run on the latest available version of Node.js. The task may fail or work unexpectedly. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[작업 {0}이(가) 지원되지 않는 버전의 Node.js에 의존하고 있습니다. 지원되지 않는 Node.js 사용을 피하기 위해 작업이 사용 가능한 최신 버전의 Node.js에서 실행되고 있습니다. 작업이 실패하거나 예상과 다르게 작동할 수 있습니다. 자세한 내용은 https://aka.ms/node-runner-guidance를 참고하세요.]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />
@@ -5968,12 +5980,24 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";UnsupportedOsVersionByNet10" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net10 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net10.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[이 에이전트가 실행 중인 운영 체제 버전({0})은 Net10 요구 사항에 따라 지원되지 않으며, 향후 Pipelines 에이전트 업데이트에서도 지원되지 않습니다. 지원되는 운영 체제 버전은 https://aka.ms/azdo-pipeline-agent-net10을 참조하세요.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";UnsupportedOsVersionByNet8" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net8 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[이 에이전트가 실행 중인 운영 체제 버전({0})은 파이프라인 에이전트에 대한 향후 업데이트에서 지원되지 않습니다. 지원되는 운영 체제 버전은 https://aka.ms/azdo-pipeline-agent-net8을 참조하세요.]]></Val>
+            <Val><![CDATA[이 에이전트가 실행 중인 운영 체제 버전({0})은 Net8 요구 사항에 따라 지원되지 않으며, 향후 Pipelines 에이전트 업데이트에서도 지원되지 않습니다. 지원되는 운영 체제 버전은 https://aka.ms/azdo-pipeline-agent-net8을 참조하세요.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>

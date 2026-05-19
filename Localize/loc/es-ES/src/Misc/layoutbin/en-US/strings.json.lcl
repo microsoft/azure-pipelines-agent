@@ -3768,10 +3768,13 @@
       </Item>
       <Item ItemId=";NodeEOLFallbackBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          <Val><![CDATA[Would fallback to {0} (EOL) but EOL policy is enabled]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[volvería a {1} (EOL), pero la directiva de EOL está activada]]></Val>
+            <Val><![CDATA[Se revertiría a {0} (EOL), pero la directiva EOL está habilitada]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[would fallback to {1} (EOL) but EOL policy is enabled]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3784,11 +3787,20 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";NodeEOLWarning" ItemType="0" PsrId="306" Leaf="true">
+      <Item ItemId=";NodeEOLRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[{0} has reached End-of-Life. Please upgrade to Node20 or Node24.]]></Val>
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. Unsupported Node versions (6, 10, and 16) are being retired, and any pipelines using tasks dependent on these versions will begin to fail. Learn More https://aka.ms/node-runner-guidance]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[{0} ha llegado al final de su vida útil. Actualice a Node20 o Node24.]]></Val>
+            <Val><![CDATA[La tarea {0} se basa en una versión no compatible de Node.js. Se están retirando las versiones de Node no admitidas (6, 10 y 16) y todas las canalizaciones que usen tareas dependientes de estas versiones comenzarán a producir errores. Más información https://aka.ms/node-runner-guidance]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
+      <Item ItemId=";NodeEOLUpgradeWarning" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[Task {0} relies on an unsupported version of Node.js. To avoid use of unsupported Node.js the task is being run on the latest available version of Node.js. The task may fail or work unexpectedly. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[La tarea {0} se basa en una versión no compatible de Node.js. Para evitar el uso de Node.js no compatible, la tarea se ejecuta en la versión más reciente disponible de Node.js. La tarea puede producir un error o funcionar de forma inesperada. Más información https://aka.ms/node-runner-guidance]]></Val>
           </Tgt>
         </Str>
         <Disp Icon="Str" />
@@ -5968,12 +5980,24 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
+      <Item ItemId=";UnsupportedOsVersionByNet10" ItemType="0" PsrId="306" Leaf="true">
+        <Str Cat="Text">
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net10 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net10.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[La versión del sistema operativo en la que se ejecuta este agente ({0}) no se admite según los requisitos de Net10 y no se admitirá en una próxima actualización del agente de canalizaciones. Para ver las versiones de sistema operativo compatibles, consulte https://aka.ms/azdo-pipeline-agent-net10.]]></Val>
+          </Tgt>
+        </Str>
+        <Disp Icon="Str" />
+      </Item>
       <Item ItemId=";UnsupportedOsVersionByNet8" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported per Net8 requirements and will not be supported in an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[La versión del sistema operativo en la que se está ejecutando este agente ({0}) no se admite en una próxima actualización del agente de pipelines. Para ver las versiones de sistema operativo compatibles, consulte https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+            <Val><![CDATA[La versión del sistema operativo en la que se ejecuta este agente ({0}) no se admite según los requisitos de Net8 y no se admitirá en una próxima actualización del agente de Pipelines. Para ver las versiones de sistema operativo compatibles, consulte https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
