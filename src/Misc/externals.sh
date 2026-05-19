@@ -342,10 +342,12 @@ else
     rm "$LAYOUT_DIR/externals/node10/bin/npm"
     rm "$LAYOUT_DIR/externals/node10/bin/npx"
 
-    rm -rf "$LAYOUT_DIR/externals/node16/lib"
-    rm "$LAYOUT_DIR/externals/node16/bin/npm"
-    rm "$LAYOUT_DIR/externals/node16/bin/npx"
-    rm "$LAYOUT_DIR/externals/node16/bin/corepack"
+    if [[ "$INCLUDE_NODE16" == "true" ]]; then
+        rm -rf "$LAYOUT_DIR/externals/node16/lib"
+        rm "$LAYOUT_DIR/externals/node16/bin/npm"
+        rm "$LAYOUT_DIR/externals/node16/bin/npx"
+        rm "$LAYOUT_DIR/externals/node16/bin/corepack"
+    fi
 
     rm -rf "$LAYOUT_DIR/externals/node20_1/lib"
     rm "$LAYOUT_DIR/externals/node20_1/bin/npm"

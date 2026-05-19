@@ -573,6 +573,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
             string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
 
+            // Check if node16 is available on the host (not present in pipelines-agent package)
+            bool node16Available = File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+
 
             if (container.IsJobContainer)
             {
@@ -626,13 +629,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         if (useNode24ToStartContainer)
                         {
-                            executionContext.Debug("[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24->20->16)");
-                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                            string node16Segment = node16Available
+                                ? $" || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)}"
+                                : "";
+                            executionContext.Debug($"[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24->20{(node16Available ? "->16" : "")})");
+                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)}{node16Segment} || echo '{labelContainerStartupFailed}'";
                         }
                         else if (useNode20ToStartContainer)
                         {
-                            executionContext.Debug("[ContainerSetup] Legacy agent node: Using Node20 with fallbacks (20->16)");
-                            sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                            string node16Segment = node16Available
+                                ? $" || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)}"
+                                : "";
+                            executionContext.Debug($"[ContainerSetup] Legacy agent node: Using Node20 with fallbacks (20{(node16Available ? "->16" : "")})");
+                            sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)}{node16Segment} || echo '{labelContainerStartupFailed}'";
                         }
                         else
                         {
