@@ -730,6 +730,25 @@ namespace Agent.Plugins.Repository
                 {
                     throw new InvalidOperationException($"Unable to use git.exe add remote 'origin', 'git remote add' failed with exit code: {exitCode_addremote}");
                 }
+
+                // `git init` + `git remote add` + `git fetch --filter=...` does NOT write the partial-clone
+                // bookkeeping configs that `git clone --filter=...` would write automatically. Without these,
+                // subsequent fetches re-walk reachability without knowing the repo is a partial clone, the
+                // fetched pack is not marked as a promisor pack, and on-demand blob fetches during checkout
+                // don't engage the promisor lazy-fetch path. Write them explicitly when a fetch filter is in use.
+                if (!string.IsNullOrEmpty(fetchFilter))
+                {
+                    int exitCode_promisor = await gitCommandManager.GitConfig(executionContext, targetPath, "remote.origin.promisor", "true");
+                    if (exitCode_promisor != 0)
+                    {
+                        executionContext.Warning($"Failed to set remote.origin.promisor=true (exit {exitCode_promisor}); subsequent fetches may be slower.");
+                    }
+                    int exitCode_filter = await gitCommandManager.GitConfig(executionContext, targetPath, "remote.origin.partialclonefilter", fetchFilter);
+                    if (exitCode_filter != 0)
+                    {
+                        executionContext.Warning($"Failed to set remote.origin.partialclonefilter={fetchFilter} (exit {exitCode_filter}); subsequent fetches may be slower.");
+                    }
+                }
             }
 
             if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(executionContext).AsBoolean())
