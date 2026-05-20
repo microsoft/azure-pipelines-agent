@@ -100,6 +100,24 @@ jobs:
           compiled:
             enabled: false
             justificationForDisabling: ${{ parameters.justificationForDisablingSdl}}
+        # Guardian / BinSkim ship as x64 binaries today and cannot run on
+        # Linux ARM64 hosts ("cannot execute binary file: Exec format error").
+        # When SDL is being disabled for a build (e.g. Alpine/Linux ARM64),
+        # also turn off these compiled scanners and the PostAnalysis gate so
+        # the pipeline does not fail with Guardian exit code 126.
+        ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'win'), ne(parameters.os, 'osx')) }}:
+          binskim:
+            enabled: false
+          policheck:
+            enabled: false
+          credscan:
+            enabled: false
+          psscriptanalyzer:
+            enabled: false
+          armory:
+            enabled: false
+          tsa:
+            enabled: false
   variables:
     PACKAGE_TYPE: ${{ parameters.packageType }}
     ${{ if eq(parameters.os, 'win') }}:
@@ -110,6 +128,9 @@ jobs:
     DisableCFSDetector: true
     DisableDockerDetector: true
     nugetMultiFeedWarnLevel: none
+    # Clear GDN_FILEPATH on ARM64 Linux to prevent Guardian from using the pre-installed x64 binary
+    ${{ if and(eq(parameters.arch, 'arm64'), ne(parameters.os, 'win'), ne(parameters.os, 'osx')) }}:
+      GDN_FILEPATH: ''
     CheckoutBranch: ${{ parameters.branch }}
     ${{ if ne(parameters.targetFramework, 'all') }}:
       targetFramework: ${{ parameters.targetFramework }}
