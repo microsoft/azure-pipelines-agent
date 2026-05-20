@@ -471,5 +471,108 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                     It.IsAny<CancellationToken>()), Times.Exactly(3));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_BuildsExpectedArg()
+        {
+            Assert.Equal(
+                "-v \"C:\\src\":\"C:\\__w\"",
+                DockerCommandManager.FormatMountVolumeArg("C:\\src", "C:\\__w", readOnly: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_ReadOnly_AppendsRoSuffix()
+        {
+            Assert.Equal(
+                "-v \"C:\\src\":\"C:\\__w\":ro",
+                DockerCommandManager.FormatMountVolumeArg("C:\\src", "C:\\__w", readOnly: true));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_AnonymousVolume_NoSource()
+        {
+            Assert.Equal(
+                "-v \"/var/data\"",
+                DockerCommandManager.FormatMountVolumeArg(null, "/var/data", readOnly: false));
+
+            Assert.Equal(
+                "-v \"/var/data\"",
+                DockerCommandManager.FormatMountVolumeArg(string.Empty, "/var/data", readOnly: false));
+        }
+
+        // Regression: a Windows drive-root source like "F:\" used to produce -v "F:\":"C:\__w",
+        // which the Windows C runtime parses as a single argument (the trailing backslash
+        // escapes the closing quote), causing docker to fail with "too many colons". Trailing
+        // backslashes must be doubled so the closing quote is preserved.
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_DriveRootSource_DoublesTrailingBackslash()
+        {
+            Assert.Equal(
+                "-v \"F:\\\\\":\"C:\\__w\"",
+                DockerCommandManager.FormatMountVolumeArg("F:\\", "C:\\__w", readOnly: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_DriveRootTarget_DoublesTrailingBackslash()
+        {
+            Assert.Equal(
+                "-v \"C:\\src\":\"D:\\\\\"",
+                DockerCommandManager.FormatMountVolumeArg("C:\\src", "D:\\", readOnly: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_MultipleTrailingBackslashes_AreAllDoubled()
+        {
+            Assert.Equal(
+                "-v \"F:\\\\\\\\\":\"C:\\__w\"",
+                DockerCommandManager.FormatMountVolumeArg("F:\\\\", "C:\\__w", readOnly: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_AnonymousVolume_TrailingBackslashTarget_IsDoubled()
+        {
+            Assert.Equal(
+                "-v \"C:\\data\\\\\"",
+                DockerCommandManager.FormatMountVolumeArg(null, "C:\\data\\", readOnly: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void FormatMountVolumeArg_BindMount_PathWithEmbeddedQuote_IsEscaped()
+        {
+            Assert.Equal(
+                "-v \"C:\\weird\\\"name\":\"/mnt/x\"",
+                DockerCommandManager.FormatMountVolumeArg("C:\\weird\"name", "/mnt/x", readOnly: false));
+        }
+
+        // Regression: exact mount specs observed in the InitializeContainers step logs.
+        // All four must produce arguments that docker.exe parses as a single valid -v spec
+        // (the F:\ case used to fail with "invalid spec ... too many colons").
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData("D:\\a\\_work", "C:\\__w", "-v \"D:\\a\\_work\":\"C:\\__w\"")]
+        [InlineData("D:\\a\\_work\\_tasks", "C:\\__w\\_tasks", "-v \"D:\\a\\_work\\_tasks\":\"C:\\__w\\_tasks\"")]
+        [InlineData("F:\\", "C:\\__w", "-v \"F:\\\\\":\"C:\\__w\"")]
+        [InlineData("F:\\_tasks", "F:\\_tasks", "-v \"F:\\_tasks\":\"F:\\_tasks\"")]
+        public void FormatMountVolumeArg_InitializeContainersLogScenarios(string source, string target, string expected)
+        {
+            Assert.Equal(expected, DockerCommandManager.FormatMountVolumeArg(source, target, readOnly: false));
+        }
     }
 }

@@ -173,25 +173,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
             }
             foreach (var volume in container?.MountVolumes)
             {
-                // replace `"` with `\"` and add `"{0}"` to all path.
-                String volumeArg;
-                String targetVolume = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, volume.TargetVolumePath).Replace("\"", "\\\"");
-
-                if (String.IsNullOrEmpty(volume.SourceVolumePath))
-                {
-                    // Anonymous docker volume
-                    volumeArg = $"-v \"{targetVolume}\"";
-                }
-                else
-                {
-                    // Named Docker volume / host bind mount
-                    volumeArg = $"-v \"{volume.SourceVolumePath.Replace("\"", "\\\"")}\":\"{targetVolume}\"";
-                }
-                if (volume.ReadOnly)
-                {
-                    volumeArg += ":ro";
-                }
-                dockerOptions.Add(volumeArg);
+                string targetVolume = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, volume.TargetVolumePath);
+                dockerOptions.Add(FormatMountVolumeArg(volume.SourceVolumePath, targetVolume, volume.ReadOnly));
             }
             // IMAGE
             dockerOptions.Add($"{container.ContainerImage}");
@@ -395,6 +378,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Container
         private Task<int> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options, CancellationToken cancellationToken = default(CancellationToken))
         {
             return ExecuteDockerCommandAsync(context, command, options, null, cancellationToken);
+        }
+
+        // Builds the "-v ..." docker argument for a single mount volume. The returned string is
+        // intended to be embedded in a Windows command line, so any trailing backslash on a
+        // path is doubled to avoid escaping the closing quote when docker.exe (or any other
+        // process started by Windows) parses argv per the C runtime rules. Without this,
+        // a drive-root source such as "F:\" produces -v "F:\":"target" which the CRT parses
+        // as a single argument that swallows everything up to the next unquoted space.
+        //
+        // Real examples taken from the InitializeContainers step:
+        //   sourceVolumePath = "D:\a\_work",        target = "C:\__w"        -> -v "D:\a\_work":"C:\__w"
+        //   sourceVolumePath = "D:\a\_work\_tasks", target = "C:\__w\_tasks" -> -v "D:\a\_work\_tasks":"C:\__w\_tasks"
+        //   sourceVolumePath = "F:\",               target = "C:\__w"        -> -v "F:\\":"C:\__w"
+        //   sourceVolumePath = "F:\_tasks",         target = "F:\_tasks"     -> -v "F:\_tasks":"F:\_tasks"
+        internal static string FormatMountVolumeArg(string sourceVolumePath, string targetVolumePath, bool readOnly)
+        {
+            string volumeArg = String.IsNullOrEmpty(sourceVolumePath)
+                ? $"-v {QuotePathForCommandLine(targetVolumePath)}"
+                : $"-v {QuotePathForCommandLine(sourceVolumePath)}:{QuotePathForCommandLine(targetVolumePath)}";
+
+            if (readOnly)
+            {
+                volumeArg += ":ro";
+            }
+            return volumeArg;
+        }
+
+        private static string QuotePathForCommandLine(string path)
+        {
+            // Escape embedded double quotes.
+            string escaped = (path ?? string.Empty).Replace("\"", "\\\"");
+
+            // Count trailing backslashes; double them so a path like "F:\" becomes "F:\\"
+            // and is parsed by the Windows C runtime as F:\ followed by the closing quote
+            // instead of treating the closing quote as escaped.
+            int trailing = 0;
+            for (int i = escaped.Length - 1; i >= 0 && escaped[i] == '\\'; i--)
+            {
+                trailing++;
+            }
+            if (trailing > 0)
+            {
+                escaped += new string('\\', trailing);
+            }
+            return "\"" + escaped + "\"";
         }
 
         private async Task<int> ExecuteDockerCommandAsync(IExecutionContext context, string command, string options, IList<string> standardIns = null, CancellationToken cancellationToken = default(CancellationToken))
