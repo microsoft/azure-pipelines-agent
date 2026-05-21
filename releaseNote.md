@@ -1,3 +1,25 @@
+## Features
+ - Updated mingit version to 2.53.0 (#5490)
+ - Refactor Node version strategies to enforce single-responsibility (#5500)
+ - Upgrading package of vss-api-netcore dependency: TestLogStore proxy changes (#5489)
+ - node24 fallback logic update (#5499)
+ - Feat(PTRV2): Detection of re-run TRX files in PTR (#5496)
+ - Add fetchFilter option to the git submodules (#5518)
+ - Add Windows ARM64 agent to release notes (#5533)
+ - Updated Code to skip files which can trigger outside agent root direc… (#5566)
+ - Updating mingit version to 2.54.0 (#5567)
+ - Updating node version to 24.14.1 (#5575)
+
+## Bugs
+ - Create missing working directory in NodeHandler before task execution (#5545)
+ - Fix ObjectDisposedException race in PublishTestResultsCommand (#5516)
+ - [BUG FIX]: Add libicu78 to installdependencies.sh for Ubuntu 26.04 (Resolute) support (#5574)
+
+## Misc
+ - Updating Node24 version to 24.15.0 (#5539)
+ - Updated PostAnalysis task to version 2 (#5541)
+ - Update axios dependency to fix vulnerability (#5551)
+
 
 ## Agent Downloads
 
