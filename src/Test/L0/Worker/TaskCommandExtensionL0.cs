@@ -285,6 +285,106 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_BlocksUrlModification_OnSystemEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                try
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", "true");
+
+                    TaskCommandExtension commandExtension = new TaskCommandExtension();
+                    commandExtension.Initialize(_hc);
+
+                    var cmd = new Command("task", "setEndpoint");
+                    cmd.Data = "http://evil.com/";
+                    cmd.Properties.Add("field", "url");
+                    cmd.Properties.Add("id", Guid.Empty.ToString());
+
+                    commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                    Assert.Equal(new Uri("https://test.com"), _endpoint.Url);
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", null);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_BlocksAuthParameter_OnSystemEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                try
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", "true");
+
+                    TaskCommandExtension commandExtension = new TaskCommandExtension();
+                    commandExtension.Initialize(_hc);
+
+                    var cmd = new Command("task", "setEndpoint");
+                    cmd.Data = "stolen-token";
+                    cmd.Properties.Add("field", "authParameter");
+                    cmd.Properties.Add("id", Guid.Empty.ToString());
+                    cmd.Properties.Add("key", "AccessToken");
+
+                    commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                    Assert.False(_endpoint.Authorization.Parameters.ContainsKey("AccessToken"));
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", null);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_AllowsModification_OnUserEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                try
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", "true");
+
+                    var userEndpointId = Guid.NewGuid();
+                    var userEndpoint = new ServiceEndpoint()
+                    {
+                        Id = userEndpointId,
+                        Url = new Uri("https://original.com"),
+                        Authorization = new EndpointAuthorization() { Scheme = "Test" }
+                    };
+                    _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint, userEndpoint });
+
+                    TaskCommandExtension commandExtension = new TaskCommandExtension();
+                    commandExtension.Initialize(_hc);
+
+                    var cmd = new Command("task", "setEndpoint");
+                    cmd.Data = "http://newurl.com/";
+                    cmd.Properties.Add("field", "url");
+                    cmd.Properties.Add("id", userEndpointId.ToString());
+
+                    commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                    Assert.Equal(new Uri("http://newurl.com/"), userEndpoint.Url);
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION", null);
+                }
+            }
+        }
+
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
             var _hc = new TestHostContext(this, name);
