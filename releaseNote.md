@@ -1,3 +1,16 @@
+## Features
+ - Updated Code to skip files which can trigger outside agent root direc… (#5566)
+ - Updating mingit version to 2.54.0 (#5567)
+ - Updating node version to 24.14.1 (#5575)
+
+## Bugs
+ - Create missing working directory in NodeHandler before task execution (#5545)
+ - Fix ObjectDisposedException race in PublishTestResultsCommand (#5516)
+ - [BUG FIX]: Add libicu78 to installdependencies.sh for Ubuntu 26.04 (Resolute) support (#5574)
+
+## Misc
+ - Update axios dependency to fix vulnerability (#5551)
+
 
 ## Agent Downloads
 
