@@ -802,8 +802,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new ArgumentNullException(StringUtil.Loc("InvalidEndpointId"));
             }
 
-            var blockSystemEndpoint = AgentKnobs.BlockSetEndpointOnSystemConnection.GetValue(context).AsBoolean();
-            if (blockSystemEndpoint && ProtectedEndpointIds.Contains(endpointId))
+            if (ProtectedEndpointIds.Contains(endpointId))
             {
                 context.Warning($"Modification of system endpoint '{endpoint.Name}' is not allowed via setendpoint command.");
                 return;

@@ -972,13 +972,5 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
 
-        // Security
-        public static readonly Knob BlockSetEndpointOnSystemConnection = new Knob(
-            nameof(BlockSetEndpointOnSystemConnection),
-            "If true, blocks ##vso[task.setendpoint] commands from modifying protected system endpoints (e.g. SystemVssConnection) to prevent token exfiltration.",
-            new PipelineFeatureSource("BlockSetEndpointOnSystemConnection"),
-            new RuntimeKnobSource("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION"),
-            new EnvironmentKnobSource("AZP_BLOCK_SETENDPOINT_ON_SYSTEM_CONNECTION"),
-            new BuiltInDefaultKnobSource("false"));
     }
 }
