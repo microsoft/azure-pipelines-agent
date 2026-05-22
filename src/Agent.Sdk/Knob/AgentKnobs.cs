@@ -971,6 +971,5 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
-
     }
 }
