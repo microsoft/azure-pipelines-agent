@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Data = "blah";
                 cmd.Properties.Add("field", "authParameter");
-                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("id", "11111111-1111-1111-1111-111111111111");
                 cmd.Properties.Add("key", "test");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Data = "blah";
                 cmd.Properties.Add("field", "dataParameter");
-                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("id", "11111111-1111-1111-1111-111111111111");
                 cmd.Properties.Add("key", "test");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Data = "http://blah/";
                 cmd.Properties.Add("field", "url");
-                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("id", "11111111-1111-1111-1111-111111111111");
 
                 commandExtension.ProcessCommand(_ec.Object, cmd);
 
@@ -160,7 +160,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 TaskCommandExtension commandExtension = new TaskCommandExtension();
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Properties.Add("field", "authParameter");
-                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("id", "11111111-1111-1111-1111-111111111111");
 
                 Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
@@ -177,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 var cmd = new Command("task", "setEndpoint");
                 cmd.Data = "blah";
                 cmd.Properties.Add("field", "url");
-                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("id", "11111111-1111-1111-1111-111111111111");
 
                 Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
             }
@@ -285,6 +285,97 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_BlocksUrlModification_OnSystemEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                var systemEndpoint = new ServiceEndpoint()
+                {
+                    Id = Guid.Empty,
+                    Name = "SystemVssConnection",
+                    Url = new Uri("https://dev.azure.com/myorg"),
+                    Authorization = new EndpointAuthorization() { Scheme = "OAuth" }
+                };
+                _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint, systemEndpoint });
+
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                commandExtension.Initialize(_hc);
+
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "http://evil.com/";
+                cmd.Properties.Add("field", "url");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
+
+                commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                Assert.Equal(new Uri("https://dev.azure.com/myorg"), systemEndpoint.Url);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_BlocksAuthParameter_OnSystemEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                var systemEndpoint = new ServiceEndpoint()
+                {
+                    Id = Guid.Empty,
+                    Name = "SystemVssConnection",
+                    Url = new Uri("https://dev.azure.com/myorg"),
+                    Authorization = new EndpointAuthorization() { Scheme = "OAuth" }
+                };
+                _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint, systemEndpoint });
+
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                commandExtension.Initialize(_hc);
+
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "stolen-token";
+                cmd.Properties.Add("field", "authParameter");
+                cmd.Properties.Add("id", Guid.Empty.ToString());
+                cmd.Properties.Add("key", "AccessToken");
+
+                commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                Assert.False(systemEndpoint.Authorization.Parameters.ContainsKey("AccessToken"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void SetEndpoint_AllowsModification_OnUserEndpoint()
+        {
+            using (var _hc = SetupMocks())
+            {
+                var userEndpointId = Guid.NewGuid();
+                var userEndpoint = new ServiceEndpoint()
+                {
+                    Id = userEndpointId,
+                    Url = new Uri("https://original.com"),
+                    Authorization = new EndpointAuthorization() { Scheme = "Test" }
+                };
+                _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { _endpoint, userEndpoint });
+
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                commandExtension.Initialize(_hc);
+
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "http://newurl.com/";
+                cmd.Properties.Add("field", "url");
+                cmd.Properties.Add("id", userEndpointId.ToString());
+
+                commandExtension.ProcessCommand(_ec.Object, cmd);
+
+                Assert.Equal(new Uri("http://newurl.com/"), userEndpoint.Url);
+            }
+        }
+
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
             var _hc = new TestHostContext(this, name);
@@ -293,7 +384,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
             _endpoint = new ServiceEndpoint()
             {
-                Id = Guid.Empty,
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 Url = new Uri("https://test.com"),
                 Authorization = new EndpointAuthorization()
                 {

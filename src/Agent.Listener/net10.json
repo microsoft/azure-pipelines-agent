@@ -3,7 +3,7 @@
     "id": "alpine",
     "versions": [
       {
-        "name": "3.20+"
+        "name": "3.22+"
       }
     ]
   },
@@ -22,7 +22,7 @@
     "id": "azure-linux",
     "versions": [
       {
-        "name": "3.0"
+        "name": "3.0+"
       }
     ]
   },
@@ -46,7 +46,7 @@
     "id": "fedora",
     "versions": [
       {
-        "name": "41+"
+        "name": "42+"
       }
     ]
   },

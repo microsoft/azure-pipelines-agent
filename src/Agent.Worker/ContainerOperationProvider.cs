@@ -223,17 +223,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
-                    var idToken = await taskClient.CreateOidcTokenAsync(
-                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
-                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
-                        planId: new Guid(executionContext.Variables.System_PlanId),
-                        jobId: new Guid(executionContext.Variables.System_JobId),
-                        serviceConnectionId: registryEndpoint.Id,
-                        claims: null,
-                        cancellationToken: cancellationToken
-                    );
+                    const int maxRetries = 3;
 
-                    return idToken.OidcToken;
+                    for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
+                    {
+                        try
+                        {
+                            var idToken = await taskClient.CreateOidcTokenAsync(
+                                scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
+                                hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                                planId: new Guid(executionContext.Variables.System_PlanId),
+                                jobId: new Guid(executionContext.Variables.System_JobId),
+                                serviceConnectionId: registryEndpoint.Id,
+                                claims: null,
+                                cancellationToken: cancellationToken
+                            );
+                            Trace.Info("OIDC token created successfully");
+                            return idToken.OidcToken;
+                        }
+                        catch (TaskOrchestrationPlanSecurityException ex) when (attempt <= maxRetries)
+                        {
+                            TimeSpan backoff = TimeSpan.FromSeconds(Math.Pow(5, attempt - 1));
+                            executionContext.Debug($"Failed to acquire OIDC token(attempt {attempt}/{maxRetries}): {ex.Message}. Retrying in {backoff.TotalSeconds} seconds...");
+                            await Task.Delay(backoff, cancellationToken);
+                        }
+                    }
+
+                    throw new InvalidOperationException("Failed to acquire OIDC token after all retry attempts.");
                 })
                 .Build();
 
@@ -537,7 +553,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
             }
 
-            bool UseNodeVersionStrategy = AgentKnobs.UseNodeVersionStrategy.GetValue(executionContext).AsBoolean();
+            bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useAgentNode = false;
@@ -565,11 +581,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                                                     dockerObject: container.ContainerImage,
                                                                     options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
 
-                if (UseNodeVersionStrategy)
+                if (useEnhancedNodeSelection)
                 {
-                    bool isWindowsContainer = container.ContainerImage.ToLowerInvariant().Contains("windows") ||
-                                            container.ContainerImage.ToLowerInvariant().Contains("nanoserver") ||
-                                            container.ContainerImage.ToLowerInvariant().Contains("servercore");
+                    executionContext.Debug("[ContainerSetup] Using enhanced node selection path for container startup.");
+                    bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows;            
                     
                     container.ContainerCommand = isWindowsContainer
                         ? "cmd.exe /c ping -t localhost > nul"
@@ -577,7 +592,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 else
                 {
-                    
+                    executionContext.Debug("[ContainerSetup] Using legacy node selection path for container startup.");
                     // Legacy approach: Use node-based startup command
                     string nodeSetInterval(string node)
                     {
@@ -660,10 +675,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                 }
-                else if (UseNodeVersionStrategy && container.IsJobContainer)
+                else if (useEnhancedNodeSelection && container.IsJobContainer)
                 {
                     try
                     {
+                        executionContext.Debug("[ContainerSetup] Calling enhanced node selection path for container startup.");
                         SetContainerNodePathWithOrchestrator(executionContext, container);
                     }
                     catch (Exception ex)

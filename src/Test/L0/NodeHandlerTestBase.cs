@@ -22,6 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public abstract class NodeHandlerTestBase : IDisposable
     {
         protected Mock<INodeHandlerHelper> NodeHandlerHelper { get; private set; }
+        protected List<string> CapturedWarnings { get; private set; } = new List<string>();
         private bool disposed = false;
 
         protected NodeHandlerTestBase()
@@ -57,7 +58,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Environment.SetEnvironmentVariable(knob.Key, knob.Value);
             }
             
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", useStrategy ? "true" : "false");
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", useStrategy ? "true" : "false");
 
             try
             {
@@ -71,6 +72,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     var dockerManagerMock = SetupMockedDockerCommandManager(scenario);
                     thc.SetSingleton<IDockerCommandManager>(dockerManagerMock.Object);
+
+                    // Mock IProcessInvoker for node executable checks (e.g., IsNodeExecutable in Node24Strategy)
+                    var processInvokerMock = new Mock<IProcessInvoker>();
+                    for (int i = 0; i < 10; i++)
+                    {
+                        thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+                    }
+
+                    SetupNodeProcessInvocation(processInvokerMock, scenario.HandlerDataType.Name, scenario.Node24Executable);
 
                     var expectations = GetScenarioExpectations(scenario, useStrategy);
                     try{
@@ -99,6 +109,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                         string expectedLocation = GetExpectedNodeLocation(expectations.ExpectedNode, scenario, thc);
                         Assert.Equal(expectedLocation, actualLocation);
+
+                        // Assert warning expectations for strategy-based mode
+                        if (useStrategy && scenario.StrategyExpectedWarning != null)
+                        {
+                            if (string.IsNullOrEmpty(scenario.StrategyExpectedWarning))
+                            {
+                                Assert.DoesNotContain(CapturedWarnings, w => w.Contains("NodeEOLUpgradeWarning"));
+                            }
+                            else
+                            {
+                                Assert.Contains(CapturedWarnings, w => w.Contains(scenario.StrategyExpectedWarning));
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -242,6 +265,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     nodeFolderName,
                     "bin",
                     $"node{IOUtil.ExeExtension}"));
+            NodeHandlerHelper
+                .Setup(x => x.IsNodeExecutable(It.IsAny<string>(), It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                .Returns(scenario.Node24Executable);
         }
 
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
@@ -371,6 +397,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.GetHostContext())
                 .Returns(tc);
 
+            CapturedWarnings.Clear();
+            executionContext
+                .Setup(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Warning)))
+                .Callback<Issue>(issue => CapturedWarnings.Add(issue.Message));
+
             return executionContext;
         }
 
@@ -445,12 +476,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
        
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE_STRATEGY", null);
+            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", null);
             
             // System-specific knobs
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM", null);         
             
+        }
+
+        private void SetupNodeProcessInvocation(Mock<IProcessInvoker> processInvokerMock, string nodeFolder, bool node24Executable)
+        {
+            string nodeExePath = Path.Combine("externals", nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
+
+            processInvokerMock.Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.Is<string>(fileName => fileName.Contains(nodeExePath)),
+                    "-v",
+                    It.IsAny<IDictionary<string, string>>(),
+                    false,
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(node24Executable ? 0 : 216);
         }
     }
 
