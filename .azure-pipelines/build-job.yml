@@ -240,8 +240,8 @@ jobs:
   # Code coverage
   - ${{ if and(parameters.codeCoverage, parameters.unitTests, parameters.functionalTests) }}:
     - script: |
-        dotnet tool install --global dotnet-reportgenerator-globaltool
-        dotnet tool install --global dotnet-coverage
+        dotnet tool install --global dotnet-reportgenerator-globaltool --add-source https://pkgs.dev.azure.com/mseng/PipelineTools/_packaging/PipelineTools_PublicPackages/nuget/v3/index.json
+        dotnet tool install --global dotnet-coverage --add-source https://pkgs.dev.azure.com/mseng/PipelineTools/_packaging/PipelineTools_PublicPackages/nuget/v3/index.json
       displayName: Install Code Coverage and Report Generator
 
     - script: "${{ variables.devCommand }} report $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}"
