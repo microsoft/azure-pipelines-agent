@@ -240,8 +240,8 @@ jobs:
   # Code coverage
   - ${{ if and(parameters.codeCoverage, parameters.unitTests, parameters.functionalTests) }}:
     - script: |
-        dotnet tool install --global dotnet-reportgenerator-globaltool --configfile NuGet.Config
-        dotnet tool install --global dotnet-coverage --configfile NuGet.Config
+        dotnet tool install --global dotnet-reportgenerator-globaltool --configfile $(Build.SourcesDirectory)/NuGet.Config
+        dotnet tool install --global dotnet-coverage --configfile $(Build.SourcesDirectory)/NuGet.Config
       displayName: Install Code Coverage and Report Generator
 
     - script: "${{ variables.devCommand }} report $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}"
