@@ -81,6 +81,7 @@
   "ClientSecret": "Client secret",
   "ClockSkewStopRetry": "Stopped retrying OAuth token request exception after {0} seconds.",
   "CodeCoverageDataIsNull": "No coverage data found. Check the build errors/warnings for more details.",
+  "CodeCoverageFileSkippedPathTraversal": "Skipping code coverage file due to path traversal attempt: {0}",
   "CodeCoveragePublishIsValidOnlyForBuild": "Publishing code coverage works only for 'build'.",
   "CollectionName": "Collection Name",
   "CommandDuplicateDetected": "Command {0} already installed for area {1}",

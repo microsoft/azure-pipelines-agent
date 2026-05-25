@@ -7,6 +7,10 @@
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
   </PropertyGroup>
 
+  <PropertyGroup Condition="$(PackageRuntime.StartsWith('win'))">
+    <ApplicationIcon>..\Misc\layoutbin\azure-pipelines-agent.ico</ApplicationIcon>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Agent.Sdk\Agent.Sdk.csproj" />
   </ItemGroup>

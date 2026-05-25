@@ -171,9 +171,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 // Ensure compat vso-task-lib exist at the root of _work folder
                 // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
                 // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.
-                if (!File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
+                string vsoTaskLibFromExternal = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vso-task-lib");
+                if (Directory.Exists(vsoTaskLibFromExternal) &&
+                    !File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
                 {
-                    string vsoTaskLibFromExternal = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vso-task-lib");
                     string compatVsoTaskLibInWork = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib");
                     IOUtil.CopyDirectory(vsoTaskLibFromExternal, compatVsoTaskLibInWork, ExecutionContext.CancellationToken);
                 }
@@ -202,6 +203,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
                 }
+            }
+
+            // Ensure working directory exists on disk before starting the task process.
+            if (!string.IsNullOrEmpty(workingDirectory) && !Directory.Exists(workingDirectory))
+            {
+                Trace.Info($"Working directory does not exist, creating it: '{workingDirectory}'");
+                Directory.CreateDirectory(workingDirectory);
             }
 
             // fix vsts-task-lib for node 6.x
@@ -413,13 +421,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
-            bool useStrategyPattern = AgentKnobs.UseNodeVersionStrategy.GetValue(ExecutionContext).AsBoolean();
-
+            bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
+            
             if (useStrategyPattern)
             {
+                ExecutionContext.Debug("Using enhanced node selection path for handler node resolution.");
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
 
+            ExecutionContext.Debug("Using legacy node selection path for handler node resolution.");
             return GetNodeLocationLegacy(node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
         }
 

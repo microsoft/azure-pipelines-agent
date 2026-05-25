@@ -74,6 +74,10 @@ namespace Microsoft.VisualStudio.Services.Agent
             public static readonly Guid TemplateAnalyzerSarif = new Guid("2ff4011a-8c38-46ae-9654-29d7d45ce875");
             public static readonly Guid TerrascanSarif = new Guid("f1af679c-4cbf-4952-98c9-c772c8eb9920");
             public static readonly Guid TrivySarif = new Guid("93e29b44-e118-445d-b809-ae3c7907bee7");
+
+            // enterpriselivemigration-tasks
+            public static readonly Guid ElmPrecheckTask = new Guid("95f6d7c1-6cc0-47c2-944c-6172489de134");
+            public static readonly Guid ElmRepoSyncTask = new Guid("3a0763a8-1b93-4553-a749-947a21c45b3f");
         }
 
         public static List<Guid> RequiredForTelemetry = new()
@@ -93,7 +97,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             MicrosoftExtensionTaskIds.AdvancedSecurityDependencyScanning,
             MicrosoftExtensionTaskIds.TemplateAnalyzerSarif,
             MicrosoftExtensionTaskIds.TerrascanSarif,
-            MicrosoftExtensionTaskIds.TrivySarif
+            MicrosoftExtensionTaskIds.TrivySarif,
+            MicrosoftExtensionTaskIds.ElmPrecheckTask,
+            MicrosoftExtensionTaskIds.ElmRepoSyncTask
         };
     }
 

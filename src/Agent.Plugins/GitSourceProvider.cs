@@ -774,7 +774,7 @@ namespace Agent.Plugins.Repository
                 executionContext.Warning("Unable turn off git auto garbage collection, git fetch operation may trigger auto garbage collection which will affect the performance of fetching.");
             }
 
-            SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
+            await SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
 
             // always remove any possible left extraheader setting from git config.
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
@@ -1494,7 +1494,7 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        public async void SetGitFeatureFlagsConfiguration(
+        public async Task SetGitFeatureFlagsConfiguration(
             AgentTaskPluginExecutionContext executionContext,
             IGitCliManager gitCommandManager,
             string targetPath)
