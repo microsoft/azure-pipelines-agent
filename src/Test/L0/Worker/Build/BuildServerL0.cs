@@ -1,0 +1,89 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.VisualStudio.Services.Common;
+using Moq;
+using Xunit;
+
+namespace Test.L0.Worker.Build
+{
+    public sealed class BuildServerL0
+    {
+        // Regression test for tags containing reserved URL characters such as ';' — see
+        // https://github.com/microsoft/azure-pipelines-task-lib/issues/1072.
+        //
+        // BuildServer.AddBuildTag must call the bulk BuildHttpClient.AddBuildTagsAsync overload
+        // (which transports tags in the request body) instead of the legacy single-tag
+        // AddBuildTagAsync overload (which encodes the tag into the URL path and corrupts
+        // characters like ';').
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task AddBuildTag_UsesBodyApi_AndPreservesSemicolonInTag()
+        {
+            const string tag = "foo;bar";
+            const int buildId = 42;
+            Guid projectId = Guid.NewGuid();
+
+            var mockClient = new Mock<BuildHttpClient>(new Uri("http://localhost"), new VssCredentials());
+
+            IEnumerable<string> capturedTags = null;
+            Guid capturedProject = Guid.Empty;
+            int capturedBuildId = 0;
+
+            mockClient
+                .Setup(x => x.AddBuildTagsAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int>(),
+                    It.IsAny<object>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<IEnumerable<string>, Guid, int, object, CancellationToken>(
+                    (tags, project, id, _, __) =>
+                    {
+                        capturedTags = tags?.ToArray();
+                        capturedProject = project;
+                        capturedBuildId = id;
+                    })
+                .Returns(Task.FromResult<List<string>>(new List<string> { tag }));
+
+            var server = new Microsoft.VisualStudio.Services.Agent.Worker.Build.BuildServer
+            {
+                _buildHttpClient = mockClient.Object
+            };
+
+            var result = await server.AddBuildTag(buildId, projectId, tag);
+
+            Assert.NotNull(capturedTags);
+            Assert.Equal(new[] { tag }, capturedTags);
+            Assert.Equal(projectId, capturedProject);
+            Assert.Equal(buildId, capturedBuildId);
+            Assert.Contains(tag, result);
+
+            mockClient.Verify(
+                x => x.AddBuildTagsAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<int>(),
+                    It.IsAny<object>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // Guard against accidental revert to the URL-path single-tag overload.
+            mockClient.Verify(
+                x => x.AddBuildTagAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<int>(),
+                    It.IsAny<string>(),
+                    It.IsAny<object>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+    }
+}

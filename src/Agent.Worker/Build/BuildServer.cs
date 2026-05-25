@@ -40,7 +40,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
     public class BuildServer : AgentService, IBuildServer
     {
         private VssConnection _connection;
-        private Build2.BuildHttpClient _buildHttpClient;
+        // Exposed as internal (not private) so unit tests in the Test assembly can substitute a mocked
+        // BuildHttpClient via [assembly: InternalsVisibleTo("Test")] declared in AssemblyInfo.cs.
+        internal Build2.BuildHttpClient _buildHttpClient;
 
         public async Task ConnectAsync(VssConnection jobConnection)
         {
@@ -117,6 +119,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken = default(CancellationToken))
         {
+            // Intentionally call the bulk AddBuildTagsAsync (sends tags in the request body) instead of
+            // the single-tag AddBuildTagAsync overload (which encodes the tag into the URL path).
+            // The URL-path variant mangles reserved characters such as ';' on the server side, which
+            // caused the post-call verification in BuildAddBuildTagCommand to fail. See:
+            //   https://github.com/microsoft/azure-pipelines-task-lib/issues/1072
+            // Do not "simplify" this back to AddBuildTagAsync.
             return await _buildHttpClient.AddBuildTagsAsync(new[] { buildTag }, projectId, buildId, cancellationToken: cancellationToken);
         }
     }
