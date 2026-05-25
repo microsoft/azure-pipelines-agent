@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Build2 = Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 {
@@ -119,13 +120,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string buildTag,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            // Intentionally call the bulk AddBuildTagsAsync (sends tags in the request body) instead of
-            // the single-tag AddBuildTagAsync overload (which encodes the tag into the URL path).
-            // The URL-path variant mangles reserved characters such as ';' on the server side, which
-            // caused the post-call verification in BuildAddBuildTagCommand to fail. See:
+            // Prefer the bulk AddBuildTagsAsync overload (body transport), which preserves reserved
+            // URL characters such as ';'. The legacy single-tag AddBuildTagAsync overload encodes
+            // the tag into the URL path and mangles such characters, causing the post-call
+            // verification in BuildAddBuildTagCommand to fail. See:
             //   https://github.com/microsoft/azure-pipelines-task-lib/issues/1072
-            // Do not "simplify" this back to AddBuildTagAsync.
-            return await _buildHttpClient.AddBuildTagsAsync(new[] { buildTag }, projectId, buildId, cancellationToken: cancellationToken);
+            //
+            // The kill-switch knob UseBuildTagsBodyApi (set the agent-host environment variable
+            // AGENT_USE_BUILD_TAGS_BODY_API=false and restart the agent) lets operators fall back
+            // to the legacy URL-path API if the body-based endpoint is unsupported on their
+            // on-prem Azure DevOps Server version. Do not "simplify" this branch away.
+            bool useBodyApi = AgentKnobs.UseBuildTagsBodyApi
+                .GetValue(UtilKnobValueContext.Instance())
+                .AsBoolean();
+
+            if (useBodyApi)
+            {
+                return await _buildHttpClient.AddBuildTagsAsync(new[] { buildTag }, projectId, buildId, cancellationToken: cancellationToken);
+            }
+
+            return await _buildHttpClient.AddBuildTagAsync(projectId, buildId, buildTag, cancellationToken: cancellationToken);
         }
     }
 }
