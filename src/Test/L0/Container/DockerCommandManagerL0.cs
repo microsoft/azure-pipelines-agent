@@ -510,9 +510,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         // which the Windows C runtime parses as a single argument (the trailing backslash
         // escapes the closing quote), causing docker to fail with "too many colons". Trailing
         // backslashes must be doubled so the closing quote is preserved.
+        // Windows-only: on Linux/macOS '\' is a literal path character and is not doubled.
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void FormatMountVolumeArg_BindMount_DriveRootSource_DoublesTrailingBackslash()
         {
             Assert.Equal(
@@ -523,6 +526,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void FormatMountVolumeArg_BindMount_DriveRootTarget_DoublesTrailingBackslash()
         {
             Assert.Equal(
@@ -533,6 +538,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void FormatMountVolumeArg_BindMount_MultipleTrailingBackslashes_AreAllDoubled()
         {
             Assert.Equal(
@@ -543,11 +550,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         public void FormatMountVolumeArg_AnonymousVolume_TrailingBackslashTarget_IsDoubled()
         {
             Assert.Equal(
                 "-v \"C:\\data\\\\\"",
                 DockerCommandManager.FormatMountVolumeArg(null, "C:\\data\\", readOnly: false));
+        }
+
+        // Non-Windows counterpart: on Linux/macOS, a trailing backslash is a literal path
+        // character (not a separator) and must be left untouched by the quoting helper.
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public void FormatMountVolumeArg_BindMount_TrailingBackslash_NotDoubledOnNonWindows()
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                // SkipOn=windows in CI; guard here so local Windows runs don't fail.
+                return;
+            }
+
+            Assert.Equal(
+                "-v \"/mnt/weird\\\":\"/container\\\"",
+                DockerCommandManager.FormatMountVolumeArg("/mnt/weird\\", "/container\\", readOnly: false));
         }
 
         [Fact]
@@ -560,12 +588,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 DockerCommandManager.FormatMountVolumeArg("C:\\weird\"name", "/mnt/x", readOnly: false));
         }
 
-        // Regression: exact mount specs observed in the InitializeContainers step logs.
-        // All four must produce arguments that docker.exe parses as a single valid -v spec
-        // (the F:\ case used to fail with "invalid spec ... too many colons").
+        // Regression: exact mount specs observed in the InitializeContainers step logs on a
+        // Windows agent. All four must produce arguments that docker.exe parses as a single
+        // valid -v spec (the F:\ case used to fail with "invalid spec ... too many colons").
+        // Windows-only because the expected output reflects the trailing-backslash doubling.
         [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
         [InlineData("D:\\a\\_work", "C:\\__w", "-v \"D:\\a\\_work\":\"C:\\__w\"")]
         [InlineData("D:\\a\\_work\\_tasks", "C:\\__w\\_tasks", "-v \"D:\\a\\_work\\_tasks\":\"C:\\__w\\_tasks\"")]
         [InlineData("F:\\", "C:\\__w", "-v \"F:\\\\\":\"C:\\__w\"")]
