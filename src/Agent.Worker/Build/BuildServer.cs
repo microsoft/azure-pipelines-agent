@@ -35,14 +35,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             int buildId,
             Guid projectId,
             string buildTag,
+            IKnobValueContext knobContext,
             CancellationToken cancellationToken = default(CancellationToken));
     }
 
     public class BuildServer : AgentService, IBuildServer
     {
         private VssConnection _connection;
-        // Exposed as internal (not private) so unit tests in the Test assembly can substitute a mocked
-        // BuildHttpClient via [assembly: InternalsVisibleTo("Test")] declared in AssemblyInfo.cs.
+        // Exposed as internal so unit tests in the Test assembly can inject a mocked
+        // BuildHttpClient via [assembly: InternalsVisibleTo("Test")].
         internal Build2.BuildHttpClient _buildHttpClient;
 
         public async Task ConnectAsync(VssConnection jobConnection)
@@ -118,27 +119,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             int buildId,
             Guid projectId,
             string buildTag,
+            IKnobValueContext knobContext,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            // Prefer the bulk AddBuildTagsAsync overload (body transport), which preserves reserved
-            // URL characters such as ';'. The legacy single-tag AddBuildTagAsync overload encodes
-            // the tag into the URL path and mangles such characters, causing the post-call
-            // verification in BuildAddBuildTagCommand to fail. See:
-            //   https://github.com/microsoft/azure-pipelines-task-lib/issues/1072
-            //
-            // The kill-switch knob UseBuildTagsBodyApi (set the agent-host environment variable
-            // AGENT_USE_BUILD_TAGS_BODY_API=false and restart the agent) lets operators fall back
-            // to the legacy URL-path API if the body-based endpoint is unsupported on their
-            // on-prem Azure DevOps Server version. Do not "simplify" this branch away.
+            ArgUtil.NotNull(knobContext, nameof(knobContext));
+
+            // Prefer the body-based AddBuildTagsAsync overload, which preserves reserved URL
+            // characters such as ';'. The legacy AddBuildTagAsync overload encodes the tag into
+            // the URL path and mangles such characters, causing the post-call verification in
+            // BuildAddBuildTagCommand to fail. See azure-pipelines-task-lib#1072.
+            // The UseBuildTagsBodyApi knob is a kill-switch for on-prem servers that don't
+            // support the body endpoint.
             bool useBodyApi = AgentKnobs.UseBuildTagsBodyApi
-                .GetValue(UtilKnobValueContext.Instance())
+                .GetValue(knobContext)
                 .AsBoolean();
 
             if (useBodyApi)
             {
+                Trace.Info("Adding build tag using body-based API.");
                 return await _buildHttpClient.AddBuildTagsAsync(new[] { buildTag }, projectId, buildId, cancellationToken: cancellationToken);
             }
 
+            Trace.Info("Adding build tag using legacy URL-path API.");
             return await _buildHttpClient.AddBuildTagAsync(projectId, buildId, buildTag, cancellationToken: cancellationToken);
         }
     }

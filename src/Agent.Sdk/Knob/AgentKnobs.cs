@@ -137,9 +137,10 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob UseBuildTagsBodyApi = new Knob(
             nameof(UseBuildTagsBodyApi),
-            "If true (default), the agent sends build tags in the request body via BuildHttpClient.AddBuildTagsAsync, preserving reserved URL characters such as ';'. Set the agent-host environment variable AGENT_USE_BUILD_TAGS_BODY_API=false to fall back to the legacy single-tag AddBuildTagAsync (URL-path) overload — only needed for older on-prem Azure DevOps Server versions that do not accept the body-based endpoint.",
+            "If true, the agent posts build tags via the body-based BuildHttpClient.AddBuildTagsAsync overload, preserving reserved URL characters such as ';'. If false (default), uses the legacy URL-path AddBuildTagAsync overload.",
+            new RuntimeKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
             new EnvironmentKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
-            new BuiltInDefaultKnobSource("true"));
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
             nameof(FixPossibleGitOutOfMemoryProblem),
