@@ -1,3 +1,13 @@
+## Features
+
+
+## Bugs
+ - Revert "Add dir check in node handler (#5545)" (#5584)
+
+## Misc
+ - Add application icon for Windows builds (#5557)
+ - Report enableagent VM extension fallback usage (#5477)
+
 
 ## Agent Downloads
 
