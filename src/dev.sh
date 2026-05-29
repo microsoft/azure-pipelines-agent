@@ -114,6 +114,11 @@ function restore_sdk_and_runtime() {
 }
 
 function warn_about_newer_versions() {
+    # Skip version checks in CI pipelines to avoid external network calls (CFS compliance)
+    if [[ "${TF_BUILD:-}" == "True" ]]; then
+        return
+    fi
+
     echo "" 
     
     # Extract major version from TARGET_FRAMEWORK (e.g., net10.0 -> 10.0, net8.0 -> 8.0)

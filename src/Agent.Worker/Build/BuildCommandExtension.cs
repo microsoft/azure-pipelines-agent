@@ -185,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             var buildServer = context.GetHostContext().GetService<IBuildServer>();
             await buildServer.ConnectAsync(connection);
-            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, cancellationToken);
+            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, context, cancellationToken);
 
             if (tags == null || !tags.Any(t => t.Equals(buildTag, StringComparison.OrdinalIgnoreCase)))
             {
