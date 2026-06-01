@@ -685,7 +685,7 @@
   "UnrecognizedCmdArgs": "Нераспознанные входные аргументы командной строки: \"{0}\". Сведения об использовании: .\\config.cmd --help или ./config.sh --help",
   "UnregisteringAgent": "Удаление агента с сервера",
   "UnsupportedGitLfsVersion": "Агент не поддерживает текущую версию Git LFS \"{0}\". Выполните обновление до версии не ниже \"{1}\". Дополнительные сведения: https://github.com/git-lfs/git-lfs/issues/3571.",
-  "UnsupportedOsVersionByNet8": "Версия операционной системы, на которой работает этот агент ({0}), не поддерживается в предстоящем обновлении Pipelines Agent. Поддерживаемые версии операционных систем см. на сайте https://aka.ms/azdo-pipeline-agent-net8.",
+  "UnsupportedOsVersionByNet8": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.",
   "UpdateBuildNumber": "Обновление номера сборки",
   "UpdateBuildNumberForBuild": "Обновите номер сборки до {0} для сборки {1}",
   "UpdateInProgress": "Выполняется обновление агента, не завершайте его работу.",

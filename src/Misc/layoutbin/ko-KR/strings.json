@@ -685,7 +685,7 @@
   "UnrecognizedCmdArgs": "인식할 수 없는 명령줄 입력 인수: '{0}'. 사용법은 .\\config.cmd --help 또는 ./config.sh --help를 참조하세요.",
   "UnregisteringAgent": "서버에서 에이전트 제거",
   "UnsupportedGitLfsVersion": "현재 Git LFS 버전은 에이전트에서 지원하지 않는 '{0}'입니다. 최소한 '{1}' 버전으로 업그레이드하세요. 자세한 내용은 https://github.com/git-lfs/git-lfs/issues/3571을 참조하세요.",
-  "UnsupportedOsVersionByNet8": "이 에이전트가 실행 중인 운영 체제 버전({0})은 파이프라인 에이전트에 대한 향후 업데이트에서 지원되지 않습니다. 지원되는 운영 체제 버전은 https://aka.ms/azdo-pipeline-agent-net8을 참조하세요.",
+  "UnsupportedOsVersionByNet8": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.",
   "UpdateBuildNumber": "빌드 번호 업데이트",
   "UpdateBuildNumberForBuild": "빌드 {1}의 빌드 번호를 {0}(으)로 업데이트",
   "UpdateInProgress": "에이전트 업데이트가 진행 중입니다. 에이전트를 종료하지 마세요.",
