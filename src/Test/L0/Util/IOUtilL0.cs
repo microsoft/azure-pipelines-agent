@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeleteTargetFileWithASymlink()
+        public async Task DeleteDirectory_DeleteTargetFileWithASymlink()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -385,7 +385,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeletesWithRetry_Success()
+        public async Task DeleteDirectory_DeletesWithRetry_Success()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -418,7 +418,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteDirectory_DeletesWithRetry_CancellationRequested()
+        public async Task DeleteDirectory_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -450,7 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeletesWithRetry_NonExistenDir()
+        public async Task DeleteDirectory_DeletesWithRetry_NonExistenDir()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -470,7 +470,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteDirectory_DeletesWithRetry_IOException()
+        public async Task DeleteDirectory_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -841,7 +841,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteFile_DeletesWithRetry_Success()
+        public async Task DeleteFile_DeletesWithRetry_Success()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -873,7 +873,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteFile_DeletesWithRetry_NonExistenFile()
+        public async Task DeleteFile_DeletesWithRetry_NonExistenFile()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -893,7 +893,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteFile_DeletesWithRetry_IOException()
+        public async Task DeleteFile_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -922,7 +922,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteFile_DeletesWithRetry_CancellationRequested()
+        public async Task DeleteFile_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -1331,6 +1331,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     environment: null,
                     requireExitCodeZero: true,
                     cancellationToken: CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_CreatesNewDirectory()
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            try
+            {
+                Assert.True(IOUtil.TryCreateDirectory(tempPath));
+                Assert.True(Directory.Exists(tempPath));
+            }
+            finally
+            {
+                if (Directory.Exists(tempPath))
+                {
+                    Directory.Delete(tempPath, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsTrueForExistingDirectory()
+        {
+            Assert.True(IOUtil.TryCreateDirectory(Path.GetTempPath()));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsFalseOnInvalidPath()
+        {
+            // Creating a directory at a path where a file already exists triggers IOException
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                Assert.False(IOUtil.TryCreateDirectory(tempFile));
+            }
+            finally
+            {
+                File.Delete(tempFile);
             }
         }
     }

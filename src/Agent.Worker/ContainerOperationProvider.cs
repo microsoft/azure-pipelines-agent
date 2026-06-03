@@ -10,6 +10,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -222,17 +223,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     using VssConnection vssConnection = VssUtil.CreateConnection(collectionUri, vssCredentials, trace: Trace);
                     TaskHttpClient taskClient = vssConnection.GetClient<TaskHttpClient>();
 
-                    var idToken = await taskClient.CreateOidcTokenAsync(
-                        scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
-                        hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
-                        planId: new Guid(executionContext.Variables.System_PlanId),
-                        jobId: new Guid(executionContext.Variables.System_JobId),
-                        serviceConnectionId: registryEndpoint.Id,
-                        claims: null,
-                        cancellationToken: cancellationToken
-                    );
+                    const int maxRetries = 3;
 
-                    return idToken.OidcToken;
+                    for (int attempt = 1; attempt <= maxRetries + 1; attempt++)
+                    {
+                        try
+                        {
+                            var idToken = await taskClient.CreateOidcTokenAsync(
+                                scopeIdentifier: executionContext.Variables.System_TeamProjectId ?? throw new ArgumentException("Unknown team Project ID"),
+                                hubName: Enum.GetName(typeof(HostTypes), executionContext.Variables.System_HostType),
+                                planId: new Guid(executionContext.Variables.System_PlanId),
+                                jobId: new Guid(executionContext.Variables.System_JobId),
+                                serviceConnectionId: registryEndpoint.Id,
+                                claims: null,
+                                cancellationToken: cancellationToken
+                            );
+                            Trace.Info("OIDC token created successfully");
+                            return idToken.OidcToken;
+                        }
+                        catch (TaskOrchestrationPlanSecurityException ex) when (attempt <= maxRetries)
+                        {
+                            TimeSpan backoff = TimeSpan.FromSeconds(Math.Pow(5, attempt - 1));
+                            executionContext.Debug($"Failed to acquire OIDC token(attempt {attempt}/{maxRetries}): {ex.Message}. Retrying in {backoff.TotalSeconds} seconds...");
+                            await Task.Delay(backoff, cancellationToken);
+                        }
+                    }
+
+                    throw new InvalidOperationException("Failed to acquire OIDC token after all retry attempts.");
                 })
                 .Build();
 
@@ -440,9 +457,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string containerOS = await _dockerManger.DockerInspect(context: executionContext,
                                                                 dockerObject: container.ContainerImage,
                                                                 options: $"--format=\"{{{{.Os}}}}\"");
+                    executionContext.Debug($"[Container OS Detection] Detected container OS: {containerOS}");
+                    
                     if (string.Equals("linux", containerOS, StringComparison.OrdinalIgnoreCase))
                     {
                         container.ImageOS = PlatformUtil.OS.Linux;
+                        executionContext.Debug("[Container OS Detection] Set container ImageOS to Linux");
+                    }
+                    else if (string.Equals("windows", containerOS, StringComparison.OrdinalIgnoreCase))
+                    {
+                        container.ImageOS = PlatformUtil.OS.Windows;
+                        executionContext.Debug("[Container OS Detection] Set container ImageOS to Windows");
                     }
                 }
             }
@@ -467,6 +492,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(container, nameof(container));
             ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
+
+            executionContext.Debug($"Starting container: {container.ContainerName} (Image: {container.ContainerImage})");
 
             Trace.Info($"Container name: {container.ContainerName}");
             Trace.Info($"Container image: {container.ContainerImage}");
@@ -526,6 +553,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 container.MountVolumes.Add(new MountVolume(taskKeyFile, container.TranslateToContainerPath(taskKeyFile)));
             }
 
+            bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useAgentNode = false;
@@ -545,65 +573,86 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
             string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
 
+
             if (container.IsJobContainer)
             {
-                // See if this container brings its own Node.js
+                // Check if this container brings its own Node.js (needed for both strategies)
                 container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
                                                                     dockerObject: container.ContainerImage,
                                                                     options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
 
-                string nodeSetInterval(string node)
+                if (useEnhancedNodeSelection)
                 {
-                    return $"'{node}' -e 'setInterval(function(){{}}, 24 * 60 * 60 * 1000);'";
-                }
-
-                string useDoubleQuotes(string value)
-                {
-                    return value.Replace('\'', '"');
-                }
-
-                if (!string.IsNullOrEmpty(container.CustomNodePath))
-                {
-                    container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
-                    container.ResultNodePath = container.CustomNodePath;
-                }
-                else if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
-                {
-                    // require container to have node if running on macOS, or if running on Windows and attempting to run Linux container
-                    container.CustomNodePath = "node";
-                    container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
-                    container.ResultNodePath = container.CustomNodePath;
+                    executionContext.Debug("[ContainerSetup] Using enhanced node selection path for container startup.");
+                    bool isWindowsContainer = container.ImageOS == PlatformUtil.OS.Windows;            
+                    
+                    container.ContainerCommand = isWindowsContainer
+                        ? "cmd.exe /c ping -t localhost > nul"
+                        : "sleep infinity";
                 }
                 else
                 {
-                    useAgentNode = true;
-                    string sleepCommand;
-
-                    if (useNode24ToStartContainer)
+                    executionContext.Debug("[ContainerSetup] Using legacy node selection path for container startup.");
+                    // Legacy approach: Use node-based startup command
+                    string nodeSetInterval(string node)
                     {
-                        sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        return $"'{node}' -e 'setInterval(function(){{}}, 24 * 60 * 60 * 1000);'";
                     }
-                    else if (useNode20ToStartContainer)
+
+                    string useDoubleQuotes(string value)
                     {
-                        sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        return value.Replace('\'', '"');
+                    }
+
+                    if (!string.IsNullOrEmpty(container.CustomNodePath))
+                    {
+                        executionContext.Debug($"[ContainerSetup] Legacy path: Using container's custom node: {container.CustomNodePath}");
+                        container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
+                        container.ResultNodePath = container.CustomNodePath;
+                    }
+                    else if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+                    {
+                        // require container to have node if running on macOS, or if running on Windows and attempting to run Linux container
+                        executionContext.Debug($"[ContainerSetup] Legacy path: Platform requirement - using container node. MacOS: {PlatformUtil.RunningOnMacOS}, Windows+LinuxContainer: {PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux}");
+                        container.CustomNodePath = "node";
+                        container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
+                        container.ResultNodePath = container.CustomNodePath;
                     }
                     else
                     {
-                        sleepCommand = nodeSetInterval(nodeContainerPath);
+                        executionContext.Debug("[ContainerSetup] Legacy path: Using agent node with fallback strategy");
+                        useAgentNode = true;
+                        string sleepCommand;
+
+                        if (useNode24ToStartContainer)
+                        {
+                            executionContext.Debug("[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24->20->16)");
+                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        }
+                        else if (useNode20ToStartContainer)
+                        {
+                            executionContext.Debug("[ContainerSetup] Legacy agent node: Using Node20 with fallbacks (20->16)");
+                            sleepCommand = $"'{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                        }
+                        else
+                        {
+                            executionContext.Debug($"[ContainerSetup] Legacy agent node: Using default node path: {nodeContainerPath}");
+                            sleepCommand = nodeSetInterval(nodeContainerPath);
+                        }
+                        container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
+                        container.ResultNodePath = nodeContainerPath;
                     }
-                    container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
-                    container.ResultNodePath = nodeContainerPath;
                 }
             }
 
             container.ContainerId = await _dockerManger.DockerCreate(executionContext, container);
             ArgUtil.NotNullOrEmpty(container.ContainerId, nameof(container.ContainerId));
+            
             if (container.IsJobContainer)
             {
                 executionContext.Variables.Set(Constants.Variables.Agent.ContainerId, container.ContainerId);
             }
 
-            // Start container
             int startExitCode = await _dockerManger.DockerStart(executionContext, container.ContainerId);
             if (startExitCode != 0)
             {
@@ -626,6 +675,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                 }
+                else if (useEnhancedNodeSelection && container.IsJobContainer)
+                {
+                    try
+                    {
+                        executionContext.Debug("[ContainerSetup] Calling enhanced node selection path for container startup.");
+                        SetContainerNodePathWithOrchestrator(executionContext, container);
+                    }
+                    catch (Exception ex)
+                    {
+                        executionContext.Error($"Failed to determine node path with orchestrator: {ex.Message}");
+                        container.ResultNodePath = !string.IsNullOrEmpty(container.CustomNodePath) ? container.CustomNodePath : nodeContainerPath;
+                        executionContext.Warning($"Using fallback node path: {container.ResultNodePath}");
+                    }
+                }
                 else if (useAgentNode && (useNode20ToStartContainer || useNode24ToStartContainer))
                 {
                     bool containerStartupCompleted = false;
@@ -641,28 +704,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             if (logLine.Contains(labelContainerStartupUsingNode24))
                             {
-                                executionContext.Debug("Using Node 24 for container startup.");
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node24ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
-                                executionContext.Debug("Using Node 20 for container startup.");
+                                string warningMsg = useNode24ToStartContainer 
+                                    ? "Cannot run Node 24 in container. Falling back to Node 20 for container startup."
+                                    : "Using Node 20 for container startup.";
+                                executionContext.Warning(warningMsg);
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node20ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode16))
                             {
-                                executionContext.Warning("Can not run Node 20 in container. Falling back to Node 16 for container startup.");
+                                string warningMsg = useNode24ToStartContainer
+                                    ? "Cannot run Node 24 and Node 20 in container. Falling back to Node 16 for container startup."
+                                    : "Cannot run Node 20 in container. Falling back to Node 16 for container startup.";
+                                executionContext.Warning(warningMsg);
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node16ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupFailed))
                             {
-                                executionContext.Error("Can not run both Node 20 and Node 16 in container. Container startup failed.");
+                                string errorMsg = useNode24ToStartContainer
+                                    ? "Cannot run Node 24, Node 20, and Node 16 in container. Container startup failed."
+                                    : "Cannot run both Node 20 and Node 16 in container. Container startup failed.";
+                                executionContext.Error(errorMsg);
                                 containerStartupCompleted = true;
                                 break;
                             }
@@ -676,7 +747,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         checksCount++;
                         if (checksCount * delayInMilliseconds > containerStartupTimeoutInMilliseconds)
                         {
-                            executionContext.Warning("Can not get startup status from container.");
+                            executionContext.Warning($"Container startup timeout after {checksCount * delayInMilliseconds}ms. Cannot get startup status from container.");
                             break;
                         }
 
@@ -999,19 +1070,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
 
-                        if (!container.NeedsNode20Redirect)
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node24Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                        else if (!container.NeedsNode16Redirect)
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-                        else
-                        {
-                            container.ResultNodePath = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
-                        }
-
                     }
 
                     if (!string.IsNullOrEmpty(containerUserName))
@@ -1020,6 +1078,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                 }
             }
+            
+            executionContext.Output($"Container setup complete: {container.ContainerName}");
         }
 
         private async Task StopContainerAsync(IExecutionContext executionContext, ContainerInfo container)
@@ -1248,6 +1308,71 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 throw new ArgumentOutOfRangeException(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ReleaseId");
             }
+        }
+
+        /// <summary>
+        /// Creates appropriate handler data for container job based on knobs and custom node path.
+        /// Used by orchestrator to determine the best node version for the container.
+        /// </summary>
+        private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
+        {
+            // Custom node takes highest priority
+            if (!string.IsNullOrEmpty(container.CustomNodePath))
+            {
+                return new CustomNodeHandlerData();
+            }
+            
+            // Special platform requirement: macOS or Windows with Linux containers must use container's own node
+            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            {
+                container.CustomNodePath = "node";
+                return new CustomNodeHandlerData();
+            }
+            
+            // Check knobs to determine default handler preference
+            bool useNode24 = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool useNode20 = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
+            
+            if (useNode24)
+            {
+                return new Node24HandlerData();
+            }
+            else if (useNode20)
+            {
+                return new Node20_1HandlerData();
+            }
+            else
+            {
+                return new Node20_1HandlerData();
+            }
+        }
+        
+        /// <summary>
+        /// Uses the NodeVersionOrchestrator to determine the optimal node version for the container.
+        /// Sets container.ResultNodePath based on orchestrator decision.
+        /// </summary>
+        private void SetContainerNodePathWithOrchestrator(IExecutionContext executionContext, ContainerInfo container)
+        {
+            var handlerData = GetJobContainerHandlerData(executionContext, container);
+            
+            var taskContext = new NodeVersionStrategies.TaskContext
+            {
+                HandlerData = handlerData,
+                Container = container,
+                StepTarget = null
+            };
+            
+            var orchestrator = new NodeVersionStrategies.NodeVersionOrchestrator(executionContext, HostContext);
+            var result = orchestrator.SelectNodeVersionForContainer(taskContext, _dockerManger);
+            
+            container.ResultNodePath = result.NodePath;
+            
+            if (!string.IsNullOrEmpty(result.Warning))
+            {
+                executionContext.Warning(result.Warning);
+            }
+            
+            executionContext.Output($"Container node selection: {result.NodeVersion} - {result.Reason}");
         }
 
         private void PublishTelemetry(

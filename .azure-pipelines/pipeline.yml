@@ -113,13 +113,13 @@ extends:
           ${{ if eq(parameters.targetFramework, 'all') }}:
             strategy:
               matrix:
-                NET6.0:
-                  targetFramework: 'net6.0'
                 NET8.0:
                   targetFramework: 'net8.0'
+                NET10.0:
+                  targetFramework: 'net10.0'
           pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
           variables:
             DisableDockerDetector: true
@@ -129,9 +129,12 @@ extends:
           timeoutInMinutes: 300
           steps:
           - template: /.azure-pipelines/get-pat.yml@self
+          - task: NpmAuthenticate@0
+            inputs:
+              workingFile: .azure-pipelines/scripts/.npmrc
           - bash: |
               cd ./.azure-pipelines/scripts/
-              npm install axios minimist
+              npm ci --ignore-scripts
 
               releaseBranch="${{ parameters.branch }}"
               sourceBranch="$(Build.SourceBranch)"
@@ -145,6 +148,7 @@ extends:
                   --token "$(ACCESS_TOKEN)" \
                   --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"$(targetFramework)\"}"
             displayName: Test Proxy Agent
+            continueOnError: true
 
   # Windows (x64)
       - ${{ if parameters.win_x64 }}:
@@ -216,7 +220,7 @@ extends:
             displayName: Linux (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             os: linux
             arch: x64
@@ -236,7 +240,7 @@ extends:
             displayName: Linux (ARM)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             timeoutInMinutes: 75
             os: linux
@@ -257,8 +261,9 @@ extends:
             displayName: Linux (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              image: abtt-azurelinux3_arm64
               os: linux
+              hostArchitecture: arm64
             timeoutInMinutes: 75
             os: linux
             arch: arm64
@@ -278,7 +283,7 @@ extends:
             displayName: Alpine (x64)
             pool:
               name: 1ES-ABTT-Shared-Pool
-              image: abtt-ubuntu-2204
+              image: abtt-ubuntu-2404
               os: linux
             #container: alpine
             os: linux-musl
@@ -295,12 +300,14 @@ extends:
       - ${{ if parameters.alpine_arm64 }}:
         - template: /.azure-pipelines/build-jobs.yml@self
           parameters:
+            disableSdl: true
             jobName: build_alpine_arm64
             displayName: Alpine (ARM64)
             pool:
               name: 1ES-ABTT-Shared-ARM-64-Pool
-              vmImage: abtt-mariner_arm64
+              image: abtt-azurelinux3_arm64
               os: linux
+              hostArchitecture: arm64
             # container: # arm64v8/alpine (N/A)
             os: linux-musl
             arch: arm64
@@ -321,7 +328,7 @@ extends:
             displayName: macOS (x64)
             pool:
               name: Azure Pipelines
-              image: macos-14
+              image: macos-15
               os: macOS
             os: osx
             arch: x64
@@ -342,7 +349,7 @@ extends:
             displayName: macOS (ARM64)
             pool:
               name: Azure Pipelines
-              image: macos-14
+              image: macos-15-arm64
               os: macOS
             os: osx
             arch: arm64

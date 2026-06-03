@@ -1,0 +1,160 @@
+[
+  {
+    "id": "alpine",
+    "versions": [
+      {
+        "name": "3.22+"
+      }
+    ]
+  },
+  {
+    "id": "amzn",
+    "versions": [
+      {
+        "name": "2"
+      },
+      {
+        "name": "2023"
+      }
+    ]
+  },
+  {
+    "id": "azure-linux",
+    "versions": [
+      {
+        "name": "3.0+"
+      }
+    ]
+  },
+  {
+    "id": "centos",
+    "versions": [
+      {
+        "name": "9+"
+      }
+    ]
+  },
+  {
+    "id": "debian",
+    "versions": [
+      {
+        "name": "12+"
+      }
+    ]
+  },
+  {
+    "id": "fedora",
+    "versions": [
+      {
+        "name": "42+"
+      }
+    ]
+  },
+  {
+    "id": "macOS",
+    "versions": [
+      {
+        "name": "14+"
+      }
+    ]
+  },
+  {
+    "id": "opensuse-leap",
+    "versions": [
+      {
+        "name": "15.6+"
+      }
+    ]
+  },
+  {
+    "id": "almalinux",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "rhel",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "ol",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "rocky",
+    "versions": [
+      {
+        "name": "8+"
+      }
+    ]
+  },
+  {
+    "id": "sles",
+    "versions": [
+      {
+        "name": "15.6+"
+      }
+    ]
+  },
+  {
+    "id": "ubuntu",
+    "versions": [
+      {
+        "name": "22.04"
+      },
+      {
+        "name": "24.04"
+      },
+      {
+        "name": "25.10"
+      }
+    ]
+  },
+  {
+    "id": "Windows Client",
+    "versions": [
+      {
+        "name": "10",
+        "version": "1607+"
+      },
+      {
+        "name": "11",
+        "version": "22631+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Nano Server",
+    "versions": [
+      {
+        "name": "2019+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server",
+    "versions": [
+      {
+        "name": "2016+"
+      }
+    ]
+  },
+  {
+    "id": "Windows Server Core",
+    "versions": [
+      {
+        "name": "2016+"
+      }
+    ]
+  }
+]

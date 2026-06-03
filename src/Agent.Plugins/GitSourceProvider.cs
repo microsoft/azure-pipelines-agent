@@ -618,6 +618,35 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
+                string agentWorkFolder = executionContext.Variables.GetValueOrDefault("agent.workfolder")?.Value;
+                if (!string.IsNullOrEmpty(agentWorkFolder)
+                    && File.Exists(Path.Combine(agentWorkFolder, ".autoManagedVhd"))
+                    && !AgentKnobs.DisableAutoManagedVhdShallowOverride.GetValue(executionContext).AsBoolean())
+                {
+                    // The existing working directory comes from an AutoManagedVHD (indicated by the
+                    // .autoManagedVhd marker file placed in the agent work folder).
+                    // An AutoManagedVHD always contains a full, non-shallow clone of the repository.
+                    // Some pipelines enable shallow fetch parameters (e.g., fetchDepth > 0). However,
+                    // Git cannot convert an existing full clone into a shallow one in-place.
+                    //
+                    // Technical reason:
+                    //   A full clone already has complete commit history and object reachability. 
+                    //   When a fetch is issued with a non-zero --depth against a full clone, Git 
+                    //   does *not* rewrite the local history to match the requested shallow boundary. 
+                    //   Instead, to honor the depth constraint, Git falls back to creating a brand-new 
+                    //   shallow clone in an empty directory. 
+                    //
+                    // That behavior causes the agent to discard the VHD-provided clone and re-clone 
+                    // from scratch—defeating the whole purpose of using AutoManagedVHDs for fast sync.
+                    //
+                    // To avoid this, force a normal full fetch by disabling shallow behavior:
+                    //   clean = false   → preserve the VHD clone
+                    //   fetchDepth = 0  → perform a standard "sync" fetch
+                    clean = false;
+                    fetchDepth = 0;
+                    executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false and fetchDepth to 0.");
+                }
+
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
@@ -745,7 +774,7 @@ namespace Agent.Plugins.Repository
                 executionContext.Warning("Unable turn off git auto garbage collection, git fetch operation may trigger auto garbage collection which will affect the performance of fetching.");
             }
 
-            SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
+            await SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
 
             // always remove any possible left extraheader setting from git config.
             if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
@@ -1171,7 +1200,7 @@ namespace Agent.Plugins.Repository
                     }
                 }
 
-                int exitCode_submoduleUpdate = await gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
+                int exitCode_submoduleUpdate = await gitCommandManager.GitSubmoduleUpdate(executionContext, targetPath, fetchDepth, additionalFetchFilterOptions, string.Join(" ", additionalSubmoduleUpdateArgs), checkoutNestedSubmodules, cancellationToken);
                 if (exitCode_submoduleUpdate != 0)
                 {
                     throw new InvalidOperationException($"Git submodule update failed with exit code: {exitCode_submoduleUpdate}");
@@ -1444,7 +1473,7 @@ namespace Agent.Plugins.Repository
             }
         }
 
-        public async void SetGitFeatureFlagsConfiguration(
+        public async Task SetGitFeatureFlagsConfiguration(
             AgentTaskPluginExecutionContext executionContext,
             IGitCliManager gitCommandManager,
             string targetPath)

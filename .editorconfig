@@ -817,6 +817,71 @@ dotnet_diagnostic.CA5403.severity = error
 # Analyzer version mismatch
 dotnet_diagnostic.CA9999.severity = error
 
+# Microsoft.VisualStudio.Threading.Analyzers rules
+
+# Avoid async void methods
+dotnet_diagnostic.VSTHRD100.severity = error
+
+# Synchronously waiting on tasks (.Result, .Wait()) — 54 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD002.severity = suggestion
+
+# Awaiting/returning tasks from non-async context — 30 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD003.severity = suggestion
+
+# Invoke single-threaded types on Main thread
+dotnet_diagnostic.VSTHRD010.severity = warning
+
+# Use AsyncLazy<T>
+dotnet_diagnostic.VSTHRD011.severity = warning
+
+# Provide JoinableTaskFactory where allowed
+dotnet_diagnostic.VSTHRD012.severity = warning
+
+# Async lambda for void-returning delegate — 1 existing violation, fix incrementally
+dotnet_diagnostic.VSTHRD101.severity = suggestion
+
+# Implement internal logic as async method
+dotnet_diagnostic.VSTHRD102.severity = warning
+
+# Call async methods when in an async method — 35 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD103.severity = suggestion
+
+# Offer async methods — 5 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD104.severity = suggestion
+
+# Avoid method overloads that assume TaskScheduler.Current — 2 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD105.severity = suggestion
+
+# Use InvokeAsync to raise async events
+dotnet_diagnostic.VSTHRD106.severity = warning
+
+# Observe awaitable values in object initializers
+dotnet_diagnostic.VSTHRD107.severity = warning
+
+# Assert thread affinity unconditionally
+dotnet_diagnostic.VSTHRD108.severity = warning
+
+# Switch instead of assert in async methods
+dotnet_diagnostic.VSTHRD109.severity = warning
+
+# Observe result of async calls — 7 existing violations, fix incrementally
+dotnet_diagnostic.VSTHRD110.severity = suggestion
+
+# Use .ConfigureAwait(bool) — silenced to align with CA2007=silent (app-level code, no SynchronizationContext)
+dotnet_diagnostic.VSTHRD111.severity = silent
+
+# Implement System.IAsyncDisposable
+dotnet_diagnostic.VSTHRD112.severity = warning
+
+# Use CancellationToken in awaited methods
+dotnet_diagnostic.VSTHRD113.severity = warning
+
+# Avoid returning null from a Task-returning method
+dotnet_diagnostic.VSTHRD114.severity = warning
+
+# Use Async suffix for async methods — silenced due to high violation count (218), naming convention churn
+dotnet_diagnostic.VSTHRD200.severity = silent
+
 dotnet_naming_style.underscored_camel_case.capitalization = camel_case
 dotnet_naming_style.underscored_camel_case.required_prefix = _
 
