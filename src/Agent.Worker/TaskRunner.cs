@@ -142,12 +142,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (handlerData == null)
                 {
                     Trace.Error($"Handler selection failed - No suitable handler found for platform {PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})");
-                    if (PlatformUtil.RunningOnWindows)
+                    
+                    // Determine if this is a self-hosted agent to provide appropriate guidance
+                    var configurationStore = HostContext.GetService<IConfigurationStore>();
+                    var settings = configurationStore.GetSettings();
+                    bool isSelfHosted = !settings.IsMSHosted;
+                    
+                    // Perform detailed diagnostics to determine the exact reason for handler incompatibility
+                    // Compare the raw task.json handlers against what was loaded after platform filtering
+                    var diagnostics = HandlerDiagnostics.Analyze(
+                        definition.Directory,
+                        currentExecution,
+                        Stage,
+                        Task.Reference?.Name ?? "Unknown",
+                        Task.Reference?.Version ?? "Unknown",
+                        isSelfHosted);
+                    
+                    Trace.Error($"Handler diagnostics - Reason: {diagnostics.Reason}");
+                    Trace.Error($"Handlers loaded by agent: [{string.Join(", ", diagnostics.LoadedHandlers)}]");
+                    foreach (var declaredHandler in diagnostics.DeclaredHandlers)
                     {
-                        throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundWindows", $"{PlatformUtil.HostOS}({PlatformUtil.HostArchitecture})"));
+                        Trace.Error($"  Declared handler: {declaredHandler.HandlerName}, Loaded: {declaredHandler.IsLoadedByAgent}, FilteredByPlatform: {declaredHandler.IsFilteredByPlatform}, Unknown: {declaredHandler.IsUnknownToAgent}, Reason: {declaredHandler.FilterReason ?? "N/A"}");
                     }
-
-                    throw new InvalidOperationException(StringUtil.Loc("SupportedTaskHandlerNotFoundLinux"));
+                    
+                    throw new InvalidOperationException(diagnostics.ErrorMessage);
                 }
                 Trace.Info($"Handler selected successfully - Type: {handlerData}");
                 if (!AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
