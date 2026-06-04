@@ -135,6 +135,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob UseBuildTagsBodyApi = new Knob(
+            nameof(UseBuildTagsBodyApi),
+            "If true, the agent posts build tags via the body-based BuildHttpClient.AddBuildTagsAsync overload, preserving reserved URL characters such as ';'. If false (default), uses the legacy URL-path AddBuildTagAsync overload.",
+            new RuntimeKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new EnvironmentKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
             nameof(FixPossibleGitOutOfMemoryProblem),
             "When true, set config git properties to fix possible out of memory problem",
