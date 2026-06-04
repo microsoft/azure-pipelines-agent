@@ -626,25 +626,30 @@ namespace Agent.Plugins.Repository
                     // The existing working directory comes from an AutoManagedVHD (indicated by the
                     // .autoManagedVhd marker file placed in the agent work folder).
                     // An AutoManagedVHD always contains a full, non-shallow clone of the repository.
-                    // Some pipelines enable shallow fetch parameters (e.g., fetchDepth > 0). However,
-                    // Git cannot convert an existing full clone into a shallow one in-place.
+                    // Some pipelines enable shallow fetch parameters (e.g., fetchDepth > 0) or partial
+                    // clone filters (e.g., blob:none, tree:0). However, Git cannot convert an existing
+                    // full clone into a shallow/partial one in-place.
                     //
                     // Technical reason:
-                    //   A full clone already has complete commit history and object reachability. 
-                    //   When a fetch is issued with a non-zero --depth against a full clone, Git 
-                    //   does *not* rewrite the local history to match the requested shallow boundary. 
-                    //   Instead, to honor the depth constraint, Git falls back to creating a brand-new 
-                    //   shallow clone in an empty directory. 
+                    //   A full clone already has complete commit history and object reachability.
+                    //   When a fetch is issued with a non-zero --depth or a --filter against a full
+                    //   clone, Git does *not* rewrite the local history/objects to match the requested
+                    //   shallow/partial boundary. Instead, to honor the constraint, Git falls back to
+                    //   creating a brand-new clone in an empty directory, which defeats the whole
+                    //   purpose of using AutoManagedVHDs for fast sync.
                     //
-                    // That behavior causes the agent to discard the VHD-provided clone and re-clone 
-                    // from scratch—defeating the whole purpose of using AutoManagedVHDs for fast sync.
+                    //   In addition, applying a partial-clone filter against a full clone forces Git
+                    //   to re-resolve object reachability against the server (the promisor remote),
+                    //   which makes the sync *slower*, not faster, on a VHD-backed workspace.
                     //
-                    // To avoid this, force a normal full fetch by disabling shallow behavior:
-                    //   clean = false   → preserve the VHD clone
-                    //   fetchDepth = 0  → perform a standard "sync" fetch
+                    // To avoid this, force a normal full fetch by disabling shallow/partial behavior:
+                    //   clean       = false  → preserve the VHD clone
+                    //   fetchDepth  = 0      → perform a standard "sync" fetch
+                    //   fetchFilter = null   → ignore any user-supplied partial-clone filter
                     clean = false;
                     fetchDepth = 0;
-                    executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false and fetchDepth to 0.");
+                    fetchFilter = null;
+                    executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false, fetchDepth to 0, and ignoring fetchFilter.");
                 }
 
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
