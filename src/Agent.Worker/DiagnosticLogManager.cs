@@ -322,7 +322,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             string archivePath = Path.Combine(HostContext.GetDiagDirectory(), archiveName);
             executionContext.Debug($"Archiving agent extension logs to: {archivePath}");
-            ZipFile.CreateFromDirectory(pathToLogs, archivePath);
+            
+            try
+            {
+                ZipFile.CreateFromDirectory(pathToLogs, archivePath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                executionContext.Debug("Failed to create archive due to permission restrictions on some log files.");
+                executionContext.Debug($"Access denied to: {ex.Message}");
+                return false;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                executionContext.Debug($"Agent extension logs directory not found: {pathToLogs}");
+                return false;
+            }
 
             string copyPath = Path.Combine(supportFilesFolder, archiveName);
             executionContext.Debug($"Copying archived agent extension logs to: {copyPath}");
