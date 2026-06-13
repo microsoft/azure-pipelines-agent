@@ -871,6 +871,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void GetsUrlForRemoveCommand()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "remove", "--url", "https://dev.azure.com/myorg" });
+
+                // Act.
+                string actual = command.GetUrl();
+
+                // Assert.
+                Assert.Equal("https://dev.azure.com/myorg", actual);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", nameof(CommandSettings))]
+        public void PromptsForUrlOnRemoveCommand()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Arrange.
+                var command = new CommandSettings(hc, args: new string[] { "remove" });
+                _promptManager
+                    .Setup(x => x.ReadValue(
+                        Constants.Agent.CommandLine.Args.Url, // argName
+                        StringUtil.Loc("ServerUrl"), // description
+                        false, // secret
+                        string.Empty, // defaultValue
+                        Validators.ServerUrlValidator, // validator
+                        false)) // unattended
+                    .Returns("https://dev.azure.com/myorg");
+
+                // Act.
+                string actual = command.GetUrl();
+
+                // Assert.
+                Assert.Equal("https://dev.azure.com/myorg", actual);
+            }
+        }
+
         /*
          * Deployment Agent Tests
         */
