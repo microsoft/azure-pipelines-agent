@@ -94,6 +94,81 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             }
         }
 
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [MemberData(nameof(TranslateToHostPathTestData))]
+        public void TranslateToHostPathTests(string mappingHost, PlatformUtil.OS imageOS, string mappingContainer, string containerPath, string expected)
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo",
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                info.ImageOS = imageOS;
+                var mappings = new Dictionary<string, string>
+                {
+                    { mappingHost, mappingContainer }
+                };
+                info.AddPathMappings(mappings);
+
+                var got = info.TranslateToHostPath(containerPath);
+
+                Assert.Equal(expected, got);
+            }
+        }
+        public static IEnumerable<object[]> TranslateToHostPathTestData()
+        {
+            string Normalize(string path) => PlatformUtil.RunningOnWindows ? $@"C:\{path.Replace('/', '\\')}" : $"/{path}";
+
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Windows, @"C:\w", @"C:\w\test", Normalize("agent/w/test") };
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Windows, @"C:\w", @"C:/w/test", Normalize("agent/w/test") };
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Windows, @"C:\w", @"C:\w/test", Normalize("agent/w/test") };
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Linux, @"/w", @"/w/test", Normalize("agent/w/test") };
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [MemberData(nameof(TranslateToContainerPathTestData))]
+        public void TranslateToContainerPathTests(string mappingHost, PlatformUtil.OS imageOS, string mappingContainer, string hostPath, string expected)
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+                {
+                    Alias = "vsts_container_preview",
+                    Image = "foo"
+                };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                info.ImageOS = imageOS;
+                var mappings = new Dictionary<string, string>
+                {
+                    { mappingHost, mappingContainer }
+                };
+                info.AddPathMappings(mappings);
+
+                var got = info.TranslateToContainerPath(hostPath);
+
+                Assert.Equal(expected, got);
+            }
+        }
+        public static IEnumerable<object[]> TranslateToContainerPathTestData()
+        {
+            string Normalize(string path) => PlatformUtil.RunningOnWindows ? $@"C:\{path.Replace('/', '\\')}" : $"/{path}";
+
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Windows, @"C:\w", Normalize(@"agent/w/test"), @"C:\w\test" };
+            yield return new object[] { Normalize("agent/w"), PlatformUtil.OS.Linux, @"/w", Normalize(@"agent/w/test"), @"/w/test" };
+            if (PlatformUtil.RunningOnWindows)
+            {
+                yield return new object[] { @"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:/agent/w/test", @"C:\w\test" };
+                yield return new object[] { @"C:\agent\w", PlatformUtil.OS.Windows, @"C:\w", @"C:/agent\w\test", @"C:\w\test" };
+            }
+        }
+
 
         [Fact]
         [Trait("Level", "L0")]
