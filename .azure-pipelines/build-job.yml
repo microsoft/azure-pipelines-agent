@@ -289,7 +289,7 @@ jobs:
   - ${{ if parameters.verifySigning }}:
 
     # Verify all binaries are signed (generate report)
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@0
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-codesignvalidation.CodesignValidation@1
       displayName: 'Generate Codesign Report'
       inputs:
         path: ${{ variables.layoutRoot }}
