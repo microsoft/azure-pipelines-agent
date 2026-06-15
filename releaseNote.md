@@ -1,3 +1,13 @@
+## Features
+ - Fix DockerCreate -v argument for paths ending with a backslash (#5591)
+ - Override fetchFilter to null for AutoManagedVHD (#5590)
+
+## Bugs
+ - Change AddBuildTagAsync to send tags as Body parameter (#5031)
+
+## Misc
+
+
 
 ## Agent Downloads
 
