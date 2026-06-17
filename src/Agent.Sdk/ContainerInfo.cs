@@ -287,9 +287,9 @@ namespace Agent.Sdk
                 }
             }
 
-            // Paths must match a known mount
-            throw new InvalidOperationException(
-                $"The path '{path ?? string.Empty}' does not map to any known directory.");
+            // No mapping matched — return path unchanged for non-path values
+            // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
+            return path;
         }
 
 

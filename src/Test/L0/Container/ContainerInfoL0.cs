@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void TranslateToHostPathRejectsUnmappedPath()
+        public void TranslateToHostPathPassthroughUnmappedPath()
         {
             var dockerContainer = new Pipelines.ContainerResource()
             {
@@ -223,8 +223,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             {
                 ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
 
-                // A path that does not match any known mount should be rejected
-                Assert.Throws<InvalidOperationException>(() => info.TranslateToHostPath("/etc/passwd"));
+                // A path that does not match any known mount should be returned unchanged
+                Assert.Equal("/etc/passwd", info.TranslateToHostPath("/etc/passwd"));
+                Assert.Equal("True", info.TranslateToHostPath("True"));
             }
         }
 
