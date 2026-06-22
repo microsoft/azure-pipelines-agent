@@ -685,7 +685,7 @@
   "UnrecognizedCmdArgs": "Arguments d’entrée de ligne de commande non reconnus : « {0} ». Pour plus d’informations sur l’utilisation, consultez : .\\config.cmd --help ou ./config.sh --help",
   "UnregisteringAgent": "Suppression de l’agent du serveur",
   "UnsupportedGitLfsVersion": "Votre version actuelle de Git LFS est la version « {0} », et n'est pas prise en charge par l'agent. Effectuez une mise à niveau au moins vers la version « {1} ». Pour plus d'informations, consultez https://github.com/git-lfs/git-lfs/issues/3571.",
-  "UnsupportedOsVersionByNet8": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.",
+  "UnsupportedOsVersionByNet8": "La version du système d’exploitation sur laquelle cet agent s’exécute ({0}) n’est pas prise en charge lors d’une mise à jour à venir de l’agent pipelines. Pour connaître les versions de système d’exploitation prises en charge, voir https://aka.ms/azdo-pipeline-agent-net8.",
   "UpdateBuildNumber": "Mettre à jour le numéro de build",
   "UpdateBuildNumberForBuild": "Mettre à jour le numéro de build à {0} pour la build {1}",
   "UpdateInProgress": "Mise à jour de l’agent en cours, ne pas arrêter l’agent.",
