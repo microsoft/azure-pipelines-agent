@@ -1,3 +1,12 @@
+## Features
+ - Updating Git lfs version (#5599)
+
+## Bugs
+
+
+## Misc
+ - Localization update (#5598)
+
 
 ## Agent Downloads
 
