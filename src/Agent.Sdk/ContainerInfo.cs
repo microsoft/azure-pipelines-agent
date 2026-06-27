@@ -265,11 +265,30 @@ namespace Agent.Sdk
                         {
                             retval = retval.Replace("\\", "/");
                         }
-                        return retval;
+
+                        // Normalize the path and ensure it stays within the mapped directory
+                        string normalized = Path.GetFullPath(retval);
+
+                        string allowedRoot = Path.GetFullPath(mapping.Key);
+                        if (!allowedRoot.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                        {
+                            allowedRoot += Path.DirectorySeparatorChar;
+                        }
+
+                        if (!normalized.Equals(Path.GetFullPath(mapping.Key), comparison) &&
+                            !normalized.StartsWith(allowedRoot, comparison))
+                        {
+                            throw new InvalidOperationException(
+                                $"The path '{path}' is not within the allowed directory.");
+                        }
+
+                        return normalized;
                     }
                 }
             }
 
+            // No mapping matched — return path unchanged for non-path values
+            // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
             return path;
         }
 
