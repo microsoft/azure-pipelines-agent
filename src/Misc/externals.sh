@@ -33,9 +33,11 @@ NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.20.2"
-NODE24_VERSION="24.15.0"
-MINGIT_VERSION="2.53.0"
-LFS_VERSION="3.4.0"
+
+NODE24_VERSION="24.14.1"
+MINGIT_VERSION="2.54.0"
+
+LFS_VERSION="3.7.1"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
@@ -360,5 +362,5 @@ fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline node20 task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/b9bafed4-0b18-4f58-968d-86655b4d2ce9.zip" "Tasks" false dont_uncompress
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/3b8784e0-6fc3-495e-9340-3c9dde4ce04f.zip" "Tasks" false dont_uncompress
 fi
