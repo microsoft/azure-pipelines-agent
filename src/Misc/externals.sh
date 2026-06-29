@@ -36,7 +36,7 @@ NODE20_VERSION="20.20.2"
 NODE24_VERSION="24.14.1"
 MINGIT_VERSION="2.54.0"
 
-LFS_VERSION="3.4.0"
+LFS_VERSION="3.7.1"
 
 get_abs_path() {
   # exploits the fact that pwd will print abs path when no args
