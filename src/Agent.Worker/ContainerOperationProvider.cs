@@ -713,36 +713,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             if (logLine.Contains(labelContainerStartupUsingNode24))
                             {
+                                executionContext.Debug($"[ContainerSetup] Container image '{container.ContainerImage}' started using the agent's Node 24 runtime.");
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node24ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
-                                string warningMsg = useNode24ToStartContainer 
-                                    ? "Cannot run Node 24 in container. Falling back to Node 20 for container startup."
-                                    : "Using Node 20 for container startup.";
-                                executionContext.Warning(warningMsg);
+                                if (useNode24ToStartContainer)
+                                {
+                                    executionContext.Warning($"The agent's Node 24 runtime could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 20 runtime instead.");
+                                }
+                                else
+                                {
+                                    executionContext.Debug($"[ContainerSetup] Container image '{container.ContainerImage}' started using the agent's Node 20 runtime.");
+                                }
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node20ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode16))
                             {
-                                string warningMsg = useNode24ToStartContainer
-                                    ? "Cannot run Node 24 and Node 20 in container. Falling back to Node 16 for container startup."
-                                    : "Cannot run Node 20 in container. Falling back to Node 16 for container startup.";
-                                executionContext.Warning(warningMsg);
+                                string triedVersions = useNode24ToStartContainer ? "Node 24 and Node 20" : "Node 20";
+                                executionContext.Warning($"The agent's {triedVersions} runtime(s) could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 16 runtime (end-of-life). Update the pipeline or container image to run on Node 20 or newer.");
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node16ContainerPath;
                                 break;
                             }
                             else if (logLine.Contains(labelContainerStartupFailed))
                             {
-                                string errorMsg = useNode24ToStartContainer
-                                    ? "Cannot run Node 24, Node 20, and Node 16 in container. Container startup failed."
-                                    : "Cannot run both Node 20 and Node 16 in container. Container startup failed.";
-                                executionContext.Error(errorMsg);
+                                var attemptedNodeVersions = new List<string>();
+                                if (useNode24ToStartContainer)
+                                {
+                                    attemptedNodeVersions.Add("Node 24");
+                                }
+                                attemptedNodeVersions.Add("Node 20");
+                                if (node16Available)
+                                {
+                                    attemptedNodeVersions.Add("Node 16");
+                                }
+
+                                executionContext.Error(
+                                    $"Container startup failed: none of the agent's bundled Node.js runtimes ({string.Join(", ", attemptedNodeVersions)}) could execute inside container image '{container.ContainerImage}'. " +
+                                    "This usually means the container's OS / C library is incompatible with the agent's Node.js binaries " +
+                                    "(for example, a musl-based image such as Alpine when the agent ships glibc Node.js, or vice versa), or the image is missing libraries that Node.js depends on. " +
+                                    $"Use a container image compatible with the agent, or have the image declare its own Node.js path via the '{_nodeJsPathLabel}' image label.");
                                 containerStartupCompleted = true;
                                 break;
                             }
