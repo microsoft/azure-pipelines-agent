@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using Microsoft.VisualStudio.Services.Agent;
+using Microsoft.VisualStudio.Services.Agent;
 
 namespace Agent.Listener.CommandLine
 {
