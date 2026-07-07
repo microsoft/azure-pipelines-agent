@@ -193,6 +193,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void Node20Strategy_ReturnsNull_WhenNode20BinaryAbsent()
+        {
+            ClearEolKnob();
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                var strategy = new Node20Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
+
+                Assert.Null(result);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_ReturnsNode20_WhenNode20BinaryPresent()
+        {
+            ClearEolKnob();
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var strategy = new Node20Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
+
+                Assert.NotNull(result);
+                Assert.Equal(NodeVersion.Node20, result.NodeVersion);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public async Task Orchestrator_HostSelection_FailsFast_WhenNode10TaskAndNoNodeAvailable()
         {
             ClearEolKnob();
