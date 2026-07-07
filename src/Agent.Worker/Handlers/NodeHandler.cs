@@ -496,16 +496,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (taskHasNode16Data)
             {
                 Trace.Info($"Task.json has node16 handler data: {taskHasNode16Data}");
-                // Use node16 only if it exists on disk (e.g., vsts-agent or installed via Node Runner Installer)
-                if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
-                {
-                    nodeFolder = NodeHandler.Node16Folder;
-                }
-                else
-                {
-                    Trace.Info($"Node16 not available on disk, falling back to node20_1");
-                    nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-                }
+                nodeFolder = NodeHandler.Node16Folder;
             }
             else if (taskHasNode10Data)
             {
