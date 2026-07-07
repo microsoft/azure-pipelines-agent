@@ -42,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // The orchestrator will try each strategy in order until one can handle the request
             _strategies.Add(new CustomNodeStrategy());
             _strategies.Add(new Node24Strategy(nodeHandlerHelper));
-            _strategies.Add(new Node20Strategy());
+            _strategies.Add(new Node20Strategy(nodeHandlerHelper));
             _strategies.Add(new Node16Strategy());
             _strategies.Add(new Node10Strategy(nodeHandlerHelper));
             _strategies.Add(new Node6Strategy(nodeHandlerHelper));
