@@ -6,6 +6,8 @@ L1_MODE=$4
 
 INCLUDE_NODE6=${INCLUDE_NODE6:-true}
 INCLUDE_NODE10=${INCLUDE_NODE10:-true}
+INCLUDE_NODE16=${INCLUDE_NODE16:-true}
+INCLUDE_NODE20=${INCLUDE_NODE20:-true}
 INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
@@ -220,10 +222,14 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin
         acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin
     fi
-    acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
-    acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    if [[ "$INCLUDE_NODE16" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
+        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
+    fi
+    if [[ "$INCLUDE_NODE20" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    fi
     if [[ "$INCLUDE_NODE24" == "true" ]]; then
     acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
     acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.lib" node24/bin
@@ -262,12 +268,16 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     fi
 
     # Unofficial distribution of Node contains Node 16 for Windows ARM
-    acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
-    acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
+    if [[ "$INCLUDE_NODE16" == "true" ]]; then
+        acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
+        acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
+    fi
 
     # Official distribution of Node contains Node 20 for Windows ARM
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
-    acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    if [[ "$INCLUDE_NODE20" == "true" ]]; then
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
+        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
+    fi
 
     # Official distribution of Node contains Node 24 for Windows ARM
     acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/${PACKAGERUNTIME}/node.exe" node24/bin
@@ -286,8 +296,12 @@ else
         fi
 
         ARCH="darwin-arm64"
-        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        if [[ "$INCLUDE_NODE16" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
+        fi
+        if [[ "$INCLUDE_NODE20" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        fi
         acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
     elif [[ "$PACKAGERUNTIME" == "linux-musl-arm64" ]]; then
         ARCH="linux-arm64-musl"
@@ -296,8 +310,12 @@ else
             acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10/bin fix_nested_dir false node_alpine_arm64
         fi
 
-        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
-        acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
+        if [[ "$INCLUDE_NODE16" == "true" ]]; then
+            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
+        fi
+        if [[ "$INCLUDE_NODE20" == "true" ]]; then
+            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
+        fi
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24/bin fix_nested_dir false node_alpine_arm64
     else
         case $PACKAGERUNTIME in
@@ -315,8 +333,12 @@ else
         if [[ "$INCLUDE_NODE10" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
         fi
-        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        if [[ "$INCLUDE_NODE16" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
+        fi
+        if [[ "$INCLUDE_NODE20" == "true" ]]; then
+            acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
+        fi
         if [[ "$INCLUDE_NODE24" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE24_VERSION}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24 fix_nested_dir
         fi
@@ -331,15 +353,19 @@ else
     rm "$LAYOUT_DIR/externals/node10/bin/npm"
     rm "$LAYOUT_DIR/externals/node10/bin/npx"
 
-    rm -rf "$LAYOUT_DIR/externals/node16/lib"
-    rm "$LAYOUT_DIR/externals/node16/bin/npm"
-    rm "$LAYOUT_DIR/externals/node16/bin/npx"
-    rm "$LAYOUT_DIR/externals/node16/bin/corepack"
+    if [[ "$INCLUDE_NODE16" == "true" ]]; then
+        rm -rf "$LAYOUT_DIR/externals/node16/lib"
+        rm "$LAYOUT_DIR/externals/node16/bin/npm"
+        rm "$LAYOUT_DIR/externals/node16/bin/npx"
+        rm "$LAYOUT_DIR/externals/node16/bin/corepack"
+    fi
 
-    rm -rf "$LAYOUT_DIR/externals/node20_1/lib"
-    rm "$LAYOUT_DIR/externals/node20_1/bin/npm"
-    rm "$LAYOUT_DIR/externals/node20_1/bin/npx"
-    rm "$LAYOUT_DIR/externals/node20_1/bin/corepack"
+    if [[ "$INCLUDE_NODE20" == "true" ]]; then
+        rm -rf "$LAYOUT_DIR/externals/node20_1/lib"
+        rm "$LAYOUT_DIR/externals/node20_1/bin/npm"
+        rm "$LAYOUT_DIR/externals/node20_1/bin/npx"
+        rm "$LAYOUT_DIR/externals/node20_1/bin/corepack"
+    fi
 
     if [[ "$INCLUDE_NODE24" == "true" ]]; then
         rm -rf "$LAYOUT_DIR/externals/node24/lib"
