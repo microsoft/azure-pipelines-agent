@@ -282,11 +282,14 @@ function Validate-OS {
         # Ubuntu "Linux 6.8.0-1018-azure #18-Ubuntu SMP Fri Jun 14 12:34:56 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux" (24.04)
         "(?im)^Linux (?<KernelMajor>[\d]+)(\.(?<KernelMinor>[\d]+)).*-Ubuntu.*$" {
             Write-Debug "Ubuntu (no version declared): '$OSDescription'"
-            # Fallback Ubuntu path when distro version is missing in osDescription.
-            # Uses kernel baseline heuristic (5.15+) aligned to supported set starting at Ubuntu 22.04.
             [version]$kernelVersion = ("{0}.{1}" -f $Matches["KernelMajor"],$Matches["KernelMinor"])
             Write-Debug "Ubuntu Linux Kernel $($kernelVersion.ToString())"
-            [version]$minKernelVersion = '5.15' # 22.04 baseline for supported set (22.04, 24.04, 25.10)
+            [version[]]$supportedKernelVersions = @(
+                '5.15', # 22.04 LTS
+                '6.8',  # 24.04 LTS
+                '6.17'  # 25.10
+            )
+            [version]$minKernelVersion = ($supportedKernelVersions | Measure-Object -Minimum | Select-Object -ExpandProperty Minimum)
 
             if ($kernelVersion -lt $minKernelVersion ) {
                 $result.Reason = "Unsupported Ubuntu Linux kernel version: ${kernelVersion}` (see https://ubuntu.com/kernel/lifecycle)"
@@ -294,9 +297,14 @@ function Validate-OS {
                 $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
+            if ($kernelVersion -in $supportedKernelVersions) {
+                $result.Reason = "Supported Ubuntu Linux kernel version: ${kernelVersion}"
+                $result.V5AgentSupportsOS = $true
+                return $result
+            }
 
-            $result.Reason = "Supported Ubuntu Linux kernel version: ${kernelVersion} (>= ${minKernelVersion} baseline)"
-            $result.V5AgentSupportsOS = $true
+            $result.Reason = "Unknown Ubuntu version: '$OSDescription'"
+            $result.V5AgentSupportsOSText = "UnknownOSVersion"
             return $result
         }
         # macOS 14+ "Darwin 23.6.0 Darwin Kernel Version 23.6.0: root:xnu-10063.141.1~1/RELEASE_ARM64_T6031"
@@ -357,8 +365,18 @@ function Validate-OS {
                 $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
                 return $result
             }
+            if (($windowsMajorVersion -eq 6) -and ($windowsMinorVersion -eq 2) -and ($windowsBuild -eq 9200)) {
+                $result.Reason = "Supported Windows Server 2012 version: ${windowsVersion}"
+                $result.V5AgentSupportsOS = $true
+                return $result
+            }
+            if (($windowsMajorVersion -eq 6) -and ($windowsMinorVersion -eq 3) -and ($windowsBuild -eq 9600)) {
+                $result.Reason = "Supported Windows Server 2012-R2 version: ${windowsVersion}"
+                $result.V5AgentSupportsOS = $true
+                return $result
+            }
             if ($windowsMajorVersion -eq 6) {
-                # Windows 7 / 8 / Windows Server 2012 / 2012 R2 and older
+                # Windows 7 / 8 / 8.1 (client) and older
                 $result.Reason = "Windows major version 6 is not supported: ${windowsVersion}"
                 $result.V5AgentSupportsOS = $false
                 $result.V5AgentSupportsOSText = "UnsupportedOSVersion"
