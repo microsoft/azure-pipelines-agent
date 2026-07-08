@@ -43,7 +43,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             _strategies.Add(new CustomNodeStrategy());
             _strategies.Add(new Node24Strategy(nodeHandlerHelper));
             _strategies.Add(new Node20Strategy());
-            _strategies.Add(new Node16Strategy());
+            _strategies.Add(new Node16Strategy(nodeHandlerHelper));
             _strategies.Add(new Node10Strategy());
             _strategies.Add(new Node6Strategy());
         }

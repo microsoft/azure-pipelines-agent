@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -160,6 +161,96 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
                 }
             }
         }
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPathAllowsValidPath()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+                string workDir = hc.GetDirectory(WellKnownDirectory.Work);
+                string containerWorkPath = info.TranslateToContainerPath(workDir);
+
+                // A valid path within the work directory should translate back successfully
+                string validContainerPath = containerWorkPath + Path.DirectorySeparatorChar + "1" + Path.DirectorySeparatorChar + "s" + Path.DirectorySeparatorChar + "output.txt";
+                string result = info.TranslateToHostPath(validContainerPath);
+                string expected = Path.GetFullPath(Path.Combine(workDir, "1", "s", "output.txt"));
+                Assert.Equal(expected, result);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPathRejectsPathTraversal()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+                string workDir = hc.GetDirectory(WellKnownDirectory.Work);
+                string containerWorkPath = info.TranslateToContainerPath(workDir);
+
+                // A path with ../ that escapes the mapped directory should be rejected
+                string traversalPath = containerWorkPath + Path.DirectorySeparatorChar + "1" + Path.DirectorySeparatorChar + "s" +
+                    Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar + ".." +
+                    Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar + "secret.txt";
+                Assert.Throws<InvalidOperationException>(() => info.TranslateToHostPath(traversalPath));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPathPassthroughUnmappedPath()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+
+                // A path that does not match any known mount should be returned unchanged
+                Assert.Equal("/etc/passwd", info.TranslateToHostPath("/etc/passwd"));
+                Assert.Equal("True", info.TranslateToHostPath("True"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPathAllowsExactMountRoot()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "vsts_container_preview",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+                string workDir = hc.GetDirectory(WellKnownDirectory.Work);
+                string containerWorkPath = info.TranslateToContainerPath(workDir);
+
+                // Exact mount root path should be allowed
+                string result = info.TranslateToHostPath(containerWorkPath);
+                Assert.Equal(Path.GetFullPath(workDir), result);
+            }
+        }
+
         private TestHostContext CreateTestContext([CallerMemberName] string testName = "")
         {
             TestHostContext hc = new TestHostContext(this, testName);

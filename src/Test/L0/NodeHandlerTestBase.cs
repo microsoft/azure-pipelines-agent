@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     catch (Exception ex)
                     {
                         Assert.NotNull(ex);
-                        Assert.IsType(scenario.ExpectedErrorType, ex);
+                        Assert.IsType(expectations.ExpectedErrorType, ex);
 
                         if (!string.IsNullOrEmpty(expectations.ExpectedError))
                         {
@@ -256,7 +256,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             NodeHandlerHelper
                 .Setup(x => x.IsNodeFolderExist(It.IsAny<string>(), It.IsAny<IHostContext>()))
-                .Returns(true);
+                .Returns((string nodeFolderName, IHostContext _) =>
+                    scenario.Node16Available || !string.Equals(nodeFolderName, NodeHandler.Node16Folder, StringComparison.Ordinal));
 
             NodeHandlerHelper
                 .Setup(x => x.GetNodeFolderPath(It.IsAny<string>(), It.IsAny<IHostContext>()))
@@ -314,7 +315,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {            
             // Check if this is an equivalent scenario by seeing if strategy-specific fields are populated
             bool isEquivalentScenario = string.IsNullOrEmpty(scenario.StrategyExpectedNode) && 
-                                       string.IsNullOrEmpty(scenario.LegacyExpectedNode);
+                                       string.IsNullOrEmpty(scenario.LegacyExpectedNode) &&
+                                       scenario.LegacyExpectedErrorType == null &&
+                                       string.IsNullOrEmpty(scenario.LegacyExpectedError) &&
+                                       string.IsNullOrEmpty(scenario.StrategyExpectedError);
             
             if (isEquivalentScenario)
             {
@@ -322,7 +326,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 return new ScenarioExpectations
                 {
                     ExpectedNode = scenario.ExpectedNode,
-                    ExpectedError = null
+                    ExpectedError = null,
+                    ExpectedErrorType = scenario.ExpectedErrorType
                 };
             }
             else
@@ -333,7 +338,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     return new ScenarioExpectations
                     {
                         ExpectedNode = scenario.StrategyExpectedNode,
-                        ExpectedError = scenario.StrategyExpectedError
+                        ExpectedError = scenario.StrategyExpectedError,
+                        ExpectedErrorType = scenario.ExpectedErrorType
                     };
                 }
                 else
@@ -341,7 +347,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     return new ScenarioExpectations
                     {
                         ExpectedNode = scenario.LegacyExpectedNode,
-                        ExpectedError = null
+                        ExpectedError = scenario.LegacyExpectedError,
+                        ExpectedErrorType = scenario.LegacyExpectedErrorType ?? scenario.ExpectedErrorType
                     };
                 }
             }
@@ -510,5 +517,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     {
         public string ExpectedNode { get; set; }
         public string ExpectedError { get; set; }
+        public Type ExpectedErrorType { get; set; }
     }
 }
