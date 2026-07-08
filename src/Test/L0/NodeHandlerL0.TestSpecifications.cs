@@ -125,7 +125,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 legacyExpectedNode: "node",
-                strategyExpectedNode: "node24"
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -210,7 +211,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 legacyExpectedNode: "node",
-                strategyExpectedNode: "node20_1"
+                strategyExpectedNode: "node20_1",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -251,7 +253,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 legacyExpectedNode: "node10",
-                strategyExpectedNode: "node24"
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -335,7 +338,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 legacyExpectedNode: "node10",
-                strategyExpectedNode: "node20_1"
+                strategyExpectedNode: "node20_1",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -371,12 +375,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
+                name: "Node16_Node16Missing_FailsFast",
+                description: "Node16 handler fails fast when Node16 binary is absent (pipelines-agent package): strategy exhausts the chain and throws NodeVersionNotAvailable; legacy surfaces MissingNodePath",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
+                node16Available: false,
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false",
+                legacyExpectedErrorType: typeof(FileNotFoundException),
+                legacyExpectedError: "MissingNodePath"
+            ),
+
+            new TestScenario(
                 name: "Node16_EOLPolicyEnabled_UpgradesToNode24",
                 description: "Node16 handler with EOL policy: legacy allows Node16, strategy-based upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 legacyExpectedNode: "node16",
-                strategyExpectedNode: "node24"
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -386,7 +403,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 legacyExpectedNode: "node16",
-                strategyExpectedNode: "node20_1"
+                strategyExpectedNode: "node20_1",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
@@ -427,7 +445,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node20GlibcError: true,
                 legacyExpectedNode: "node16",
-                strategyExpectedNode: "node24"
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: ""
             ),
 
             new TestScenario(
@@ -495,7 +514,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 expectedNode: "node24"
             ),
-            
+
             // ========================================================================================
             // GROUP 5: CONTAINER-SPECIFIC EOL SCENARIOS
             // ========================================================================================
@@ -615,6 +634,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "node24"
             ),
 
+            new TestScenario(
+                name: "Node24NotExecutable_fallsBackToNode20_1",
+                description: "Node24 handler with Node24 not executable: falls back to Node20_1 in container",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true" },
+                node24Executable: false,
+                expectedNode: "node20_1"
+            ),
+
             // ========================================================================================
             // GROUP 7: EDGE CASES AND ERROR SCENARIOS
             // ========================================================================================
@@ -629,7 +657,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
                 },
                 legacyExpectedNode: "node10",
-                strategyExpectedNode: "node24"
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             // ========================================================================================
@@ -816,7 +845,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 expectedNode: "node24",
                 inContainer: true
-            )          
+            )
         };
     }
 
@@ -837,6 +866,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public bool Node24GlibcError { get; set; }
         public bool InContainer { get; set; }
         public string CustomNodePath { get; set; }
+        public bool Node24Executable { get; set; }
+        public bool Node16Available { get; set; } = true;
         
         // Expected results (for equivalent scenarios)
         public string ExpectedNode { get; set; }
@@ -845,7 +876,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public string LegacyExpectedNode { get; set; }
         public string StrategyExpectedNode { get; set; }
         public string StrategyExpectedError { get; set; }
+        public string StrategyExpectedWarning { get; set; }
         public Type ExpectedErrorType { get; set; }
+        public string LegacyExpectedError { get; set; }
+        public Type LegacyExpectedErrorType { get; set; }
         
         public TestScenario(
             string name, 
@@ -856,9 +890,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             string legacyExpectedNode = null,
             string strategyExpectedNode = null,
             string strategyExpectedError = null,
+            string strategyExpectedWarning = null,
             Type expectedErrorType = null,
+            string legacyExpectedError = null,
+            Type legacyExpectedErrorType = null,
             bool node20GlibcError = false,
             bool node24GlibcError = false,
+            bool node24Executable = true,
+            bool node16Available = true,
             bool inContainer = false,
             string customNodePath = null
             )
@@ -871,9 +910,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             LegacyExpectedNode = legacyExpectedNode ?? expectedNode;
             StrategyExpectedNode = strategyExpectedNode ?? expectedNode;
             StrategyExpectedError = strategyExpectedError;
+            StrategyExpectedWarning = strategyExpectedWarning;
             ExpectedErrorType = expectedErrorType;
+            LegacyExpectedError = legacyExpectedError;
+            LegacyExpectedErrorType = legacyExpectedErrorType;
             Node20GlibcError = node20GlibcError;
             Node24GlibcError = node24GlibcError;
+            Node24Executable = node24Executable;
+            Node16Available = node16Available;
             InContainer = inContainer;
             CustomNodePath = customNodePath;
         }

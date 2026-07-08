@@ -69,7 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void DispatchRunNewJob()
+        public async Task DispatchRunNewJob()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void DispatchCancellation()
+        public async Task DispatchCancellation()
         {
             //Arrange
             using (var hc = new TestHostContext(this))
@@ -382,7 +382,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void FlushLogsRequest_WhenFeatureEnabled_TriggersWorkerTimeout()
+        public async Task FlushLogsRequest_WhenFeatureEnabled_TriggersWorkerTimeout()
         {
             // Arrange
             using (var hc = new TestHostContext(this))
@@ -472,7 +472,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void FlushLogsRequest_WhenFeatureDisabled_IgnoresRequest()
+        public async Task FlushLogsRequest_WhenFeatureDisabled_IgnoresRequest()
         {
             // Arrange
             using (var hc = new TestHostContext(this))
@@ -562,7 +562,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void FlushLogsRequest_WhenFeatureNotSet_DefaultsToDisabled()
+        public async Task FlushLogsRequest_WhenFeatureNotSet_DefaultsToDisabled()
         {
             // Arrange
             using (var hc = new TestHostContext(this))

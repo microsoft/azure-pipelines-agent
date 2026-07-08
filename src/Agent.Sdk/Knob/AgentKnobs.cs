@@ -135,6 +135,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob UseBuildTagsBodyApi = new Knob(
+            nameof(UseBuildTagsBodyApi),
+            "If true, the agent posts build tags via the body-based BuildHttpClient.AddBuildTagsAsync overload, preserving reserved URL characters such as ';'. If false (default), uses the legacy URL-path AddBuildTagAsync overload.",
+            new RuntimeKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new EnvironmentKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
             nameof(FixPossibleGitOutOfMemoryProblem),
             "When true, set config git properties to fix possible out of memory problem",
@@ -577,7 +584,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
             nameof(EnableEOLNodeVersionPolicy),
             "When enabled, tasks that specify end-of-life Node.js versions (6, 10, 16) will run using a supported Node.js version available on the agent (Node 20.1 or Node 24), ignoring the  EOL Node.js version(s) in respective task. An error is thrown if no supported version is available.",
-            new PipelineFeatureSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new RuntimeKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
 
@@ -719,7 +726,7 @@ namespace Agent.Sdk.Knob
             "Ignores the VSTSTaskLib folder when copying tasks.",
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob FailJobWhenAgentDies = new Knob(
             nameof(FailJobWhenAgentDies),
@@ -811,6 +818,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseFetchFilterInGitSubmoduleUpdate = new Knob(
+            nameof(UseFetchFilterInGitSubmoduleUpdate),
+            "If true, agent will pass fetch filter options in checkout task to git submodule update.",
+            new PipelineFeatureSource("UseFetchFilterInGitSubmoduleUpdate"),
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new EnvironmentKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
             nameof(StoreAgentKeyInCSPContainer),
             "Store agent key in named container (Windows).",
@@ -862,6 +877,12 @@ namespace Agent.Sdk.Knob
             nameof(Net8UnsupportedOsWarning),
             "Show warning message on the OS which is not supported by .NET 8",
             new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob DisableUnsupportedOsWarningNet10 = new Knob(
+            nameof(DisableUnsupportedOsWarningNet10),
+            "Show warning message on the OS which is not supported by .NET 10",
+            new PipelineFeatureSource("DisableUnsupportedOsWarningNet10"),
             new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob UsePSScriptWrapper = new Knob(
@@ -950,12 +971,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNodeVersionStrategy = new Knob(
-            nameof(UseNodeVersionStrategy),
-            "If true, use the strategy pattern for Node.js version selection (both host and container). This provides centralized node selection logic with EOL policy enforcement. Set to false to use legacy node selection logic.",
-            new PipelineFeatureSource("UseNodeVersionStrategy"),
-            new RuntimeKnobSource("AGENT_USE_NODE_STRATEGY"),
-            new EnvironmentKnobSource("AGENT_USE_NODE_STRATEGY"),
+        public static readonly Knob UseEnhancedNodeSelection = new Knob(
+            nameof(UseEnhancedNodeSelection),
+            "If true, use the enhanced Node.js version selection logic (both host and container). This provides centralized node selection with EOL policy enforcement and correct container keepalive. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseEnhancedNodeSelection"),
+            new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

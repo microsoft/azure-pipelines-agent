@@ -41,8 +41,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public static async Task DownloadAsync(IExecutionContext executionContext, string blobUrl, string tempDirectory, string extractPath, IRetryOptions retryOptions)
         {
-            Directory.CreateDirectory(tempDirectory);
-            Directory.CreateDirectory(extractPath);
+            if (!IOUtil.TryCreateDirectory(tempDirectory))
+            {
+                executionContext.Warning($"Cannot create directory '{tempDirectory}': permission denied. " +
+                    "This may occur in container environments. Skipping vso-task-lib download.");
+                return;
+            }
+            if (!IOUtil.TryCreateDirectory(extractPath))
+            {
+                executionContext.Warning($"Cannot create directory '{extractPath}': permission denied. " +
+                    "This may occur in container environments. Skipping vso-task-lib download.");
+                IOUtil.DeleteDirectory(tempDirectory, CancellationToken.None);
+                return;
+            }
             string downloadPath = Path.ChangeExtension(Path.Combine(tempDirectory, "download"), ".tar.gz");
             string toolName = new DirectoryInfo(extractPath).Name;
 
@@ -99,7 +110,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private static void ExtractTarGz(string tarGzPath, string extractPath, IExecutionContext executionContext, string toolName)
         {
-            Directory.CreateDirectory(extractPath);
+            if (!IOUtil.TryCreateDirectory(extractPath))
+            {
+                executionContext.Warning($"Cannot create directory '{extractPath}' for extraction: permission denied.");
+                return;
+            }
             executionContext.Debug($"Extracting {toolName} using tar...");
             using (var process = new System.Diagnostics.Process
             {

@@ -9,37 +9,66 @@ using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node16Strategy : INodeVersionStrategy
     {
-        public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        private readonly INodeHandlerHelper _nodeHandlerHelper;
+
+        public Node16Strategy() : this(new NodeHandlerHelper())
         {
-            bool hasNode16Handler = context.HandlerData is Node16HandlerData;
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-
-            if (hasNode16Handler)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node16 task handler", executionContext);
-            }
-
-            return null;
         }
 
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, IExecutionContext executionContext)
+        public Node16Strategy(INodeHandlerHelper nodeHandlerHelper)
         {
+            _nodeHandlerHelper = nodeHandlerHelper ?? throw new ArgumentNullException(nameof(nodeHandlerHelper));
+        }
+
+        public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
+        {
+            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+
+            if (context.EffectiveMaxVersion < 16)
+            {
+                executionContext.Debug($"[Node16Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 16, skipping");
+                return null;
+            }
+
             if (eolPolicyEnabled)
             {
+                executionContext.Debug(StringUtil.Loc("NodeEOLFallbackBlocked", "Node16"));
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node16"));
+            }
+
+            // Only use Node16 if the binary actually exists on disk
+            // (e.g., vsts-agent package includes it, or it was installed via Node Runner Installer task)
+            var hostContext = executionContext.GetHostContext();
+            string node16Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node16);
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node16Folder, hostContext))
+            {
+                executionContext.Debug("[Node16Strategy] Node16 binary not found on disk, skipping to allow fallback to next strategy");
+                return null;
+            }
+
+            if (context.HandlerData is Node16HandlerData)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node16,
+                    Reason = "Selected for Node16 task handler",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
+                };
             }
 
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
-                Reason = baseReason,
+                Reason = "Fallback to Node16 due to glibc issues",
                 Warning = StringUtil.Loc("NodeEOLRetirementWarning", taskName)
             };
         }
@@ -58,6 +87,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 executionContext.Debug("[Node16Strategy] Node16 blocked by EOL policy in container");
                 throw new NotSupportedException("No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks.");
+            }
+
+            // Only use Node16 if the binary actually exists on disk
+            var hostContext = executionContext.GetHostContext();
+            string node16Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node16);
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node16Folder, hostContext))
+            {
+                executionContext.Debug("[Node16Strategy] Node16 binary not found on disk, skipping container fallback");
+                return null;
             }
 
             executionContext.Debug("[Node16Strategy] Providing Node16 as final fallback for container");

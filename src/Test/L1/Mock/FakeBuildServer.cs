@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
 using Build2 = Microsoft.TeamFoundation.Build.WebApi;
@@ -62,6 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             int buildId,
             Guid projectId,
             string buildTag,
+            IKnobValueContext knobContext,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             BuildTags.Add(buildTag);

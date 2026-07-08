@@ -753,6 +753,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string Name => "setendpoint";
         public List<string> Aliases => null;
 
+        // System endpoints that cannot be modified via setendpoint command
+        private static readonly HashSet<Guid> ProtectedEndpointIds = new HashSet<Guid>
+        {
+            Guid.Empty  // SystemVssConnection
+        };
+
         public void Execute(IExecutionContext context, Command command)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -794,6 +800,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (endpoint == null)
             {
                 throw new ArgumentNullException(StringUtil.Loc("InvalidEndpointId"));
+            }
+
+            if (ProtectedEndpointIds.Contains(endpointId))
+            {
+                context.Warning($"Modification of system endpoint '{endpoint.Name}' is not allowed via setendpoint command.");
+                return;
             }
 
             if (String.Equals(field, "url", StringComparison.OrdinalIgnoreCase))
