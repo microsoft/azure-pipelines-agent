@@ -375,6 +375,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
+                name: "Node16_Node16Missing_FailsFast",
+                description: "Node16 handler fails fast when Node16 binary is absent (pipelines-agent package): strategy exhausts the chain and throws NodeVersionNotAvailable; legacy surfaces MissingNodePath",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
+                node16Available: false,
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false",
+                legacyExpectedErrorType: typeof(FileNotFoundException),
+                legacyExpectedError: "MissingNodePath"
+            ),
+
+            new TestScenario(
                 name: "Node16_EOLPolicyEnabled_UpgradesToNode24",
                 description: "Node16 handler with EOL policy: legacy allows Node16, strategy-based upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
@@ -855,6 +867,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public bool InContainer { get; set; }
         public string CustomNodePath { get; set; }
         public bool Node24Executable { get; set; }
+        public bool Node16Available { get; set; } = true;
         
         // Expected results (for equivalent scenarios)
         public string ExpectedNode { get; set; }
@@ -865,6 +878,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public string StrategyExpectedError { get; set; }
         public string StrategyExpectedWarning { get; set; }
         public Type ExpectedErrorType { get; set; }
+        public string LegacyExpectedError { get; set; }
+        public Type LegacyExpectedErrorType { get; set; }
         
         public TestScenario(
             string name, 
@@ -877,9 +892,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             string strategyExpectedError = null,
             string strategyExpectedWarning = null,
             Type expectedErrorType = null,
+            string legacyExpectedError = null,
+            Type legacyExpectedErrorType = null,
             bool node20GlibcError = false,
             bool node24GlibcError = false,
             bool node24Executable = true,
+            bool node16Available = true,
             bool inContainer = false,
             string customNodePath = null
             )
@@ -894,9 +912,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             StrategyExpectedError = strategyExpectedError;
             StrategyExpectedWarning = strategyExpectedWarning;
             ExpectedErrorType = expectedErrorType;
+            LegacyExpectedError = legacyExpectedError;
+            LegacyExpectedErrorType = legacyExpectedErrorType;
             Node20GlibcError = node20GlibcError;
             Node24GlibcError = node24GlibcError;
             Node24Executable = node24Executable;
+            Node16Available = node16Available;
             InContainer = inContainer;
             CustomNodePath = customNodePath;
         }

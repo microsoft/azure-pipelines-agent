@@ -94,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
         internal static readonly string Node24Folder = "node24";
-        private static readonly string nodeLTS = Node16Folder;
+        private static readonly string nodeLTS = Node20_1Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
         private string[] possibleNodeFolders = { NodeFolder, Node10Folder, Node16Folder, Node20_1Folder, Node24Folder };
@@ -376,14 +376,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     bool node24NotExecutable = !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, this.HostContext, this.ExecutionContext);
                     if (node24ResultsInGlibCError || node24NotExecutable)
                     {
-                        // Fallback to Node20, then Node16 if Node20 also fails or doesn't exist
+                        // Fallback to Node20, then Node16 only if Node16 exists on disk
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
+                            // Only fall back to Node16 if it actually exists (e.g., vsts-agent or installed via task)
+                            if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
+                            {
+                                fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
+                                fallbackOccurred = true;
+                                NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
+                                return NodeHandler.Node16Folder;
+                            }
+                            // Node16 not available either — return Node20 folder and let caller handle the error
                             fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
-                            NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
-                            return NodeHandler.Node16Folder;
+                            NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
+                            return NodeHandler.Node20_1Folder;
                         }
                         else
                         {
@@ -400,10 +409,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                     if (node20ResultsInGlibCError || node20NotAvailable)
                     {
-                        fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
-                        fallbackOccurred = true;
-                        NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
-                        return NodeHandler.Node16Folder;
+                        // Only fall back to Node16 if it actually exists on disk
+                        if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
+                        {
+                            fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
+                            fallbackOccurred = true;
+                            NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
+                            return NodeHandler.Node16Folder;
+                        }
+                        // Node16 not available — stay on Node20 and let the caller handle the missing binary error
+                        return NodeHandler.Node20_1Folder;
                     }
                     return NodeHandler.Node20_1Folder;
 
