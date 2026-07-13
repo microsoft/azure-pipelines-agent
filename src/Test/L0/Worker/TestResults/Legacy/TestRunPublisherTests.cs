@@ -14,7 +14,10 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults;
+using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using TestRunContext = Microsoft.TeamFoundation.TestClient.PublishTestResults.TestRunContext;
+using Microsoft.VisualStudio.Services.Agent;
+using Agent.Sdk;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 {
@@ -47,14 +50,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             _testRunContext = new TestRunContext("owner", "platform", "config", 1, "builduri", "releaseuri", "releaseenvuri");
 
             _reader = new Mock<IResultReader>();
-            _reader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>()))
-                        .Callback<IExecutionContext, string, TestRunContext>
-                        ((executionContext, filePath, runContext) =>
+            _reader.Setup(x => x.ReadResults(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<TestRunContext>(), It.IsAny<bool>()))
+                        .Callback<IExecutionContext, string, TestRunContext, bool>
+                        ((executionContext, filePath, runContext, ffvalue) =>
                         {
                             _runContext = runContext;
                             _resultsFilepath = filePath;
                         })
-                        .Returns((IExecutionContext executionContext, string filePath, TestRunContext runContext) =>
+                        .Returns((IExecutionContext executionContext, string filePath, TestRunContext runContext, bool ffFlag) =>
                         {
                             TestRunData trd = new TestRunData(
                                 name: "xyz",
@@ -639,7 +642,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
 
             _publisher = new TestRunPublisher();
             _publisher.Initialize(hc);
-            _publisher.InitializePublisher(_ec.Object, new VssConnection(new Uri("http://dummyurl"), new Common.VssCredentials()), "Project1", _reader.Object);
+            _publisher.InitializePublisher(_ec.Object, new VssConnection(new Uri("http://dummyurl"), new Common.VssCredentials()), "Project1", _reader.Object, new FFserviceMock());
+        }
+    }
+
+    public class FFserviceMock : IFeatureFlagService
+    {
+        public bool GetFeatureFlagState(string featureFlagName, Guid serviceInstanceId)
+        {
+            return false;
+        }
+
+        public void Initialize(IHostContext context)
+        {
+            
+        }
+
+        public void InitializeFeatureService(IExecutionContext executionContext, VssConnection connection)
+        {
+            
         }
     }
 }
