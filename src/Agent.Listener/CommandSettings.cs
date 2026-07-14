@@ -511,6 +511,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         {
             return GetArg(Configure?.ProxyPassword, Constants.Agent.CommandLine.Args.ProxyPassword);
         }
+        public string GetServiceDisplayNamePattern()
+        {
+            return GetArg(Configure?.ServiceDisplayNamePattern, Constants.Agent.CommandLine.Args.ServiceDisplayNamePattern);
+        }
+
+        public string GetServiceNamePattern()
+        {
+            return GetArg(Configure?.ServiceNamePattern, Constants.Agent.CommandLine.Args.ServiceNamePattern);
+        }
 
         public bool GetUseBasicAuthForProxy()
         {
