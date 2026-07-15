@@ -33,10 +33,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
             // Update the env dictionary.
+            AddVariablesToEnvironment();
             AddInputsToEnvironment();
             AddEndpointsToEnvironment();
             AddSecureFilesToEnvironment();
-            AddVariablesToEnvironment();
             AddTaskVariablesToEnvironment();
             AddPrependPathToEnvironment();
             RemovePSModulePathFromEnvironment();
