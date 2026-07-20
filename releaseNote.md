@@ -1,3 +1,14 @@
+## Features
+
+
+## Bugs
+
+
+## Misc
+ - Remove node16 from pipelines-agent package (#5555)
+ - Update node24 version to 24.18.0 (#5604)
+ - Fail fast in Node10/Node6 strategy path when node binary is absent (#5603)
+
 
 ## Agent Downloads
 
