@@ -81,6 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // others
         void ForceTaskComplete();
         string TranslateToHostPath(string path);
+        void ValidateContainerPath(string originalPath, string resolvedPath);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -903,9 +904,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var stepTarget = StepTarget();
             if (stepTarget != null)
             {
-                return stepTarget.TranslateToHostPath(path);
+                var resolved = stepTarget.TranslateToHostPath(path);
+                bool translationOccurred = !string.Equals(resolved, path, StringComparison.OrdinalIgnoreCase);
+                // Path.IsPathRooted catches absolute paths that ContainerInfo didn't translate
+                // (e.g. /etc/passwd on a Linux host) — these bypass Guard 2 otherwise.
+                // Relative paths and plain non-path values (e.g. "true", "artifact-name") are
+                // not rooted, so they are still safely skipped.
+                bool isRooted = Path.IsPathRooted(path);
+                if (stepTarget is ContainerInfo && (translationOccurred || isRooted))
+                {
+                    ValidateContainerPath(path, resolved);
+                }
+                return resolved;
             }
             return path;
+        }
+
+        public void ValidateContainerPath(string originalPath, string resolvedPath)
+        {
+            // Gate the entire check behind a feature flag so it can be disabled if needed.
+            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(resolvedPath))
+            {
+                return;
+            }
+
+            string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
+            string fullResolved = Path.GetFullPath(resolvedPath);
+            string fullWork = Path.GetFullPath(workDir);
+
+            // Allow exact match to work dir OR anything strictly inside it
+            bool underWork =
+                fullResolved.Equals(fullWork, StringComparison.OrdinalIgnoreCase) ||
+                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+            if (!underWork)
+            {
+                throw new InvalidOperationException(
+                    $"Container jobs may only reference files within the work directory. " +
+                    $"The path '{originalPath}' resolves to '{fullResolved}', " +
+                    $"which is outside the allowed directory '{workDir}'.");
+            }
         }
 
         public string TranslatePathForStepTarget(string val)
