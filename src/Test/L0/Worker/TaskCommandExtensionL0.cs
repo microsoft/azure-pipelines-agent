@@ -153,6 +153,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void SetEndpointServiceConnectionNotDeclared()
+        {
+            using (var _hc = SetupMocks())
+            {
+                TaskCommandExtension commandExtension = new TaskCommandExtension();
+                var cmd = new Command("task", "setEndpoint");
+                cmd.Data = "http://example.com/";
+                cmd.Properties.Add("field", "url");
+                // Use a valid GUID that is not in the Endpoints list (SetupMocks only adds Guid.Empty)
+                var testEndpointId = "12345678-1234-1234-1234-123456789012";
+                cmd.Properties.Add("id", testEndpointId);
+
+                Assert.Throws<ArgumentNullException>(() => commandExtension.ProcessCommand(_ec.Object, cmd));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void SetEndpointIdWithoutEndpointKey()
         {
             using (var _hc = SetupMocks())
