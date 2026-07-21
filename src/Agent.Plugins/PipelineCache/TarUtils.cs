@@ -36,6 +36,11 @@ namespace Agent.Plugins.PipelineCache
                 throw new DirectoryNotFoundException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
             }
 
+            if (!Directory.Exists(inputPath))
+            {
+                throw new DirectoryNotFoundException($"Please specify path to a directory, '{inputPath}' does not exist.");
+            }
+
             var archiveFileName = CreateArchiveFileName();
             var archiveFile = Path.Combine(Path.GetTempPath(), archiveFileName);
 
