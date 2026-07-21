@@ -209,6 +209,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
 		            </package>
 	            </packages>
             </coverage>";
+
+        public static string ValidCoberturaXmlLocalized
+        {
+            get
+            {
+                string replacePattern = "='${before}" + System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator + "${after}'";
+                return System.Text.RegularExpressions.Regex.Replace(ValidCoberturaXml, @"(?<!version)='(?<before>\d+)\.(?<after>\d+)'", replacePattern);
+            }
+        }
+
         #endregion
 
         #region cobertura ant files
