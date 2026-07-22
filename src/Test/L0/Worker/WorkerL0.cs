@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using EndpointAuthorizationParameters = Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi.EndpointAuthorizationParameters;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -140,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 // Put a sentinel WIF ID token on the endpoint's authorization parameters.
                 const string idToken = "sentinel-wif-id-token";
-                jobMessage.Resources.Endpoints[0].Authorization.Parameters["IdToken"] = idToken;
+                jobMessage.Resources.Endpoints[0].Authorization.Parameters[EndpointAuthorizationParameters.IdToken] = idToken;
 
                 var arWorkerMessages = new WorkerMessage[]
                     {
