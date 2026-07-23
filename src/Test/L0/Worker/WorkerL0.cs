@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using EndpointAuthorizationParameters = Microsoft.VisualStudio.Services.ServiceEndpoints.WebApi.EndpointAuthorizationParameters;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -116,6 +117,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 _processChannel.Verify(x => x.StartClient("1", "2"), Times.Once());
                 _jobRunner.Verify(x => x.RunAsync(
                     It.Is<Pipelines.AgentJobRequestMessage>(y => IsMessageIdentical(y, jobMessage)), It.IsAny<CancellationToken>()));
+                tokenSource.Cancel();
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task InitializeSecretMaskerMasksEndpointIdToken()
+        {
+            //Arrange
+            using (var hc = new TestHostContext(this))
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                var worker = new Microsoft.VisualStudio.Services.Agent.Worker.Worker();
+                hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                hc.EnqueueInstance<IJobRunner>(_jobRunner.Object);
+                hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                worker.Initialize(hc);
+
+                var jobMessage = CreateJobRequestMessage("job1");
+
+                // Put a sentinel WIF ID token on the endpoint's authorization parameters.
+                const string idToken = "sentinel-wif-id-token";
+                jobMessage.Resources.Endpoints[0].Authorization.Parameters[EndpointAuthorizationParameters.IdToken] = idToken;
+
+                var arWorkerMessages = new WorkerMessage[]
+                    {
+                        new WorkerMessage
+                        {
+                            Body = JsonUtility.ToString(jobMessage),
+                            MessageType = MessageType.NewJobRequest
+                        }
+                    };
+                var workerMessages = new Queue<WorkerMessage>(arWorkerMessages);
+
+                _processChannel
+                    .Setup(x => x.ReceiveAsync(It.IsAny<CancellationToken>()))
+                    .Returns(async () =>
+                    {
+                        if (workerMessages.Count > 0)
+                        {
+                            return workerMessages.Dequeue();
+                        }
+
+                        await Task.Delay(-1, tokenSource.Token);
+                        return default(WorkerMessage);
+                    });
+                _jobRunner.Setup(x => x.RunAsync(It.IsAny<Pipelines.AgentJobRequestMessage>(), It.IsAny<CancellationToken>()))
+                    .Returns(Task.FromResult<TaskResult>(TaskResult.Succeeded));
+
+                //Act
+                await worker.RunAsync(pipeIn: "1", pipeOut: "2");
+
+                //Assert - the IdToken must actually be redacted after going through Worker.InitializeSecretMasker.
+                Assert.Equal("***", hc.SecretMasker.MaskSecrets(idToken));
+                Assert.Equal("token: ***", hc.SecretMasker.MaskSecrets($"token: {idToken}"));
                 tokenSource.Cancel();
             }
         }
