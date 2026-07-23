@@ -48,6 +48,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Capabilities.ICapabilitiesProvider>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Capabilities.AgentCapabilitiesProvider));
+                AssertContains<Microsoft.VisualStudio.Services.Agent.Capabilities.ICapabilitiesProvider>(
+                    manager,
+                    concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Capabilities.PwshCapabilitiesProvider));
                 AssertContains<Microsoft.VisualStudio.Services.Agent.Worker.IJobExtension>(
                     manager,
                     concreteType: typeof(Microsoft.VisualStudio.Services.Agent.Worker.Build.BuildJobExtension));
