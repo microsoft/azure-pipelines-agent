@@ -230,20 +230,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             {
                 throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "SummaryFile"));
             }
-            // Translate file path back from container path
-            _summaryFileLocation = context.TranslateToHostPath(_summaryFileLocation);
+            _summaryFileLocation = context.ResolveVsoFilePath(_summaryFileLocation);
 
 
             eventProperties.TryGetValue(PublishCodeCoverageEventProperties.ReportDirectory, out _reportDirectory);
-            // Translate file path back from container path
-            _reportDirectory = context.TranslateToHostPath(_reportDirectory);
+            if (!string.IsNullOrEmpty(_reportDirectory))
+            {
+                _reportDirectory = context.ResolveVsoFilePath(_reportDirectory);
+            }
 
 
             string additionalFilesInput;
             eventProperties.TryGetValue(PublishCodeCoverageEventProperties.AdditionalCodeCoverageFiles, out additionalFilesInput);
             if (!string.IsNullOrEmpty(additionalFilesInput) && additionalFilesInput.Split(',').Count() > 0)
             {
-                _additionalCodeCoverageFiles = additionalFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList<string>();
+                _additionalCodeCoverageFiles = additionalFilesInput.Split(',').Select(x => context.ResolveVsoFilePath(x)).ToList<string>();
             }
         }
 

@@ -112,7 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             // To support compat we parse data first. If data is empty parse 'TestResults' parameter
             if (!string.IsNullOrWhiteSpace(data) && data.Split(',').Count() != 0)
             {
-                testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
+                testResultFiles = data.Split(',').Select(x => context.ResolveVsoFilePath(x)).ToList();
             }
             else
             {
@@ -121,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     throw new ArgumentException(StringUtil.Loc("ArgumentNeeded", "TestResults"));
                 }
 
-                testResultFiles = resultFilesInput.Split(',').Select(x => context.TranslateToHostPath(x)).ToList();
+                testResultFiles = resultFilesInput.Split(',').Select(x => context.ResolveVsoFilePath(x)).ToList();
             }
 
             //validate testrunner input

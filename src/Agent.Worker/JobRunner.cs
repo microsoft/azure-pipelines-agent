@@ -529,7 +529,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var volume in container.UserMountVolumes.Values)
             {
                 // After mount volume variables are expanded, they are final
-                container.MountVolumes.Add(new MountVolume(volume));
+                var mountVolume = new MountVolume(volume)
+                {
+                    Origin = MountVolumeOrigin.User
+                };
+                container.MountVolumes.Add(mountVolume);
             }
 
             // Expand env vars

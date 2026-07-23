@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -290,6 +291,83 @@ namespace Agent.Sdk
             // No mapping matched — return path unchanged for non-path values
             // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
             return path;
+        }
+
+        public bool TryResolveVsoFilePath(string containerPath, out string hostPath, out MountVolume matchedMount)
+        {
+            hostPath = null;
+            matchedMount = null;
+
+            if (string.IsNullOrWhiteSpace(containerPath))
+            {
+                return false;
+            }
+
+            if (!Path.IsPathFullyQualified(containerPath))
+            {
+                throw new InvalidOperationException(
+                    $"VSO file commands in container jobs require an absolute path. The path '{containerPath}' is relative.");
+            }
+
+            var comparison = PlatformUtil.RunningOnWindows
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            string normalizedContainerPath = Path.GetFullPath(containerPath);
+
+            var authorizedMounts = MountVolumes
+                .Where(x => x.AllowVsoFileAccess)
+                .Where(x => !string.IsNullOrEmpty(x.SourceVolumePath))
+                .Where(x => !string.IsNullOrEmpty(x.TargetVolumePath))
+                .Where(x => Path.IsPathFullyQualified(x.TargetVolumePath))
+                .Select(x => new
+                {
+                    Mount = x,
+                    TargetRoot = Path.GetFullPath(x.TargetVolumePath)
+                })
+                .OrderByDescending(x => x.TargetRoot.Length);
+
+            foreach (var candidateMount in authorizedMounts)
+            {
+                if (!IsPathWithin(normalizedContainerPath, candidateMount.TargetRoot, comparison))
+                {
+                    continue;
+                }
+
+                if (!Path.IsPathFullyQualified(candidateMount.Mount.SourceVolumePath))
+                {
+                    throw new InvalidOperationException(
+                        $"The container mount '{candidateMount.Mount.TargetVolumePath}' does not have an absolute host source path.");
+                }
+
+                string hostRoot = Path.GetFullPath(candidateMount.Mount.SourceVolumePath);
+                string relativePath = Path.GetRelativePath(candidateMount.TargetRoot, normalizedContainerPath);
+                string resolvedHostPath = Path.GetFullPath(Path.Combine(hostRoot, relativePath));
+
+                if (!IsPathWithin(resolvedHostPath, hostRoot, comparison))
+                {
+                    throw new InvalidOperationException(
+                        $"The path '{containerPath}' escapes its authorized container mount.");
+                }
+
+                hostPath = resolvedHostPath;
+                matchedMount = candidateMount.Mount;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsPathWithin(string candidate, string root, StringComparison comparison)
+        {
+            if (candidate.Equals(root, comparison))
+            {
+                return true;
+            }
+
+            string rootWithSeparator = Path.EndsInDirectorySeparator(root)
+                ? root
+                : root + Path.DirectorySeparatorChar;
+            return candidate.StartsWith(rootWithSeparator, comparison);
         }
 
 

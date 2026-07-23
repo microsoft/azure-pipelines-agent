@@ -7,6 +7,13 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 
 namespace Agent.Sdk
 {
+    public enum MountVolumeOrigin
+    {
+        System,
+        Workspace,
+        User
+    }
+
     public class MountVolume
     {
         public MountVolume()
@@ -101,5 +108,7 @@ namespace Agent.Sdk
         public string SourceVolumePath { get; set; }
         public string TargetVolumePath { get; set; }
         public bool ReadOnly { get; set; }
+        public MountVolumeOrigin Origin { get; set; }
+        public bool AllowVsoFileAccess => Origin == MountVolumeOrigin.Workspace || Origin == MountVolumeOrigin.User;
     }
 }

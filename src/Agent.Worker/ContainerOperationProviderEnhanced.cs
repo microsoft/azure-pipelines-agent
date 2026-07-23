@@ -613,9 +613,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     workspace = container.TranslateContainerPathForImageOS(PlatformUtil.HostOS, container.TranslateToContainerPath(workspace));
                     string mountWorkspace = container.TranslateToHostPath(workspace);
                     trace.Info($"Workspace: {workspace}, Mount workspace: {mountWorkspace}");
-                    container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
+                    container.MountVolumes.Add(new MountVolume(mountWorkspace, workspace, readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work))
+                    {
+                        Origin = MountVolumeOrigin.Workspace
+                    });
 
-                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp))));
+                    container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Temp), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Temp)))
+                    {
+                        Origin = MountVolumeOrigin.Workspace
+                    });
                     container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Tasks), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Tasks)),
                         readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Tasks)));
                 }
@@ -623,7 +629,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 {
                     trace.Info("Configuring volume mounts for Windows container");
                     container.MountVolumes.Add(new MountVolume(HostContext.GetDirectory(WellKnownDirectory.Work), container.TranslateToContainerPath(HostContext.GetDirectory(WellKnownDirectory.Work)),
-                        readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work)));
+                        readOnly: container.isReadOnlyVolume(Constants.DefaultContainerMounts.Work))
+                    {
+                        Origin = MountVolumeOrigin.Workspace
+                    });
 
                     if (AgentKnobs.AllowMountTasksReadonlyOnWindows.GetValue(executionContext).AsBoolean())
                     {

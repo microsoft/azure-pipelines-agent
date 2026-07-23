@@ -81,6 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // others
         void ForceTaskComplete();
         string TranslateToHostPath(string path);
+        string ResolveVsoFilePath(string path);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -906,6 +907,91 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return stepTarget.TranslateToHostPath(path);
             }
             return path;
+        }
+
+        public string ResolveVsoFilePath(string path)
+        {
+            var stepTarget = StepTarget();
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (!(stepTarget is ContainerInfo container))
+            {
+                return TranslateToHostPath(path);
+            }
+
+            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            {
+                return container.TranslateToHostPath(path);
+            }
+
+            if (!container.TryResolveVsoFilePath(path, out string resolvedPath, out MountVolume matchedMount))
+            {
+                throw new InvalidOperationException(
+                    $"The path '{path}' is not within a container mount authorized for VSO file access.");
+            }
+
+            ValidateVsoFilePathDoesNotContainReparsePoint(resolvedPath, matchedMount.SourceVolumePath);
+            return resolvedPath;
+        }
+
+        private static void ValidateVsoFilePathDoesNotContainReparsePoint(string path, string authorizedRoot)
+        {
+            string current = Path.GetFullPath(authorizedRoot);
+            string relativePath = Path.GetRelativePath(current, Path.GetFullPath(path));
+            foreach (string component in relativePath.Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, component);
+                if (!File.Exists(current) && !Directory.Exists(current))
+                {
+                    break;
+                }
+
+                ThrowIfReparsePoint(current);
+            }
+
+            if (Directory.Exists(path))
+            {
+                ValidateVsoDirectoryTreeDoesNotContainReparsePoint(path);
+            }
+        }
+
+        private static void ValidateVsoDirectoryTreeDoesNotContainReparsePoint(string root)
+        {
+            var directories = new Stack<string>();
+            directories.Push(root);
+
+            while (directories.Count > 0)
+            {
+                string directory = directories.Pop();
+                foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
+                {
+                    FileAttributes attributes = File.GetAttributes(entry);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"The directory '{root}' contains the symbolic link or reparse point '{entry}' and cannot be used by a VSO file command.");
+                    }
+
+                    if ((attributes & FileAttributes.Directory) != 0)
+                    {
+                        directories.Push(entry);
+                    }
+                }
+            }
+        }
+
+        private static void ThrowIfReparsePoint(string path)
+        {
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new InvalidOperationException(
+                    $"The path '{path}' contains a symbolic link or reparse point and cannot be used by a VSO file command.");
+            }
         }
 
         public string TranslatePathForStepTarget(string val)

@@ -342,8 +342,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new ArgumentException($"Name contains invalid characters. ({String.Join(", ", s_invalidFileChars)})");
             }
 
-            // Translate file path back from container path
-            string filePath = context.TranslateToHostPath(data);
+            string filePath = context.ResolveVsoFilePath(data);
 
             if (!String.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {

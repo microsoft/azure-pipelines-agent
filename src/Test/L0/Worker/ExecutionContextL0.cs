@@ -6,6 +6,7 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -661,6 +662,139 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Assert.Equal(stringBeforeTranslation, stringAfterTranslation);
                 }
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathEnforcesAuthorizedContainerMounts()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = CreateContainerExecutionContext(hc))
+            {
+                var container = Assert.IsType<ContainerInfo>(ec.StepTarget());
+                string hostRoot = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), Guid.NewGuid().ToString("N"));
+                string containerRoot = PlatformUtil.RunningOnWindows ? "C:\\vso-custom" : "/vso-custom";
+                Directory.CreateDirectory(hostRoot);
+                string hostFile = Path.Combine(hostRoot, "result.trx");
+                File.WriteAllText(hostFile, "result");
+                container.MountVolumes.Add(new MountVolume(hostRoot, containerRoot)
+                {
+                    Origin = MountVolumeOrigin.User
+                });
+                ec.Variables.Set("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION", "true");
+
+                string resolved = ec.ResolveVsoFilePath(Path.Combine(containerRoot, "result.trx"));
+
+                Assert.Equal(hostFile, resolved);
+                Assert.Null(ec.ResolveVsoFilePath(null));
+                Assert.Throws<InvalidOperationException>(() =>
+                    ec.ResolveVsoFilePath(container.TranslateToContainerPath(
+                        Path.Combine(hc.GetDirectory(WellKnownDirectory.Root), ".credentials"))));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathPreservesLegacyBehaviorWhenDisabled()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = CreateContainerExecutionContext(hc))
+            {
+                var container = Assert.IsType<ContainerInfo>(ec.StepTarget());
+                string hostPath = Path.Combine(hc.GetDirectory(WellKnownDirectory.Root), ".credentials");
+                string containerPath = container.TranslateToContainerPath(hostPath);
+                ec.Variables.Set("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION", "false");
+
+                Assert.Equal(hostPath, ec.ResolveVsoFilePath(containerPath));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathRejectsSymbolicLinks()
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = CreateContainerExecutionContext(hc))
+            {
+                var container = Assert.IsType<ContainerInfo>(ec.StepTarget());
+                string hostRoot = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), Guid.NewGuid().ToString("N"));
+                string containerRoot = "/vso-custom";
+                Directory.CreateDirectory(hostRoot);
+                string target = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), Guid.NewGuid().ToString("N"));
+                File.WriteAllText(target, "secret");
+                string link = Path.Combine(hostRoot, "result.trx");
+                File.CreateSymbolicLink(link, target);
+                container.MountVolumes.Add(new MountVolume(hostRoot, containerRoot)
+                {
+                    Origin = MountVolumeOrigin.User
+                });
+                ec.Variables.Set("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION", "true");
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    ec.ResolveVsoFilePath(Path.Combine(containerRoot, "result.trx")));
+
+                File.Delete(link);
+                string uploadDirectory = Path.Combine(hostRoot, "upload");
+                string outsideDirectory = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(uploadDirectory);
+                Directory.CreateDirectory(outsideDirectory);
+                File.WriteAllText(Path.Combine(outsideDirectory, "secret.txt"), "secret");
+                Directory.CreateSymbolicLink(Path.Combine(uploadDirectory, "linked-directory"), outsideDirectory);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    ec.ResolveVsoFilePath(Path.Combine(containerRoot, "upload")));
+            }
+        }
+
+        private Agent.Worker.ExecutionContext CreateContainerExecutionContext(TestHostContext hc)
+        {
+            var ec = new Agent.Worker.ExecutionContext();
+            ec.Initialize(hc);
+
+            var pipeContainer = new Pipelines.ContainerResource
+            {
+                Alias = "container"
+            };
+            pipeContainer.Properties.Set<string>("image", "someimage");
+            var steps = new List<Pipelines.JobStep>
+            {
+                new Pipelines.TaskStep
+                {
+                    Target = new Pipelines.StepTarget
+                    {
+                        Target = "container"
+                    },
+                    Reference = new Pipelines.TaskStepDefinitionReference()
+                }
+            };
+            var resources = new Pipelines.JobResources();
+            resources.Containers.Add(pipeContainer);
+            var environmentVariables = new Dictionary<string, VariableValue>();
+            var jobRequest = new Pipelines.AgentJobRequestMessage(
+                new TaskOrchestrationPlanReference(),
+                new TimelineReference(),
+                Guid.NewGuid(),
+                "job",
+                "job",
+                null,
+                new Dictionary<string, string>(),
+                environmentVariables,
+                new List<MaskHint>(),
+                resources,
+                new Pipelines.WorkspaceOptions(),
+                steps);
+            hc.EnqueueInstance(new Mock<IPagingLogger>().Object);
+            ec.InitializeJob(jobRequest, CancellationToken.None);
+            ec.SetStepTarget(steps[0].Target);
+            return ec;
         }
 
 

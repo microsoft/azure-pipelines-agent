@@ -251,6 +251,130 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathAllowsWorkspaceMount()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                string hostRoot = hc.GetDirectory(WellKnownDirectory.Work);
+                string containerRoot = info.TranslateToContainerPath(hostRoot);
+                info.MountVolumes.Add(new MountVolume(hostRoot, containerRoot)
+                {
+                    Origin = MountVolumeOrigin.Workspace
+                });
+
+                bool resolved = info.TryResolveVsoFilePath(
+                    Path.Combine(containerRoot, "1", "s", "output.txt"),
+                    out string hostPath,
+                    out MountVolume mount);
+
+                Assert.True(resolved);
+                Assert.Equal(Path.Combine(hostRoot, "1", "s", "output.txt"), hostPath);
+                Assert.Equal(MountVolumeOrigin.Workspace, mount.Origin);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathAllowsUserBindMount()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                string hostRoot = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), "custom");
+                string containerRoot = Path.Combine(Path.DirectorySeparatorChar.ToString(), "mnt", "custom");
+                info.MountVolumes.Add(new MountVolume(hostRoot, containerRoot)
+                {
+                    Origin = MountVolumeOrigin.User
+                });
+
+                bool resolved = info.TryResolveVsoFilePath(
+                    Path.Combine(containerRoot, "result.trx"),
+                    out string hostPath,
+                    out MountVolume mount);
+
+                Assert.True(resolved);
+                Assert.Equal(Path.Combine(hostRoot, "result.trx"), hostPath);
+                Assert.Equal(MountVolumeOrigin.User, mount.Origin);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathUsesMostSpecificMount()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                string workRoot = hc.GetDirectory(WellKnownDirectory.Work);
+                string generalTarget = Path.Combine(Path.DirectorySeparatorChar.ToString(), "data");
+                string specificTarget = Path.Combine(generalTarget, "results");
+                string specificSource = Path.Combine(workRoot, "specific");
+                info.MountVolumes.Add(new MountVolume(Path.Combine(workRoot, "general"), generalTarget)
+                {
+                    Origin = MountVolumeOrigin.User
+                });
+                info.MountVolumes.Add(new MountVolume(specificSource, specificTarget)
+                {
+                    Origin = MountVolumeOrigin.User
+                });
+
+                bool resolved = info.TryResolveVsoFilePath(
+                    Path.Combine(specificTarget, "result.trx"),
+                    out string hostPath,
+                    out _);
+
+                Assert.True(resolved);
+                Assert.Equal(Path.Combine(specificSource, "result.trx"), hostPath);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ResolveVsoFilePathRejectsUnauthorizedAndRelativePaths()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+                info.MountVolumes.Add(new MountVolume(
+                    hc.GetDirectory(WellKnownDirectory.Externals),
+                    info.TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Externals))));
+
+                Assert.False(info.TryResolveVsoFilePath(
+                    info.TranslateToContainerPath(Path.Combine(hc.GetDirectory(WellKnownDirectory.Root), ".credentials")),
+                    out _,
+                    out _));
+                Assert.Throws<InvalidOperationException>(() =>
+                    info.TryResolveVsoFilePath("result.trx", out _, out _));
+            }
+        }
+
         private TestHostContext CreateTestContext([CallerMemberName] string testName = "")
         {
             TestHostContext hc = new TestHostContext(this, testName);

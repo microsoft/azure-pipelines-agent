@@ -978,5 +978,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
+
+        // Security
+        public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
+            nameof(EnforceContainerVsoPathValidation),
+            "If true, VSO file commands in container jobs may only read files from the workspace or user bind mounts.",
+            new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
+            new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
