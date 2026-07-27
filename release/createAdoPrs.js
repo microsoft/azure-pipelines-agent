@@ -23,7 +23,39 @@ const opt = require('node-getopt').create([
 const orgUrl = 'dev.azure.com/mseng';
 const httpsOrgUrl = `https://${orgUrl}`;
 const authHandler = azdev.getPersonalAccessTokenHandler(process.env.PAT);
-const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
+
+// Enable client-level retries so transient network errors (e.g. ECONNRESET) on
+// read requests are retried automatically with backoff.
+const connection = new azdev.WebApi(httpsOrgUrl, authHandler, { allowRetries: true, maxRetries: 5 });
+
+// Network errors that are safe to retry. Mirrors typed-rest-client's NetworkRetryErrors.
+const RETRYABLE_NETWORK_ERRORS = ['ECONNRESET', 'ENOTFOUND', 'ESOCKETTIMEDOUT', 'ETIMEDOUT', 'ECONNREFUSED', 'EPIPE'];
+
+/**
+ * Retries an async operation on transient network errors with exponential backoff.
+ * Needed for non-idempotent POSTs that the HTTP client won't auto-retry.
+ * @param {(attempt: number) => Promise<T>} operation Runs the operation; receives the 1-based attempt number
+ * @param {string} description Label used for logging
+ * @param {number} maxAttempts Max attempts including the first
+ * @returns {Promise<T>}
+ * @template T
+ */
+async function retryOnNetworkError(operation, description, maxAttempts = 5) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await operation(attempt);
+        } catch (err) {
+            const code = err && err.code;
+            const isTransient = code && RETRYABLE_NETWORK_ERRORS.indexOf(code) > -1;
+            if (!isTransient || attempt >= maxAttempts) {
+                throw err;
+            }
+            const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
+            console.log(`${description} failed with transient network error "${code}" (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+}
 
 /**
  * Fills InstallAgentPackage.xml and Publish.ps1 templates.
@@ -122,10 +154,13 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
     const pullRequest = { ...refs, title, description };
 
     console.log('Getting Git API');
-    const gitApi = await connection.getGitApi();
+    const gitApi = await retryOnNetworkError(() => connection.getGitApi(), 'Getting Git API');
+
+    // Helper to look up an existing active PR for this source/target pair.
+    const findExistingPR = async () => (await gitApi.getPullRequests(repo, refs, project))[0];
 
     console.log('Checking if an active pull request for the source and target branch already exists');
-    let PR = (await gitApi.getPullRequests(repo, refs, project))[0];
+    let PR = await retryOnNetworkError(findExistingPR, 'Getting pull requests');
 
     if (PR) {
         console.log('PR already exists');
@@ -133,7 +168,18 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
         return [-1, 'test']; // return without creating PR for test runs
     } else {
         console.log('PR does not exist; creating PR');
-        PR = await gitApi.createPullRequest(pullRequest, repo, project);
+        // POST create is non-idempotent and not auto-retried. On retry, re-check
+        // for an existing PR first to avoid ADO 409; skip this on attempt 1.
+        PR = await retryOnNetworkError(async (attempt) => {
+            if (attempt > 1) {
+                const existing = await findExistingPR();
+                if (existing) {
+                    console.log('PR was already created by a previous attempt');
+                    return existing;
+                }
+            }
+            return gitApi.createPullRequest(pullRequest, repo, project);
+        }, 'Creating pull request');
     }
 
     const prLink = `${httpsOrgUrl}/${project}/_git/${repo}/pullrequest/${PR.pullRequestId}`;
