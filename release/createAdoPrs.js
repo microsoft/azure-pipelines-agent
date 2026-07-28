@@ -121,7 +121,7 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
     const pullRequest = { ...refs, title, description };
 
     console.log('Getting Git API');
-    const connection = new azdev.WebApi(httpsOrgUrl, authHandler, { keepAlive: true });
+    const connection = new azdev.WebApi(httpsOrgUrl, authHandler, { agent: new (require('https').Agent)({ keepAlive: true }) });
     const gitApi = await connection.getGitApi();
 
     console.log('Checking if an active pull request for the source and target branch already exists');
