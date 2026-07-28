@@ -1,9 +1,7 @@
 # This workflow ensures that all PRs are correctly labeled
 
 name: LabelChecker
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+on: [pull_request]
 
 jobs:
   label:
