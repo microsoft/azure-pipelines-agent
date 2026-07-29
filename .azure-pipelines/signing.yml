@@ -5,13 +5,27 @@ parameters:
 - name: isWindows
   type: boolean
   default: true
+- name: microsoftSignedListFile
+  type: string
+  default: '$(Agent.TempDirectory)\microsoft-signed-files.txt'
+- name: microsoftSignedHoldingRoot
+  type: string
+  default: '$(Agent.TempDirectory)\ms-signed-holding'
 steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'filePath'
+    filePath: ./.azure-pipelines/scripts/GetMicrosoftSignedFilesScript.ps1
+    arguments: '-LayoutRoot ${{ parameters.layoutRoot }} -ListFilePath ${{ parameters.microsoftSignedListFile }}'
+  continueOnError: true
+  displayName: Build list of Microsoft-signed files
+
 - ${{ if parameters.isWindows }}:
   - task: PowerShell@2
     inputs:
       targetType: 'filePath'
       filePath: ./.azure-pipelines/scripts/RemoveSignatureForThirdPartyAssemlies.ps1
-      arguments: '-LayoutRoot ${{ parameters.layoutRoot }}'
+      arguments: '-LayoutRoot ${{ parameters.layoutRoot }} -ListFilePath ${{ parameters.microsoftSignedListFile }}'
       errorActionPreference: 'continue'
     displayName: Remove signatures from the third party packages
     condition: ne(variables['DISABLE_SIGNATURE_REMOVAL'], 'true')
@@ -26,7 +40,15 @@ steps:
       AuthAKVName: $(AuthAKVName)
       AuthSignCertName: $(AuthSignCertName)
       FolderPath: '${{ parameters.layoutRoot }}/bin'
-      Pattern: AgentService.exe
+      Pattern: |
+        AgentService.exe
+        Microsoft.VisualStudio.Services.Agent.dll
+        Agent.Sdk.dll
+        Agent.Listener.dll
+        Agent.Worker.dll
+        Agent.Plugins.dll
+        Agent.PluginHost.dll
+      UseMinimatch: true
       signConfigType: inlineSignParams
       inlineOperation: |
         [{
@@ -158,6 +180,13 @@ steps:
       ]
   displayName: Sign PowerShell Scripts (Authenticode Signing)
 
+- task: PowerShell@2
+  inputs:
+    targetType: 'filePath'
+    filePath: ./.azure-pipelines/scripts/MoveMicrosoftSignedFilesScript.ps1
+    arguments: '-LayoutRoot ${{ parameters.layoutRoot }} -ListFilePath ${{ parameters.microsoftSignedListFile }} -HoldingRoot ${{ parameters.microsoftSignedHoldingRoot }} -Mode Stash'
+  displayName: Move Microsoft-signed files out before 3rd party signing
+
 - task: SFP.build-tasks.custom-build-task-1.EsrpCodeSigning@5
   inputs:
     ConnectedServiceName: $(ConnectedServiceName)
@@ -217,6 +246,14 @@ steps:
       }
       ]
   displayName: Sign Agent Assemblies (3rd Party Assemblies Signing)
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'filePath'
+    filePath: ./.azure-pipelines/scripts/MoveMicrosoftSignedFilesScript.ps1
+    arguments: '-LayoutRoot ${{ parameters.layoutRoot }} -ListFilePath ${{ parameters.microsoftSignedListFile }} -HoldingRoot ${{ parameters.microsoftSignedHoldingRoot }} -Mode Restore'
+  condition: always()
+  displayName: Move Microsoft-signed files back after 3rd party signing
 
 - task: DeleteFiles@1
   inputs:
