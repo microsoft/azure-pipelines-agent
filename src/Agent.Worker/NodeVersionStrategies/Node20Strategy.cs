@@ -8,18 +8,43 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node20Strategy : INodeVersionStrategy
     {
+        private readonly INodeHandlerHelper _nodeHandlerHelper;
+
+        public Node20Strategy() : this(new NodeHandlerHelper())
+        {
+        }
+
+        public Node20Strategy(INodeHandlerHelper nodeHandlerHelper)
+        {
+            _nodeHandlerHelper = nodeHandlerHelper ?? throw new ArgumentNullException(nameof(nodeHandlerHelper));
+        }
+
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+
+            // Only use Node20 if the binary actually exists on disk. When absent, return null
+            // so the orchestrator falls through to the next strategy (and ultimately its clean
+            // terminal error) instead of returning a non-existent node path that would fail
+            // later at process launch. This guard is placed before the knob-driven returns so
+            // that even a global override / EOL upgrade cannot select a missing Node20.
+            var hostContext = executionContext.GetHostContext();
+            string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
+            {
+                executionContext.Debug("[Node20Strategy] Node20 binary not found on disk, skipping to allow fallback to next strategy");
+                return null;
+            }
 
             if (glibcInfo.Node20HasGlibcError)
             {
