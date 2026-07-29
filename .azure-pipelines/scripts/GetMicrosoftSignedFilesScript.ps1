@@ -35,7 +35,8 @@ function Get-MicrosoftSignedFiles() {
     try {
       $isMicrosoftSigned = $false
       $authSig = Get-AuthenticodeSignature -LiteralPath "$($tree.FullName)"
-      if ($authSig.Status -eq 'Valid' -and $null -ne $authSig.SignerCertificate) {
+      # Only preserve embedded (Authenticode) Microsoft signatures; catalog sigs don't ship with the file.
+      if ($authSig.Status -eq 'Valid' -and $null -ne $authSig.SignerCertificate -and $authSig.SignatureType -eq 'Authenticode') {
         if ($authSig.SignerCertificate.Subject -match $microsoftSignerPattern) {
           $isMicrosoftSigned = $true
         }
@@ -44,6 +45,9 @@ function Get-MicrosoftSignedFiles() {
       if ($isMicrosoftSigned) {
         $relativePath = $tree.FullName.Substring($layoutFullPath.Length).TrimStart('\', '/')
         $microsoftSignedFiles.Add("$relativePath")
+        Write-Host "Preserve (embedded Microsoft) - $relativePath"
+      } else {
+        Write-Host "Skip ($($authSig.SignatureType)/$($authSig.Status)) - $($tree.FullName)"
       }
     } catch {
       $Error.clear()

@@ -7,10 +7,10 @@ parameters:
   default: true
 - name: microsoftSignedListFile
   type: string
-  default: '$(Agent.TempDirectory)\microsoft-signed-files.txt'
+  default: '$(Agent.TempDirectory)/microsoft-signed-files.txt'
 - name: microsoftSignedHoldingRoot
   type: string
-  default: '$(Agent.TempDirectory)\ms-signed-holding'
+  default: '$(Agent.TempDirectory)/ms-signed-holding'
 steps:
 - task: PowerShell@2
   inputs:
