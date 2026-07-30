@@ -12,6 +12,7 @@ parameters:
   type: string
   default: '$(Agent.TempDirectory)/ms-signed-holding'
 steps:
+# NOTE: Works on Windows only (Get-AuthenticodeSignature is Windows-only). TODO: Linux/macOS.
 - task: PowerShell@2
   inputs:
     targetType: 'filePath'
@@ -83,6 +84,7 @@ steps:
       Agent.*.exe
       Microsoft.VisualStudio.Services.Agent.dll
       AgentService.exe
+      AgentService.js
       **\AgentService.resources.dll
     UseMinimatch: true
     signConfigType: inlineSignParams
