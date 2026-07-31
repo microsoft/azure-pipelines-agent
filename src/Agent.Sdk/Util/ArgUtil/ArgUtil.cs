@@ -43,10 +43,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             // C-string terminator in POSIX envp. It is never valid in an environment variable name or
             // value on any OS; allowing it lets one approved variable split into two native variables
             // (environment variable injection).
-            if ((name != null && name.IndexOf('\0') >= 0) ||
-                (value != null && value.IndexOf('\0') >= 0))
+            string field = (name != null && name.IndexOf('\0') >= 0) ? "name"
+                         : (value != null && value.IndexOf('\0') >= 0) ? "value"
+                         : null;
+            if (field != null)
             {
-                throw new ArgumentException(StringUtil.Loc("EnvironmentVariableContainsNullCharacter", name ?? string.Empty));
+                throw new ArgumentException(StringUtil.Loc("EnvironmentVariableContainsNullCharacter", name ?? string.Empty, field));
             }
         }
 
