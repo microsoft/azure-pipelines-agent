@@ -283,6 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 foreach (KeyValuePair<string, string> kvp in environment)
                 {
+                    ArgUtil.ThrowIfContainsNull(kvp.Key, kvp.Value);
                     _proc.StartInfo.Environment[kvp.Key] = kvp.Value;
                 }
             }
