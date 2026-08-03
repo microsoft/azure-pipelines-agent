@@ -12,11 +12,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
     {
         private ITraceWriter _trace { get; set; }
         private bool _IgnoreCertificateErrors { get; set; }
+        private readonly X509Certificate2 _caCertificate;
 
-        public SslUtil(ITraceWriter trace, bool IgnoreCertificateErrors = false)
+        public SslUtil(ITraceWriter trace, bool IgnoreCertificateErrors = false, X509Certificate2 caCertificate = null)
         {
             this._trace = trace;
             this._IgnoreCertificateErrors = IgnoreCertificateErrors;
+            this._caCertificate = caCertificate;
         }
 
         /// <summary>Implementation of custom callback function that logs SSL-related data from the web request to the agent's logs.</summary>
@@ -24,7 +26,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public bool RequestStatusCustomValidation(HttpRequestMessage requestMessage, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslErrors)
         {
             bool isRequestSuccessful = (sslErrors == SslPolicyErrors.None);
-            
+
+            // If validation failed, try building the chain against the custom CA certificate.
+            if (!isRequestSuccessful && _caCertificate != null)
+            {
+                using var customChain = new X509Chain();
+                customChain.ChainPolicy.ExtraStore.Add(_caCertificate);
+                customChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                customChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                isRequestSuccessful = customChain.Build(certificate) &&
+                    customChain.ChainElements.Cast<X509ChainElement>()
+                        .Any(x => x.Certificate.Thumbprint == _caCertificate.Thumbprint);
+            }
+
             if (!isRequestSuccessful)
             {
                 LoggingRequestDiagnosticData(requestMessage, certificate, chain, sslErrors);

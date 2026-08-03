@@ -358,6 +358,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_HTTP_TIMEOUT"),
             new BuiltInDefaultKnobSource("100"));
 
+        public static readonly Knob EnableVssConnectionCustomCACertValidation = new Knob(
+            nameof(EnableVssConnectionCustomCACertValidation),
+            "If true, VssConnection validates server certificates against the CA certificate configured with --sslcacert when the default chain fails. Set to false to disable and restore prior behavior.",
+            new RuntimeKnobSource("agent.enableVssConnectionCustomCACertValidation"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_VSS_CONNECTION_CUSTOM_CA_CERT_VALIDATION"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob HttpTrace = new Knob(
             nameof(HttpTrace),
             "Enable http trace if true",

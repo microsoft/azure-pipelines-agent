@@ -3,11 +3,14 @@
 
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Sdk.Util;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -97,7 +100,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             ITraceWriter trace,
             bool skipServerCertificateValidation = false,
             IEnumerable<DelegatingHandler> additionalDelegatingHandler = null,
-            TimeSpan? timeout = null)
+            TimeSpan? timeout = null,
+            string caCertificateFile = null)
         {
             VssClientHttpRequestSettings settings = VssClientHttpRequestSettings.Default.Clone();
 
@@ -119,10 +123,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             settings.AcceptLanguages.Remove(CultureInfo.InvariantCulture);
 
             // Setting `ServerCertificateCustomValidation` to able to capture SSL data for diagnostic
+            bool caCertValidationEnabled = AgentKnobs.EnableVssConnectionCustomCACertValidation.GetValue(_knobContext).AsBoolean()
+                && !string.IsNullOrEmpty(caCertificateFile);
             if (trace != null && IsCustomServerCertificateValidationSupported(trace))
             {
-                SslUtil sslUtil = new SslUtil(trace, skipServerCertificateValidation);
+                X509Certificate2 caCert = caCertValidationEnabled
+                    ? CertificateUtil.LoadCertificate(caCertificateFile)
+                    : null;
+                SslUtil sslUtil = new SslUtil(trace, skipServerCertificateValidation, caCert);
                 settings.ServerCertificateValidationCallback = sslUtil.RequestStatusCustomValidation;
+            }
+            else if (caCertValidationEnabled)
+            {
+                // When trace is unavailable (e.g. Agent.PluginHost), configure CA cert validation directly.
+                // This handles self-hosted agents behind corporate proxy CAs configured with --sslcacert.
+                var caCert = CertificateUtil.LoadCertificate(caCertificateFile);
+                settings.ServerCertificateValidationCallback = (requestMessage, certificate, chain, sslErrors) =>
+                {
+                    if (sslErrors == SslPolicyErrors.None)
+                    {
+                        return true;
+                    }
+                    using var customChain = new X509Chain();
+                    customChain.ChainPolicy.ExtraStore.Add(caCert);
+                    customChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    customChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                    return customChain.Build(certificate) &&
+                           customChain.ChainElements.Cast<X509ChainElement>()
+                               .Any(x => x.Certificate.Thumbprint == caCert.Thumbprint);
+                };
             }
 
             VssConnection connection = new VssConnection(serverUri, new VssHttpMessageHandler(credentials, settings), additionalDelegatingHandler);

@@ -203,7 +203,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: null);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: null, caCertificateFile: certSetting?.CACertificateFile);
         }
 
         private AgentCertificateSettings GetCertConfiguration()

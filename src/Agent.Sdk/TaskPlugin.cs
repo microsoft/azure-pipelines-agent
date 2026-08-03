@@ -132,7 +132,7 @@ namespace Agent.Sdk
 
             VssCredentials credentials = VssUtil.GetVssCredential(systemConnection);
             ArgUtil.NotNull(credentials, nameof(credentials));
-            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace, skipServerCertificateValidation);
+            return VssUtil.CreateConnection(systemConnection.Url, credentials, trace: _trace, skipServerCertificateValidation, caCertificateFile: certSetting?.CACertificateFile);
         }
 
         public string GetInput(string name, bool required = false)
