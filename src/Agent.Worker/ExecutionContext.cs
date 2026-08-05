@@ -902,32 +902,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslateToHostPath(string path)
         {
             var stepTarget = StepTarget();
-            if (stepTarget != null)
+            if (stepTarget == null)
             {
-                var resolved = stepTarget.TranslateToHostPath(path);
-                bool translationOccurred = !string.Equals(resolved, path, StringComparison.OrdinalIgnoreCase);
-                // Path.IsPathRooted catches absolute paths that ContainerInfo didn't translate
-                // (e.g. /etc/passwd on a Linux host) — these bypass Guard 2 otherwise.
-                // Relative paths and plain non-path values (e.g. "true", "artifact-name") are
-                // not rooted, so they are still safely skipped.
-                bool isRooted = Path.IsPathRooted(path);
-                if (stepTarget is ContainerInfo && (translationOccurred || isRooted))
-                {
-                    ValidateContainerPath(path, resolved);
-                }
-                return resolved;
+                return path;
             }
-            return path;
+
+            // Preserve the existing translation behavior when the feature is disabled.
+            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            {
+                return stepTarget.TranslateToHostPath(path);
+            }
+
+            var resolved = stepTarget.TranslateToHostPath(path);
+            bool translationOccurred = !string.Equals(resolved, path, StringComparison.OrdinalIgnoreCase);
+            // Path.IsPathRooted catches absolute paths that ContainerInfo didn't translate
+            // (e.g. /etc/passwd on a Linux host) — these bypass Guard 2 otherwise.
+            // Relative paths and plain non-path values (e.g. "true", "artifact-name") are
+            // not rooted, so they are still safely skipped.
+            bool isRooted = Path.IsPathRooted(path);
+            if (stepTarget is ContainerInfo && (translationOccurred || isRooted))
+            {
+                ValidateContainerPath(path, resolved);
+            }
+
+            return resolved;
         }
 
         public void ValidateContainerPath(string originalPath, string resolvedPath)
         {
-            // Gate the entire check behind a feature flag so it can be disabled if needed.
-            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
-            {
-                return;
-            }
-
             if (string.IsNullOrEmpty(resolvedPath))
             {
                 return;
