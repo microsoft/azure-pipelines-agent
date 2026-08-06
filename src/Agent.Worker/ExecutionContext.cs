@@ -910,10 +910,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Preserve the existing translation behavior when the feature is disabled.
             if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
             {
-                return stepTarget.TranslateToHostPath(path);
+                var legacyResolved = stepTarget.TranslateToHostPath(path);
+                PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false);
+                return legacyResolved;
             }
 
             var resolved = stepTarget.TranslateToHostPath(path);
+            PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true);
             bool translationOccurred = !string.Equals(resolved, path, StringComparison.OrdinalIgnoreCase);
             // Path.IsPathRooted catches absolute paths that ContainerInfo didn't translate
             // (e.g. /etc/passwd on a Linux host) — these bypass Guard 2 otherwise.
@@ -926,6 +929,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             return resolved;
+        }
+
+        private void PublishVsoPathTranslationTelemetry(
+            string pathBeforeTranslation,
+            string pathAfterTranslation,
+            ExecutionTargetInfo stepTarget,
+            bool validationEnabled)
+        {
+            PublishTelemetry(
+                new Dictionary<string, string>
+                {
+                    { "PathBeforeTranslation", pathBeforeTranslation ?? string.Empty },
+                    { "PathAfterTranslation", pathAfterTranslation ?? string.Empty },
+                    { "TranslationOccurred", (!string.Equals(pathBeforeTranslation, pathAfterTranslation, StringComparison.OrdinalIgnoreCase)).ToString() },
+                    { "ValidationEnabled", validationEnabled.ToString() },
+                    { "StepTarget", stepTarget.GetType().Name },
+                    { "TaskName", Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceName) ?? string.Empty },
+                    { "TaskDisplayName", Variables.Get(WellKnownDistributedTaskVariables.TaskDisplayName) ?? _record.Name ?? string.Empty },
+                    { "TaskInstanceId", Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceId) ?? _record.Id.ToString() },
+                    { "DefinitionId", Variables.System_DefinitionId ?? string.Empty }
+                },
+                feature: "VsoPathTranslation",
+                IsAgentTelemetry: true);
         }
 
         public void ValidateContainerPath(string originalPath, string resolvedPath)
