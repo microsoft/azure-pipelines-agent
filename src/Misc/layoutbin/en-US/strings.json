@@ -296,6 +296,7 @@
   "EnterValidValueFor0": "Enter a valid value for {0}.",
   "EnvironmentName": "Environment Name",
   "EnvironmentNotFound": "Environment not found: '{0}'",
+  "EnvironmentVariableContainsNullCharacter": "The {1} of environment variable '{0}' contains a NUL (U+0000) character, which is not permitted in environment variables because it corrupts the process environment block and can cause unexpected behavior, so the operation was blocked.",
   "EnvironmentVariableExceedsMaximumLength": "Environment variable '{0}' exceeds the maximum supported length. Environment variable length: {1} , Maximum supported length: {2}",
   "EnvironmentVMResourceTags": "Comma separated list of tags (e.g web, db)",
   "ErrorDuringBuildGC": "Unable to discover garbage based on '{0}'. Try it next time.",

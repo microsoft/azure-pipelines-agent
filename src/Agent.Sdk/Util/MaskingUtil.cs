@@ -14,7 +14,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public static bool IsEndpointAuthorizationParametersSecret(string key)
         {
             var excludedAuthParams = new string[]{
-                EndpointAuthorizationParameters.IdToken,
                 EndpointAuthorizationParameters.Role,
                 EndpointAuthorizationParameters.Scope,
                 EndpointAuthorizationParameters.TenantId,
