@@ -21,7 +21,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         private int _translatedCount;
         private bool? _validationEnabled;
         private readonly HashSet<string> _stepTargetTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _taskNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<(string Before, string After)> _pathSamples = new HashSet<(string, string)>();
 
         public bool HasData
@@ -29,11 +28,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             get { lock (_lock) { return _totalCalls > 0; } }
         }
 
+        public int TotalCalls
+        {
+            get { lock (_lock) { return _totalCalls; } }
+        }
+
+        public int TranslatedCount
+        {
+            get { lock (_lock) { return _translatedCount; } }
+        }
+
+        public bool ValidationEnabled
+        {
+            get { lock (_lock) { return _validationEnabled ?? false; } }
+        }
+
         public void Record(
             string pathBefore,
             string pathAfter,
             string stepTargetType,
-            string taskName,
             bool validationEnabled)
         {
             bool translated = !string.Equals(pathBefore, pathAfter, StringComparison.OrdinalIgnoreCase);
@@ -46,9 +59,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 
                 if (!string.IsNullOrEmpty(stepTargetType))
                     _stepTargetTypes.Add(stepTargetType);
-
-                if (!string.IsNullOrEmpty(taskName))
-                    _taskNames.Add(taskName);
 
                 if (_pathSamples.Count < MaxPathSamples)
                     _pathSamples.Add((pathBefore ?? string.Empty, pathAfter ?? string.Empty));
@@ -65,7 +75,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                     { "TranslatedCount",   _translatedCount },
                     { "ValidationEnabled", _validationEnabled ?? false },
                     { "StepTargetTypes",   string.Join(",", _stepTargetTypes) },
-                    { "TaskNames",         string.Join(",", _taskNames) },
                     { "DefinitionId",      definitionId ?? string.Empty },
                     { "BuildId",           buildId ?? string.Empty },
                     // List serialized once by PublishTelemetry — no double-escaping.

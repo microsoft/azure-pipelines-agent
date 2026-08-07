@@ -949,17 +949,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Use the job-level context — tasks have a direct parent, job context has none.
             var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
 
+            Trace.Verbose($"VsoPathTranslation: before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
+
             jobContext._vsoPathTelemetry.Record(
                 pathBefore: pathBeforeTranslation,
                 pathAfter: pathAfterTranslation,
                 stepTargetType: stepTarget.GetType().Name,
-                taskName: Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceName),
                 validationEnabled: validationEnabled);
         }
 
         private void FlushVsoPathTranslationTelemetry()
         {
             if (!_vsoPathTelemetry.HasData) return;
+
+            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
 
             PublishTelemetry(
                 _vsoPathTelemetry.ToTelemetryProperties(
