@@ -980,7 +980,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
-            string fullResolved = Path.GetFullPath(resolvedPath);
+            string fullResolved = ResolveAllLinks(Path.GetFullPath(resolvedPath));
             string fullWork = Path.GetFullPath(workDir);
 
             // Allow exact match to work dir OR anything strictly inside it
@@ -995,6 +995,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     $"The path '{originalPath}' resolves to '{fullResolved}', " +
                     $"which is outside the allowed directory '{workDir}'.");
             }
+        }
+
+        /// <summary>
+        /// Walks every segment of <paramref name="path"/> and resolves any
+        /// symlink or junction encountered, returning the fully-dereferenced
+        /// absolute path.  Segments that do not yet exist on disk are appended
+        /// verbatim so the check still works for files that will be created later.
+        /// </summary>
+        private string ResolveAllLinks(string path)
+        {
+            // Split into root (e.g. "C:\") and remaining segments
+            string root = Path.GetPathRoot(path) ?? string.Empty;
+            string relative = path.Substring(root.Length);
+            string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            string current = root;
+            foreach (string segment in segments)
+            {
+                if (string.IsNullOrEmpty(segment))
+                {
+                    continue;
+                }
+
+                current = Path.Combine(current, segment);
+
+                // Only attempt resolution if the path exists on disk
+                if (!Directory.Exists(current) && !File.Exists(current))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    FileSystemInfo linkTarget = Directory.Exists(current)
+                        ? Directory.ResolveLinkTarget(current, returnFinalTarget: true)
+                        : File.ResolveLinkTarget(current, returnFinalTarget: true);
+
+                    if (linkTarget != null)
+                    {
+                        Trace.Verbose($"ValidateContainerPath: junction/symlink detected '{current}' -> '{linkTarget.FullName}'");
+                        current = Path.GetFullPath(linkTarget.FullName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.Verbose($"ValidateContainerPath: ResolveLinkTarget skipped for '{current}': {ex.Message}");
+                }
+            }
+
+            return current;
         }
 
         public string TranslatePathForStepTarget(string val)
