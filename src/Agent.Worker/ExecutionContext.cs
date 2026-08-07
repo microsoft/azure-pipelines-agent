@@ -139,6 +139,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
 
+        // Job-level accumulator for VsoPathTranslation telemetry — published once at job Complete().
+        private readonly VsoPathTranslationTelemetryAccumulator _vsoPathTelemetry = new VsoPathTranslationTelemetryAccumulator();
+
         public Guid Id => _record.Id;
         public Task ForceCompleted => _forceCompleted.Task;
         public CancellationToken CancellationToken => _cancellationTokenSource.Token;
@@ -345,6 +348,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (_totalThrottlingDelayInMilliseconds > 0)
             {
                 this.Warning(StringUtil.Loc("TotalThrottlingDelay", TimeSpan.FromMilliseconds(_totalThrottlingDelayInMilliseconds).TotalSeconds));
+            }
+
+            // Publish accumulated VsoPathTranslation telemetry once per job.
+            if (ContextType == ExecutionContextType.Job)
+            {
+                FlushVsoPathTranslationTelemetry();
             }
 
             if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(this).AsBoolean())
@@ -937,19 +946,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ExecutionTargetInfo stepTarget,
             bool validationEnabled)
         {
+            // Use the job-level context — tasks have a direct parent, job context has none.
+            var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
+
+            jobContext._vsoPathTelemetry.Record(
+                pathBefore: pathBeforeTranslation,
+                pathAfter: pathAfterTranslation,
+                stepTargetType: stepTarget.GetType().Name,
+                taskName: Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceName),
+                validationEnabled: validationEnabled);
+        }
+
+        private void FlushVsoPathTranslationTelemetry()
+        {
+            if (!_vsoPathTelemetry.HasData) return;
+
             PublishTelemetry(
-                new Dictionary<string, string>
-                {
-                    { "PathBeforeTranslation", pathBeforeTranslation ?? string.Empty },
-                    { "PathAfterTranslation", pathAfterTranslation ?? string.Empty },
-                    { "TranslationOccurred", (!string.Equals(pathBeforeTranslation, pathAfterTranslation, StringComparison.OrdinalIgnoreCase)).ToString() },
-                    { "ValidationEnabled", validationEnabled.ToString() },
-                    { "StepTarget", stepTarget.GetType().Name },
-                    { "TaskName", Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceName) ?? string.Empty },
-                    { "TaskDisplayName", Variables.Get(WellKnownDistributedTaskVariables.TaskDisplayName) ?? _record.Name ?? string.Empty },
-                    { "TaskInstanceId", Variables.Get(WellKnownDistributedTaskVariables.TaskInstanceId) ?? _record.Id.ToString() },
-                    { "DefinitionId", Variables.System_DefinitionId ?? string.Empty }
-                },
+                _vsoPathTelemetry.ToTelemetryProperties(
+                    Variables.System_DefinitionId,
+                    Variables.Build_BuildId?.ToString()),
                 feature: "VsoPathTranslation",
                 IsAgentTelemetry: true);
         }
