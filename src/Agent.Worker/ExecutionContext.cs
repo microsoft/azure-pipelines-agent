@@ -926,13 +926,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var resolved = stepTarget.TranslateToHostPath(path);
             PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true);
-            bool translationOccurred = !string.Equals(resolved, path, StringComparison.OrdinalIgnoreCase);
-            // Path.IsPathRooted catches absolute paths that ContainerInfo didn't translate
-            // (e.g. /etc/passwd on a Linux host) — these bypass Guard 2 otherwise.
-            // Relative paths and plain non-path values (e.g. "true", "artifact-name") are
-            // not rooted, so they are still safely skipped.
+            bool translationOccurred = !string.Equals(resolved, path, IOUtil.FilePathStringComparison);
+            // Catch absolute paths ContainerInfo didn't translate (e.g. /etc/passwd).
             bool isRooted = Path.IsPathRooted(path);
-            if (stepTarget is ContainerInfo && (translationOccurred || isRooted))
+            // Catch relative ".." traversal paths not translated but able to escape _work.
+            bool isRelativeWithTraversal = path.Contains("..");
+
+            if (stepTarget is ContainerInfo && (translationOccurred || isRooted || isRelativeWithTraversal))
             {
                 ValidateContainerPath(path, resolved);
             }
@@ -981,12 +981,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
             string fullResolved = ResolveAllLinks(Path.GetFullPath(resolvedPath));
-            string fullWork = Path.GetFullPath(workDir);
+            string fullWork = ResolveAllLinks(Path.GetFullPath(workDir));
 
-            // Allow exact match to work dir OR anything strictly inside it
+            // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
+            // Allow exact match or anything strictly inside work dir.
             bool underWork =
-                fullResolved.Equals(fullWork, StringComparison.OrdinalIgnoreCase) ||
-                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
+                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
 
             if (!underWork)
             {
@@ -998,14 +999,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         /// <summary>
-        /// Walks every segment of <paramref name="path"/> and resolves any
-        /// symlink or junction encountered, returning the fully-dereferenced
-        /// absolute path.  Segments that do not yet exist on disk are appended
-        /// verbatim so the check still works for files that will be created later.
+        /// Walks each path segment and resolves any symlink or junction to its final target.
+        /// Non-existent segments are appended verbatim.
         /// </summary>
         private string ResolveAllLinks(string path)
         {
-            // Split into root (e.g. "C:\") and remaining segments
             string root = Path.GetPathRoot(path) ?? string.Empty;
             string relative = path.Substring(root.Length);
             string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -1013,18 +1011,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string current = root;
             foreach (string segment in segments)
             {
-                if (string.IsNullOrEmpty(segment))
-                {
-                    continue;
-                }
+                if (string.IsNullOrEmpty(segment)) continue;
 
                 current = Path.Combine(current, segment);
 
-                // Only attempt resolution if the path exists on disk
-                if (!Directory.Exists(current) && !File.Exists(current))
-                {
-                    continue;
-                }
+                if (!Directory.Exists(current) && !File.Exists(current)) continue;
 
                 try
                 {
