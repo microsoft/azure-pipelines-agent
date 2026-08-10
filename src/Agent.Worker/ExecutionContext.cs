@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // others
         void ForceTaskComplete();
         string TranslateToHostPath(string path);
-        void ValidateContainerPath(string originalPath, string resolvedPath);
+        string ValidateContainerPath(string originalPath, string resolvedPath);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -932,9 +932,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Catch relative ".." traversal paths not translated but able to escape _work.
             bool isRelativeWithTraversal = path.Contains("..");
 
+            Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' translationOccurred={translationOccurred} isRooted={isRooted} isRelativeWithTraversal={isRelativeWithTraversal} target={stepTarget.GetType().Name}");
+
             if (stepTarget is ContainerInfo && (translationOccurred || isRooted || isRelativeWithTraversal))
             {
-                ValidateContainerPath(path, resolved);
+                Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
+                resolved = ValidateContainerPath(path, resolved);
+                Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
             }
 
             return resolved;
@@ -949,7 +953,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Use the job-level context — tasks have a direct parent, job context has none.
             var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
 
-            Trace.Verbose($"VsoPathTranslation: before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
+            Trace.Info($"VsoPathTranslation: before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
 
             jobContext._vsoPathTelemetry.Record(
                 pathBefore: pathBeforeTranslation,
@@ -972,16 +976,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IsAgentTelemetry: true);
         }
 
-        public void ValidateContainerPath(string originalPath, string resolvedPath)
+        public string ValidateContainerPath(string originalPath, string resolvedPath)
         {
             if (string.IsNullOrEmpty(resolvedPath))
             {
-                return;
+                Trace.Info("ValidateContainerPath: skipping — resolvedPath is null or empty.");
+                return resolvedPath;
             }
 
             string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
-            string fullResolved = ResolveAllLinks(Path.GetFullPath(resolvedPath));
-            string fullWork = ResolveAllLinks(Path.GetFullPath(workDir));
+            Trace.Info($"ValidateContainerPath: resolving links — path='{resolvedPath}' workDir='{workDir}'");
+
+            // ResolveAllLinks handles ".." after each symlink hop (filesystem semantics).
+            // Calling Path.GetFullPath first would strip ".." lexically, bypassing symlink detection.
+            string fullResolved = ResolveAllLinks(resolvedPath);
+            string fullWork = ResolveAllLinks(workDir);
+
+            Trace.Info($"ValidateContainerPath: canonical — fullResolved='{fullResolved}' fullWork='{fullWork}'");
 
             // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
             // Allow exact match or anything strictly inside work dir.
@@ -991,31 +1002,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             if (!underWork)
             {
+                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}'");
                 throw new InvalidOperationException(
                     $"Container jobs may only reference files within the work directory. " +
                     $"The path '{originalPath}' resolves to '{fullResolved}', " +
                     $"which is outside the allowed directory '{workDir}'.");
             }
+
+            Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
+            // Return canonical path so the sink opens exactly what was validated.
+            return fullResolved;
         }
 
         /// <summary>
-        /// Walks each path segment and resolves any symlink or junction to its final target.
+        /// Walks each path segment resolving symlinks/junctions after each hop,
+        /// then applies ".." — matching OS filesystem semantics.
         /// Non-existent segments are appended verbatim.
         /// </summary>
         private string ResolveAllLinks(string path)
         {
+            // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
+            // without lexically resolving ".." before symlinks are followed.
+            if (!Path.IsPathRooted(path))
+            {
+                string abs = Path.Combine(Directory.GetCurrentDirectory(), path);
+                Trace.Info($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
+                path = abs;
+            }
+
             string root = Path.GetPathRoot(path) ?? string.Empty;
             string relative = path.Substring(root.Length);
             string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
+            // Use root as-is — Path.Combine handles trailing separators correctly on all platforms.
+            // ("/" on Linux, "C:\" on Windows — both work with Path.Combine without trimming.)
             string current = root;
+
             foreach (string segment in segments)
             {
-                if (string.IsNullOrEmpty(segment)) continue;
+                if (string.IsNullOrEmpty(segment) || segment == ".") continue;
+
+                if (segment == "..")
+                {
+                    // Move up after symlink resolution — not lexically before.
+                    string parent = Path.GetDirectoryName(current);
+                    if (parent != null)
+                    {
+                        Trace.Info($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
+                        current = parent;
+                    }
+                    continue;
+                }
 
                 current = Path.Combine(current, segment);
 
-                if (!Directory.Exists(current) && !File.Exists(current)) continue;
+                if (!Directory.Exists(current) && !File.Exists(current))
+                {
+                    Trace.Info($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
+                    continue;
+                }
 
                 try
                 {
@@ -1025,16 +1070,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (linkTarget != null)
                     {
-                        Trace.Verbose($"ValidateContainerPath: junction/symlink detected '{current}' -> '{linkTarget.FullName}'");
+                        Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
                         current = Path.GetFullPath(linkTarget.FullName);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Trace.Verbose($"ValidateContainerPath: ResolveLinkTarget skipped for '{current}': {ex.Message}");
+                    Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
                 }
             }
 
+            Trace.Info($"ResolveAllLinks: result '{current}'");
             return current;
         }
 
