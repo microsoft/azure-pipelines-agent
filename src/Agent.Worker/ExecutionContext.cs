@@ -929,13 +929,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            // Validate every path for container jobs — not just paths that look suspicious.
-            // context.TranslateToHostPath is only called from ##vso command handlers, which
-            // always pass file paths. Variable values go through stepTarget.TranslateToHostPath
-            // directly in TaskRunner and never reach here.
-            // Symlink/junction resolution requires inspecting the filesystem regardless of how
-            // the path looks — a bare name like "Agent.Worker.dll" resolves relative to the
-            // agent CWD (agent root) and could escape _work without any ".." or absolute prefix.
+            // Always validate — only file paths reach here (variable values bypass via stepTarget directly).
+            // Symlink resolution requires full filesystem inspection regardless of how the path looks.
             if (stepTarget is ContainerInfo)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
