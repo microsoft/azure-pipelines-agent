@@ -301,3 +301,22 @@ jobs:
         CodesignValidation: true
         CodesignValidationBreakOn: WarningAbove
         ToolLogsNotFoundAction: Error
+
+  # Keep injected post-build tasks on the same SDK used to build the agent.
+  - pwsh: |
+      $dotnetRoot = Join-Path $env:BUILD_SOURCESDIRECTORY '_dotnetsdk'
+      $dotnetName = if ($IsWindows) { 'dotnet.exe' } else { 'dotnet' }
+      $dotnet = Join-Path $dotnetRoot $dotnetName
+
+      if (-not (Test-Path $dotnet)) {
+        throw "Repository .NET SDK was not found at $dotnet"
+      }
+
+      $sdkVersion = (& $dotnet --version).Trim()
+      if ($LASTEXITCODE -ne 0) {
+        throw "Failed to query the repository .NET SDK at $dotnet"
+      }
+
+      Write-Host "Exposing repository .NET SDK $sdkVersion to subsequent tasks"
+      Write-Host "##vso[task.prependpath]$dotnetRoot"
+    displayName: Expose repository .NET SDK
