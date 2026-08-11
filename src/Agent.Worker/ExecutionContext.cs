@@ -926,15 +926,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             var resolved = stepTarget.TranslateToHostPath(path);
             PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true);
-            bool translationOccurred = !string.Equals(resolved, path, IOUtil.FilePathStringComparison);
-            // Catch absolute paths ContainerInfo didn't translate (e.g. /etc/passwd).
-            bool isRooted = Path.IsPathRooted(path);
-            // Catch relative ".." traversal paths not translated but able to escape _work.
-            bool isRelativeWithTraversal = path.Contains("..");
 
-            Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' translationOccurred={translationOccurred} isRooted={isRooted} isRelativeWithTraversal={isRelativeWithTraversal} target={stepTarget.GetType().Name}");
+            Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            if (stepTarget is ContainerInfo && (translationOccurred || isRooted || isRelativeWithTraversal))
+            // Validate all container paths — bare relative paths (e.g. "Agent.Worker.dll") also
+            // resolve on the host relative to the agent CWD, which may be outside _work.
+            // Symlink/junction checks require full resolution regardless of how the path looks.
+            if (stepTarget is ContainerInfo)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
                 resolved = ValidateContainerPath(path, resolved);
