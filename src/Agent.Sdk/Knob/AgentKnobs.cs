@@ -978,5 +978,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new BuiltInDefaultKnobSource("false"));
+
+        // Security
+        public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
+            nameof(EnforceContainerVsoPathValidation),
+            "If true, VSO commands (artifact.upload, build.uploadlog, task.addattachment, etc.) running inside a container job are restricted to referencing files within the agent work directory only. This prevents container-to-host path traversal via ##vso commands.",
+            new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
+            new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
