@@ -1,3 +1,13 @@
+## Features
+ - Add saveOnPartialSuccess support to SavePipelineCacheV0 (#5608)
+
+## Bugs
+ - WIF IdToken leak fix (#5611)
+ - Avoid stale connection when creating release PRs (#5615)
+
+## Misc
+
+
 
 ## Agent Downloads
 
