@@ -5,6 +5,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using Agent.Sdk;
 using Microsoft.Identity.Client;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -92,17 +93,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void GetHttpClient_NoProxyConfigured_DoesNotThrow()
+        public void GetHttpClient_NoProxyConfigured_UsesBypassingAgentProxy()
         {
-            // When no proxy is configured the handler's Proxy is null and behavior is unchanged.
-            using (var hc = Setup(webProxy: null))
+            // Real no-proxy case: WebProxy is never null, it's an unconfigured AgentWebProxy that bypasses everything.
+            var noProxy = new AgentWebProxy();
+            using (var hc = Setup(noProxy))
             using (var factory = new MsalProxyHttpClientFactory(hc))
             {
                 HttpClient client = factory.GetHttpClient();
                 HttpClientHandler handler = GetHandler(factory);
 
+                // Must use the agent's proxy instance, not the .NET default/system proxy.
                 Assert.NotNull(client);
-                Assert.Null(handler.Proxy);
+                Assert.Same(noProxy, handler.Proxy);
+
+                // With no address configured, the agent proxy bypasses everything (no traffic is proxied).
+                var destination = new Uri("https://login.microsoftonline.com");
+                Assert.True(handler.Proxy.IsBypassed(destination));
+                Assert.Same(destination, handler.Proxy.GetProxy(destination));
             }
         }
 
