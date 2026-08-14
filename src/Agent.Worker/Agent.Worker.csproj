@@ -5,6 +5,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>..\FinalPublicKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(PackageRuntime.StartsWith('win'))">
@@ -26,4 +34,26 @@
     <PackageReference Include="System.Private.Uri" Version="4.3.2" Condition="$(TargetFramework.StartsWith('net8'))" />
     <PackageReference Include="System.Formats.Asn1" Version="9.0.10" Condition="$(TargetFramework.StartsWith('net8'))" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Test" />
+  </ItemGroup>
+
+  <UsingTask TaskName="ComputePublicKey" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <KeyFile ParameterType="System.String" Required="true" />
+      <PublicKey ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        PublicKey = System.BitConverter.ToString(System.IO.File.ReadAllBytes(KeyFile)).Replace("-", "").ToLowerInvariant();
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="SetPublicKey" BeforeTargets="GetAssemblyAttributes" Condition="'$(SignAssembly)' == 'true'">
+    <ComputePublicKey KeyFile="$(MSBuildProjectDirectory)\$(AssemblyOriginatorKeyFile)">
+      <Output TaskParameter="PublicKey" PropertyName="PublicKey" />
+    </ComputePublicKey>
+  </Target>
 </Project>

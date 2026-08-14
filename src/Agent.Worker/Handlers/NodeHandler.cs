@@ -181,10 +181,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             // Update the env dictionary.
+            AddVariablesToEnvironment();
             AddInputsToEnvironment();
             AddEndpointsToEnvironment();
             AddSecureFilesToEnvironment();
-            AddVariablesToEnvironment();
             AddTaskVariablesToEnvironment();
             AddPrependPathToEnvironment();
 
