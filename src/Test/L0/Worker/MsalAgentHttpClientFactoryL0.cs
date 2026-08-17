@@ -5,6 +5,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Agent.Sdk;
 using Microsoft.Identity.Client;
 using Microsoft.VisualStudio.Services.Agent.Worker;
@@ -13,19 +14,19 @@ using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
-    public sealed class MsalProxyHttpClientFactoryL0
+    public sealed class MsalAgentHttpClientFactoryL0
     {
-        // Reads the private HttpClientHandler backing the factory so we can assert
-        // the proxy the agent configured is the one MSAL will actually use.
-        private static HttpClientHandler GetHandler(MsalProxyHttpClientFactory factory)
+        // Reads the HttpClient's underlying HttpClientHandler (stored in HttpMessageInvoker._handler)
+        // so we can assert the proxy the agent configured is the one MSAL will actually use.
+        private static HttpClientHandler GetHandler(HttpClient client)
         {
-            FieldInfo handlerField = typeof(MsalProxyHttpClientFactory)
+            FieldInfo handlerField = typeof(HttpMessageInvoker)
                 .GetField("_handler", BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.NotNull(handlerField);
-            return (HttpClientHandler)handlerField.GetValue(factory);
+            return (HttpClientHandler)handlerField.GetValue(client);
         }
 
-        private TestHostContext Setup(IWebProxy webProxy, [System.Runtime.CompilerServices.CallerMemberName] string testName = "")
+        private TestHostContext Setup(IWebProxy webProxy, [CallerMemberName] string testName = "")
         {
             var hc = new TestHostContext(this, testName);
 
@@ -49,11 +50,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             // Arrange - the agent is configured with a proxy (e.g. from the .proxy file).
             var expectedProxy = new WebProxy("http://127.0.0.1:8899");
             using (var hc = Setup(expectedProxy))
-            using (var factory = new MsalProxyHttpClientFactory(hc))
+            using (var factory = new MsalAgentHttpClientFactory(hc))
             {
                 // Act
                 HttpClient client = factory.GetHttpClient();
-                HttpClientHandler handler = GetHandler(factory);
+                HttpClientHandler handler = GetHandler(client);
 
                 // Assert - MSAL's HttpClient routes through the agent's proxy (the fix).
                 Assert.NotNull(client);
@@ -67,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void GetHttpClient_ReturnsSameInstanceAcrossCalls()
         {
             using (var hc = Setup(new WebProxy("http://127.0.0.1:8899")))
-            using (var factory = new MsalProxyHttpClientFactory(hc))
+            using (var factory = new MsalAgentHttpClientFactory(hc))
             {
                 HttpClient first = factory.GetHttpClient();
                 HttpClient second = factory.GetHttpClient();
@@ -83,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void Factory_IsMsalHttpClientFactory()
         {
             using (var hc = Setup(new WebProxy("http://127.0.0.1:8899")))
-            using (var factory = new MsalProxyHttpClientFactory(hc))
+            using (var factory = new MsalAgentHttpClientFactory(hc))
             {
                 // MSAL only accepts an IMsalHttpClientFactory via WithHttpClientFactory.
                 Assert.IsAssignableFrom<IMsalHttpClientFactory>(factory);
@@ -98,10 +99,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             // Real no-proxy case: WebProxy is never null, it's an unconfigured AgentWebProxy that bypasses everything.
             var noProxy = new AgentWebProxy();
             using (var hc = Setup(noProxy))
-            using (var factory = new MsalProxyHttpClientFactory(hc))
+            using (var factory = new MsalAgentHttpClientFactory(hc))
             {
                 HttpClient client = factory.GetHttpClient();
-                HttpClientHandler handler = GetHandler(factory);
+                HttpClientHandler handler = GetHandler(client);
 
                 // Must use the agent's proxy instance, not the .NET default/system proxy.
                 Assert.NotNull(client);
@@ -119,7 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         public void Constructor_NullHostContext_Throws()
         {
-            Assert.Throws<ArgumentNullException>(() => new MsalProxyHttpClientFactory(null));
+            Assert.Throws<ArgumentNullException>(() => new MsalAgentHttpClientFactory(null));
         }
 
         [Fact]
@@ -129,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (var hc = Setup(new WebProxy("http://127.0.0.1:8899")))
             {
-                var factory = new MsalProxyHttpClientFactory(hc);
+                var factory = new MsalAgentHttpClientFactory(hc);
                 _ = factory.GetHttpClient();
 
                 factory.Dispose();

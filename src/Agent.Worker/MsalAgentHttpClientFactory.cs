@@ -12,20 +12,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     // Without this, MSAL uses its own default HttpClient with no proxy, so Microsoft
     // Entra token acquisition bypasses the agent proxy and fails on proxy-restricted
     // self-hosted agents.
-    internal sealed class MsalProxyHttpClientFactory : IMsalHttpClientFactory, IDisposable
+    internal sealed class MsalAgentHttpClientFactory : IMsalHttpClientFactory, IDisposable
     {
-        private readonly HttpClientHandler _handler;
         private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        public MsalProxyHttpClientFactory(IHostContext hostContext)
+        public MsalAgentHttpClientFactory(IHostContext hostContext)
         {
             ArgUtil.NotNull(hostContext, nameof(hostContext));
 
             // CreateHttpClientHandler sets Proxy = IVstsAgentWebProxy.WebProxy, the same
             // proxy the rest of the agent's HTTP traffic already uses.
-            _handler = hostContext.CreateHttpClientHandler();
-            _httpClient = new HttpClient(_handler, disposeHandler: false);
+#pragma warning disable CA2000 // The HttpClient takes ownership of the handler (disposeHandler defaults to true) and disposes it.
+            _httpClient = new HttpClient(hostContext.CreateHttpClientHandler());
+#pragma warning restore CA2000
         }
 
         public HttpClient GetHttpClient() => _httpClient;
@@ -36,7 +36,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             _disposed = true;
             _httpClient.Dispose();
-            _handler.Dispose();
         }
     }
 }

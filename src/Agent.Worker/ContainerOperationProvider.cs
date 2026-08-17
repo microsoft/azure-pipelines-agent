@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
             }
 
-            using var msalHttpClientFactory = new MsalProxyHttpClientFactory(HostContext);
+            using var msalHttpClientFactory = new MsalAgentHttpClientFactory(HostContext);
             var app = ConfidentialClientApplicationBuilder.Create(clientId)
                 .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
                 .WithHttpClientFactory(msalHttpClientFactory)
