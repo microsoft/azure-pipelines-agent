@@ -1,0 +1,103 @@
+name: Node.js security update
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, Mondays 06:00 UTC
+  workflow_dispatch:        # allow manual runs
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  node-security-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Node.js security releases and bump externals.sh
+        id: check
+        run: |
+          set -euo pipefail
+          FILE="src/Misc/externals.sh"
+
+          # externals.sh variable  ->  Node major line to track.
+          # Only active (non-EOL) lines are listed. Add more as needed,
+          # e.g. NODE22_VERSION 22, when the agent adopts them.
+          declare -A MAJORS=(
+            [NODE20_VERSION]=20
+            [NODE24_VERSION]=24
+          )
+
+          INDEX="$(curl --retry 5 -fsSL https://nodejs.org/dist/index.json)"
+
+          # true if $1 > $2 (semver-ish, via sort -V)
+          newer() {
+            [ "$1" != "$2" ] && \
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]
+          }
+
+          CHANGED=false
+          NOTES=""
+
+          for VAR in "${!MAJORS[@]}"; do
+            MAJOR="${MAJORS[$VAR]}"
+
+            CURRENT="$(grep -E "^${VAR}=" "$FILE" | sed -E 's/.*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/')"
+            if [ -z "$CURRENT" ]; then
+              echo "::warning::Could not find $VAR in $FILE, skipping"
+              continue
+            fi
+
+            # Newest release in this major line (index.json is newest-first).
+            LATEST="$(echo "$INDEX" | jq -r --arg maj "v${MAJOR}." \
+              '[.[] | select(.version | startswith($maj)) | .version] | .[0] // empty' | tr -d 'v')"
+
+            # Newest release in this line that included security fixes.
+            LATEST_SEC="$(echo "$INDEX" | jq -r --arg maj "v${MAJOR}." \
+              '[.[] | select(.version | startswith($maj)) | select(.security == true) | .version] | .[0] // empty' | tr -d 'v')"
+
+            echo "$VAR: current=$CURRENT latest=$LATEST latest_security=$LATEST_SEC"
+
+            # Only act when a security release newer than what we ship exists.
+            if [ -n "$LATEST_SEC" ] && newer "$LATEST_SEC" "$CURRENT"; then
+              # Bump to the newest release in the line (contains the security fix
+              # plus any later patches). Fall back to the security version itself.
+              TARGET="${LATEST:-$LATEST_SEC}"
+              echo "Bumping $VAR: $CURRENT -> $TARGET (security release $LATEST_SEC)"
+              sed -i -E "s/^(${VAR}=\")[0-9]+\.[0-9]+\.[0-9]+(\")/\1${TARGET}\2/" "$FILE"
+              NOTES="${NOTES}- \`${VAR}\`: \`${CURRENT}\` → \`${TARGET}\` (security release \`${LATEST_SEC}\`)\n"
+              CHANGED=true
+            fi
+          done
+
+          {
+            echo "changed=$CHANGED"
+            echo "notes<<EOF"
+            echo -e "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Pull Request
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/node-security-update
+          base: master
+          title: "chore: update Node.js to latest security release(s)"
+          commit-message: "chore: bump Node.js to latest security release(s) in externals.sh"
+          labels: security, dependencies
+          body: |
+            An automated check found a **Node.js security release** newer than the
+            version currently pinned in `src/Misc/externals.sh`.
+
+            **Updates:**
+
+            ${{ steps.check.outputs.notes }}
+
+            Sources:
+            - Security release announcements: https://nodejs.org/en/blog/vulnerability
+            - Release metadata: https://nodejs.org/dist/index.json
+
+            > Generated automatically by the `Node.js security update` workflow.
