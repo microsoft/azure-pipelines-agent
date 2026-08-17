@@ -1142,7 +1142,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         // Allow the new sudo group run any sudo command without providing password.
                         await DockerExec(executionContext, container.ContainerId, $"su -c \"echo '%{sudoGroupName} ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
 
-                        if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
+                        if (container.MapDockerSocket && AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                         {
                             executionContext.Debug($"Docker group setup enabled via agent knob");
                             executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
