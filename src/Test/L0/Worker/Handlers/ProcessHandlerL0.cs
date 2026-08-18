@@ -18,8 +18,100 @@ using System.Threading.Tasks;
 
 namespace Test.L0.Worker.Handlers;
 
+[CollectionDefinition("Worker proxy environment tests")]
+public class ProcessHandlerEnvironmentTestFixture
+{
+}
+
+[Collection("Worker proxy environment tests")]
 public class ProcessHandlerL0
 {
+    [Theory]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
+    [InlineData("HtTpS_pRoXy")]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void IsProxyEnvironmentVariable_IsCaseInsensitive(string variable)
+    {
+        Assert.True(ProcessHandlerHelper.IsProxyEnvironmentVariable(variable));
+        Assert.False(ProcessHandlerHelper.IsProxyEnvironmentVariable("AZP_UNRELATED_VARIABLE"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task ModifyEnvironment_DoesNotPersistProxyVariables(bool useV2)
+    {
+        const string httpProxy = "HTTP_PROXY";
+        const string httpsProxy = "HTTPS_PROXY";
+        const string unrelatedVariable = "AZP_PROCESS_HANDLER_MODIFY_ENVIRONMENT_TEST";
+        const string workerHttpProxy = "http://worker-http";
+        const string workerHttpsProxy = "http://worker-https";
+        string originalHttpProxy = Environment.GetEnvironmentVariable(httpProxy);
+        string originalHttpsProxy = Environment.GetEnvironmentVariable(httpsProxy);
+        string originalUnrelatedVariable = Environment.GetEnvironmentVariable(unrelatedVariable);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(httpProxy, null);
+            Environment.SetEnvironmentVariable(httpsProxy, null);
+            Environment.SetEnvironmentVariable("http_proxy", workerHttpProxy);
+            Environment.SetEnvironmentVariable("HtTpS_pRoXy", workerHttpsProxy);
+            Environment.SetEnvironmentVariable(unrelatedVariable, null);
+
+            using var hostContext = CreateTestHostContext();
+            using var processInvoker = new ProcessInvokerWrapper();
+            hostContext.EnqueueInstance<IProcessInvoker>(processInvoker);
+
+            using var targetScript = new TestScript(
+                testTemp: hostContext.GetDirectory(WellKnownDirectory.Temp),
+                scriptName: "modify-environment.cmd"
+            );
+            targetScript.WriteContent($@"
+@echo off
+set {unrelatedVariable}=persisted");
+
+            IProcessHandler handler = useV2 ? new ProcessHandlerV2() : new ProcessHandler();
+            handler.Initialize(hostContext);
+            handler.Data = new ProcessHandlerData()
+            {
+                Target = targetScript.ScriptPath,
+                ArgumentFormat = "",
+                DisableInlineExecution = false.ToString(),
+                ModifyEnvironment = true.ToString()
+            };
+            handler.Inputs = new();
+            handler.TaskDirectory = "";
+            handler.Environment = new()
+            {
+                ["http_proxy"] = "http://task-http",
+                ["HtTpS_pRoXy"] = "http://task-https",
+            };
+            handler.RuntimeVariables = new(hostContext, new Dictionary<string, VariableValue>(), out _);
+
+            var executionContext = CreateMockExecutionContext(hostContext);
+            executionContext.Setup(x => x.GetVariableValueOrDefault("AZP_75787_ENABLE_NEW_LOGIC")).Returns("false");
+            handler.ExecutionContext = executionContext.Object;
+
+            await handler.RunAsync();
+
+            Assert.Equal(workerHttpProxy, Environment.GetEnvironmentVariable(httpProxy));
+            Assert.Equal(workerHttpsProxy, Environment.GetEnvironmentVariable(httpsProxy));
+            Assert.Equal("persisted", Environment.GetEnvironmentVariable(unrelatedVariable));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(httpProxy, originalHttpProxy);
+            Environment.SetEnvironmentVariable(httpsProxy, originalHttpsProxy);
+            Environment.SetEnvironmentVariable(unrelatedVariable, originalUnrelatedVariable);
+        }
+    }
+
     [Fact]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
