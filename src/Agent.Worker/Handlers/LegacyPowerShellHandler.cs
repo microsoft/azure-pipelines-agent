@@ -220,6 +220,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info("Finished copying files.");
             }
 
+            // Update the env dictionary.
+            AddPublicRuntimeVariablesToEnvironmentIfEnabled();
+
             // Add the legacy ps host environment variables.
             AddLegacyHostEnvironmentVariables(scriptFile: scriptFile, workingDirectory: workingDirectory);
             AddPrependPathToEnvironment();

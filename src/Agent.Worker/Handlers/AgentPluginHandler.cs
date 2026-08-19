@@ -27,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNullOrEmpty(Data.Target, nameof(Data.Target));
 
             // Update the env dictionary.
+            AddPublicRuntimeVariablesToEnvironmentIfEnabled();
             AddPrependPathToEnvironment();
 
             // Make sure only particular task get run as agent plugin.

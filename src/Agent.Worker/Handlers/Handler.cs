@@ -231,6 +231,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
+        protected void AddPublicRuntimeVariablesToEnvironmentIfEnabled()
+        {
+            if (AgentKnobs.UseJobScopedTaskEnvironment.GetValue(ExecutionContext).AsBoolean())
+            {
+                AddVariablesToEnvironment(excludeNames: true, excludeSecrets: true);
+            }
+        }
+
         protected void AddEnvironmentVariable(string key, string value)
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
