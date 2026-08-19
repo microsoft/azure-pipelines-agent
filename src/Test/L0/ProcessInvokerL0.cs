@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.TeamFoundation.Framework.Common;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -71,6 +73,152 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     });
                 }
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RemovesInheritedEnvironmentVariableForRemovalCapableDictionary()
+        {
+            string variableName = $"AGENT_PROCESS_INVOKER_REMOVED_{Guid.NewGuid():N}";
+            Environment.SetEnvironmentVariable(variableName, "inherited");
+
+            try
+            {
+                var environment = new TaskEnvironment();
+                environment.Remove(variableName);
+
+                string output = await ReadEnvironmentVariable(environment, variableName);
+
+                Assert.Equal("<missing>", output);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RejectsEnvironmentVariableRemovalContainingNullCharacter()
+        {
+            using (var hostContext = new TestHostContext(this))
+            using (var processInvoker = new ProcessInvokerWrapper())
+            {
+                processInvoker.Initialize(hostContext);
+                var environment = new RemovalDictionary(
+                    removals: new[] { "SAFE_NAME\0UNSAFE_NAME" });
+
+                await Assert.ThrowsAsync<ArgumentException>(() =>
+                    processInvoker.ExecuteAsync(
+                        "",
+                        TestUtil.IsWindows() ? "cmd.exe" : "bash",
+                        "",
+                        environment,
+                        CancellationToken.None));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task AppliesSuppliedValueAfterRemovingInheritedEnvironmentVariable()
+        {
+            string variableName = $"AGENT_PROCESS_INVOKER_RESTORED_{Guid.NewGuid():N}";
+            Environment.SetEnvironmentVariable(variableName, "inherited");
+
+            try
+            {
+                var environment = new RemovalDictionary(
+                    new Dictionary<string, string> { [variableName] = "supplied" },
+                    new[] { variableName });
+
+                string output = await ReadEnvironmentVariable(environment, variableName);
+
+                Assert.Equal("supplied", output);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task PlainDictionaryDoesNotRemoveInheritedEnvironmentVariable()
+        {
+            string variableName = $"AGENT_PROCESS_INVOKER_LEGACY_{Guid.NewGuid():N}";
+            Environment.SetEnvironmentVariable(variableName, "inherited");
+
+            try
+            {
+                string output = await ReadEnvironmentVariable(
+                    new Dictionary<string, string>(),
+                    variableName);
+
+                Assert.Equal("inherited", output);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        private async Task<string> ReadEnvironmentVariable(
+            IDictionary<string, string> environment,
+            string variableName)
+        {
+            using (var hostContext = new TestHostContext(this))
+            using (var processInvoker = new ProcessInvokerWrapper())
+            {
+                var output = new List<string>();
+                processInvoker.OutputDataReceived += (_, args) =>
+                {
+                    if (args.Data != null)
+                    {
+                        output.Add(args.Data);
+                    }
+                };
+                processInvoker.Initialize(hostContext);
+
+                string fileName;
+                string arguments;
+                if (TestUtil.IsWindows())
+                {
+                    fileName = "cmd.exe";
+                    arguments = $"/d /s /c \"if defined {variableName} (echo %{variableName}%) else (echo ^<missing^>)\"";
+                }
+                else
+                {
+                    fileName = "bash";
+                    arguments = $"-c \"if [ -n \\\"${{{variableName}+set}}\\\" ]; then printf '%s\\\\n' \\\"${variableName}\\\"; else echo '<missing>'; fi\"";
+                }
+
+                int exitCode = await processInvoker.ExecuteAsync(
+                    "",
+                    fileName,
+                    arguments,
+                    environment,
+                    CancellationToken.None);
+
+                Assert.Equal(0, exitCode);
+                return Assert.Single(output.Where(line => !string.IsNullOrEmpty(line)));
+            }
+        }
+
+        private sealed class RemovalDictionary : Dictionary<string, string>, IEnvironmentVariableRemovals
+        {
+            public RemovalDictionary(
+                IDictionary<string, string> values = null,
+                IEnumerable<string> removals = null)
+                : base(values ?? new Dictionary<string, string>())
+            {
+                RemovedEnvironmentVariables = (removals ?? Enumerable.Empty<string>()).ToArray();
+            }
+
+            public IReadOnlyCollection<string> RemovedEnvironmentVariables { get; }
         }
 
         //Run a process that normally takes 20sec to finish and cancel it.

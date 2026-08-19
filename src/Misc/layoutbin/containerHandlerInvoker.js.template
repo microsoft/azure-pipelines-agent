@@ -6,11 +6,16 @@ let stdinString = '';
 process.stdin.on('data', chunk => stdinString += chunk);
 
 process.stdin.on('end', () => {
-    const { handler, args: handlerArg, workDir: handlerWorkDir, prependPath, environment } = JSON.parse(stdinString);
+    const { handler, args: handlerArg, workDir: handlerWorkDir, prependPath, environment, unsetEnvironment = [] } = JSON.parse(stdinString);
 
     debug(`Handler: ${handler}`);
     debug(`HandlerArg: ${handlerArg}`);
     debug(`HandlerWorkDir: ${handlerWorkDir}`);
+
+    for (const key of unsetEnvironment) {
+        debug(`Unset env: ${key}`);
+        delete process.env[key];
+    }
 
     for (const key in environment) {
         const value = environment[key].toString().replace(/\r/g, '%0D').replace(/\n/g, '%0A');

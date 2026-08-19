@@ -162,15 +162,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var dockerManger = HostContext.GetService<IDockerCommandManager>();
             string containerEnginePath = dockerManger.DockerPath;
 
-            ContainerStandardInPayload payload = new ContainerStandardInPayload()
-            {
-                ExecutionHandler = fileName,
-                ExecutionHandlerWorkingDirectory = workingDirectory,
-                ExecutionHandlerArguments = arguments,
-                ExecutionHandlerEnvironment = environment,
-                ExecutionHandlerPrependPath = PrependPath
-            };
-
             // copy the intermediate script (containerHandlerInvoker.js) into Agent_TempDirectory
             // Background:
             //    We rely on environment variables to send task execution information from agent to task execution engine (node/powershell)
@@ -220,7 +211,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
 
                 using var redirectStandardIn = new InputQueue<string>();
-                var payloadJson = JsonUtility.ToString(payload);
+                var payloadJson = CreateContainerStandardInPayload(
+                    fileName,
+                    arguments,
+                    workingDirectory,
+                    environment,
+                    PrependPath);
                 redirectStandardIn.Enqueue(payloadJson);
                 HostContext.GetTrace(nameof(ContainerStepHost)).Info($"Payload: {payloadJson}");
                 
@@ -263,6 +259,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return exitCode;
             }
         }
+
+        internal static string CreateContainerStandardInPayload(
+            string handler,
+            string arguments,
+            string workingDirectory,
+            IDictionary<string, string> environment,
+            string prependPath)
+        {
+            return JsonUtility.ToString(new ContainerStandardInPayload
+            {
+                ExecutionHandler = handler,
+                ExecutionHandlerArguments = arguments,
+                ExecutionHandlerWorkingDirectory = workingDirectory,
+                ExecutionHandlerEnvironment = environment,
+                ExecutionHandlerPrependPath = prependPath,
+                UnsetEnvironment = (environment as IEnvironmentVariableRemovals)?.RemovedEnvironmentVariables,
+            });
+        }
         
         private class ContainerStandardInPayload
         {
@@ -280,6 +294,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             [JsonProperty("prependPath")]
             public string ExecutionHandlerPrependPath { get; set; }
+
+            [JsonProperty("unsetEnvironment", NullValueHandling = NullValueHandling.Ignore)]
+            public IReadOnlyCollection<string> UnsetEnvironment { get; set; }
         }
     }
 }

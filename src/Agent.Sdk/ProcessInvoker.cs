@@ -278,6 +278,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 _proc.StartInfo.StandardOutputEncoding = outputEncoding;
             }
 
+            if (environment is IEnvironmentVariableRemovals environmentRemovals)
+            {
+                foreach (string name in environmentRemovals.RemovedEnvironmentVariables)
+                {
+                    ArgUtil.ThrowIfContainsNull(name, null);
+                    _proc.StartInfo.Environment.Remove(name);
+                }
+            }
+
             // Copy the environment variables.
             if (environment != null && environment.Count > 0)
             {
