@@ -7,7 +7,9 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Moq;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -313,6 +315,94 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
                 Assert.Equal("sleep infinity", container.ContainerCommand);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task StartContainer_WhenDockerSocketIsOmittedOrFalse_DoesNotProbeSocket(bool explicitlyDisableSocket)
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc);
+                var dockerContainer = new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" };
+                if (explicitlyDisableSocket)
+                {
+                    dockerContainer.Properties.Set<bool>("mapDockerSocket", false);
+                }
+                var container = new ContainerInfo(dockerContainer);
+                var processInvoker = SetupProcessInvokerMockForVerification(hc);
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    "stat",
+                    It.Is<string>(arguments => arguments.Contains("/var/run/docker.sock")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task StartContainer_WhenDockerSocketIsMapped_ProbesSocketForDockerGroupSetup()
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("VSTS_SETUP_DOCKERGROUP")).Returns("true");
+                var dockerContainer = new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" };
+                dockerContainer.Properties.Set<bool>("mapDockerSocket", true);
+                var container = new ContainerInfo(dockerContainer);
+                var processInvoker = SetupProcessInvokerMockForVerification(hc);
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    "stat",
+                    It.Is<string>(arguments => arguments.Contains("/var/run/docker.sock")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.Once);
             }
         }
     }

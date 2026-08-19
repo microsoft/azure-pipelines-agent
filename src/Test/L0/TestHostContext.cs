@@ -477,9 +477,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return _traceManager[name];
         }
 
-        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true, bool mapDockerSocketDefault = false)
         {
-            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer, mapDockerSocketDefault);
             if (TestUtil.IsWindows())
             {
                 // Tool cache folder may come from ENV, so we need a unique folder to avoid collision

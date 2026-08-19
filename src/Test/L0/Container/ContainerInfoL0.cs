@@ -95,6 +95,97 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void OmittedMapDockerSocketDefaultsToFalseWithoutSocketMount()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+
+                Assert.False(info.MapDockerSocket);
+                Assert.DoesNotContain(info.MountVolumes, volume =>
+                    volume.SourceVolumePath == "/var/run/docker.sock" &&
+                    volume.TargetVolumePath == "/var/run/docker.sock");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExplicitMapDockerSocketTrueMountsSocketForJobContainer()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            dockerContainer.Properties.Set<bool>("mapDockerSocket", true);
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer);
+
+                Assert.True(info.MapDockerSocket);
+                Assert.Contains(info.MountVolumes, volume =>
+                    volume.SourceVolumePath == "/var/run/docker.sock" &&
+                    volume.TargetVolumePath == "/var/run/docker.sock");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExplicitMapDockerSocketFalseOverridesDefaultWithoutSocketMount()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "container",
+                Image = "foo"
+            };
+            dockerContainer.Properties.Set<bool>("mapDockerSocket", false);
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, mapDockerSocketDefault: true);
+
+                Assert.False(info.MapDockerSocket);
+                Assert.DoesNotContain(info.MountVolumes, volume =>
+                    volume.SourceVolumePath == "/var/run/docker.sock" &&
+                    volume.TargetVolumePath == "/var/run/docker.sock");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ServiceContainerDoesNotMountDockerSocket()
+        {
+            var dockerContainer = new Pipelines.ContainerResource()
+            {
+                Alias = "service",
+                Image = "foo"
+            };
+            dockerContainer.Properties.Set<bool>("mapDockerSocket", true);
+
+            using (TestHostContext hc = CreateTestContext())
+            {
+                ContainerInfo info = hc.CreateContainerInfo(dockerContainer, isJobContainer: false);
+
+                Assert.True(info.MapDockerSocket);
+                Assert.DoesNotContain(info.MountVolumes, volume =>
+                    volume.SourceVolumePath == "/var/run/docker.sock" &&
+                    volume.TargetVolumePath == "/var/run/docker.sock");
+            }
+        }
+
 
         [Fact]
         [Trait("Level", "L0")]
