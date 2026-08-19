@@ -237,7 +237,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.ThrowIfContainsNull(key, value);
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
 
-            Environment[key] = value ?? string.Empty;
+            if (Environment is TaskEnvironment taskEnvironment)
+            {
+                taskEnvironment.Set(key, value);
+            }
+            else
+            {
+                Environment[key] = value ?? string.Empty;
+            }
 
             if (PlatformUtil.RunningOnWindows && Environment[key].Length > _windowsEnvironmentVariableMaximumSize)
             {
@@ -294,10 +301,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 string prepend = string.Join(Path.PathSeparator.ToString(), ExecutionContext.PrependPath.Reverse<string>());
                 string taskEnvPATH;
                 Environment.TryGetValue(Constants.PathVariable, out taskEnvPATH);
-                string originalPath = RuntimeVariables.Get(Constants.PathVariable) ?? // Prefer a job variable.
-                    taskEnvPATH ?? // Then a task-environment variable.
-                    System.Environment.GetEnvironmentVariable(Constants.PathVariable) ?? // Then an environment variable.
-                    string.Empty;
+                string originalPath;
+                if (Environment is TaskEnvironment taskEnvironment)
+                {
+                    originalPath = RuntimeVariables.Get(Constants.PathVariable) ?? // Prefer a job variable.
+                        taskEnvPATH ?? // Then a task-environment variable.
+                        (taskEnvironment.RemovedEnvironmentVariables.Contains(
+                            Constants.PathVariable,
+                            VarUtil.EnvironmentVariableKeyComparer)
+                            ? null
+                            : System.Environment.GetEnvironmentVariable(Constants.PathVariable)) ??
+                        string.Empty;
+                }
+                else
+                {
+                    originalPath = RuntimeVariables.Get(Constants.PathVariable) ?? // Prefer a job variable.
+                        taskEnvPATH ?? // Then a task-environment variable.
+                        System.Environment.GetEnvironmentVariable(Constants.PathVariable) ?? // Then an environment variable.
+                        string.Empty;
+                }
                 string newPath = PathUtil.PrependPath(prepend, originalPath);
                 AddEnvironmentVariable(Constants.PathVariable, newPath);
             }
@@ -323,6 +345,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             // Special case when the env variable is set for local process environment
             // for example by vso command in a preceding pipeline step
             if (localVariableExists && !localVariableContainsPwshLocations)
+            {
+                return false;
+            }
+
+            if (!localVariableExists &&
+                Environment is TaskEnvironment taskEnvironment &&
+                taskEnvironment.RemovedEnvironmentVariables.Contains(
+                    PSModulePath,
+                    VarUtil.EnvironmentVariableKeyComparer))
             {
                 return false;
             }

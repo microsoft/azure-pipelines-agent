@@ -6,6 +6,8 @@ using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Moq;
 using System;
+using System.Collections.Generic;
+using Microsoft.VisualStudio.Services.Agent.Worker;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
@@ -31,6 +33,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             var result = VarUtil.ConvertToEnvVariableFormat(input, preserveCase);
 
             Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        public void ExpandEnvironmentVariablesAppliesOverlayValuesAndRemovals()
+        {
+            const string overlaidName = "AZP_VARUTIL_OVERLAID";
+            const string removedName = "AZP_VARUTIL_REMOVED";
+            string originalOverlaid = Environment.GetEnvironmentVariable(overlaidName);
+            string originalRemoved = Environment.GetEnvironmentVariable(removedName);
+            try
+            {
+                Environment.SetEnvironmentVariable(overlaidName, "worker");
+                Environment.SetEnvironmentVariable(removedName, "worker");
+                using var hostContext = new TestHostContext(this);
+                var overlay = new TaskEnvironment
+                {
+                    [overlaidName] = "job",
+                };
+                overlay.Remove(removedName);
+                var target = new Dictionary<string, string>
+                {
+                    ["overlaid"] = $"$({overlaidName})",
+                    ["removed"] = $"$({removedName})",
+                };
+
+                VarUtil.ExpandEnvironmentVariables(hostContext, target, overlay);
+
+                Assert.Equal("job", target["overlaid"]);
+                Assert.Equal($"$({removedName})", target["removed"]);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(overlaidName, originalOverlaid);
+                Environment.SetEnvironmentVariable(removedName, originalRemoved);
+            }
         }
 
         [Theory]

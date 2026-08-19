@@ -122,6 +122,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             ExpandValues(context, source, target);
         }
 
+        public static void ExpandEnvironmentVariables(
+            IHostContext context,
+            IDictionary<string, string> target,
+            IDictionary<string, string> environmentOverlay)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            Tracing trace = context.GetTrace(nameof(VarUtil));
+            trace.Entering();
+
+            var source = new Dictionary<string, string>(EnvironmentVariableKeyComparer);
+            IDictionary environment = Environment.GetEnvironmentVariables();
+            foreach (DictionaryEntry entry in environment)
+            {
+                string key = entry.Key as string ?? string.Empty;
+                string val = entry.Value as string ?? string.Empty;
+                source[key] = val;
+            }
+
+            if (environmentOverlay is IEnvironmentVariableRemovals environmentRemovals)
+            {
+                foreach (string name in environmentRemovals.RemovedEnvironmentVariables)
+                {
+                    source.Remove(name);
+                }
+            }
+
+            if (environmentOverlay != null)
+            {
+                foreach (KeyValuePair<string, string> pair in environmentOverlay)
+                {
+                    source[pair.Key] = pair.Value;
+                }
+            }
+
+            ExpandValues(context, source, target);
+        }
+
         public static JToken ExpandValues(IHostContext context, IDictionary<string, string> source, JToken target)
         {
             var mapFuncs = new Dictionary<JTokenType, Func<JToken, JToken>>

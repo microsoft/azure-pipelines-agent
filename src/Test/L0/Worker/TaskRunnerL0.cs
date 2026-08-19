@@ -222,5 +222,65 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(4));
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void EnvironmentExpansionUsesJobStateOnlyWhenFeatureEnabled()
+        {
+            const string valueName = "AZP_TASKRUNNER_JOB_VALUE";
+            const string removedName = "AZP_TASKRUNNER_JOB_REMOVED";
+            string originalValue = Environment.GetEnvironmentVariable(valueName);
+            string originalRemoved = Environment.GetEnvironmentVariable(removedName);
+            try
+            {
+                Environment.SetEnvironmentVariable(valueName, "worker");
+                Environment.SetEnvironmentVariable(removedName, "worker");
+                using TestHostContext hostContext = CreateTestContext();
+                var state = new TaskEnvironmentState();
+                state.Set(valueName, "job");
+                state.Remove(removedName);
+                var executionContext = new Mock<IExecutionContext>();
+                executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new LocalEnvironment());
+                executionContext.SetupGet(x => x.TaskEnvironmentState).Returns(state);
+                executionContext
+                    .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.UseJobScopedTaskEnvironment"))
+                    .Returns("false");
+                var taskRunner = new TaskRunner
+                {
+                    ExecutionContext = executionContext.Object,
+                };
+                taskRunner.Initialize(hostContext);
+                var legacyTarget = new Dictionary<string, string>
+                {
+                    ["value"] = $"$({valueName})",
+                    ["removed"] = $"$({removedName})",
+                };
+
+                taskRunner.ExpandEnvironmentVariables(legacyTarget);
+
+                Assert.Equal("worker", legacyTarget["value"]);
+                Assert.Equal("worker", legacyTarget["removed"]);
+
+                executionContext
+                    .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.UseJobScopedTaskEnvironment"))
+                    .Returns("true");
+                var featureTarget = new Dictionary<string, string>
+                {
+                    ["value"] = $"$({valueName})",
+                    ["removed"] = $"$({removedName})",
+                };
+
+                taskRunner.ExpandEnvironmentVariables(featureTarget);
+
+                Assert.Equal("job", featureTarget["value"]);
+                Assert.Equal($"$({removedName})", featureTarget["removed"]);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(valueName, originalValue);
+                Environment.SetEnvironmentVariable(removedName, originalRemoved);
+            }
+        }
     }
 }

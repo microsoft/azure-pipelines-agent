@@ -4,6 +4,7 @@
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using System.Collections.Generic;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
@@ -138,6 +139,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Contains(
                 "MIXEDCASE",
                 ((IEnvironmentVariableRemovals)environment).RemovedEnvironmentVariables);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TaskEnvironmentResetReconstructsJobStateThenExplicitMappings()
+        {
+            var explicitMappings = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["EXPLICIT"] = "task",
+                ["RESTORED"] = "task",
+            };
+            var environment = new TaskEnvironment(explicitMappings);
+            var firstState = new TaskEnvironmentState();
+            firstState.Set("JOB", "first");
+            firstState.Remove("RESTORED");
+
+            environment.Reset(firstState.GetSnapshot());
+            environment.Set("GENERATED", "first-attempt");
+
+            var currentState = new TaskEnvironmentState();
+            currentState.Set("JOB", "current");
+            currentState.Set("NEW_JOB", "new");
+            currentState.Remove("REMOVED");
+            currentState.Remove("RESTORED");
+            environment.Reset(currentState.GetSnapshot());
+
+            Assert.Equal("current", environment["JOB"]);
+            Assert.Equal("new", environment["NEW_JOB"]);
+            Assert.Equal("task", environment["EXPLICIT"]);
+            Assert.Equal("task", environment["RESTORED"]);
+            Assert.False(environment.ContainsKey("GENERATED"));
+            Assert.Contains("REMOVED", environment.RemovedEnvironmentVariables);
+            Assert.DoesNotContain("RESTORED", environment.RemovedEnvironmentVariables);
         }
     }
 }

@@ -129,9 +129,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 throw new NotSupportedException();
             }
 
+            Dictionary<string, string> handlerEnvironment = environment;
+            if (AgentKnobs.UseJobScopedTaskEnvironment.GetValue(executionContext).AsBoolean())
+            {
+                ArgUtil.NotNull(executionContext.TaskEnvironmentState, nameof(executionContext.TaskEnvironmentState));
+                var taskEnvironment = new TaskEnvironment(environment);
+                taskEnvironment.Reset(executionContext.TaskEnvironmentState.GetSnapshot());
+                handlerEnvironment = taskEnvironment;
+            }
+
             handler.Endpoints = endpoints;
             handler.Task = task;
-            handler.Environment = environment;
+            handler.Environment = handlerEnvironment;
             handler.RuntimeVariables = runtimeVariables;
             handler.ExecutionContext = executionContext;
             handler.StepHost = stepHost;

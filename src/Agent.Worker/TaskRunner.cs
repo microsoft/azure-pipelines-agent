@@ -261,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 Trace.Info("Security validation completed - No secret injection detected");
 
-                VarUtil.ExpandEnvironmentVariables(HostContext, target: inputs);
+                ExpandEnvironmentVariables(inputs);
 
                 // Translate the server file path inputs to local paths.
                 foreach (var input in definition.Data?.Inputs ?? new TaskInputDefinition[0])
@@ -290,7 +290,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // Expand the inputs.
                 runtimeVariables.ExpandValues(target: environment);
-                VarUtil.ExpandEnvironmentVariables(HostContext, target: environment);
+                ExpandEnvironmentVariables(environment);
 
                 // Expand the handler inputs.
                 VarUtil.ExpandValues(HostContext, source: inputs, target: handlerData.Inputs);
@@ -427,11 +427,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     taskDirectory: definition.Directory);
                 Trace.Info($"Handler creation completed - Handler created: {handler.GetType().Name}");
 
+                string commandCorrelationId = null;
                 if (AgentKnobs.EnableIssueSourceValidation.GetValue(ExecutionContext).AsBoolean())
                 {
                     if (Task.IsServerOwned.HasValue && Task.IsServerOwned.Value && IsCorrelationIdRequired(handler, definition))
                     {
-                        environment[Constants.CommandCorrelationIdEnvVar] = ExecutionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId];
+                        commandCorrelationId = ExecutionContext.JobSettings[WellKnownJobSettings.CommandCorrelationId];
+                        if (handler.Environment is TaskEnvironment taskEnvironment)
+                        {
+                            taskEnvironment.Set(Constants.CommandCorrelationIdEnvVar, commandCorrelationId);
+                        }
+                        else
+                        {
+                            environment[Constants.CommandCorrelationIdEnvVar] = commandCorrelationId;
+                        }
                     }
                 }
 
@@ -469,7 +478,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     Trace.Info($"Retry configuration active - Executing with retry helper, max retries: {retryCount}");
                     RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
-                    await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                    await rh.RetryStep(
+                        async () =>
+                        {
+                            if (handler.Environment is TaskEnvironment taskEnvironment)
+                            {
+                                taskEnvironment.Reset(ExecutionContext.TaskEnvironmentState.GetSnapshot());
+                                if (commandCorrelationId != null)
+                                {
+                                    taskEnvironment.Set(Constants.CommandCorrelationIdEnvVar, commandCorrelationId);
+                                }
+                            }
+
+                            await handler.RunAsync();
+                        },
+                        RetryHelper.ExponentialDelay);
                 }
                 else
                 {
@@ -478,6 +501,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 Trace.Info($"Task handler execution completed - Task: '{DisplayName}'");
             }
+        }
+
+        internal void ExpandEnvironmentVariables(IDictionary<string, string> target)
+        {
+            if (!AgentKnobs.UseJobScopedTaskEnvironment.GetValue(ExecutionContext).AsBoolean())
+            {
+                VarUtil.ExpandEnvironmentVariables(HostContext, target);
+                return;
+            }
+
+            ArgUtil.NotNull(ExecutionContext.TaskEnvironmentState, nameof(ExecutionContext.TaskEnvironmentState));
+            var environmentOverlay = new TaskEnvironment();
+            environmentOverlay.Apply(ExecutionContext.TaskEnvironmentState.GetSnapshot());
+            VarUtil.ExpandEnvironmentVariables(HostContext, target, environmentOverlay);
         }
 
         private  Dictionary<string, string> LoadDefaultInputs(Definition definition)
