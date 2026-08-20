@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
                 else
                 {
-                    Assert.Equal("sleep infinity", container.ContainerCommand);
+                    Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
                 }
             }
         }
@@ -248,7 +248,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
-                Assert.Equal("sleep infinity", container.ContainerCommand);
+                Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
             }
         }
 
@@ -314,7 +314,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
 
-                Assert.Equal("sleep infinity", container.ContainerCommand);
+                Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
             }
         }
 

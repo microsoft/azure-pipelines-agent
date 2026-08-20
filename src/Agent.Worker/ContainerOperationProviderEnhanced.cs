@@ -227,8 +227,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 trace.Info($"Resource ID: {resourceId}");
 
                 trace.Info("Building MSAL ConfidentialClientApplication");
+                using var msalHttpClientFactory = new MsalAgentHttpClientFactory(HostContext);
                 var app = ConfidentialClientApplicationBuilder.Create(clientId)
                     .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
+                    .WithHttpClientFactory(msalHttpClientFactory)
                     .WithClientAssertion(async (AssertionRequestOptions options) =>
                     {
                         trace.Info("Creating OIDC token for client assertion");
@@ -700,7 +702,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         
                         container.ContainerCommand = isWindowsContainer
                             ? "cmd.exe /c ping -t localhost > nul"
-                            : "sleep infinity";
+                            : "bash -c \"sleep infinity\"";
                     }
                     else
                     {
