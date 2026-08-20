@@ -34,11 +34,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Handlers
         [Trait("Category", "Worker")]
         public void ContainerPayloadIncludesUnsetEnvironmentForRemovalCapableDictionary()
         {
+            var state = new TaskEnvironmentState();
+            state.ApplyChanges(
+                new Dictionary<string, string>
+                {
+                    ["REMOVED"] = "before",
+                },
+                new Dictionary<string, string>(),
+                excludedNames: System.Array.Empty<string>());
             var environment = new TaskEnvironment
             {
                 ["EXAMPLE"] = "value",
             };
-            environment.Remove("REMOVED");
+            environment.Apply(state.GetSnapshot());
 
             string payload = ContainerStepHost.CreateContainerStandardInPayload(
                 "handler",

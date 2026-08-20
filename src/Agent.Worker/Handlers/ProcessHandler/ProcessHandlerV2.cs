@@ -134,6 +134,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             var sigintTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigintTimeout.GetValue(ExecutionContext).AsInt());
             var sigtermTimeout = TimeSpan.FromMilliseconds(AgentKnobs.ProccessSigtermTimeout.GetValue(ExecutionContext).AsInt());
             var useGracefulShutdown = AgentKnobs.UseGracefulProcessShutdown.GetValue(ExecutionContext).AsBoolean();
+            Dictionary<string, string> initialEnvironment =
+                _useJobScopedTaskEnvironment && _modifyEnvironment
+                    ? ProcessHandlerEnvironmentCapture.CreateInitialEnvironment(Environment)
+                    : null;
 
             // Invoke the process.
             ExecutionContext.Debug($"{cmdExe} {cmdExeArgs}");
@@ -193,7 +197,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     ExecutionContext.CancellationToken.ThrowIfCancellationRequested();
                     if (IsSuccessfulTaskResult())
                     {
-                        _environmentCapture.Commit(ExecutionContext.TaskEnvironmentState);
+                        _environmentCapture.Commit(
+                            ExecutionContext.TaskEnvironmentState,
+                            initialEnvironment);
                     }
                 }
             }

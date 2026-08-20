@@ -109,18 +109,21 @@ public sealed class ProcessHandlerJobEnvironmentL0
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async Task FeatureEnabledCommitsCompleteSnapshotWithoutChangingWorker(bool useV2)
+    public async Task FeatureEnabledCommitsOnlyDeltaWithoutChangingWorker(bool useV2)
     {
         const string captured = "AZP_PH_CAPTURED";
+        const string workerUnchanged = "AZP_PH_WORKER_UNCHANGED";
         const string explicitUnchanged = "AZP_PH_EXPLICIT_UNCHANGED";
         const string unrelated = "AZP_PH_UNRELATED";
         const string proxy = "HTTP_PROXY";
         string originalCaptured = Environment.GetEnvironmentVariable(captured);
+        string originalWorkerUnchanged = Environment.GetEnvironmentVariable(workerUnchanged);
         string originalProxy = Environment.GetEnvironmentVariable(proxy);
 
         try
         {
             Environment.SetEnvironmentVariable(captured, "worker");
+            Environment.SetEnvironmentVariable(workerUnchanged, "worker");
             Environment.SetEnvironmentVariable(proxy, "worker-proxy");
             using var test = new ProcessHandlerTest(
                 useV2,
@@ -142,6 +145,7 @@ public sealed class ProcessHandlerJobEnvironmentL0
                     invoker,
                     arguments,
                     $"{captured}=job=value",
+                    $"{workerUnchanged}=worker",
                     $"{explicitUnchanged}=explicit",
                     $"{unrelated}=preserved",
                     $"{proxy}=");
@@ -151,16 +155,93 @@ public sealed class ProcessHandlerJobEnvironmentL0
 
             TaskEnvironmentSnapshot snapshot = test.State.GetSnapshot();
             Assert.Equal("job=value", snapshot.Values[captured]);
-            Assert.Equal("explicit", snapshot.Values[explicitUnchanged]);
             Assert.Equal("preserved", snapshot.Values[unrelated]);
-            Assert.Equal(string.Empty, snapshot.Values[proxy]);
+            Assert.False(snapshot.Values.ContainsKey(workerUnchanged));
+            Assert.False(snapshot.Values.ContainsKey(explicitUnchanged));
+            Assert.False(snapshot.Values.ContainsKey(proxy));
+            Assert.DoesNotContain(workerUnchanged, snapshot.Removed);
+            Assert.DoesNotContain(explicitUnchanged, snapshot.Removed);
+            Assert.DoesNotContain(proxy, snapshot.Removed);
             Assert.Equal("worker", Environment.GetEnvironmentVariable(captured));
+            Assert.Equal("worker", Environment.GetEnvironmentVariable(workerUnchanged));
             Assert.Equal("worker-proxy", Environment.GetEnvironmentVariable(proxy));
         }
         finally
         {
             Environment.SetEnvironmentVariable(captured, originalCaptured);
+            Environment.SetEnvironmentVariable(workerUnchanged, originalWorkerUnchanged);
             Environment.SetEnvironmentVariable(proxy, originalProxy);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task FeatureEnabledStoresExplicitEmptyInsteadOfTombstone(bool useV2)
+    {
+        const string changed = "AZP_PH_CHANGED_TO_EMPTY";
+        string original = Environment.GetEnvironmentVariable(changed);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(changed, "worker");
+            using var test = new ProcessHandlerTest(
+                useV2,
+                useJobScopedTaskEnvironment: true,
+                modifyEnvironment: true);
+            test.EnqueueAttempt((invoker, _, arguments) =>
+            {
+                RaiseCapturedEnvironment(invoker, arguments, $"{changed}=");
+            });
+
+            await test.Handler.RunAsync();
+
+            TaskEnvironmentSnapshot snapshot = test.State.GetSnapshot();
+            Assert.Equal(string.Empty, snapshot.Values[changed]);
+            Assert.DoesNotContain(changed, snapshot.Removed);
+            Assert.Equal("worker", Environment.GetEnvironmentVariable(changed));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(changed, original);
+        }
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public void InitialEnvironmentMatchesProcessInvokerMerge()
+    {
+        const string removed = "AZP_PH_INITIAL_REMOVED";
+        string original = Environment.GetEnvironmentVariable(removed);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(removed, "worker");
+            var environment = new TaskEnvironment
+            {
+                ["AZP_PH_INITIAL_OVERLAY"] = "overlay",
+                ["=AZP_PH_PSEUDO"] = "ignored",
+            };
+            environment.Remove(removed);
+
+            Dictionary<string, string> initial =
+                ProcessHandlerEnvironmentCapture.CreateInitialEnvironment(environment);
+
+            Assert.False(initial.ContainsKey(removed));
+            Assert.Equal("overlay", initial["AZP_PH_INITIAL_OVERLAY"]);
+            Assert.Equal("True", initial[Constants.TFBuild]);
+            Assert.False(initial.ContainsKey("=AZP_PH_PSEUDO"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(removed, original);
         }
     }
 
@@ -173,30 +254,145 @@ public sealed class ProcessHandlerJobEnvironmentL0
     [Trait("SkipOn", "darwin")]
     public async Task FeatureEnabledExcludesHandlerOwnedVariables(bool useV2)
     {
+        const string secureArguments = "secure argument value";
         using var test = new ProcessHandlerTest(
             useV2,
             useJobScopedTaskEnvironment: true,
-            modifyEnvironment: true);
-        test.EnqueueAttempt((invoker, _, arguments) =>
+            modifyEnvironment: true,
+            runtimeValues: new Dictionary<string, VariableValue>
+            {
+                [Constants.Variables.Agent.JobStatus] = "Failed",
+            },
+            disableInlineExecution: true,
+            arguments: secureArguments,
+            secureArguments: true);
+        test.Handler.Environment[Constants.CommandCorrelationIdEnvVar] = "internal";
+        string secureName = null;
+        test.EnqueueAttempt((invoker, environment, arguments) =>
         {
+            secureName = environment.Keys.Single(
+                name => name.StartsWith("AGENT_PH_ARGS_", StringComparison.OrdinalIgnoreCase));
             RaiseCapturedEnvironment(
                 invoker,
                 arguments,
-                "TF_BUILD=True",
-                "agent.jobstatus=Failed",
-                "AGENT_JOBSTATUS=Failed",
-                $"{Constants.CommandCorrelationIdEnvVar}=internal",
                 "AGENT_PH_ARGS_TEST=secret");
         });
 
         await test.Handler.RunAsync();
 
         TaskEnvironmentSnapshot snapshot = test.State.GetSnapshot();
+        Assert.NotNull(secureName);
         Assert.False(snapshot.Values.ContainsKey(Constants.TFBuild));
         Assert.False(snapshot.Values.ContainsKey(Constants.Variables.Agent.JobStatus));
         Assert.False(snapshot.Values.ContainsKey("AGENT_JOBSTATUS"));
         Assert.False(snapshot.Values.ContainsKey(Constants.CommandCorrelationIdEnvVar));
         Assert.False(snapshot.Values.ContainsKey("AGENT_PH_ARGS_TEST"));
+        Assert.False(snapshot.Values.ContainsKey(secureName));
+        Assert.DoesNotContain(Constants.TFBuild, snapshot.Removed);
+        Assert.DoesNotContain(Constants.Variables.Agent.JobStatus, snapshot.Removed);
+        Assert.DoesNotContain("AGENT_JOBSTATUS", snapshot.Removed);
+        Assert.DoesNotContain(Constants.CommandCorrelationIdEnvVar, snapshot.Removed);
+        Assert.DoesNotContain("AGENT_PH_ARGS_TEST", snapshot.Removed);
+        Assert.DoesNotContain(secureName, snapshot.Removed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task FeatureEnabledRecordsRemovalThenGenuineReAdd(bool useV2)
+    {
+        const string workerName = "AZP_PH_WORKER_REMOVED";
+        const string stateName = "AZP_PH_STATE_REMOVED";
+        string originalWorker = Environment.GetEnvironmentVariable(workerName);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(workerName, "worker");
+            using var test = new ProcessHandlerTest(
+                useV2,
+                useJobScopedTaskEnvironment: true,
+                modifyEnvironment: true);
+            test.State.Set(stateName, "state");
+            test.EnqueueAttempt((invoker, environment, arguments) =>
+            {
+                Assert.Equal("state", environment[stateName]);
+                RaiseCapturedEnvironment(invoker, arguments);
+            });
+
+            await test.Handler.RunAsync();
+
+            TaskEnvironmentSnapshot removed = test.State.GetSnapshot();
+            Assert.Contains(workerName, removed.Removed);
+            Assert.Contains(stateName, removed.Removed);
+            Assert.False(removed.Values.ContainsKey(stateName));
+
+            test.EnqueueAttempt((invoker, environment, arguments) =>
+            {
+                Assert.False(environment.ContainsKey(workerName));
+                Assert.False(environment.ContainsKey(stateName));
+                RaiseCapturedEnvironment(invoker, arguments, $"{stateName}=restored");
+            });
+
+            await test.Handler.RunAsync();
+
+            TaskEnvironmentSnapshot restored = test.State.GetSnapshot();
+            Assert.Equal("restored", restored.Values[stateName]);
+            Assert.DoesNotContain(stateName, restored.Removed);
+            Assert.Equal("worker", Environment.GetEnvironmentVariable(workerName));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(workerName, originalWorker);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task UnchangedExplicitAndRuntimeOverlaysPreserveUnderlyingTombstones(bool useV2)
+    {
+        const string explicitName = "AZP_PH_EXPLICIT_RESTORE";
+        const string runtimeName = "AZP_PH_RUNTIME_RESTORE";
+        using var test = new ProcessHandlerTest(
+            useV2,
+            useJobScopedTaskEnvironment: true,
+            modifyEnvironment: true,
+            explicitEnvironment: new Dictionary<string, string>
+            {
+                [explicitName] = "explicit",
+            },
+            runtimeValues: new Dictionary<string, VariableValue>
+            {
+                [runtimeName] = "runtime",
+            });
+        test.State.Remove(explicitName);
+        test.State.Remove(runtimeName);
+        test.EnqueueAttempt((invoker, environment, arguments) =>
+        {
+            Assert.Equal("explicit", environment[explicitName]);
+            Assert.Equal("runtime", environment[runtimeName]);
+            RaiseCapturedEnvironment(
+                invoker,
+                arguments,
+                $"{explicitName}=explicit",
+                $"{runtimeName}=runtime");
+        });
+
+        await test.Handler.RunAsync();
+
+        TaskEnvironmentSnapshot snapshot = test.State.GetSnapshot();
+        Assert.Contains(explicitName, snapshot.Removed);
+        Assert.Contains(runtimeName, snapshot.Removed);
+        Assert.False(snapshot.Values.ContainsKey(explicitName));
+        Assert.False(snapshot.Values.ContainsKey(runtimeName));
     }
 
     [Theory]

@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -66,28 +68,73 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return true;
         }
 
-        public void Commit(TaskEnvironmentState state)
+        public void Commit(
+            TaskEnvironmentState state,
+            IReadOnlyDictionary<string, string> initialEnvironment)
         {
             ArgUtil.NotNull(state, nameof(state));
+            ArgUtil.NotNull(initialEnvironment, nameof(initialEnvironment));
 
             if (!CaptureCompleted)
             {
                 return;
             }
 
-            state.SetRange(_captured.Where(pair => ShouldPersist(pair.Key)));
+            IEnumerable<string> excludedNames = initialEnvironment.Keys
+                .Concat(_captured.Keys)
+                .Where(ShouldExclude);
+            state.ApplyChanges(initialEnvironment, _captured, excludedNames);
         }
 
-        private static bool ShouldPersist(string name)
+        internal static Dictionary<string, string> CreateInitialEnvironment(
+            IDictionary<string, string> environment)
         {
-            return !string.Equals(name, Constants.TFBuild, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(name, Constants.Variables.Agent.JobStatus, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(
+            var result = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
+            foreach (DictionaryEntry entry in System.Environment.GetEnvironmentVariables())
+            {
+                string name = entry.Key as string;
+                if (string.IsNullOrEmpty(name) || name.StartsWith("=", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                result[name] = entry.Value as string ?? string.Empty;
+            }
+
+            if (environment is IEnvironmentVariableRemovals removals)
+            {
+                foreach (string name in removals.RemovedEnvironmentVariables)
+                {
+                    result.Remove(name);
+                }
+            }
+
+            if (environment != null)
+            {
+                foreach (KeyValuePair<string, string> pair in environment)
+                {
+                    if (!pair.Key.StartsWith("=", StringComparison.Ordinal))
+                    {
+                        result[pair.Key] = pair.Value;
+                    }
+                }
+            }
+
+            result[Constants.TFBuild] = "True";
+            return result;
+        }
+
+        private static bool ShouldExclude(string name)
+        {
+            // Process-owned and per-attempt values must not become job state.
+            return string.Equals(name, Constants.TFBuild, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, Constants.Variables.Agent.JobStatus, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(
                     name,
                     VarUtil.ConvertToEnvVariableFormat(Constants.Variables.Agent.JobStatus, preserveCase: false),
                     StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(name, Constants.CommandCorrelationIdEnvVar, StringComparison.OrdinalIgnoreCase)
-                && !name.StartsWith(SecureArgumentPrefix, StringComparison.OrdinalIgnoreCase);
+                || string.Equals(name, Constants.CommandCorrelationIdEnvVar, StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith(SecureArgumentPrefix, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

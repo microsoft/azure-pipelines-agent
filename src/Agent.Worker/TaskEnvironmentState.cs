@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -26,23 +27,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        internal void SetRange(IEnumerable<KeyValuePair<string, string>> values)
+        internal void ApplyChanges(
+            IReadOnlyDictionary<string, string> initial,
+            IReadOnlyDictionary<string, string> final,
+            IEnumerable<string> excludedNames)
         {
-            ArgUtil.NotNull(values, nameof(values));
-            var validated = new List<KeyValuePair<string, string>>();
-            foreach (KeyValuePair<string, string> pair in values)
+            Dictionary<string, string> initialCopy = CopyAndValidate(initial, nameof(initial));
+            Dictionary<string, string> finalCopy = CopyAndValidate(final, nameof(final));
+            ArgUtil.NotNull(excludedNames, nameof(excludedNames));
+            var excluded = new HashSet<string>(VarUtil.EnvironmentVariableKeyComparer);
+            foreach (string name in excludedNames)
             {
-                ArgUtil.NotNullOrEmpty(pair.Key, nameof(values));
-                ArgUtil.NotNull(pair.Value, nameof(values));
-                validated.Add(pair);
+                ArgUtil.NotNullOrEmpty(name, nameof(excludedNames));
+                excluded.Add(name);
             }
 
             lock (_lock)
             {
-                foreach (KeyValuePair<string, string> pair in validated)
+                foreach (KeyValuePair<string, string> pair in initialCopy)
                 {
-                    _removed.Remove(pair.Key);
-                    _values[pair.Key] = pair.Value;
+                    if (!excluded.Contains(pair.Key) && !finalCopy.ContainsKey(pair.Key))
+                    {
+                        _values.Remove(pair.Key);
+                        _removed.Add(pair.Key);
+                    }
+                }
+
+                foreach (KeyValuePair<string, string> pair in finalCopy)
+                {
+                    if (excluded.Contains(pair.Key))
+                    {
+                        continue;
+                    }
+
+                    if (!initialCopy.TryGetValue(pair.Key, out string initialValue)
+                        || !string.Equals(initialValue, pair.Value, StringComparison.Ordinal))
+                    {
+                        _removed.Remove(pair.Key);
+                        _values[pair.Key] = pair.Value;
+                    }
                 }
             }
         }
@@ -66,6 +89,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     new Dictionary<string, string>(_values, VarUtil.EnvironmentVariableKeyComparer),
                     _removed.ToList());
             }
+        }
+
+        private static Dictionary<string, string> CopyAndValidate(
+            IReadOnlyDictionary<string, string> values,
+            string parameterName)
+        {
+            ArgUtil.NotNull(values, parameterName);
+            var copy = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer);
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                ArgUtil.NotNullOrEmpty(pair.Key, parameterName);
+                ArgUtil.NotNull(pair.Value, parameterName);
+                copy[pair.Key] = pair.Value;
+            }
+
+            return copy;
         }
     }
 

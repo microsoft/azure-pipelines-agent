@@ -75,6 +75,136 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void ApplyChangesPersistsOnlyOrdinalDelta()
+        {
+            var state = new TaskEnvironmentState();
+            state.Set("PRIOR_REMOVED", "prior");
+            var initial = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["UNCHANGED"] = "same",
+                ["UPDATED"] = "before",
+                ["REMOVED"] = "before",
+                ["PRIOR_REMOVED"] = "prior",
+                ["EMPTY"] = "before",
+            };
+            var final = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["UNCHANGED"] = "same",
+                ["UPDATED"] = "after",
+                ["ADDED"] = "after",
+                ["EMPTY"] = string.Empty,
+            };
+
+            state.ApplyChanges(initial, final, excludedNames: new[] { "EXCLUDED" });
+
+            TaskEnvironmentSnapshot snapshot = state.GetSnapshot();
+            Assert.False(snapshot.Values.ContainsKey("UNCHANGED"));
+            Assert.Equal("after", snapshot.Values["UPDATED"]);
+            Assert.Equal("after", snapshot.Values["ADDED"]);
+            Assert.Equal(string.Empty, snapshot.Values["EMPTY"]);
+            Assert.Contains("REMOVED", snapshot.Removed);
+            Assert.Contains("PRIOR_REMOVED", snapshot.Removed);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ApplyChangesHonorsExclusionsForValuesAndTombstones()
+        {
+            var state = new TaskEnvironmentState();
+            var initial = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["EXCLUDED_REMOVAL"] = "before",
+            };
+            var final = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["EXCLUDED_ADDITION"] = "after",
+            };
+
+            state.ApplyChanges(
+                initial,
+                final,
+                excludedNames: new[] { "EXCLUDED_REMOVAL", "EXCLUDED_ADDITION" });
+
+            TaskEnvironmentSnapshot snapshot = state.GetSnapshot();
+            Assert.Empty(snapshot.Values);
+            Assert.Empty(snapshot.Removed);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ApplyChangesReAddCancelsTombstone()
+        {
+            var state = new TaskEnvironmentState();
+            state.Remove("RESTORED");
+
+            state.ApplyChanges(
+                new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer),
+                new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+                {
+                    ["RESTORED"] = "new",
+                },
+                excludedNames: System.Array.Empty<string>());
+
+            TaskEnvironmentSnapshot snapshot = state.GetSnapshot();
+            Assert.Equal("new", snapshot.Values["RESTORED"]);
+            Assert.DoesNotContain("RESTORED", snapshot.Removed);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ApplyChangesUnchangedOverlayDoesNotCorruptTombstone()
+        {
+            var state = new TaskEnvironmentState();
+            state.Remove("RESTORED_FOR_ATTEMPT");
+            var initial = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["RESTORED_FOR_ATTEMPT"] = "explicit",
+            };
+            var final = new Dictionary<string, string>(initial, VarUtil.EnvironmentVariableKeyComparer);
+
+            state.ApplyChanges(initial, final, excludedNames: System.Array.Empty<string>());
+
+            TaskEnvironmentSnapshot snapshot = state.GetSnapshot();
+            Assert.Empty(snapshot.Values);
+            Assert.Contains("RESTORED_FOR_ATTEMPT", snapshot.Removed);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ApplyChangesUsesEnvironmentVariableNameComparer()
+        {
+            var state = new TaskEnvironmentState();
+            var initial = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["MixedCase"] = "same",
+            };
+            var final = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer)
+            {
+                ["MIXEDCASE"] = "same",
+            };
+
+            state.ApplyChanges(initial, final, excludedNames: System.Array.Empty<string>());
+
+            TaskEnvironmentSnapshot snapshot = state.GetSnapshot();
+            if (VarUtil.EnvironmentVariableKeyComparer.Equals("MixedCase", "MIXEDCASE"))
+            {
+                Assert.Empty(snapshot.Values);
+                Assert.Empty(snapshot.Removed);
+            }
+            else
+            {
+                Assert.Equal("same", snapshot.Values["MIXEDCASE"]);
+                Assert.Contains("MixedCase", snapshot.Removed);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void TaskEnvironmentTracksSetRemoveAndReAdd()
         {
             var environment = new TaskEnvironment();
