@@ -30,6 +30,8 @@ public class ProcessHandlerL0
     [InlineData("HTTP_PROXY")]
     [InlineData("http_proxy")]
     [InlineData("HtTpS_pRoXy")]
+    [InlineData("No_PrOxY")]
+    [InlineData("all_proxy")]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     public void IsProxyEnvironmentVariable_IsCaseInsensitive(string variable)
@@ -49,19 +51,29 @@ public class ProcessHandlerL0
     {
         const string httpProxy = "HTTP_PROXY";
         const string httpsProxy = "HTTPS_PROXY";
+        const string noProxy = "NO_PROXY";
+        const string allProxy = "ALL_PROXY";
         const string unrelatedVariable = "AZP_PROCESS_HANDLER_MODIFY_ENVIRONMENT_TEST";
         const string workerHttpProxy = "http://worker-http";
         const string workerHttpsProxy = "http://worker-https";
+        const string workerNoProxy = "worker.example.com";
+        const string workerAllProxy = "socks5://worker-all";
         string originalHttpProxy = Environment.GetEnvironmentVariable(httpProxy);
         string originalHttpsProxy = Environment.GetEnvironmentVariable(httpsProxy);
+        string originalNoProxy = Environment.GetEnvironmentVariable(noProxy);
+        string originalAllProxy = Environment.GetEnvironmentVariable(allProxy);
         string originalUnrelatedVariable = Environment.GetEnvironmentVariable(unrelatedVariable);
 
         try
         {
             Environment.SetEnvironmentVariable(httpProxy, null);
             Environment.SetEnvironmentVariable(httpsProxy, null);
+            Environment.SetEnvironmentVariable(noProxy, null);
+            Environment.SetEnvironmentVariable(allProxy, null);
             Environment.SetEnvironmentVariable("http_proxy", workerHttpProxy);
             Environment.SetEnvironmentVariable("HtTpS_pRoXy", workerHttpsProxy);
+            Environment.SetEnvironmentVariable("no_proxy", workerNoProxy);
+            Environment.SetEnvironmentVariable("AlL_pRoXy", workerAllProxy);
             Environment.SetEnvironmentVariable(unrelatedVariable, null);
 
             using var hostContext = CreateTestHostContext();
@@ -91,6 +103,8 @@ set {unrelatedVariable}=persisted");
             {
                 ["http_proxy"] = "http://task-http",
                 ["HtTpS_pRoXy"] = "http://task-https",
+                ["no_proxy"] = "task.example.com",
+                ["AlL_pRoXy"] = "socks5://task-all",
             };
             handler.RuntimeVariables = new(hostContext, new Dictionary<string, VariableValue>(), out _);
 
@@ -102,12 +116,16 @@ set {unrelatedVariable}=persisted");
 
             Assert.Equal(workerHttpProxy, Environment.GetEnvironmentVariable(httpProxy));
             Assert.Equal(workerHttpsProxy, Environment.GetEnvironmentVariable(httpsProxy));
+            Assert.Equal(workerNoProxy, Environment.GetEnvironmentVariable(noProxy));
+            Assert.Equal(workerAllProxy, Environment.GetEnvironmentVariable(allProxy));
             Assert.Equal("persisted", Environment.GetEnvironmentVariable(unrelatedVariable));
         }
         finally
         {
             Environment.SetEnvironmentVariable(httpProxy, originalHttpProxy);
             Environment.SetEnvironmentVariable(httpsProxy, originalHttpsProxy);
+            Environment.SetEnvironmentVariable(noProxy, originalNoProxy);
+            Environment.SetEnvironmentVariable(allProxy, originalAllProxy);
             Environment.SetEnvironmentVariable(unrelatedVariable, originalUnrelatedVariable);
         }
     }

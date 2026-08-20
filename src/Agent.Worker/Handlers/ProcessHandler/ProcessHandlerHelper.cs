@@ -20,7 +20,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             // Persisting an inherited proxy value into Agent.Worker can leak a stale proxy to later processes.
             return string.Equals(key, "HTTP_PROXY", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase);
+                || string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "NO_PROXY", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "ALL_PROXY", StringComparison.OrdinalIgnoreCase);
         }
 
         public static (string, CmdTelemetry) ExpandCmdEnv(string inputArgs, Dictionary<string, string> environment)
