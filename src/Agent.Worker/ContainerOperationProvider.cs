@@ -593,7 +593,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     
                     container.ContainerCommand = isWindowsContainer
                         ? "cmd.exe /c ping -t localhost > nul"
-                        : "sleep infinity";
+                        : "bash -c \"sleep infinity\"";
                 }
                 else
                 {
