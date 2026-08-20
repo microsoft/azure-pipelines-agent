@@ -68,6 +68,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Handlers
             Assert.Contains("REMOVED", taskEnvironment.RemovedEnvironmentVariables);
             Assert.DoesNotContain("RESTORED", taskEnvironment.RemovedEnvironmentVariables);
             Assert.Equal(2, environment.Count);
+
+            IHandler subsequentHandler = CreateHandler(
+                hostContext,
+                executionContext.Object,
+                new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer));
+            var subsequentEnvironment = Assert.IsType<TaskEnvironment>(subsequentHandler.Environment);
+            Assert.False(subsequentEnvironment.ContainsKey("RESTORED"));
+            Assert.Contains("RESTORED", subsequentEnvironment.RemovedEnvironmentVariables);
         }
 
         private static Mock<IExecutionContext> CreateExecutionContext(bool useJobScopedTaskEnvironment)

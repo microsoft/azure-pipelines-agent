@@ -39,14 +39,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Handlers
                 new Dictionary<string, string>
                 {
                     ["REMOVED"] = "before",
+                    ["RESTORED"] = "before",
                 },
                 new Dictionary<string, string>(),
                 excludedNames: System.Array.Empty<string>());
-            var environment = new TaskEnvironment
+            var environment = new TaskEnvironment(new Dictionary<string, string>
             {
                 ["EXAMPLE"] = "value",
-            };
-            environment.Apply(state.GetSnapshot());
+                ["RESTORED"] = "task",
+            });
+            environment.Reset(state.GetSnapshot());
 
             string payload = ContainerStepHost.CreateContainerStandardInPayload(
                 "handler",
@@ -59,6 +61,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Handlers
 
             Assert.Equal(new[] { "REMOVED" }, json["unsetEnvironment"].Values<string>());
             Assert.Equal("value", json["environment"]["EXAMPLE"]);
+            Assert.Equal("task", json["environment"]["RESTORED"]);
         }
     }
 }

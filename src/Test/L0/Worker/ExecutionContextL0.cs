@@ -1212,6 +1212,32 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void InitializeJob_JobScopedTaskEnvironmentEnabled_DoesNotShareStateAcrossJobs()
+        {
+            using TestHostContext hc = CreateTestContext();
+            using var first = new Agent.Worker.ExecutionContext();
+            using var second = new Agent.Worker.ExecutionContext();
+            var firstRequest = CreateJobRequestMessage();
+            firstRequest.Variables["DistributedTask.Agent.UseJobScopedTaskEnvironment"] = "true";
+            var secondRequest = CreateJobRequestMessage();
+            secondRequest.Variables["DistributedTask.Agent.UseJobScopedTaskEnvironment"] = "true";
+            hc.EnqueueInstance(new Mock<IPagingLogger>().Object);
+            hc.EnqueueInstance(new Mock<IPagingLogger>().Object);
+            first.Initialize(hc);
+            second.Initialize(hc);
+
+            first.InitializeJob(firstRequest, CancellationToken.None);
+            first.TaskEnvironmentState.Set("FIRST_JOB_ONLY", "value");
+            second.InitializeJob(secondRequest, CancellationToken.None);
+
+            Assert.NotSame(first.TaskEnvironmentState, second.TaskEnvironmentState);
+            Assert.Empty(second.TaskEnvironmentState.GetSnapshot().Values);
+            Assert.Empty(second.TaskEnvironmentState.GetSnapshot().Removed);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void CreateChild_JobScopedTaskEnvironmentEnabled_SharesState()
         {
             using (TestHostContext hc = CreateTestContext())

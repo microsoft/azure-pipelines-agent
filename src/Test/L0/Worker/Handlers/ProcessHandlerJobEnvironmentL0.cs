@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent;
@@ -99,6 +100,119 @@ public sealed class ProcessHandlerJobEnvironmentL0
         finally
         {
             Environment.SetEnvironmentVariable(captured, originalCaptured);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task ExactDeltaFlowsFromProcessHandlerToPluginHostWithoutChangingWorker(bool useV2)
+    {
+        const string proxy = "HTTP_PROXY";
+        const string unrelated = "AZP_PH_END_TO_END_UNRELATED";
+        const string secret = "runtime.secret";
+        const string proxyValue = "http://public-runtime";
+        string originalProxy = Environment.GetEnvironmentVariable(proxy);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(proxy, proxyValue);
+            using var test = new ProcessHandlerTest(
+                useV2,
+                useJobScopedTaskEnvironment: true,
+                modifyEnvironment: true,
+                runtimeValues: new Dictionary<string, VariableValue>
+                {
+                    [proxy] = proxyValue,
+                    [secret] = new VariableValue("secret", isSecret: true),
+                });
+            var filesBeforeCapture = new HashSet<string>(
+                Directory.GetFiles(test.TempDirectory),
+                StringComparer.OrdinalIgnoreCase);
+            test.EnqueueAttempt((invoker, environment, arguments) =>
+            {
+                Assert.Equal(proxyValue, environment[proxy]);
+                Assert.False(environment.ContainsKey("RUNTIME_SECRET"));
+                var finalEnvironment =
+                    ProcessHandlerEnvironmentCapture.CreateInitialEnvironment(environment);
+                finalEnvironment[unrelated] = "changed";
+                RaiseCapturedEnvironment(
+                    invoker,
+                    arguments,
+                    finalEnvironment.Select(pair => $"{pair.Key}={pair.Value}").ToArray());
+            });
+
+            await test.Handler.RunAsync();
+
+            TaskEnvironmentSnapshot snapshot = test.State.GetSnapshot();
+            KeyValuePair<string, string> delta = Assert.Single(snapshot.Values);
+            Assert.Equal(unrelated, delta.Key, ignoreCase: true);
+            Assert.Equal("changed", delta.Value);
+            Assert.Empty(snapshot.Removed);
+            Assert.Equal(proxyValue, Environment.GetEnvironmentVariable(proxy));
+            Assert.True(filesBeforeCapture.SetEquals(Directory.GetFiles(test.TempDirectory)));
+            test.ExecutionContext.Verify(
+                context => context.Write(
+                    It.IsAny<string>(),
+                    It.Is<string>(line => line != null && line.Contains($"{unrelated}=changed")),
+                    It.IsAny<bool>()),
+                Times.Never);
+
+            test.RuntimeVariables.Set(proxy, string.Empty);
+            Dictionary<string, string> launchedEnvironment = null;
+            var pluginManager = new Mock<IAgentPluginManager>();
+            pluginManager
+                .Setup(manager => manager.GetTaskPlugins(It.IsAny<Guid>()))
+                .Returns(new List<string> { "Test.Plugin, Test" });
+            pluginManager
+                .Setup(manager => manager.RunPluginTaskAsync(
+                    It.IsAny<IExecutionContext>(),
+                    "Test.Plugin, Test",
+                    It.IsAny<Dictionary<string, string>>(),
+                    It.IsAny<Dictionary<string, string>>(),
+                    It.IsAny<Variables>(),
+                    It.IsAny<EventHandler<ProcessDataReceivedEventArgs>>()))
+                .Callback<IExecutionContext, string, Dictionary<string, string>, Dictionary<string, string>, Variables, EventHandler<ProcessDataReceivedEventArgs>>(
+                    (_, _, _, environment, _, _) => launchedEnvironment = environment)
+                .Returns(Task.CompletedTask);
+            test.HostContext.SetSingleton<IAgentPluginManager>(pluginManager.Object);
+            var pluginEnvironment = new TaskEnvironment();
+            pluginEnvironment.Reset(snapshot);
+            var pluginHandler = new AgentPluginHandler
+            {
+                Data = new AgentPluginHandlerData { Target = "Test.Plugin, Test" },
+                Environment = pluginEnvironment,
+                ExecutionContext = test.ExecutionContext.Object,
+                Inputs = new Dictionary<string, string>(),
+                RuntimeVariables = test.RuntimeVariables,
+                StepHost = new Mock<IDefaultStepHost>().Object,
+                Task = new TaskStepDefinitionReference
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "plugin test",
+                    Version = "1.0.0",
+                },
+            };
+            pluginHandler.Initialize(test.HostContext);
+
+            await pluginHandler.RunAsync();
+
+            Assert.Equal("changed", launchedEnvironment[unrelated]);
+            Assert.Equal(string.Empty, launchedEnvironment[proxy]);
+            Assert.False(launchedEnvironment.ContainsKey("RUNTIME_SECRET"));
+            Assert.False(launchedEnvironment.ContainsKey("SECRET_RUNTIME_SECRET"));
+            Assert.False(launchedEnvironment.ContainsKey("VSTS_PUBLIC_VARIABLES"));
+            Assert.False(launchedEnvironment.ContainsKey("VSTS_SECRET_VARIABLES"));
+            Assert.False(test.State.GetSnapshot().Values.ContainsKey(proxy));
+            Assert.Equal(proxyValue, Environment.GetEnvironmentVariable(proxy));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(proxy, originalProxy);
         }
     }
 
@@ -940,9 +1054,13 @@ public sealed class ProcessHandlerJobEnvironmentL0
 
         public IProcessHandler Handler { get; }
 
+        public TestHostContext HostContext => _hostContext;
+
         public Variables RuntimeVariables { get; }
 
         public TaskEnvironmentState State { get; }
+
+        public string TempDirectory => _hostContext.GetDirectory(WellKnownDirectory.Temp);
 
         public void EnqueueAttempt(
             Action<Mock<IProcessInvoker>, IDictionary<string, string>, string> emit,
