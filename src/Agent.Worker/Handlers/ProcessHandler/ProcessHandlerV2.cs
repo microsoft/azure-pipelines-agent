@@ -18,12 +18,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public sealed class ProcessHandlerV2 : Handler, IProcessHandlerV2
     {
-        private const string OutputDelimiter = "##ENV_DELIMITER_d8c0672b##";
         private readonly object _outputLock = new object();
         private readonly StringBuilder _errorBuffer = new StringBuilder();
+        private readonly ProcessHandlerEnvironmentCapture _environmentCapture = new ProcessHandlerEnvironmentCapture();
         private volatile int _errorCount;
         private bool _foundDelimiter;
         private bool _modifyEnvironment;
+        private bool _useJobScopedTaskEnvironment;
 
         public ProcessHandlerData Data { get; set; }
 
@@ -35,6 +36,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.NotNull(TaskDirectory, nameof(TaskDirectory));
+
+            ResetAttempt();
 
             // Update the env dictionary.
             AddVariablesToEnvironment(excludeNames: true, excludeSecrets: true);
@@ -119,10 +122,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             ExecutionContext.Debug($"Fail on standard error: '{failOnStandardError}'");
 
-            // Get the modify environment flag.
-            _modifyEnvironment = StringUtil.ConvertToBoolean(Data.ModifyEnvironment);
-            ExecutionContext.Debug($"Modify environment: '{_modifyEnvironment}'");
-
             // Resolve cmd.exe.
             string cmdExe = System.Environment.GetEnvironmentVariable("ComSpec");
             if (string.IsNullOrEmpty(cmdExe))
@@ -148,7 +147,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
                 else
                 {
-                    processInvoker.ErrorDataReceived += OnOutputDataReceived;
+                    processInvoker.ErrorDataReceived += _useJobScopedTaskEnvironment
+                        ? OnStandardErrorAsOutput
+                        : OnOutputDataReceived;
                 }
 
                 processInvoker.SigintTimeout = sigintTimeout;
@@ -185,6 +186,56 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 if (exitCode != 0)
                 {
                     throw new Exception(StringUtil.Loc("ProcessCompletedWithExitCode0", exitCode));
+                }
+
+                if (_useJobScopedTaskEnvironment && _modifyEnvironment)
+                {
+                    ExecutionContext.CancellationToken.ThrowIfCancellationRequested();
+                    if (IsSuccessfulTaskResult())
+                    {
+                        _environmentCapture.Commit(ExecutionContext.TaskEnvironmentState);
+                    }
+                }
+            }
+        }
+
+        private bool IsSuccessfulTaskResult()
+        {
+            return _errorCount == 0
+                && (ExecutionContext.Result == null
+                    || ExecutionContext.Result == TaskResult.Succeeded
+                    || ExecutionContext.Result == TaskResult.SucceededWithIssues);
+        }
+
+        private void ResetAttempt()
+        {
+            _useJobScopedTaskEnvironment = AgentKnobs.UseJobScopedTaskEnvironment.GetValue(ExecutionContext).AsBoolean();
+            _modifyEnvironment = StringUtil.ConvertToBoolean(Data.ModifyEnvironment);
+            ExecutionContext.Debug($"Modify environment: '{_modifyEnvironment}'");
+
+            lock (_outputLock)
+            {
+                _foundDelimiter = false;
+                _environmentCapture.Reset();
+                _errorBuffer.Clear();
+                _errorCount = 0;
+            }
+
+            if (_useJobScopedTaskEnvironment)
+            {
+                ArgUtil.NotNull(ExecutionContext.TaskEnvironmentState, nameof(ExecutionContext.TaskEnvironmentState));
+                if (!(Environment is TaskEnvironment taskEnvironment))
+                {
+                    throw new InvalidOperationException("Job-scoped task environment requires a TaskEnvironment.");
+                }
+
+                bool hasCommandCorrelationId = taskEnvironment.TryGetValue(
+                    Constants.CommandCorrelationIdEnvVar,
+                    out string commandCorrelationId);
+                taskEnvironment.Reset(ExecutionContext.TaskEnvironmentState.GetSnapshot());
+                if (hasCommandCorrelationId)
+                {
+                    taskEnvironment.Set(Constants.CommandCorrelationIdEnvVar, commandCorrelationId);
                 }
             }
         }
@@ -245,9 +296,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             // Format the input to be invoked from cmd.exe to enable built-in shell commands. For example, RMDIR.
             string cmdExeArgs = $"/c \"{command} {arguments}";
-            cmdExeArgs += _modifyEnvironment
-            ? $" && echo {OutputDelimiter} && set \""
-            : "\"";
+            cmdExeArgs += GetModifyEnvironmentCommand();
 
             return cmdExeArgs;
         }
@@ -366,15 +415,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string scriptId = Guid.NewGuid().ToString();
             string inputArgsEnvVarName = VarUtil.ConvertToEnvVariableFormat("AGENT_PH_ARGS_" + scriptId[..8], preserveCase: false);
 
-            System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
+            if (_useJobScopedTaskEnvironment)
+            {
+                Environment[inputArgsEnvVarName] = arguments;
+            }
+            else
+            {
+                System.Environment.SetEnvironmentVariable(inputArgsEnvVarName, arguments);
+            }
 
             string agentTemp = HostContext.GetDirectory(WellKnownDirectory.Temp);
             string createdScriptPath = Path.Combine(agentTemp, $"processHandlerScript_{scriptId}.cmd");
 
             string scriptArgs = $"/v:ON /c \"{command} !{inputArgsEnvVarName}!";
-            scriptArgs += modifyEnvironment
-                ? $" && echo {OutputDelimiter} && set \""
-                : "\"";
+            scriptArgs += GetModifyEnvironmentCommand(modifyEnvironment);
 
             using (var writer = new StreamWriter(createdScriptPath))
             {
@@ -384,6 +438,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ExecutionContext.Debug($"Created script file: {createdScriptPath}");
 
             return createdScriptPath;
+        }
+
+        private string GetModifyEnvironmentCommand(bool? modifyEnvironment = null)
+        {
+            if (!(modifyEnvironment ?? _modifyEnvironment))
+            {
+                return "\"";
+            }
+
+            return _useJobScopedTaskEnvironment
+                ? $" && echo({_environmentCapture.StartMarker}&&set&&echo({_environmentCapture.CompletionMarker}\""
+                : $" && echo {ProcessHandlerEnvironmentCapture.LegacyStartMarker} && set \"";
         }
 
         private void FlushErrorData()
@@ -413,8 +479,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 FlushErrorData();
                 string line = e.Data ?? string.Empty;
+                if (_useJobScopedTaskEnvironment
+                    && _modifyEnvironment
+                    && _environmentCapture.TryProcessLine(line))
+                {
+                    return;
+                }
+
                 if (_modifyEnvironment)
                 {
+                    if (_useJobScopedTaskEnvironment)
+                    {
+                        ProcessOutputLine(line);
+                        return;
+                    }
+
                     if (_foundDelimiter)
                     {
                         // The line is output from the SET command. Update the environment.
@@ -442,7 +521,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     } // if (_foundDelimiter)
 
                     // Use StartsWith() instead of Equals() to allow for trailing spaces from the ECHO command.
-                    if (line.StartsWith(OutputDelimiter, StringComparison.Ordinal))
+                    if (line.StartsWith(ProcessHandlerEnvironmentCapture.LegacyStartMarker, StringComparison.Ordinal))
                     {
                         // The line is the output delimiter.
                         // Set the flag and clear the environment variable dictionary.
@@ -451,11 +530,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     }
                 } // if (_modifyEnvironment)
 
-                // The line is output from the process that was invoked.
-                if (!CommandManager.TryProcessCommand(ExecutionContext, line))
-                {
-                    ExecutionContext.Output(line);
-                }
+                ProcessOutputLine(line);
+            }
+        }
+
+        private void OnStandardErrorAsOutput(object sender, ProcessDataReceivedEventArgs e)
+        {
+            lock (_outputLock)
+            {
+                FlushErrorData();
+                ProcessOutputLine(e.Data ?? string.Empty);
+            }
+        }
+
+        private void ProcessOutputLine(string line)
+        {
+            if (!CommandManager.TryProcessCommand(ExecutionContext, line))
+            {
+                ExecutionContext.Output(line);
             }
         }
     }

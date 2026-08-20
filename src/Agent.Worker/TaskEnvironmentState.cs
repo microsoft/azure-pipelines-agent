@@ -26,6 +26,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        internal void SetRange(IEnumerable<KeyValuePair<string, string>> values)
+        {
+            ArgUtil.NotNull(values, nameof(values));
+            var validated = new List<KeyValuePair<string, string>>();
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                ArgUtil.NotNullOrEmpty(pair.Key, nameof(values));
+                ArgUtil.NotNull(pair.Value, nameof(values));
+                validated.Add(pair);
+            }
+
+            lock (_lock)
+            {
+                foreach (KeyValuePair<string, string> pair in validated)
+                {
+                    _removed.Remove(pair.Key);
+                    _values[pair.Key] = pair.Value;
+                }
+            }
+        }
+
         public void Remove(string name)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
