@@ -666,7 +666,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 executionContext.Warning($"Forcing Git to HTTP/1.1 failed with exit code: {exitCode_configHttp}");
             }
 
-            SetGitFeatureFlagsConfiguration(executionContext, _gitCommandManager, targetPath);
+            await SetGitFeatureFlagsConfiguration(executionContext, _gitCommandManager, targetPath);
 
             // always remove any possible left extraheader setting from git config.
             if (await _gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
@@ -1270,7 +1270,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             }
         }
 
-        public async void SetGitFeatureFlagsConfiguration(
+        public async Task SetGitFeatureFlagsConfiguration(
             IExecutionContext executionContext,
             IGitCommandManager gitCommandManager,
             string targetPath)

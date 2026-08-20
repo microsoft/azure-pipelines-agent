@@ -569,6 +569,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             }
         }
 
+        /// <summary>
+        /// Attempts to create a directory. Returns true if created or already exists, false on failure.
+        /// Does NOT throw — callers decide how to handle failure.
+        /// </summary>
+        public static bool TryCreateDirectory(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
         public static string GetDirectoryName(string path, PlatformUtil.OS platform)
         {
             if (string.IsNullOrWhiteSpace(path))

@@ -160,15 +160,11 @@ namespace Agent.Sdk
         public void Verbose(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
-#if DEBUG
-            Debug(message);
-#else
             string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
             }
-#endif
         }
 
         public void Error(string message)

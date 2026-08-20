@@ -174,7 +174,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
         [MemberData(nameof(FeatureFlagsStatusData))]
-        public void TestSetGitConfiguration(bool featureFlagsStatus)
+        public async Task TestSetGitConfiguration(bool featureFlagsStatus)
         {
             var featureFlagStatusString = featureFlagsStatus.ToString();
             var invocation = featureFlagsStatus ? Times.Once() : Times.Never();
@@ -202,7 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
             GitSourceProvider gitSourceProvider = new ExternalGitSourceProvider();
 
             // Act.
-            gitSourceProvider.SetGitFeatureFlagsConfiguration(executionContext.Object, gitCommandManager.Object, sourceProviderL0Path);
+            await gitSourceProvider.SetGitFeatureFlagsConfiguration(executionContext.Object, gitCommandManager.Object, sourceProviderL0Path);
 
             // Assert.
             gitCommandManager.Verify(x => x.GitConfig(executionContext.Object, sourceProviderL0Path, "pack.threads", "1"), invocation);

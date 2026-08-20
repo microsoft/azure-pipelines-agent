@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         void ShutdownAgent(ShutdownReason reason);
         void WritePerfCounter(string counter);
         void EnableHttpTrace();
-        ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true);
+        ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true, bool mapDockerSocketDefault = false);
         // Added for flush logs support
         CancellationToken WorkerShutdownForTimeout { get; }
         void ShutdownWorkerForTimeout();
@@ -576,9 +576,9 @@ namespace Microsoft.VisualStudio.Services.Agent
             _workerShutdownForTimeout.Cancel();
         }
 
-        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true, bool mapDockerSocketDefault = false)
         {
-            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer, mapDockerSocketDefault);
             Dictionary<string, string> pathMappings = new Dictionary<string, string>();
             if (PlatformUtil.RunningOnWindows)
             {

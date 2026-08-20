@@ -138,7 +138,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 if (_additionalCodeCoverageFiles != null && _additionalCodeCoverageFiles.Count != 0)
                 {
                     additionalCodeCoverageFilePath = GetCoverageDirectory(_buildId.ToString(), CodeCoverageConstants.RawFilesDirectory);
-                    CodeCoverageUtilities.CopyFilesFromFileListWithDirStructure(_additionalCodeCoverageFiles, ref additionalCodeCoverageFilePath);
+                    var skippedFiles = new List<string>();
+                    CodeCoverageUtilities.CopyFilesFromFileListWithDirStructure(_additionalCodeCoverageFiles, ref additionalCodeCoverageFilePath, skippedFiles);
+                    foreach (var skipped in skippedFiles)
+                    {
+                        executionContext.Warning(StringUtil.Loc("CodeCoverageFileSkippedPathTraversal", skipped));
+                    }
                     filesToPublish.Add(new Tuple<string, string>(additionalCodeCoverageFilePath, GetCoverageDirectoryName(_buildId.ToString(), CodeCoverageConstants.RawFilesDirectory)));
                 }
                 commandContext.Output(StringUtil.Loc("PublishingCodeCoverageFiles"));

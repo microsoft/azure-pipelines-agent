@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     {
         Task JobStarted(Guid jobId, string accessToken, Uri serverUrl, Guid planId, string identifier, string definitionId, string planType);
         Task JobCompleted(Guid jobId);
-        void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
+        Task StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken);
         void StartClient(string socketAddress, string monitorSocketAddress);
     }
 
@@ -101,13 +101,15 @@ namespace Microsoft.VisualStudio.Services.Agent
             }
         }
 
-        public async void StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken)
+        public async Task StartClient(string pipeName, string monitorSocketAddress, CancellationToken cancellationToken)
         {
             if (pipeName != null && !_configured)
             {
                 Trace.Info("Connecting to named pipe {0}", pipeName);
                 _outClient = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
-                await _outClient.ConnectAsync(cancellationToken);
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+                await _outClient.ConnectAsync(timeoutCts.Token);
                 _writeStream = new StreamWriter(_outClient, Encoding.UTF8);
                 _configured = true;
                 Trace.Info("Connection successful to named pipe {0}", pipeName);

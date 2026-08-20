@@ -106,6 +106,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             context.Warning(ex.Message);
                         }
                     }
+                    if (!AgentKnobs.DisableUnsupportedOsWarningNet10.GetValue(context).AsBoolean())
+                    {
+                        // Check if a system supports .NET 10
+                        try
+                        {
+                            Trace.Verbose("Checking if your system supports .NET 10");
+
+                            // Check version of the system
+                            if (!await PlatformUtil.IsNetVersionSupported("net10"))
+                            {
+                                string systemId = PlatformUtil.GetSystemId();
+                                SystemVersion systemVersion = PlatformUtil.GetSystemVersion();
+                                context.Warning(StringUtil.Loc("UnsupportedOsVersionByNet10", $"{systemId} {systemVersion}"));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error($"Error has occurred while checking if system supports .NET 10: {ex}");
+                            context.Warning(ex.Message);
+                        }
+                    }
 
                     // Set agent version variable.
                     context.SetVariable(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);

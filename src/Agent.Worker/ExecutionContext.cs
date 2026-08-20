@@ -81,6 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // others
         void ForceTaskComplete();
         string TranslateToHostPath(string path);
+        string ValidateContainerPath(string originalPath, string resolvedPath);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -137,6 +138,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // only job level ExecutionContext will track throttling delay.
         private long _totalThrottlingDelayInMilliseconds = 0;
+
+        // Job-level accumulator for VsoPathTranslation telemetry — published once at job Complete().
+        private readonly VsoPathTranslationTelemetryAccumulator _vsoPathTelemetry = new VsoPathTranslationTelemetryAccumulator();
 
         public Guid Id => _record.Id;
         public Task ForceCompleted => _forceCompleted.Task;
@@ -344,6 +348,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (_totalThrottlingDelayInMilliseconds > 0)
             {
                 this.Warning(StringUtil.Loc("TotalThrottlingDelay", TimeSpan.FromMilliseconds(_totalThrottlingDelayInMilliseconds).TotalSeconds));
+            }
+
+            // Publish accumulated VsoPathTranslation telemetry once per job.
+            if (ContextType == ExecutionContextType.Job)
+            {
+                FlushVsoPathTranslationTelemetry();
             }
 
             if (!AgentKnobs.DisableDrainQueuesAfterTask.GetValue(this).AsBoolean())
@@ -610,6 +620,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;
             _currentStepTarget = null;
+            var mapDockerSocketDefault = !AgentKnobs.DefaultMapDockerSocketToFalse.GetValue(this).AsBoolean() && !PlatformUtil.RunningOnWindows;
             if (!string.IsNullOrEmpty(imageName) &&
                 string.IsNullOrEmpty(message.JobContainer))
             {
@@ -618,13 +629,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Alias = "vsts_container_preview"
                 };
                 dockerContainer.Properties.Set("image", imageName);
-                var defaultJobContainer = HostContext.CreateContainerInfo(dockerContainer);
+                var defaultJobContainer = HostContext.CreateContainerInfo(dockerContainer, mapDockerSocketDefault: mapDockerSocketDefault);
                 _defaultStepTarget = defaultJobContainer;
                 Containers.Add(defaultJobContainer);
             }
             else if (!string.IsNullOrEmpty(message.JobContainer))
             {
-                var defaultJobContainer = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
+                var defaultJobContainer = HostContext.CreateContainerInfo(
+                    message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)),
+                    mapDockerSocketDefault: mapDockerSocketDefault);
                 _defaultStepTarget = defaultJobContainer;
                 Containers.Add(defaultJobContainer);
             }
@@ -637,7 +650,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var container in message.Resources.Containers.Where(x =>
                 !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase) && !sidecarContainers.Contains(x.Alias)))
             {
-                Containers.Add(HostContext.CreateContainerInfo(container));
+                Containers.Add(HostContext.CreateContainerInfo(container, mapDockerSocketDefault: mapDockerSocketDefault));
             }
 
             // Docker (Sidecar Containers)
@@ -647,7 +660,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var networkAlias = sidecar.Key;
                 var containerResourceAlias = sidecar.Value;
                 var containerResource = message.Resources.Containers.Single(c => string.Equals(c.Alias, containerResourceAlias, StringComparison.OrdinalIgnoreCase));
-                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false);
+                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false, mapDockerSocketDefault: mapDockerSocketDefault);
                 containerInfo.ContainerNetworkAlias = networkAlias;
                 SidecarContainers.Add(containerInfo);
             }
@@ -901,11 +914,174 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslateToHostPath(string path)
         {
             var stepTarget = StepTarget();
-            if (stepTarget != null)
+            if (stepTarget == null)
             {
-                return stepTarget.TranslateToHostPath(path);
+                return path;
             }
-            return path;
+
+            // Preserve the existing translation behavior when the feature is disabled.
+            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            {
+                var legacyResolved = stepTarget.TranslateToHostPath(path);
+                PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false);
+                return legacyResolved;
+            }
+
+            var resolved = stepTarget.TranslateToHostPath(path);
+            PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true);
+
+            Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
+
+            // Always validate — only file paths reach here (variable values bypass via stepTarget directly).
+            // Symlink resolution requires full filesystem inspection regardless of how the path looks.
+            if (stepTarget is ContainerInfo)
+            {
+                Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
+                resolved = ValidateContainerPath(path, resolved);
+                Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
+            }
+
+            return resolved;
+        }
+
+        private void PublishVsoPathTranslationTelemetry(
+            string pathBeforeTranslation,
+            string pathAfterTranslation,
+            ExecutionTargetInfo stepTarget,
+            bool validationEnabled)
+        {
+            // Use the job-level context — tasks have a direct parent, job context has none.
+            var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
+
+            Trace.Info($"VsoPathTranslation: before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
+
+            jobContext._vsoPathTelemetry.Record(
+                pathBefore: pathBeforeTranslation,
+                pathAfter: pathAfterTranslation,
+                stepTargetType: stepTarget.GetType().Name,
+                validationEnabled: validationEnabled);
+        }
+
+        private void FlushVsoPathTranslationTelemetry()
+        {
+            if (!_vsoPathTelemetry.HasData) return;
+
+            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
+
+            PublishTelemetry(
+                _vsoPathTelemetry.ToTelemetryProperties(
+                    Variables.System_DefinitionId,
+                    Variables.Build_BuildId?.ToString()),
+                feature: "VsoPathTranslation",
+                IsAgentTelemetry: true);
+        }
+
+        public string ValidateContainerPath(string originalPath, string resolvedPath)
+        {
+            if (string.IsNullOrEmpty(resolvedPath))
+            {
+                Trace.Info("ValidateContainerPath: skipping — resolvedPath is null or empty.");
+                return resolvedPath;
+            }
+
+            string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
+            Trace.Info($"ValidateContainerPath: resolving links — path='{resolvedPath}' workDir='{workDir}'");
+
+            // ResolveAllLinks handles ".." after each symlink hop (filesystem semantics).
+            // Calling Path.GetFullPath first would strip ".." lexically, bypassing symlink detection.
+            string fullResolved = ResolveAllLinks(resolvedPath);
+            string fullWork = ResolveAllLinks(workDir);
+
+            Trace.Info($"ValidateContainerPath: canonical — fullResolved='{fullResolved}' fullWork='{fullWork}'");
+
+            // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
+            // Allow exact match or anything strictly inside work dir.
+            bool underWork =
+                fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
+                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+
+            if (!underWork)
+            {
+                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}'");
+                throw new InvalidOperationException(
+                    $"Container jobs may only reference files within the work directory. " +
+                    $"The path '{originalPath}' resolves to '{fullResolved}', " +
+                    $"which is outside the allowed directory '{workDir}'.");
+            }
+
+            Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
+            // Return canonical path so the sink opens exactly what was validated.
+            return fullResolved;
+        }
+
+        /// <summary>
+        /// Walks each path segment resolving symlinks/junctions after each hop,
+        /// then applies ".." — matching OS filesystem semantics.
+        /// Non-existent segments are appended verbatim.
+        /// </summary>
+        private string ResolveAllLinks(string path)
+        {
+            // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
+            // without lexically resolving ".." before symlinks are followed.
+            if (!Path.IsPathRooted(path))
+            {
+                string abs = Path.Combine(Directory.GetCurrentDirectory(), path);
+                Trace.Info($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
+                path = abs;
+            }
+
+            string root = Path.GetPathRoot(path) ?? string.Empty;
+            string relative = path.Substring(root.Length);
+            string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            // Use root as-is — Path.Combine handles trailing separators correctly on all platforms.
+            // ("/" on Linux, "C:\" on Windows — both work with Path.Combine without trimming.)
+            string current = root;
+
+            foreach (string segment in segments)
+            {
+                if (string.IsNullOrEmpty(segment) || segment == ".") continue;
+
+                if (segment == "..")
+                {
+                    // Move up after symlink resolution — not lexically before.
+                    string parent = Path.GetDirectoryName(current);
+                    if (parent != null)
+                    {
+                        Trace.Info($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
+                        current = parent;
+                    }
+                    continue;
+                }
+
+                current = Path.Combine(current, segment);
+
+                if (!Directory.Exists(current) && !File.Exists(current))
+                {
+                    Trace.Info($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
+                    continue;
+                }
+
+                try
+                {
+                    FileSystemInfo linkTarget = Directory.Exists(current)
+                        ? Directory.ResolveLinkTarget(current, returnFinalTarget: true)
+                        : File.ResolveLinkTarget(current, returnFinalTarget: true);
+
+                    if (linkTarget != null)
+                    {
+                        Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
+                        current = Path.GetFullPath(linkTarget.FullName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
+                }
+            }
+
+            Trace.Info($"ResolveAllLinks: result '{current}'");
+            return current;
         }
 
         public string TranslatePathForStepTarget(string val)

@@ -7,7 +7,9 @@ using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
+using Moq;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -15,6 +17,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class ContainerOperationProviderEnhancedL0 : ContainerOperationProviderL0Base
     {
+        // =============================================
+        // Legacy path tests (UseEnhancedNodeSelection = false)
+        // =============================================
 
         [Fact]
         [Trait("Level", "L0")]
@@ -168,6 +173,236 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 Assert.Contains(NodeFromAgentExternal, container.ResultNodePath);
                 Assert.EndsWith("/bin/node", container.ResultNodePath);
                 Assert.Contains(NodeFromAgentExternal, container.ContainerCommand);
+            }
+        }
+
+        // =============================================
+        // UseEnhancedNodeSelection path tests
+        // Knob activated via Moq-specific matcher overrides
+        // in CreateExecutionContextMock(hc, useNodeVersionStrategy: true).
+        // No env vars used — avoids parallel test pollution.
+        // =============================================
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_UseNodeVersionStrategy_WithDockerLabel_UsesSleepOrPing()
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc, useNodeVersionStrategy: true);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
+
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+                
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal(NodePathFromLabel, container.CustomNodePath);
+                if (PlatformUtil.RunningOnWindows)
+                {
+                    Assert.Contains("ping -t localhost", container.ContainerCommand);
+                }
+                else
+                {
+                    Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task StartContainer_UseNodeVersionStrategy_OnWindows_LinuxContainer_UsesSleepInfinity()
+        {
+            if (!PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc, useNodeVersionStrategy: true);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "ubuntu:22.04" });
+                container.ImageOS = PlatformUtil.OS.Linux;
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+                
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "linux")]
+        public async Task StartContainer_UseNodeVersionStrategy_OnWindows_WindowsContainer_UsesPing()
+        {
+            if (!PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc, useNodeVersionStrategy: true);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "myteam-custom-builder:latest" });
+                container.ImageOS = PlatformUtil.OS.Windows;
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+                
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Contains("ping -t localhost", container.ContainerCommand);
+                Assert.Contains("nul", container.ContainerCommand);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "darwin")]
+        [Trait("SkipOn", "windows")]
+        public async Task StartContainer_UseNodeVersionStrategy_OnLinux_UsesSleepInfinity()
+        {
+            if (!PlatformUtil.RunningOnLinux)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc, useNodeVersionStrategy: true);
+                var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "ubuntu:22.04" });
+
+                SetupProcessInvokerMock(hc);
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+                
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal("bash -c \"sleep infinity\"", container.ContainerCommand);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task StartContainer_WhenDockerSocketIsOmittedOrFalse_DoesNotProbeSocket(bool explicitlyDisableSocket)
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc);
+                var dockerContainer = new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" };
+                if (explicitlyDisableSocket)
+                {
+                    dockerContainer.Properties.Set<bool>("mapDockerSocket", false);
+                }
+                var container = new ContainerInfo(dockerContainer);
+                var processInvoker = SetupProcessInvokerMockForVerification(hc);
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    "stat",
+                    It.Is<string>(arguments => arguments.Contains("/var/run/docker.sock")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.Never);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [Trait("SkipOn", "windows")]
+        public async Task StartContainer_WhenDockerSocketIsMapped_ProbesSocketForDockerGroupSetup()
+        {
+            if (PlatformUtil.RunningOnWindows)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+
+                var dockerManager = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("VSTS_SETUP_DOCKERGROUP")).Returns("true");
+                var dockerContainer = new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" };
+                dockerContainer.Properties.Set<bool>("mapDockerSocket", true);
+                var container = new ContainerInfo(dockerContainer);
+                var processInvoker = SetupProcessInvokerMockForVerification(hc);
+
+                hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
+
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                processInvoker.Verify(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    "stat",
+                    It.Is<string>(arguments => arguments.Contains("/var/run/docker.sock")),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<System.Text.Encoding>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.Once);
             }
         }
     }

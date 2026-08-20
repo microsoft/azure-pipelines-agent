@@ -8,61 +8,95 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using System.Collections.Generic;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class Node20Strategy : INodeVersionStrategy
     {
+        private readonly INodeHandlerHelper _nodeHandlerHelper;
+
+        public Node20Strategy() : this(new NodeHandlerHelper())
+        {
+        }
+
+        public Node20Strategy(INodeHandlerHelper nodeHandlerHelper)
+        {
+            _nodeHandlerHelper = nodeHandlerHelper ?? throw new ArgumentNullException(nameof(nodeHandlerHelper));
+        }
+
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
-            bool hasNode20Handler = context.HandlerData is Node20_1HandlerData;
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-            
-            if (useNode20Globally)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected via global AGENT_USE_NODE20_1 override", glibcInfo);
-            }
-            
-            if (hasNode20Handler)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Selected for Node20 task handler", glibcInfo);
-            }
-            
-            if (eolPolicyEnabled)
-            {
-                return DetermineNodeVersionSelection(context, eolPolicyEnabled, "Upgraded from end-of-life Node version due to EOL policy", glibcInfo);
-            }
-            
-            return null;
-        }
 
-        private NodeRunnerInfo DetermineNodeVersionSelection(TaskContext context, bool eolPolicyEnabled, string baseReason, GlibcCompatibilityInfo glibcInfo)
-        {
-            if (!glibcInfo.Node20HasGlibcError)
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+
+            // Only use Node20 if the binary actually exists on disk. When absent, return null
+            // so the orchestrator falls through to the next strategy (and ultimately its clean
+            // terminal error) instead of returning a non-existent node path that would fail
+            // later at process launch. This guard is placed before the knob-driven returns so
+            // that even a global override / EOL upgrade cannot select a missing Node20.
+            var hostContext = executionContext.GetHostContext();
+            string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
+            {
+                executionContext.Debug("[Node20Strategy] Node20 binary not found on disk, skipping to allow fallback to next strategy");
+                return null;
+            }
+
+            if (glibcInfo.Node20HasGlibcError)
+            {
+                executionContext.Debug("[Node20Strategy] Node20 has glibc compatibility issue, skipping");
+                return null;
+            }
+
+            if (useNode20Globally)
             {
                 return new NodeRunnerInfo
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
-                    Reason = baseReason,
+                    Reason = "Selected via global AGENT_USE_NODE20_1 override",
                     Warning = null
                 };
             }
 
             if (eolPolicyEnabled)
             {
-                throw new NotSupportedException(StringUtil.Loc("NodeEOLFallbackBlocked", "Node20", "Node16"));
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
+                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null
+                };
             }
-            
-            string systemType = context.Container != null ? "container" : "agent";
+
+            if (context.EffectiveMaxVersion < 20)
+            {
+                executionContext.Debug($"[Node20Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 20, skipping");
+                return null;
+            }
+
+            if (context.HandlerData is Node20_1HandlerData)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Selected for Node20 task handler",
+                    Warning = null
+                };
+            }
+
             return new NodeRunnerInfo
             {
                 NodePath = null,
-                NodeVersion = NodeVersion.Node16,
-                Reason = $"{baseReason}, fallback to Node16 due to Node20 glibc compatibility issue",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", systemType, "Node20", "Node16")
+                NodeVersion = NodeVersion.Node20,
+                Reason = "Fallback to Node20",
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
             };
         }
 

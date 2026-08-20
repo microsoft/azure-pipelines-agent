@@ -156,10 +156,13 @@ namespace Agent.Plugins.PipelineCache
             }
         }
 
-        private static void CreateProcessStartInfo(ProcessStartInfo processStartInfo, string processFileName, string processArguments, string processWorkingDirectory)
+        private static void CreateProcessStartInfo(ProcessStartInfo processStartInfo, string processFileName, string[] processArguments, string processWorkingDirectory)
         {
             processStartInfo.FileName = processFileName;
-            processStartInfo.Arguments = processArguments;
+            foreach (var arg in processArguments)
+            {
+                processStartInfo.ArgumentList.Add(arg);
+            }
             processStartInfo.UseShellExecute = false;
             processStartInfo.RedirectStandardInput = true;
             processStartInfo.WorkingDirectory = processWorkingDirectory;
@@ -169,19 +172,24 @@ namespace Agent.Plugins.PipelineCache
         {
             var processFileName = GetTar(context);
             inputPath = inputPath.TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar);
-            var processArguments = $"-cf \"{archiveFileName}\" -C \"{inputPath}\" ."; // If given the absolute path for the '-cf' option, the GNU tar fails. The workaround is to start the tarring process in the temp directory, and simply speficy 'archive.tar' for that option.
+            var args = new System.Collections.Generic.List<string>();
 
             if (context.IsSystemDebugTrue())
             {
-                processArguments = "-v " + processArguments;
+                args.Add("-v");
             }
             if (isWindows)
             {
-                processArguments = "-h " + processArguments;
+                args.Add("-h");
             }
+            args.Add("-cf");
+            args.Add(archiveFileName);
+            args.Add("-C");
+            args.Add(inputPath);
+            args.Add(".");
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
+            CreateProcessStartInfo(processStartInfo, processFileName, args.ToArray(), processWorkingDirectory: Path.GetTempPath()); // We want to create the archiveFile in temp folder, and hence starting the tar process from TEMP to avoid absolute paths in tar cmd line.
             return processStartInfo;
         }
 
@@ -194,28 +202,36 @@ namespace Agent.Plugins.PipelineCache
 
         private static ProcessStartInfo GetExtractStartProcessInfo(AgentTaskPluginExecutionContext context, string targetDirectory)
         {
-            string processFileName, processArguments;
+            string processFileName;
+            var args = new System.Collections.Generic.List<string>();
             if (isWindows && CheckIf7ZExists())
             {
                 processFileName = "7z";
-                processArguments = $"x -si -aoa -o\"{targetDirectory}\" -ttar";
                 if (context.IsSystemDebugTrue())
                 {
-                    processArguments = "-bb1 " + processArguments;
+                    args.Add("-bb1");
                 }
+                args.Add("x");
+                args.Add("-si");
+                args.Add("-aoa");
+                args.Add($"-o{targetDirectory}");
+                args.Add("-ttar");
             }
             else
             {
                 processFileName = GetTar(context);
-                processArguments = $"-xf - -C ."; // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
                 if (context.IsSystemDebugTrue())
                 {
-                    processArguments = "-v " + processArguments;
+                    args.Add("-v");
                 }
+                args.Add("-xf");
+                args.Add("-");
+                args.Add("-C");
+                args.Add("."); // Instead of targetDirectory, we are providing . to tar, because the tar process is being started from targetDirectory.
             }
 
             ProcessStartInfo processStartInfo = new ProcessStartInfo();
-            CreateProcessStartInfo(processStartInfo, processFileName, processArguments, processWorkingDirectory: targetDirectory);
+            CreateProcessStartInfo(processStartInfo, processFileName, args.ToArray(), processWorkingDirectory: targetDirectory);
             return processStartInfo;
         }
 

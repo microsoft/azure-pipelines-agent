@@ -51,7 +51,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void ShouldDownloadAllTheFiles()
+        public async Task ShouldDownloadAllTheFiles()
         {
             var stubContainerProvider = new StubContainerProvider(mockContainerItems, (item1, c) => mockItemContent);
             using (var fetchEngine = GetFetchEngine(stubContainerProvider, CancellationToken.None))
@@ -67,7 +67,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Release
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async void ShouldNotDoParallelDownloadIfSpecified()
+        public async Task ShouldNotDoParallelDownloadIfSpecified()
         {
             int concurrentAccessCount = 0;
             var stubContainerProvider = new StubContainerProvider(mockContainerItems,

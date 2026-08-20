@@ -18,7 +18,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestGetCapabilities()
+        public async Task TestGetCapabilities()
         {
             using (var hc = new TestHostContext(this))
             using (var tokenSource = new CancellationTokenSource())
@@ -45,7 +45,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestInteractiveSessionCapability()
+        public async Task TestInteractiveSessionCapability()
         {
             using (var hc = new TestHostContext(this))
             using (var tokenSource = new CancellationTokenSource())

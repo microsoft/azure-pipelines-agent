@@ -30,7 +30,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             dockerManager.Setup(x => x.DockerVersion(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(new DockerVersion(new Version("1.35"), new Version("1.35")));
             dockerManager.Setup(x => x.DockerPS(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
-                .ReturnsAsync(new List<string>());
+                .ReturnsAsync(new List<string> { "container123 Up 5 seconds" });
             dockerManager.Setup(x => x.DockerNetworkCreate(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
                 .ReturnsAsync(0);
             dockerManager.Setup(x => x.DockerPull(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
@@ -53,7 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             return dockerManager;
         }
 
-        protected Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc)
+        protected Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc, bool useNodeVersionStrategy = false)
         {
             var executionContext = new Mock<IExecutionContext>();
             var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out var warnings);
@@ -62,6 +62,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
             executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());
             executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+
+            string knobValue = useNodeVersionStrategy ? "true" : "false";
+            executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_USE_ENHANCED_NODE_SELECTION")).Returns(knobValue);
+
             return executionContext;
         }
 
@@ -129,6 +133,49 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 hc.EnqueueInstance<IProcessInvoker>(processInvoker);
             }
+        }
+
+        protected Mock<IProcessInvoker> SetupProcessInvokerMockForVerification(TestHostContext hc)
+        {
+            var processInvoker = new Mock<IProcessInvoker>();
+            processInvoker
+                .Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, CancellationToken>(
+                    (_, fileName, arguments, _, _, _, _) =>
+                    {
+                        string output = fileName switch
+                        {
+                            "whoami" => "testuser",
+                            "id" when arguments.StartsWith("-u") => "1000",
+                            "id" when arguments.StartsWith("-gn") => "testgroup",
+                            "id" when arguments.StartsWith("-g") => "1000",
+                            "node" when arguments.Contains("-v") => "v16.20.2",
+                            _ => null,
+                        };
+
+                        if (output != null)
+                        {
+                            processInvoker.Raise(
+                                x => x.OutputDataReceived += null,
+                                processInvoker.Object,
+                                new ProcessDataReceivedEventArgs(output));
+                        }
+                    })
+                .ReturnsAsync(0);
+
+            for (int i = 0; i < 10; i++)
+            {
+                hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+            }
+
+            return processInvoker;
         }
     }
 }

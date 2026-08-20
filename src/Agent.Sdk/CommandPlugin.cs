@@ -66,15 +66,11 @@ namespace Agent.Sdk
 
         public void Verbose(string message, [CallerMemberName] string operation = "")
         {
-#if DEBUG
-            Debug(message);
-#else
             string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
             }
-#endif
         }
 
         public void Debug(string message)

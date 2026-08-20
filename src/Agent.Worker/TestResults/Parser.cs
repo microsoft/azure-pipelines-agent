@@ -14,6 +14,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         string Name { get; }
 
         TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles);
+
+        TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles, IFeatureFlagService featureFlagService);
     }
 
     public abstract class Parser : AgentService
@@ -24,7 +26,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 
         protected abstract ITestResultParser GetTestResultParser(IExecutionContext executionContext);
 
+        protected abstract ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService);
+
         public TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles)
+        {
+            return ParseTestResultFiles(executionContext, testRunContext, testResultsFiles, null);
+        }
+
+        public TestDataProvider ParseTestResultFiles(IExecutionContext executionContext, TestRunContext testRunContext, List<string> testResultsFiles, IFeatureFlagService featureFlagService)
         {
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             if (string.IsNullOrEmpty(Name))
@@ -33,7 +42,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                 return null;
             }
             // Create test result parser object based on the test Runner provided
-            var testResultParser = GetTestResultParser(executionContext);
+            var testResultParser = featureFlagService != null
+                ? GetTestResultParser(executionContext, featureFlagService)
+                : GetTestResultParser(executionContext);
             if (testResultParser == null)
             {
                 return null;
@@ -76,6 +87,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
             return new JUnitResultParser(traceListener, false, enableCustomTestFields);
         }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new JUnitResultParser(traceListener, false, enableCustomTestFields);
+        }
     }
 
     public class XUnitParser : Parser, IParser
@@ -91,6 +110,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return new XUnitResultParser(traceListener, setNameAsDisplayName: false, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new XUnitResultParser(traceListener, setNameAsDisplayName: false, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
+        }
     }
 
     public class TrxParser : Parser, IParser
@@ -107,6 +133,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return new TrxResultParser(traceListener, enableXUnitHeirarchicalParsing, enableCustomTestFields);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            var enableXUnitHeirarchicalParsing = featureFlagService.GetFeatureFlagState(TestResultsConstants.EnableXUnitHeirarchicalParsing, TestResultsConstants.TFSServiceInstanceGuid);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new TrxResultParser(traceListener, enableXUnitHeirarchicalParsing, enableCustomTestFields);
+        }
     }
 
     public class NUnitParser : Parser, IParser
@@ -122,6 +156,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return new NUnitResultParser(traceListener, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "CommandTraceListener")]
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            var traceListener = new CommandTraceListener(executionContext);
+            bool enableCustomTestFields = featureFlagService.GetFeatureFlagState(TestResultsConstants.CustomTestFieldsInPTRInputFilesEnabled, TestResultsConstants.TCMServiceInstanceGuid);
+            return new NUnitResultParser(traceListener, isTestCaseParallelReportingEnabled: false, enableCustomTestFields);
+        }
     }
 
     public class CTestParser : Parser, IParser
@@ -135,6 +176,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             return new CTestResultParser(traceListener);
         }
 
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            return GetTestResultParser(executionContext);
+        }
     }
 
     public class ContainerStructureTestParser : Parser, IParser
@@ -146,6 +191,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
         {
             var traceListener = new CommandTraceListener(executionContext);
             return new ContainerStructureTestResultParser(traceListener);
+        }
+
+        protected override ITestResultParser GetTestResultParser(IExecutionContext executionContext, IFeatureFlagService featureFlagService)
+        {
+            return GetTestResultParser(executionContext);
         }
     }
 }

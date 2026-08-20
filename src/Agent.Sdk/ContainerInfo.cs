@@ -36,7 +36,7 @@ namespace Agent.Sdk
             }
         }
 
-        public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        public ContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true, bool mapDockerSocketDefault = false)
         {
             ArgUtil.NotNull(container, nameof(container));
 
@@ -53,8 +53,7 @@ namespace Agent.Sdk
             _environmentVariables = container.Environment != null ? new Dictionary<string, string>(container.Environment) : new Dictionary<string, string>();
             this.ContainerCommand = container.Properties.Get<string>("command", defaultValue: "");
             this.IsJobContainer = isJobContainer;
-            // Windows has never automatically enabled Docker.Sock, but Linux does. So we need to set the default here based on OS.
-            this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", !PlatformUtil.RunningOnWindows);
+            this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", mapDockerSocketDefault);
             this._imageOS = PlatformUtil.HostOS;
             _pathMappings = new Dictionary<string, string>(PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : new List<string>();
@@ -265,11 +264,30 @@ namespace Agent.Sdk
                         {
                             retval = retval.Replace("\\", "/");
                         }
-                        return retval;
+
+                        // Normalize the path and ensure it stays within the mapped directory
+                        string normalized = Path.GetFullPath(retval);
+
+                        string allowedRoot = Path.GetFullPath(mapping.Key);
+                        if (!allowedRoot.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                        {
+                            allowedRoot += Path.DirectorySeparatorChar;
+                        }
+
+                        if (!normalized.Equals(Path.GetFullPath(mapping.Key), comparison) &&
+                            !normalized.StartsWith(allowedRoot, comparison))
+                        {
+                            throw new InvalidOperationException(
+                                $"The path '{path}' is not within the allowed directory.");
+                        }
+
+                        return normalized;
                     }
                 }
             }
 
+            // No mapping matched — return path unchanged for non-path values
+            // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
             return path;
         }
 

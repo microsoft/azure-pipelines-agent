@@ -139,10 +139,24 @@ async function fetchPRsSincePreviousReleaseAndEditReleaseNotes(newRelease, callb
 
         var filteredReleases = latestReleases.data.filter(release => !release.draft); // consider only pre-releases and published releases
 
-        var releaseTagPrefix = 'v' + newRelease.split('.')[0];
+        var majorVersion = parseInt(newRelease.split('.')[0]);
+        var releaseTagPrefix = 'v' + majorVersion;
         console.log(`Getting latest release starting with ${releaseTagPrefix}`);
 
         var latestReleaseInfo = filteredReleases.find(release => release.tag_name.toLowerCase().startsWith(releaseTagPrefix.toLowerCase()));
+
+        // Fall back to previous major version if no releases found for current major version
+        if (!latestReleaseInfo && majorVersion > 0) {
+            var fallbackPrefix = 'v' + (majorVersion - 1);
+            console.log(`No releases found with prefix ${releaseTagPrefix}, falling back to ${fallbackPrefix}`);
+            latestReleaseInfo = filteredReleases.find(release => release.tag_name.toLowerCase().startsWith(fallbackPrefix.toLowerCase()));
+        }
+
+        if (!latestReleaseInfo) {
+            console.log(`Error: No releases found with prefix ${releaseTagPrefix} or fallback. Aborting.`);
+            process.exit(-1);
+        }
+
         console.log(`Previous release tag with ${latestReleaseInfo.tag_name} and published date is: ${latestReleaseInfo.published_at}`)
 
         try {

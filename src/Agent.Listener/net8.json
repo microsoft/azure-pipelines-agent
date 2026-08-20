@@ -3,7 +3,7 @@
     "id": "alpine",
     "versions": [
       {
-        "name": "3.17+"
+        "name": "3.20+"
       }
     ]
   },
@@ -19,23 +19,23 @@
     ]
   },
   {
+    "id": "azure-linux",
+    "versions": [
+      {
+        "name": "3.0"
+      }
+    ]
+  },
+  {
+    "id": "centos",
+    "versions": [
+      {
+        "name": "9+"
+      }
+    ]
+  },
+  {
     "id": "debian",
-    "versions": [
-      {
-        "name": "11+"
-      }
-    ]
-  },
-  {
-    "id": "fedora",
-    "versions": [
-      {
-        "name": "39+"
-      }
-    ]
-  },
-  {
-    "id": "macOS",
     "versions": [
       {
         "name": "12+"
@@ -43,10 +43,18 @@
     ]
   },
   {
-    "id": "mariner",
+    "id": "fedora",
     "versions": [
       {
-        "name": "2.0+"
+        "name": "41+"
+      }
+    ]
+  },
+  {
+    "id": "macOS",
+    "versions": [
+      {
+        "name": "14+"
       }
     ]
   },
@@ -54,7 +62,7 @@
     "id": "opensuse-leap",
     "versions": [
       {
-        "name": "15.5+"
+        "name": "15.6+"
       }
     ]
   },
@@ -94,7 +102,7 @@
     "id": "sles",
     "versions": [
       {
-        "name": "15+"
+        "name": "15.6+"
       }
     ]
   },
@@ -102,16 +110,13 @@
     "id": "ubuntu",
     "versions": [
       {
-        "name": "20.04"
-      },
-      {
         "name": "22.04"
       },
       {
-        "name": "23.10"
+        "name": "24.04"
       },
       {
-        "name": "24.04"
+        "name": "25.10"
       }
     ]
   },
@@ -123,7 +128,8 @@
         "version": "1607+"
       },
       {
-        "name": "11"
+        "name": "11",
+        "version": "22631+"
       }
     ]
   },
@@ -131,7 +137,7 @@
     "id": "Windows Nano Server",
     "versions": [
       {
-        "version": "1809+"
+        "name": "2019+"
       }
     ]
   },
