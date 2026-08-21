@@ -1047,6 +1047,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 vstsProxy.SetupProxy(proxyUrl, proxyUserName, proxyPassword, useBasicAuthForProxy);
                 saveProxySetting = true;
             }
+            else if (!string.IsNullOrEmpty(vstsProxy.ProxyAddress))
+            {
+                // If no command line proxy args provided but proxy is configured via environment variables or config files,
+                // ensure the proxy settings are properly applied during configuration
+                Trace.Info("Applying proxy settings from environment variables or config files during configuration.");
+                vstsProxy.SetupProxy(vstsProxy.ProxyAddress, vstsProxy.ProxyUsername, vstsProxy.ProxyPassword);
+                saveProxySetting = true;
+            }
 
             return saveProxySetting;
         }
