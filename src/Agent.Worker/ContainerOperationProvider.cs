@@ -593,7 +593,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     
                     container.ContainerCommand = isWindowsContainer
                         ? "cmd.exe /c ping -t localhost > nul"
-                        : "sleep infinity";
+                        : "bash -c \"sleep infinity\"";
                 }
                 else
                 {
@@ -981,7 +981,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Allow the new sudo group run any sudo command without providing password.
                     await DockerExec(executionContext, container.ContainerId, $"su -c \"echo '%{sudoGroupName} ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
 
-                    if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
+                    if (container.MapDockerSocket && AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
                         executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
                         // Get docker.sock group id on Host
