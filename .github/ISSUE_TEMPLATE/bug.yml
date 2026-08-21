@@ -59,7 +59,7 @@ body:
   - type: input
     id: version-control-type
     attributes:
-      label: Version controll system
+      label: Version control system
   - type: textarea
     id: logs
     attributes:
