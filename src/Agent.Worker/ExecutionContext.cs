@@ -620,6 +620,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             Containers = new List<ContainerInfo>();
             _defaultStepTarget = null;
             _currentStepTarget = null;
+            var mapDockerSocketDefault = !AgentKnobs.DefaultMapDockerSocketToFalse.GetValue(this).AsBoolean() && !PlatformUtil.RunningOnWindows;
             if (!string.IsNullOrEmpty(imageName) &&
                 string.IsNullOrEmpty(message.JobContainer))
             {
@@ -628,13 +629,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     Alias = "vsts_container_preview"
                 };
                 dockerContainer.Properties.Set("image", imageName);
-                var defaultJobContainer = HostContext.CreateContainerInfo(dockerContainer);
+                var defaultJobContainer = HostContext.CreateContainerInfo(dockerContainer, mapDockerSocketDefault: mapDockerSocketDefault);
                 _defaultStepTarget = defaultJobContainer;
                 Containers.Add(defaultJobContainer);
             }
             else if (!string.IsNullOrEmpty(message.JobContainer))
             {
-                var defaultJobContainer = HostContext.CreateContainerInfo(message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)));
+                var defaultJobContainer = HostContext.CreateContainerInfo(
+                    message.Resources.Containers.Single(x => string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase)),
+                    mapDockerSocketDefault: mapDockerSocketDefault);
                 _defaultStepTarget = defaultJobContainer;
                 Containers.Add(defaultJobContainer);
             }
@@ -647,7 +650,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var container in message.Resources.Containers.Where(x =>
                 !string.Equals(x.Alias, message.JobContainer, StringComparison.OrdinalIgnoreCase) && !sidecarContainers.Contains(x.Alias)))
             {
-                Containers.Add(HostContext.CreateContainerInfo(container));
+                Containers.Add(HostContext.CreateContainerInfo(container, mapDockerSocketDefault: mapDockerSocketDefault));
             }
 
             // Docker (Sidecar Containers)
@@ -657,7 +660,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var networkAlias = sidecar.Key;
                 var containerResourceAlias = sidecar.Value;
                 var containerResource = message.Resources.Containers.Single(c => string.Equals(c.Alias, containerResourceAlias, StringComparison.OrdinalIgnoreCase));
-                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false);
+                ContainerInfo containerInfo = HostContext.CreateContainerInfo(containerResource, isJobContainer: false, mapDockerSocketDefault: mapDockerSocketDefault);
                 containerInfo.ContainerNetworkAlias = networkAlias;
                 SidecarContainers.Add(containerInfo);
             }
