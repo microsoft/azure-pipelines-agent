@@ -784,6 +784,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseJobScopedTaskEnvironment = new Knob(
+            nameof(UseJobScopedTaskEnvironment),
+            "If true, enables job-scoped task environment state.",
+            new PipelineFeatureSource("UseJobScopedTaskEnvironment"),
+            new RuntimeKnobSource("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
             nameof(EnableNewMaskerAndRegexes),
             "If true, the agent will use new SecretMasker with additional filters & performance enhancements",
