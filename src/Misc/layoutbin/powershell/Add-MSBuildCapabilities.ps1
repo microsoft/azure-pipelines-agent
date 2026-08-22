@@ -28,11 +28,11 @@ function Get-MSBuildCapabilities {
         $msbuild = ([System.IO.Path]::Combine($vs.installationPath, $msbuildInstallationPath)) + '\'
         if ((Test-Leaf -LiteralPath "$($msbuild)MSBuild.exe")) {
             Write-Capability -Name "MSBuild_$($MajorVersion).0$($capabilitySuffix)" -Value $msbuild
-            $latest = $msbuild
+            $script:latest = $msbuild
         }
     }
-    if ($latest) {
-        Write-Capability -Name "MSBuild$($capabilitySuffix)" -Value $latest
+    if ($script:latest) {
+        Write-Capability -Name "MSBuild$($capabilitySuffix)" -Value $script:latest
     }
 }
 
