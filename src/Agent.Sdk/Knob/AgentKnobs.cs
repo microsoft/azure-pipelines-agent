@@ -540,6 +540,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
+        public static readonly Knob UseDedupTreeDirectUpload = new Knob(
+            nameof(UseDedupTreeDirectUpload),
+            "When true, pipeline artifact / cache publishes to a ShardSet (DedupStorage) domain upload chunk/node content directly to DedupStorage instead of proxying it through blobstore.",
+            new RuntimeKnobSource("USE_DEDUP_TREE_DIRECT_UPLOAD"),
+            new EnvironmentKnobSource("USE_DEDUP_TREE_DIRECT_UPLOAD"),
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
