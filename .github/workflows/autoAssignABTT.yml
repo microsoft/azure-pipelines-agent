@@ -21,7 +21,7 @@ jobs:
           triage
 
     - name: "Assign issues with 'Area: ABTT' label to project board"
-      uses: actions/add-to-project@4756e6330fe1e0a736690d3cfd9f11c9399c2ed4 # v0.4.1
+      uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd # v2.0.0
       with:
         project-url: https://github.com/orgs/microsoft/projects/755
         github-token: ${{ secrets.ABTT_TOKEN }}
