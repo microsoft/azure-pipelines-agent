@@ -20,6 +20,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob DefaultMapDockerSocketToFalse = new Knob(
+            nameof(DefaultMapDockerSocketToFalse),
+            "If true, containers without an explicit mapDockerSocket setting do not map the Docker socket by default.",
+            new PipelineFeatureSource("DefaultMapDockerSocketToFalse"),
+            new EnvironmentKnobSource("AZP_AGENT_DEFAULT_MAP_DOCKER_SOCKET_TO_FALSE"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
             nameof(AllowMountTasksReadonlyOnWindows),
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
