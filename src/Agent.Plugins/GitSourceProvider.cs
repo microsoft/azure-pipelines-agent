@@ -266,6 +266,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(repository, nameof(repository));
 
             Dictionary<string, string> configModifications = new Dictionary<string, string>();
+            Dictionary<string, Dictionary<string, string>> submoduleConfigModifications = new Dictionary<string, Dictionary<string, string>>();
             bool selfManageGitCreds = false;
             Uri repositoryUrlWithCred = null;
             Uri proxyUrlWithCred = null;
@@ -1233,6 +1234,45 @@ namespace Agent.Plugins.Repository
                             throw new InvalidOperationException($"Git config failed with exit code: {exitCode_config}");
                         }
                     }
+
+                    if (checkoutSubmodules)
+                    {
+                        foreach (string submodulePath in await gitCommandManager.GitSubmodulePaths(executionContext, targetPath, checkoutNestedSubmodules, cancellationToken))
+                        {
+                            Uri submoduleUrl = await gitCommandManager.GitGetFetchUrl(executionContext, submodulePath);
+                            if (submoduleUrl == null)
+                            {
+                                continue;
+                            }
+
+                            if (!IsSameOrganization(executionContext, repositoryUrl, submoduleUrl))
+                            {
+                                executionContext.Debug($"Skip persisting credentials for submodule '{submodulePath}': outside the current organization.");
+                                continue;
+                            }
+
+                            string submoduleConfigKey = $"http.{submoduleUrl.AbsoluteUri}.extraheader";
+
+                            if (!submoduleConfigModifications.ContainsKey(submodulePath))
+                            {
+                                submoduleConfigModifications[submodulePath] = new Dictionary<string, string>();
+                            }
+                            submoduleConfigModifications[submodulePath][submoduleConfigKey] = configValue.Trim('"');
+
+                            if (gitUseSecureParameterPassing)
+                            {
+                                await SetAuthTokenInGitConfig(executionContext, gitCommandManager, submodulePath, submoduleConfigKey, configValue.Trim('"'));
+                            }
+                            else
+                            {
+                                int exitCode_submoduleConfig = await gitCommandManager.GitConfig(executionContext, submodulePath, submoduleConfigKey, configValue);
+                                if (exitCode_submoduleConfig != 0)
+                                {
+                                    executionContext.Warning($"Unable to persist credentials for submodule '{submodulePath}'. Git config failed with exit code: {exitCode_submoduleConfig}");
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (!gitSupportAuthHeader && !exposeCred)
@@ -1423,6 +1463,11 @@ namespace Agent.Plugins.Repository
                 executionContext.SetTaskVariable("modifiedgitconfig", JsonUtility.ToString(configModifications), true);
             }
 
+            if (submoduleConfigModifications.Count > 0)
+            {
+                executionContext.SetTaskVariable("modifiedsubmodulegitconfig", JsonUtility.ToString(submoduleConfigModifications), true);
+            }
+
             if (useClientCert && !string.IsNullOrEmpty(clientCertPrivateKeyAskPassFile))
             {
                 executionContext.SetTaskVariable("clientCertAskPass", clientCertPrivateKeyAskPassFile);
@@ -1460,6 +1505,18 @@ namespace Agent.Plugins.Repository
                     foreach (var config in configModifications)
                     {
                         await RemoveGitConfig(executionContext, gitCommandManager, targetPath, config.Key, config.Value);
+                    }
+                }
+
+                var submoduleConfigModifications = JsonUtility.FromString<Dictionary<string, Dictionary<string, string>>>(executionContext.TaskVariables.GetValueOrDefault("modifiedsubmodulegitconfig")?.Value);
+                if (submoduleConfigModifications != null && submoduleConfigModifications.Count > 0)
+                {
+                    foreach (var submodule in submoduleConfigModifications)
+                    {
+                        foreach (var config in submodule.Value)
+                        {
+                            await RemoveGitConfig(executionContext, gitCommandManager, submodule.Key, config.Key, config.Value);
+                        }
                     }
                 }
 
@@ -1653,10 +1710,10 @@ namespace Agent.Plugins.Repository
                 if (!string.IsNullOrEmpty(configValue))
                 {
                     executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
-                    string gitConfig = Path.Combine(targetPath, ".git/config");
+                    string gitConfig = ResolveGitConfigPath(targetPath);
                     if (File.Exists(gitConfig))
                     {
-                        string gitConfigContent = File.ReadAllText(Path.Combine(targetPath, ".git", "config"));
+                        string gitConfigContent = File.ReadAllText(gitConfig);
                         if (gitConfigContent.Contains(configKey))
                         {
                             string setting = $"extraheader = {configValue}";
@@ -1679,15 +1736,82 @@ namespace Agent.Plugins.Repository
             }
         }
 
+        internal static string ResolveGitConfigPath(string targetPath)
+        {
+            string dotGit = Path.Combine(targetPath, ".git");
+
+            // In a submodule, '.git' is a file containing 'gitdir: <path>'.
+            if (File.Exists(dotGit))
+            {
+                string content = File.ReadAllText(dotGit).Trim();
+                const string prefix = "gitdir:";
+                if (content.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    string gitDir = content.Substring(prefix.Length).Trim();
+                    if (!Path.IsPathRooted(gitDir))
+                    {
+                        gitDir = Path.GetFullPath(Path.Combine(targetPath, gitDir));
+                    }
+                    return Path.Combine(gitDir, "config");
+                }
+            }
+
+            return Path.Combine(dotGit, "config");
+        }
+
+        internal static bool IsSameOrganization(AgentTaskPluginExecutionContext executionContext, Uri repositoryUrl, Uri submoduleUrl)
+        {
+            if (!string.Equals(submoduleUrl.Scheme, repositoryUrl.Scheme, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(submoduleUrl.Authority, repositoryUrl.Authority, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            string orgPath = null;
+
+            string collectionUriValue = executionContext.Variables.GetValueOrDefault("system.collectionuri")?.Value;
+            if (!string.IsNullOrEmpty(collectionUriValue) &&
+                Uri.TryCreate(collectionUriValue, UriKind.Absolute, out Uri collectionUri) &&
+                string.Equals(collectionUri.Authority, repositoryUrl.Authority, StringComparison.OrdinalIgnoreCase) &&
+                IsPathPrefix(repositoryUrl.AbsolutePath, collectionUri.AbsolutePath))
+            {
+                orgPath = collectionUri.AbsolutePath;
+            }
+            else
+            {
+                string[] segments = repositoryUrl.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length == 0)
+                {
+                    return false;
+                }
+                orgPath = $"/{segments[0]}/";
+            }
+
+            return IsPathPrefix(submoduleUrl.AbsolutePath, orgPath);
+        }
+
+        internal static bool IsPathPrefix(string path, string prefix)
+        {
+            if (!prefix.EndsWith("/", StringComparison.Ordinal))
+            {
+                prefix += "/";
+            }
+            if (!path.EndsWith("/", StringComparison.Ordinal))
+            {
+                path += "/";
+            }
+            return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
         private async Task ReplaceTokenPlaceholder(AgentTaskPluginExecutionContext executionContext, string targetPath, string configKey, string tokenPlaceholderConfigValue, string configValue)
         {
             //modify git config file on disk.
             if (!string.IsNullOrEmpty(configValue))
             {
-                string gitConfig = Path.Combine(targetPath, ".git/config");
+                string gitConfig = ResolveGitConfigPath(targetPath);
                 if (File.Exists(gitConfig))
                 {
-                    string gitConfigContent = File.ReadAllText(Path.Combine(targetPath, ".git", "config"));
+                    string gitConfigContent = File.ReadAllText(gitConfig);
                     using (StreamWriter config = new StreamWriter(gitConfig))
                     {
                         if (gitConfigContent.Contains(tokenPlaceholderConfigValue))

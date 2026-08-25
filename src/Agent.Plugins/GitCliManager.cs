@@ -481,6 +481,32 @@ namespace Agent.Plugins.Repository
             return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", options, cancellationToken);
         }
 
+        // git submodule foreach [--recursive] --quiet "echo $displaypath"
+        public async Task<List<string>> GitSubmodulePaths(AgentTaskPluginExecutionContext context, string repositoryPath, bool recursive, CancellationToken cancellationToken)
+        {
+            context.Debug("Enumerate submodule paths.");
+            string options = "foreach";
+            if (recursive)
+            {
+                options = options + " --recursive";
+            }
+            options = options + " --quiet \"echo $displaypath\"";
+
+            List<string> outputStrings = new List<string>();
+            int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "submodule", options, outputStrings);
+
+            if (exitCode != 0)
+            {
+                context.Warning($"'git submodule foreach' failed with exit code: {exitCode}");
+                return new List<string>();
+            }
+
+            return outputStrings
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Select(o => Path.Combine(repositoryPath, o.Trim().Replace('/', Path.DirectorySeparatorChar)))
+                .ToList();
+        }
+
         // git config --get remote.origin.url
         public async Task<Uri> GitGetFetchUrl(AgentTaskPluginExecutionContext context, string repositoryPath)
         {
