@@ -187,10 +187,11 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
             if (!string.Equals(currentRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), expectRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
             {
-                if (IsEmptyOrMissingDirectory(currentRepoPath))
+                if (IsEmptyOrMissingDirectory(executionContext, currentRepoPath))
                 {
                     executionContext.Output($"Repository source directory '{currentRepoPath}' is empty, nothing to move to '{expectRepoPath}'.");
-                    DeleteEmptySourceDirectoryThenCreate(executionContext, currentRepoPath, expectRepoPath);
+                    TryDeleteEmptyDirectory(executionContext, currentRepoPath);
+                    Directory.CreateDirectory(expectRepoPath);
                 }
                 else
                 {
@@ -240,26 +241,34 @@ namespace Agent.Plugins.Repository
             await sourceProvider.GetSourceAsync(executionContext, repo, token);
         }
 
-        private static bool IsEmptyOrMissingDirectory(string path)
+        private static bool IsEmptyOrMissingDirectory(AgentTaskPluginExecutionContext executionContext, string path)
         {
-            return !Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any();
+            try
+            {
+                return !Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any();
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"Unable to check whether repository source directory '{path}' is empty: {ex.Message}");
+                return false;
+            }
         }
 
-        private static void DeleteEmptySourceDirectoryThenCreate(AgentTaskPluginExecutionContext executionContext, string sourceDirectory, string directoryToCreate)
+        private static void TryDeleteEmptyDirectory(AgentTaskPluginExecutionContext executionContext, string directory)
         {
-            if (Directory.Exists(sourceDirectory))
+            if (!Directory.Exists(directory))
             {
-                try
-                {
-                    Directory.Delete(sourceDirectory, recursive: false);
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Debug($"Unable to delete empty repository source directory '{sourceDirectory}': {ex.Message}");
-                }
+                return;
             }
 
-            Directory.CreateDirectory(directoryToCreate);
+            try
+            {
+                Directory.Delete(directory, recursive: false);
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"Unable to delete empty repository source directory '{directory}': {ex.Message}");
+            }
         }
     }
 

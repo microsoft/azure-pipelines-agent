@@ -581,6 +581,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_MissingSourceDirectory_KeepsExistingRepositoryAtTargetPath()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Assert.False(Directory.Exists(currentPath));
+
+                var sharedPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "shared", "myRepo");
+                Directory.CreateDirectory(Path.Combine(sharedPath, ".git"));
+                var existingFile = Path.Combine(sharedPath, ".git", "config");
+                File.WriteAllText(existingFile, "existing repository");
+
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}shared{Path.DirectorySeparatorChar}myRepo";
+
+                await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                Assert.Equal(sharedPath, actualPath);
+                Assert.True(Directory.Exists(actualPath));
+
+                Assert.True(File.Exists(existingFile), $"Existing repository at '{sharedPath}' was deleted.");
+                Assert.Equal("existing repository", File.ReadAllText(existingFile));
+
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
         public async Task RepositoryPlugin_NonEmptySourceDirectory_StillMovesToTargetPath()
         {
             using (TestHostContext tc = new TestHostContext(this))
