@@ -436,7 +436,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 Directory.CreateDirectory(currentPath);
                 _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}foo";
 
-
                 await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
 
                 var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
@@ -537,6 +536,103 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
     
                     Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias={repository.Alias};]{actualPath}"), $"Repo {repository.Alias} did not get updated to {actualPath}. CurrentPath = {currentPath}");
                 }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_EmptySourceDirectory_KeepsExistingRepositoryAtTargetPath()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+
+                var sharedPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "shared", "myRepo");
+                Directory.CreateDirectory(Path.Combine(sharedPath, ".git"));
+                var existingFile = Path.Combine(sharedPath, ".git", "config");
+                File.WriteAllText(existingFile, "existing repository");
+
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}shared{Path.DirectorySeparatorChar}myRepo";
+
+                await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                Assert.Equal(sharedPath, actualPath);
+                Assert.True(Directory.Exists(actualPath));
+
+                Assert.True(File.Exists(existingFile), $"Existing repository at '{sharedPath}' was deleted.");
+                Assert.Equal("existing repository", File.ReadAllText(existingFile));
+
+                Assert.False(Directory.Exists(currentPath));
+
+                var traceContent = tc.GetTraceContent();
+
+                Assert.True(traceContent.Contains($"##vso[plugininternal.updaterepositorypath alias=myRepo;]{actualPath}"));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_NonEmptySourceDirectory_StillMovesToTargetPath()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc, allowWorkDirectory: "true");
+                var repository = _executionContext.Repositories.Single();
+
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+                File.WriteAllText(Path.Combine(currentPath, "checkedout.txt"), "moved content");
+
+                var targetPath = Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "shared", "myRepo");
+                Directory.CreateDirectory(targetPath);
+                File.WriteAllText(Path.Combine(targetPath, "stale.txt"), "stale content");
+
+                _executionContext.Inputs["Path"] = $"..{Path.DirectorySeparatorChar}shared{Path.DirectorySeparatorChar}myRepo";
+
+                await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                Assert.Equal(targetPath, actualPath);
+                Assert.False(Directory.Exists(currentPath));
+
+                Assert.True(File.Exists(Path.Combine(actualPath, "checkedout.txt")));
+                Assert.False(File.Exists(Path.Combine(actualPath, "stale.txt")));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task RepositoryPlugin_EmptySourceDirectory_TargetNestedUnderSource()
+        {
+            using (TestHostContext tc = new TestHostContext(this))
+            {
+                var trace = tc.GetTrace();
+                Setup(tc);
+                var repository = _executionContext.Repositories.Single();
+
+                var currentPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+                Directory.CreateDirectory(currentPath);
+
+                _executionContext.Inputs["Path"] = $"s{Path.DirectorySeparatorChar}nested";
+
+                await _checkoutTask.RunAsync(_executionContext, CancellationToken.None);
+
+                var actualPath = repository.Properties.Get<string>(Pipelines.RepositoryPropertyNames.Path);
+
+                Assert.Equal(Path.Combine(tc.GetDirectory(WellKnownDirectory.Work), "1", "s", "nested"), actualPath);
+                Assert.True(Directory.Exists(actualPath));
             }
         }
 
