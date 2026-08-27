@@ -1247,18 +1247,20 @@ namespace Agent.Plugins.Repository
 
                             if (!IsSameOrganization(executionContext, repositoryUrl, submoduleUrl))
                             {
-                                executionContext.Debug($"Skip persisting credentials for submodule '{submodulePath}': outside the current organization.");
+                                executionContext.Output($"Skip persisting credentials for submodule '{submodulePath}': outside the current organization.");
                                 continue;
                             }
 
                             string submoduleConfigKey = $"http.{submoduleUrl.AbsoluteUri}.extraheader";
+                            string submoduleConfigPath = ResolveGitConfigPath(submodulePath);
 
-                            if (!submoduleConfigModifications.ContainsKey(submodulePath))
+                            if (!submoduleConfigModifications.ContainsKey(submoduleConfigPath))
                             {
-                                submoduleConfigModifications[submodulePath] = new Dictionary<string, string>();
+                                submoduleConfigModifications[submoduleConfigPath] = new Dictionary<string, string>();
                             }
-                            submoduleConfigModifications[submodulePath][submoduleConfigKey] = configValue.Trim('"');
+                            submoduleConfigModifications[submoduleConfigPath][submoduleConfigKey] = configValue.Trim('"');
 
+                            executionContext.Output($"Persisting credentials for submodule '{submodulePath}'.");
                             if (gitUseSecureParameterPassing)
                             {
                                 await SetAuthTokenInGitConfig(executionContext, gitCommandManager, submodulePath, submoduleConfigKey, configValue.Trim('"'));
@@ -1515,7 +1517,7 @@ namespace Agent.Plugins.Repository
                     {
                         foreach (var config in submodule.Value)
                         {
-                            await RemoveGitConfig(executionContext, gitCommandManager, submodule.Key, config.Key, config.Value);
+                            await RemoveGitConfigFromFile(executionContext, gitCommandManager, targetPath, submodule.Key, config.Key, config.Value);
                         }
                     }
                 }
@@ -1732,6 +1734,29 @@ namespace Agent.Plugins.Repository
                 else
                 {
                     executionContext.Warning(StringUtil.Loc("FailToRemoveGitConfig", configKey, configKey, targetPath));
+                }
+            }
+        }
+
+        private async Task RemoveGitConfigFromFile(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath, string gitConfigPath, string configKey, string configValue)
+        {
+            int exitCode_configUnset = await gitCommandManager.GitConfigUnsetFile(executionContext, targetPath, gitConfigPath, configKey);
+            if (exitCode_configUnset != 0)
+            {
+                if (!string.IsNullOrEmpty(configValue) && File.Exists(gitConfigPath))
+                {
+                    executionContext.Warning(StringUtil.Loc("AttemptRemoveCredFromConfig", configKey));
+                    string gitConfigContent = File.ReadAllText(gitConfigPath);
+                    string setting = $"extraheader = {configValue}";
+                    if (gitConfigContent.IndexOf(setting, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        gitConfigContent = Regex.Replace(gitConfigContent, Regex.Escape(setting), string.Empty, RegexOptions.IgnoreCase);
+                        File.WriteAllText(gitConfigPath, gitConfigContent);
+                    }
+                }
+                else
+                {
+                    executionContext.Warning(StringUtil.Loc("FailToRemoveGitConfig", configKey, configKey, gitConfigPath));
                 }
             }
         }
