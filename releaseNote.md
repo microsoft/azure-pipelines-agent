@@ -1,3 +1,18 @@
+## Features
+ - Improve service connection error message with connection ID (#5467)
+ - disable worker commands for svn and tfs vc (#5637)
+
+## Bugs
+ - Route MSAL Entra token acquisition through the agent proxy for WIF (Bug 2428600) (#5625)
+ - Wrap Linux Container Sleep Keepalive Command with Bash (#5631)
+ - Ignore proxy variables in ProcessHandler environment promotion (#5632)
+ - Fix Submodule Persist Credentials Bug (#5640)
+
+## Misc
+ - Update NODE24_VERSION to 24.18.1 (#5630)
+ - Update CmdLineV2 task reference with new package GUID published (#5633)
+ - Changing the default value of mapDockerSocket to false for linux (#5627)
+
 
 ## Agent Downloads
 
