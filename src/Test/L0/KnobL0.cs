@@ -4,6 +4,8 @@
 using System;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
+using Agent.Plugins.BuildArtifacts;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Xunit;
 using Moq;
@@ -197,6 +199,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var knobValue = knob.GetValue(executionContext.Object);
 
             Assert.True(knobValue.AsBoolean());
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void CaseInsensitiveArtifactMatchingUsesPipelineFeature()
+        {
+            var knobContext = new Mock<IKnobValueContext>();
+            knobContext
+                .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.CaseInsensitiveArtifactMatchingFixEnabled"))
+                .Returns((string)null);
+            knobContext
+                .Setup(x => x.GetScopedEnvironment())
+                .Returns(new LocalEnvironment());
+
+            var options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(knobContext.Object);
+            Assert.False(options.NoCase);
+
+            knobContext
+                .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.CaseInsensitiveArtifactMatchingFixEnabled"))
+                .Returns("true");
+
+            options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(knobContext.Object);
+            Assert.Equal(PlatformUtil.RunningOnWindows, options.NoCase);
         }
     }
 }

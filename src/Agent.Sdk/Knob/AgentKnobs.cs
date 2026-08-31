@@ -858,6 +858,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob CaseInsensitiveArtifactMatchingFixEnabled = new Knob(
+            nameof(CaseInsensitiveArtifactMatchingFixEnabled),
+            "Enables case-insensitive artifact matching on Windows.",
+            new PipelineFeatureSource(nameof(CaseInsensitiveArtifactMatchingFixEnabled)),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob Rosetta2Warning = new Knob(
             nameof(Rosetta2Warning),
             "Log warning when X64 Agent is used on a Apple Silicon device.",
