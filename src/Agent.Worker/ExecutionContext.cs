@@ -44,6 +44,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         PlanFeatures Features { get; }
         Variables Variables { get; }
         Variables TaskVariables { get; }
+        TaskEnvironmentState TaskEnvironmentState { get; }
         HashSet<string> OutputVariables { get; }
         List<IAsyncCommandContext> AsyncCommands { get; }
         List<string> PrependPath { get; }
@@ -152,6 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public Dictionary<string, string> JobSettings { get; private set; }
         public Variables Variables { get; private set; }
         public Variables TaskVariables { get; private set; }
+        public TaskEnvironmentState TaskEnvironmentState { get; private set; }
         public HashSet<string> OutputVariables => _outputvariables;
         public bool WriteDebug { get; private set; }
         public List<string> PrependPath { get; private set; }
@@ -258,6 +260,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             child.Initialize(HostContext);
             child.Features = Features;
             child.Variables = Variables;
+            child.TaskEnvironmentState = TaskEnvironmentState;
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
             child.JobSettings = JobSettings;
@@ -581,6 +584,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+
+            if (AgentKnobs.UseJobScopedTaskEnvironment.GetValue(this).AsBoolean())
+            {
+                TaskEnvironmentState = new TaskEnvironmentState();
+            }
 
             if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {

@@ -198,5 +198,45 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             Assert.True(knobValue.AsBoolean());
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void UseJobScopedTaskEnvironmentKnobUsesExpectedPrecedence()
+        {
+            var environment = new LocalEnvironment();
+            environment.SetEnvironmentVariable("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT", "true");
+            var executionContext = new Mock<IExecutionContext>();
+            executionContext.Setup(x => x.GetScopedEnvironment()).Returns(environment);
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.UseJobScopedTaskEnvironment"))
+                .Returns("false");
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT"))
+                .Returns("true");
+
+            KnobValue value = AgentKnobs.UseJobScopedTaskEnvironment.GetValue(executionContext.Object);
+            Assert.IsType<PipelineFeatureSource>(value.Source);
+            Assert.False(value.AsBoolean());
+
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.UseJobScopedTaskEnvironment"))
+                .Returns((string)null);
+            value = AgentKnobs.UseJobScopedTaskEnvironment.GetValue(executionContext.Object);
+            Assert.IsType<RuntimeKnobSource>(value.Source);
+            Assert.True(value.AsBoolean());
+
+            executionContext
+                .Setup(x => x.GetVariableValueOrDefault("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT"))
+                .Returns((string)null);
+            value = AgentKnobs.UseJobScopedTaskEnvironment.GetValue(executionContext.Object);
+            Assert.IsType<EnvironmentKnobSource>(value.Source);
+            Assert.True(value.AsBoolean());
+
+            environment.SetEnvironmentVariable("AZP_AGENT_USE_JOB_SCOPED_TASK_ENVIRONMENT", null);
+            value = AgentKnobs.UseJobScopedTaskEnvironment.GetValue(executionContext.Object);
+            Assert.IsType<BuiltInDefaultKnobSource>(value.Source);
+            Assert.False(value.AsBoolean());
+        }
     }
 }

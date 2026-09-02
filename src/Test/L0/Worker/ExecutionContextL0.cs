@@ -1171,6 +1171,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void InitializeJob_JobScopedTaskEnvironmentDisabled_LeavesStateNull()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["DistributedTask.Agent.UseJobScopedTaskEnvironment"] = "false";
+                hc.EnqueueInstance(new Mock<IPagingLogger>().Object);
+                ec.Initialize(hc);
+
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                Assert.Null(ec.TaskEnvironmentState);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void InitializeJob_JobScopedTaskEnvironmentEnabled_InitializesState()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["DistributedTask.Agent.UseJobScopedTaskEnvironment"] = "true";
+                hc.EnqueueInstance(new Mock<IPagingLogger>().Object);
+                ec.Initialize(hc);
+
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                Assert.NotNull(ec.TaskEnvironmentState);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateChild_JobScopedTaskEnvironmentEnabled_SharesState()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var jobRequest = CreateJobRequestMessage();
+                jobRequest.Variables["DistributedTask.Agent.UseJobScopedTaskEnvironment"] = "true";
+                var pagingLogger = new Mock<IPagingLogger>();
+                hc.EnqueueInstance(pagingLogger.Object);
+                hc.EnqueueInstance(pagingLogger.Object);
+                ec.Initialize(hc);
+                ec.InitializeJob(jobRequest, CancellationToken.None);
+
+                IExecutionContext child = ec.CreateChild(Guid.NewGuid(), "test task", "testTask");
+
+                Assert.Same(ec.TaskEnvironmentState, child.TaskEnvironmentState);
+            }
+        }
+
         private Pipelines.AgentJobRequestMessage CreateJobRequestMessage()
         {
             TaskOrchestrationPlanReference plan = new TaskOrchestrationPlanReference();
