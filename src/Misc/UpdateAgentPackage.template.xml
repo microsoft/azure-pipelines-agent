@@ -64,7 +64,7 @@
     </ServicingStep>
     <ServicingStep name="Add ARM Linux agent package (without Node 6)" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
-        <AddTaskPackageData packageType="pipelines-agent" platform="linux-arm" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz" />
+        <AddTaskPackageData packageType="pipelines-agent" platform="linux-arm" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
     <ServicingStep name="Add ARM64 Linux agent package (without Node 6)" stepPerformer="DistributedTask" stepType="AddTaskPackage">
