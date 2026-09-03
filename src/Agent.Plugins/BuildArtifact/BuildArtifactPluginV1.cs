@@ -489,25 +489,27 @@ namespace Agent.Plugins.BuildArtifacts
                 context,
                 targetPath,
                 FileSystemCaseSensitivityDetector.Detect,
-                PlatformUtil.RunningOnWindows || PlatformUtil.RunningOnMacOS);
+                PlatformUtil.RunningOnWindows,
+                PlatformUtil.RunningOnMacOS);
         }
 
         internal static Options CreateMinimatchOptions(
             IKnobValueContext context,
             string targetPath,
             Func<string, FileSystemCaseSensitivity> detectFileSystemCaseSensitivity,
-            bool supportsCaseInsensitiveArtifactMatching)
+            bool runningOnWindows,
+            bool runningOnMacOS)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(targetPath, nameof(targetPath));
             ArgUtil.NotNull(detectFileSystemCaseSensitivity, nameof(detectFileSystemCaseSensitivity));
 
             bool useCaseInsensitiveMatching = false;
-            if (supportsCaseInsensitiveArtifactMatching
-                && AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean())
+            if (AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean())
             {
-                useCaseInsensitiveMatching =
-                    detectFileSystemCaseSensitivity(targetPath) == FileSystemCaseSensitivity.CaseInsensitive;
+                useCaseInsensitiveMatching = runningOnWindows
+                    || (runningOnMacOS
+                        && detectFileSystemCaseSensitivity(targetPath) == FileSystemCaseSensitivity.CaseInsensitive);
             }
 
             return new Options()

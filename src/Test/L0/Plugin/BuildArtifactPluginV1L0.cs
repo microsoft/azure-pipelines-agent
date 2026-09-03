@@ -31,7 +31,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     detectionCallCount++;
                     return FileSystemCaseSensitivity.CaseInsensitive;
                 },
-                supportsCaseInsensitiveArtifactMatching: true);
+                runningOnWindows: true,
+                runningOnMacOS: false);
 
             Assert.False(options.NoCase);
             Assert.Equal(0, detectionCallCount);
@@ -40,7 +41,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public void CreateMinimatchOptionsUsesNoCaseWhenFileSystemIsCaseInsensitive()
+        public void CreateMinimatchOptionsUsesNoCaseOnWindowsWithoutDetection()
+        {
+            Mock<IKnobValueContext> knobContext = CreateKnobContext(isEnabled: true);
+            int detectionCallCount = 0;
+
+            Options options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(
+                knobContext.Object,
+                "unused",
+                _ =>
+                {
+                    detectionCallCount++;
+                    return FileSystemCaseSensitivity.Indeterminate;
+                },
+                runningOnWindows: true,
+                runningOnMacOS: false);
+
+            Assert.True(options.NoCase);
+            Assert.Equal(0, detectionCallCount);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void CreateMinimatchOptionsUsesNoCaseWhenMacFileSystemIsCaseInsensitive()
         {
             Mock<IKnobValueContext> knobContext = CreateKnobContext(isEnabled: true);
 
@@ -48,7 +72,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobContext.Object,
                 "unused",
                 _ => FileSystemCaseSensitivity.CaseInsensitive,
-                supportsCaseInsensitiveArtifactMatching: true);
+                runningOnWindows: false,
+                runningOnMacOS: true);
 
             Assert.True(options.NoCase);
         }
@@ -56,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public void CreateMinimatchOptionsUsesCaseSensitiveMatchingWhenFileSystemIsCaseSensitive()
+        public void CreateMinimatchOptionsUsesCaseSensitiveMatchingWhenMacFileSystemIsCaseSensitive()
         {
             Mock<IKnobValueContext> knobContext = CreateKnobContext(isEnabled: true);
 
@@ -64,7 +89,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobContext.Object,
                 "unused",
                 _ => FileSystemCaseSensitivity.CaseSensitive,
-                supportsCaseInsensitiveArtifactMatching: true);
+                runningOnWindows: false,
+                runningOnMacOS: true);
 
             Assert.False(options.NoCase);
         }
@@ -80,7 +106,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobContext.Object,
                 "unused",
                 _ => FileSystemCaseSensitivity.Indeterminate,
-                supportsCaseInsensitiveArtifactMatching: true);
+                runningOnWindows: false,
+                runningOnMacOS: true);
 
             Assert.False(options.NoCase);
         }
@@ -101,7 +128,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     detectionCallCount++;
                     return FileSystemCaseSensitivity.CaseInsensitive;
                 },
-                supportsCaseInsensitiveArtifactMatching: false);
+                runningOnWindows: false,
+                runningOnMacOS: false);
 
             Assert.False(options.NoCase);
             Assert.Equal(0, detectionCallCount);
