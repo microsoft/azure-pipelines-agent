@@ -117,8 +117,6 @@ namespace Agent.Plugins.BuildArtifacts
                 StringSplitOptions.RemoveEmptyEntries
             );
 
-            var minimatchOptions = CreateMinimatchOptions(context);
-
             string[] tagsInput = tags.Split(
                 new[] { "," },
                 StringSplitOptions.None
@@ -205,7 +203,6 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions,
                     ExtractTars = extractTarsBool,
                     ExtractedTarsTempPath = extractedTarsTempPath
                 };
@@ -302,7 +299,6 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions,
                     ExtractTars = extractTarsBool,
                     ExtractedTarsTempPath = extractedTarsTempPath
                 };
@@ -311,6 +307,8 @@ namespace Agent.Plugins.BuildArtifacts
             {
                 throw new InvalidOperationException($"Build type '{buildType}' is not recognized.");
             }
+
+            downloadParameters.CustomMinimatchOptions = CreateMinimatchOptions(context, targetPath);
 
             string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);
             if (cleanDestinationFolderBool)
@@ -483,17 +481,41 @@ namespace Agent.Plugins.BuildArtifacts
             return result;
         }
 
-        internal static Options CreateMinimatchOptions(IKnobValueContext context)
+        internal static Options CreateMinimatchOptions(
+            IKnobValueContext context,
+            string targetPath)
+        {
+            return CreateMinimatchOptions(
+                context,
+                targetPath,
+                FileSystemCaseSensitivityDetector.Detect,
+                PlatformUtil.RunningOnWindows || PlatformUtil.RunningOnMacOS);
+        }
+
+        internal static Options CreateMinimatchOptions(
+            IKnobValueContext context,
+            string targetPath,
+            Func<string, FileSystemCaseSensitivity> detectFileSystemCaseSensitivity,
+            bool supportsCaseInsensitiveArtifactMatching)
         {
             ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(targetPath, nameof(targetPath));
+            ArgUtil.NotNull(detectFileSystemCaseSensitivity, nameof(detectFileSystemCaseSensitivity));
+
+            bool useCaseInsensitiveMatching = false;
+            if (supportsCaseInsensitiveArtifactMatching
+                && AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean())
+            {
+                useCaseInsensitiveMatching =
+                    detectFileSystemCaseSensitivity(targetPath) == FileSystemCaseSensitivity.CaseInsensitive;
+            }
 
             return new Options()
             {
                 Dot = true,
                 NoBrace = true,
                 AllowWindowsPaths = PlatformUtil.RunningOnWindows,
-                NoCase = PlatformUtil.RunningOnWindows &&
-                    AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean()
+                NoCase = useCaseInsensitiveMatching
             };
         }
 
