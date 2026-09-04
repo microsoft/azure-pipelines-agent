@@ -308,13 +308,13 @@ namespace Agent.Plugins.BuildArtifacts
                 throw new InvalidOperationException($"Build type '{buildType}' is not recognized.");
             }
 
-            downloadParameters.CustomMinimatchOptions = CreateMinimatchOptions(context, targetPath);
-
             string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);
             if (cleanDestinationFolderBool)
             {
                 CleanDirectory(context, fullPath, token);
             }
+
+            downloadParameters.CustomMinimatchOptions = CreateMinimatchOptions(context, fullPath);
             var downloadOption = downloadType == "single" ? DownloadOptions.SingleDownload : DownloadOptions.MultiDownload;
 
             // Build artifacts always includes the artifact in the path name
@@ -488,7 +488,7 @@ namespace Agent.Plugins.BuildArtifacts
             return CreateMinimatchOptions(
                 context,
                 targetPath,
-                FileSystemCaseSensitivityDetector.Detect,
+                IOUtil.IsFileSystemCaseSensitive,
                 PlatformUtil.RunningOnWindows,
                 PlatformUtil.RunningOnMacOS);
         }
@@ -496,20 +496,20 @@ namespace Agent.Plugins.BuildArtifacts
         internal static Options CreateMinimatchOptions(
             IKnobValueContext context,
             string targetPath,
-            Func<string, FileSystemCaseSensitivity> detectFileSystemCaseSensitivity,
+            Func<string, bool?> isFileSystemCaseSensitive,
             bool runningOnWindows,
             bool runningOnMacOS)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(targetPath, nameof(targetPath));
-            ArgUtil.NotNull(detectFileSystemCaseSensitivity, nameof(detectFileSystemCaseSensitivity));
+            ArgUtil.NotNull(isFileSystemCaseSensitive, nameof(isFileSystemCaseSensitive));
 
             bool useCaseInsensitiveMatching = false;
             if (AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean())
             {
                 useCaseInsensitiveMatching = runningOnWindows
                     || (runningOnMacOS
-                        && detectFileSystemCaseSensitivity(targetPath) == FileSystemCaseSensitivity.CaseInsensitive);
+                        && isFileSystemCaseSensitive(targetPath) == false);
             }
 
             return new Options()

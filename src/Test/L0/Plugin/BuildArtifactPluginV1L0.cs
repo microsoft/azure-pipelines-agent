@@ -1,9 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Agent.Plugins.BuildArtifacts;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
@@ -29,7 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _ =>
                 {
                     detectionCallCount++;
-                    return FileSystemCaseSensitivity.CaseInsensitive;
+                    return false;
                 },
                 runningOnWindows: true,
                 runningOnMacOS: false);
@@ -52,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _ =>
                 {
                     detectionCallCount++;
-                    return FileSystemCaseSensitivity.Indeterminate;
+                    return null;
                 },
                 runningOnWindows: true,
                 runningOnMacOS: false);
@@ -71,7 +68,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Options options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(
                 knobContext.Object,
                 "unused",
-                _ => FileSystemCaseSensitivity.CaseInsensitive,
+                _ => false,
                 runningOnWindows: false,
                 runningOnMacOS: true);
 
@@ -88,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Options options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(
                 knobContext.Object,
                 "unused",
-                _ => FileSystemCaseSensitivity.CaseSensitive,
+                _ => true,
                 runningOnWindows: false,
                 runningOnMacOS: true);
 
@@ -105,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Options options = DownloadBuildArtifactTaskV1_0_0.CreateMinimatchOptions(
                 knobContext.Object,
                 "unused",
-                _ => FileSystemCaseSensitivity.Indeterminate,
+                _ => null,
                 runningOnWindows: false,
                 runningOnMacOS: true);
 
@@ -126,269 +123,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 _ =>
                 {
                     detectionCallCount++;
-                    return FileSystemCaseSensitivity.CaseInsensitive;
+                    return false;
                 },
                 runningOnWindows: false,
                 runningOnMacOS: false);
 
             Assert.False(options.NoCase);
             Assert.Equal(0, detectionCallCount);
-        }
-
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        [InlineData(true, true)]
-        [InlineData(false, false)]
-        public void DetectProbesInsideNearestExistingDestinationAncestor(
-            bool alternateCaseExists,
-            bool expectedCaseInsensitive)
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string volumesPath = Path.Combine(rootPath, "Volumes");
-            string mountedVolumePath = Path.Combine(volumesPath, "ArtifactCaseSensitive");
-            string targetPath = Path.Combine(mountedVolumePath, "download");
-            string childPath = Path.Combine(mountedVolumePath, "ProbeFile.txt");
-            string alternateCaseChildPath = Path.Combine(mountedVolumePath, "probeFile.txt");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, rootPath, StringComparison.Ordinal)
-                    || string.Equals(path, volumesPath, StringComparison.Ordinal)
-                    || string.Equals(path, mountedVolumePath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                Assert.Equal(alternateCaseChildPath, path);
-                return alternateCaseExists;
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(mountedVolumePath, path);
-                return new[] { childPath };
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            FileSystemCaseSensitivity expectedCaseSensitivity = expectedCaseInsensitive
-                ? FileSystemCaseSensitivity.CaseInsensitive
-                : FileSystemCaseSensitivity.CaseSensitive;
-            Assert.Equal(expectedCaseSensitivity, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectSupportsRootDestination()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string childPath = Path.Combine(rootPath, "RootProbe");
-            string alternateCaseChildPath = Path.Combine(rootPath, "rootProbe");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, rootPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                Assert.Equal(alternateCaseChildPath, path);
-                return true;
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(rootPath, path);
-                return new[] { childPath };
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                rootPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.CaseInsensitive, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectReturnsIndeterminateWhenNearestExistingDirectoryIsEmpty()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string existingPath = Path.Combine(rootPath, "ExistingSegment");
-            string targetPath = Path.Combine(existingPath, "destination");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, existingPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                throw new InvalidOperationException($"Unexpected existence probe for '{path}'.");
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(existingPath, path);
-                return Array.Empty<string>();
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.Indeterminate, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectReturnsIndeterminateWhenNoEntryHasAsciiLetter()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string existingPath = Path.Combine(rootPath, "ExistingSegment");
-            string targetPath = Path.Combine(existingPath, "destination");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, existingPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                throw new InvalidOperationException($"Unexpected existence probe for '{path}'.");
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(existingPath, path);
-                return new[] { Path.Combine(existingPath, "12345") };
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.Indeterminate, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectReturnsIndeterminateWhenCaseEquivalentEntriesAreAmbiguous()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string existingPath = Path.Combine(rootPath, "ExistingSegment");
-            string targetPath = Path.Combine(existingPath, "destination");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, existingPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                throw new InvalidOperationException($"Unexpected existence probe for '{path}'.");
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(existingPath, path);
-                return new[]
-                {
-                    Path.Combine(existingPath, "ProbeFile.txt"),
-                    Path.Combine(existingPath, "probeFile.txt")
-                };
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.Indeterminate, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectReturnsIndeterminateWhenReadOnlyProbeFails()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string existingPath = Path.Combine(rootPath, "ExistingSegment");
-            string targetPath = Path.Combine(existingPath, "destination");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, existingPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string path)
-            {
-                throw new InvalidOperationException($"Unexpected existence probe for '{path}'.");
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string _)
-            {
-                throw new UnauthorizedAccessException();
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.Indeterminate, caseSensitivity);
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
-        public void DetectReturnsIndeterminateWhenAlternateEntryResolutionFails()
-        {
-            string rootPath = Path.GetPathRoot(Path.GetFullPath(Environment.CurrentDirectory));
-            string existingPath = Path.Combine(rootPath, "ExistingSegment");
-            string targetPath = Path.Combine(existingPath, "destination");
-            string childPath = Path.Combine(existingPath, "ProbeFile.txt");
-
-            bool DirectoryExists(string path)
-            {
-                return string.Equals(path, existingPath, StringComparison.Ordinal);
-            }
-
-            bool FileSystemEntryExists(string _)
-            {
-                throw new UnauthorizedAccessException();
-            }
-
-            IEnumerable<string> EnumerateFileSystemEntries(string path)
-            {
-                Assert.Equal(existingPath, path);
-                return new[] { childPath };
-            }
-
-            FileSystemCaseSensitivity caseSensitivity = FileSystemCaseSensitivityDetector.Detect(
-                targetPath,
-                DirectoryExists,
-                FileSystemEntryExists,
-                EnumerateFileSystemEntries);
-
-            Assert.Equal(FileSystemCaseSensitivity.Indeterminate, caseSensitivity);
         }
 
         private static Mock<IKnobValueContext> CreateKnobContext(bool isEnabled)
