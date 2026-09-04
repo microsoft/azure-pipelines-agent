@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -36,6 +37,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 PlatformUtil.RunningOnLinux
                 ? StringComparison.Ordinal
                 : StringComparison.OrdinalIgnoreCase;
+        }
+
+        public static bool? IsFileSystemCaseSensitive(string path)
+        {
+            ArgUtil.NotNullOrEmpty(path, nameof(path));
+
+            return IsFileSystemCaseSensitive(
+                path,
+                PlatformUtil.RunningOnWindows,
+                PlatformUtil.RunningOnLinux,
+                PlatformUtil.RunningOnMacOS,
+                PathConf);
+        }
+
+        internal static bool? IsFileSystemCaseSensitive(
+            string path,
+            bool runningOnWindows,
+            bool runningOnLinux,
+            bool runningOnMacOS,
+            Func<string, int, long> getPathConfiguration)
+        {
+            ArgUtil.NotNullOrEmpty(path, nameof(path));
+            ArgUtil.NotNull(getPathConfiguration, nameof(getPathConfiguration));
+
+            if (runningOnWindows)
+            {
+                return false;
+            }
+
+            if (runningOnLinux)
+            {
+                return true;
+            }
+
+            if (!runningOnMacOS)
+            {
+                return null;
+            }
+
+            long result = getPathConfiguration(path, c_caseSensitivePathConfigurationName);
+            return result switch
+            {
+                0 => false,
+                1 => true,
+                _ => null,
+            };
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1720: Identifiers should not contain type")]
@@ -619,5 +666,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return prefix + string.Join('/', paths);
             }
         }
+
+        [DllImport("libc", EntryPoint = "pathconf", SetLastError = true)]
+        private static extern long PathConf(string path, int name);
+
+        private const int c_caseSensitivePathConfigurationName = 11;
     }
 }

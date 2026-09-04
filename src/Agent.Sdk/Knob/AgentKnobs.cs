@@ -860,7 +860,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob CaseInsensitiveArtifactMatchingFixEnabled = new Knob(
             nameof(CaseInsensitiveArtifactMatchingFixEnabled),
-            "Enables case-insensitive artifact matching on Windows.",
+            "Enables artifact matching that follows destination filesystem case behavior on Windows and macOS.",
             new PipelineFeatureSource(nameof(CaseInsensitiveArtifactMatchingFixEnabled)),
             new BuiltInDefaultKnobSource("false"));
 
