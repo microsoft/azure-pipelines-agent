@@ -1,18 +1,21 @@
-const rm = require('typed-rest-client/RestClient');
 const core = require('@actions/core');
 const github = require('@actions/github');
 
-async function main() {
+function main() {
     try {
         const issueTypes = ['bug', 'enhancement', 'misc', 'internal'];
         const pullRequestNumber = github.context.issue.number;
         console.log(`Running for PR: ${pullRequestNumber}\n`);
-        let rest = new rm.RestClient('labelChecker');
-        console.log('Getting label info\n');
-        let res = await rest.get(`https://api.github.com/repos/microsoft/azure-pipelines-agent/issues/${pullRequestNumber}/labels`);
-        console.log(`Labels: ${JSON.stringify(res.result)}`);
+
+        const pullRequest = github.context.payload && github.context.payload.pull_request;
+        const labels = pullRequest && pullRequest.labels;
+        if (!Array.isArray(labels)) {
+            throw new Error('The pull request event payload did not contain labels.');
+        }
+
+        console.log(`Labels: ${JSON.stringify(labels)}`);
         let labelCount = 0;
-        res.result.forEach(tag => {
+        labels.forEach(tag => {
             let name = tag.name.toLowerCase();
             if (issueTypes.indexOf(name) > -1) {
                 console.log(`Found tag: ${name}`);
