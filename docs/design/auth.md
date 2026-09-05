@@ -32,7 +32,9 @@ existing Azure CLI sign-in. This is the preferred option when Conditional Access
 requires the managed Agent device but the Agent's built-in public client does
 not have a usable loopback redirect URI. Sign in with the Azure CLI Windows
 broker before running configuration. The Azure CLI token is used only to
-register the Agent and is not persisted by the Agent.
+register the Agent and is not persisted by the Agent. See the
+[Azure CLI Agent registration guide](../azure-cli-agent-registration.md) for
+step-by-step usage and guidance for switching to an official Agent package.
 
 During configuration an RSA public/private key pair is created, the private key is stored in file on disk, on windows the content is protected with DPAPI (machine level encrypted - agent only valid on that machine) and on Linux/OSX with chmod permissions.
 
