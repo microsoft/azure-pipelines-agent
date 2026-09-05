@@ -20,6 +20,20 @@ On-premisis deployments also support integrated auth (domain logged on credentia
 
 *Your credentials are not stored and are only relevant for registering the agent with the service.*
 
+On Windows, `--auth AADI` uses the local system browser and OAuth authorization
+code flow with PKCE. It is intended for organizations whose Conditional Access
+policy requires the registration user to authenticate from the managed Agent
+machine. `AADI` requires an interactive desktop session and cannot be combined
+with `--unattended`. The existing `--auth AAD` option remains the device-code
+flow.
+
+On Windows, `--auth AZCLI` obtains the Azure DevOps delegated token from an
+existing Azure CLI sign-in. This is the preferred option when Conditional Access
+requires the managed Agent device but the Agent's built-in public client does
+not have a usable loopback redirect URI. Sign in with the Azure CLI Windows
+broker before running configuration. The Azure CLI token is used only to
+register the Agent and is not persisted by the Agent.
+
 During configuration an RSA public/private key pair is created, the private key is stored in file on disk, on windows the content is protected with DPAPI (machine level encrypted - agent only valid on that machine) and on Linux/OSX with chmod permissions.
 
 Using your credentials, the agent is registered with the service by sending the public key to the service which adds that agent to the pool and stores the public key, STS will generate clientId associated with the public key.
