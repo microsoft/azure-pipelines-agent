@@ -102,7 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                 try
                 {
                     Directory.CreateDirectory(reportDirectory);
-                    File.WriteAllText(coberturaXml, CodeCoverageTestConstants.ValidCoberturaXml);
+                    File.WriteAllText(coberturaXml, CodeCoverageTestConstants.ValidCoberturaXmlLocalized);
                     File.WriteAllText((Path.Combine(reportDirectory, "index.html")), string.Empty);
                     File.WriteAllText((Path.Combine(reportDirectory, "frame-summary.html")), string.Empty);
 
