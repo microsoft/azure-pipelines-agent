@@ -149,7 +149,7 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
-            using (var processInvoker = new ProcessInvoker(this.context))
+                        using (var processInvoker = new ProcessInvoker(this.context, disableWorkerCommands: true))
             {
                 // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
                 processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
