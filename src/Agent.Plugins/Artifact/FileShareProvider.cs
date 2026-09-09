@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -149,7 +149,7 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             executionContext.Output(StringUtil.Loc("PublishingArtifactUsingRobocopy"));
-                        using (var processInvoker = new ProcessInvoker(this.context, disableWorkerCommands: true))
+            using (var processInvoker = new ProcessInvoker(this.context, disableWorkerCommands: true))
             {
                 // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
                 processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
