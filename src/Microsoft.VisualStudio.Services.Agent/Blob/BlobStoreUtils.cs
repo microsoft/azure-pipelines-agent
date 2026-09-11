@@ -47,7 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 fileDedupIds[dedupId] = file.Path;
             }
 
-            // Setup upload session to keep file for at mimimum one day
+            // Setup upload session to keep file for at minimum one day
             // Blobs will need to be associated with the server with an ID ref otherwise they will be
             // garbage collected after one day
             var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose, traceOutput);
