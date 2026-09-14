@@ -6,13 +6,17 @@ using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Xunit;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.WebPlatform;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -663,6 +667,260 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(false, null, null)]
+        [InlineData(false, null, "host")]
+        [InlineData(false, null, "container")]
+        [InlineData(false, "container", null)]
+        [InlineData(false, "container", "host")]
+        [InlineData(false, "container", "container")]
+        [InlineData(true, null, null)]
+        [InlineData(true, null, "host")]
+        [InlineData(true, null, "container")]
+        [InlineData(true, "container", null)]
+        [InlineData(true, "container", "host")]
+        [InlineData(true, "container", "container")]
+        public void TranslateToHostPath_DistinguishesDiagnosticsFromFileInputs(bool enforce, string jobTarget, string stepTarget)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, enforce, jobTarget, stepTarget);
+                string outsideWork = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work) + "-external", "sdk.targets");
+
+                foreach (string sourcePath in new[] { outsideWork, Path.Combine("src", "missing.cs"), "", null })
+                {
+                    Assert.Equal(sourcePath, ec.TranslateToHostPath(sourcePath, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                }
+
+                if (enforce && ec.StepTarget() is ContainerInfo)
+                {
+                    Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(outsideWork, source: VsoPathTranslationSource.TaskUploadFile));
+                }
+                else
+                {
+                    Assert.Equal(outsideWork, ec.TranslateToHostPath(outsideWork, source: VsoPathTranslationSource.TaskUploadFile));
+                }
+
+                Assert.Equal("", ec.TranslateToHostPath("", source: VsoPathTranslationSource.TaskUploadFile));
+                Assert.Null(ec.TranslateToHostPath(null, source: VsoPathTranslationSource.TaskUploadFile));
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(VsoPathTranslationSource.TaskAddAttachment, true)]
+        [InlineData(VsoPathTranslationSource.TaskUploadFile, true)]
+        [InlineData(VsoPathTranslationSource.TaskUploadSummary, true)]
+        [InlineData(VsoPathTranslationSource.TaskLogIssueSourcePath, false)]
+        [InlineData(VsoPathTranslationSource.TaskIssueSourcePath, false)]
+        [InlineData(VsoPathTranslationSource.ArtifactUpload, true)]
+        [InlineData(VsoPathTranslationSource.BuildUploadLog, true)]
+        [InlineData(VsoPathTranslationSource.BuildUploadSummary, true)]
+        [InlineData(VsoPathTranslationSource.ResultsPublishData, true)]
+        [InlineData(VsoPathTranslationSource.ResultsPublishResultFiles, true)]
+        [InlineData(VsoPathTranslationSource.CodeCoveragePublishSummaryFile, true)]
+        [InlineData(VsoPathTranslationSource.CodeCoveragePublishReportDirectory, true)]
+        [InlineData(VsoPathTranslationSource.CodeCoveragePublishAdditionalFiles, true)]
+        [InlineData((VsoPathTranslationSource)int.MaxValue, true)]
+        public void TranslateToHostPath_DerivesWorkValidationFromSource(VsoPathTranslationSource source, bool requiresValidation)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string insideWork = Path.Combine(work, "file.txt");
+                string outsideWork = Path.Combine(work + "-external", "file.txt");
+
+                Assert.Equal(insideWork, ec.TranslateToHostPath(insideWork, source));
+                if (requiresValidation)
+                {
+                    Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(outsideWork, source));
+                }
+                else
+                {
+                    Assert.Equal(outsideWork, ec.TranslateToHostPath(outsideWork, source));
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_PreservesEntireConfiguredWorkBoundary()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string workAlias = ec.StepTarget().TranslateToContainerPath(work);
+
+                foreach (string relativePath in new[] { "", Path.Combine("1", "s", "file.txt"), Path.Combine("2", "s", "file.txt") })
+                {
+                    string hostPath = Path.Combine(work, relativePath);
+                    string containerPath = Path.Combine(workAlias, relativePath);
+                    Assert.Equal(Path.GetFullPath(hostPath), ec.TranslateToHostPath(containerPath, source: VsoPathTranslationSource.ArtifactUpload));
+                    Assert.Equal(Path.GetFullPath(hostPath), ec.TranslateToHostPath(containerPath, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                }
+
+                string agentFile = Path.Combine(hc.GetDirectory(WellKnownDirectory.Root), ".credentials");
+                string agentFileAlias = ec.StepTarget().TranslateToContainerPath(agentFile);
+                Assert.Equal(agentFile, ec.TranslateToHostPath(agentFileAlias, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(agentFileAlias, source: VsoPathTranslationSource.TaskUploadFile));
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void TranslateToHostPath_DiagnosticPreservesMappingTraversalGuard(bool enforce)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, enforce, "container", null);
+                string workAlias = ec.StepTarget().TranslateToContainerPath(hc.GetDirectory(WellKnownDirectory.Work));
+                string escapingPath = Path.Combine(workAlias, "..", "outside.targets");
+
+                Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(escapingPath, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(escapingPath, source: VsoPathTranslationSource.ArtifactUpload));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_WithoutStepTargetPreservesInput()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                ec.Initialize(hc);
+                Assert.Null(ec.StepTarget());
+                Assert.Equal("src/missing.cs", ec.TranslateToHostPath("src/missing.cs", source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                Assert.Null(ec.TranslateToHostPath(null, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
+                Assert.Equal("src/missing.cs", ec.TranslateToHostPath("src/missing.cs", source: VsoPathTranslationSource.TaskUploadFile));
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData("logissue", false)]
+        [InlineData("issue", false)]
+        [InlineData("logissue", true)]
+        [InlineData("issue", true)]
+        public void TaskIssueCommands_AllowExternalWarningsWithRealExecutionContext(string commandName, bool enforce)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                var pagingLogger = InitializePathTranslationContext(hc, ec, enforce, "container", null);
+                ec.Variables.Set(Constants.Variables.System.HostType, "build");
+                var buildExtension = new Agent.Worker.Build.BuildJobExtension();
+                buildExtension.Initialize(hc);
+                var extensionManager = new Mock<IExtensionManager>();
+                extensionManager.Setup(x => x.GetExtensions<IJobExtension>())
+                    .Returns(new List<IJobExtension> { buildExtension });
+                hc.SetSingleton(extensionManager.Object);
+                hc.SetSingleton<ITaskRestrictionsChecker>(new TaskRestrictionsChecker());
+                var commandExtension = new TaskCommandExtension();
+                commandExtension.Initialize(hc);
+                string sourcePath = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work) + "-external", "sdk.targets");
+                var command = new Command("task", commandName) { Data = "Package warning" };
+                command.Properties["type"] = "warning";
+                command.Properties["sourcepath"] = sourcePath;
+
+                commandExtension.ProcessCommand(ec, command);
+
+                Assert.Null(ec.CommandResult);
+                Assert.Null(ec.Result);
+                pagingLogger.Verify(x => x.Write(It.Is<string>(line =>
+                    line.Contains("##[warning]") && line.Contains(sourcePath) && line.Contains("Package warning"))), Times.Once);
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void TranslateToHostPath_PublishesCallerSourcesInJobTelemetry(bool enforce)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, enforce, "container", null);
+                var endpoint = new ServiceEndpoint
+                {
+                    Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                    Url = new Uri("http://dummyurl"),
+                    Authorization = new EndpointAuthorization { Scheme = EndpointAuthorizationSchemes.OAuth }
+                };
+                endpoint.Authorization.Parameters[EndpointAuthorizationParameters.AccessToken] = "test-token";
+                ec.Endpoints.Add(endpoint);
+                var ciService = new Mock<ICustomerIntelligenceServer>();
+                ciService.Setup(x => x.PublishEventsAsync(It.IsAny<CustomerIntelligenceEvent[]>()))
+                    .Returns(System.Threading.Tasks.Task.CompletedTask);
+                hc.SetSingleton(ciService.Object);
+                hc.SetSingleton<ITaskRestrictionsChecker>(new TaskRestrictionsChecker());
+                hc.EnqueueInstance(new Mock<IAsyncCommandContext>().Object);
+                string path = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), "file.txt");
+
+                ec.TranslateToHostPath(path, source: VsoPathTranslationSource.TaskLogIssueSourcePath);
+                ec.TranslateToHostPath(path, source: VsoPathTranslationSource.TaskUploadFile);
+                ec.Complete();
+
+                ciService.Verify(x => x.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(events =>
+                    events.Length == 1 &&
+                    events[0].Feature == "VsoPathTranslation" &&
+                    (bool)events[0].Properties["ValidationEnabled"] == enforce &&
+                    JToken.FromObject(events[0].Properties["PathSamples"]).Single()["Sources"].Values<string>()
+                        .Contains(nameof(VsoPathTranslationSource.TaskLogIssueSourcePath)) &&
+                    JToken.FromObject(events[0].Properties["PathSamples"]).Single()["Sources"].Values<string>()
+                        .Contains(nameof(VsoPathTranslationSource.TaskUploadFile)))), Times.Once);
+            }
+        }
+
+        private Mock<IPagingLogger> InitializePathTranslationContext(
+            TestHostContext hc,
+            Agent.Worker.ExecutionContext ec,
+            bool enforce,
+            string jobTarget,
+            string stepTarget)
+        {
+            ec.Initialize(hc);
+            var container = new Pipelines.ContainerResource { Alias = "container" };
+            container.Properties.Set<string>("image", "someimage");
+            var resources = new Pipelines.JobResources();
+            resources.Containers.Add(container);
+            var target = new Pipelines.StepTarget { Target = stepTarget };
+            var steps = new List<Pipelines.JobStep>
+            {
+                new Pipelines.TaskStep { Target = target, Reference = new Pipelines.TaskStepDefinitionReference() }
+            };
+            var variables = new Dictionary<string, VariableValue>
+            {
+                ["DistributedTask.Agent.EnforceContainerVsoPathValidation"] = enforce.ToString()
+            };
+            var jobRequest = new Pipelines.AgentJobRequestMessage(
+                new TaskOrchestrationPlanReference(), new TimelineReference(), Guid.NewGuid(),
+                "job", "job", jobTarget, new Dictionary<string, string>(), variables,
+                new List<MaskHint>(), resources, new Pipelines.WorkspaceOptions(), steps);
+            var pagingLogger = new Mock<IPagingLogger>();
+            hc.EnqueueInstance(pagingLogger.Object);
+            ec.InitializeJob(jobRequest, CancellationToken.None);
+            ec.SetStepTarget(target);
+            return pagingLogger;
+        }
 
         private TestHostContext CreateTestContext([CallerMemberName] String testName = "")
         {
