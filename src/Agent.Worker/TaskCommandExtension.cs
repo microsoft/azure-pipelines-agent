@@ -385,10 +385,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             String issueType;
             if (eventProperties.TryGetValue(TaskIssueEventProperties.Type, out issueType))
             {
-                var source = string.Equals(command.Event, "issue", StringComparison.OrdinalIgnoreCase)
-                    ? VsoPathTranslationSource.TaskIssueSourcePath
-                    : VsoPathTranslationSource.TaskLogIssueSourcePath;
-                taskIssue = CreateIssue(context, issueType, data, eventProperties, source);
+                taskIssue = CreateIssue(context, issueType, data, eventProperties);
             }
 
             if (taskIssue == null)
@@ -419,8 +416,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             IExecutionContext context,
             string issueType,
             String message,
-            Dictionary<String, String> properties,
-            VsoPathTranslationSource source)
+            Dictionary<String, String> properties)
         {
             Issue issue = new Issue()
             {
@@ -455,7 +451,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (extension != null)
                 {
                     // Diagnostic source locations do not authorize file-content access.
-                    sourcePath = context.TranslateToHostPath(sourcePath, source: source);
+                    sourcePath = context.TranslateToHostPath(sourcePath, source: VsoPathTranslationSource.TaskLogIssueSourcePath);
                     properties[ProjectIssueProperties.SourcePath] = sourcePath;
 
                     // Get the values that represent the server path given a local path

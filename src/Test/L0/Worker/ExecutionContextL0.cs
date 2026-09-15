@@ -717,7 +717,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [InlineData(VsoPathTranslationSource.TaskUploadFile, true)]
         [InlineData(VsoPathTranslationSource.TaskUploadSummary, true)]
         [InlineData(VsoPathTranslationSource.TaskLogIssueSourcePath, false)]
-        [InlineData(VsoPathTranslationSource.TaskIssueSourcePath, false)]
         [InlineData(VsoPathTranslationSource.ArtifactUpload, true)]
         [InlineData(VsoPathTranslationSource.BuildUploadLog, true)]
         [InlineData(VsoPathTranslationSource.BuildUploadSummary, true)]

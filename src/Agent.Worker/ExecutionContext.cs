@@ -923,8 +923,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public string TranslateToHostPath(string path, VsoPathTranslationSource source)
         {
             // Exempt only diagnostic metadata; new or unrecognized sources still require validation.
-            bool validateContainerPath = source != VsoPathTranslationSource.TaskLogIssueSourcePath &&
-                source != VsoPathTranslationSource.TaskIssueSourcePath;
+            bool validateContainerPath = source != VsoPathTranslationSource.TaskLogIssueSourcePath;
             var stepTarget = StepTarget();
             Trace.Info($"TranslateToHostPath: source={source} validateContainerPath={validateContainerPath} target={stepTarget?.GetType().Name ?? "None"}");
             if (stepTarget == null)

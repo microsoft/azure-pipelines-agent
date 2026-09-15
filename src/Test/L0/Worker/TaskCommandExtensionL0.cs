@@ -412,12 +412,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             using (var hc = SetupMocks())
             {
                 SetupIssueExtension(hc, hasExtension: true);
-                var source = string.Equals(commandName, "issue", StringComparison.OrdinalIgnoreCase)
-                    ? VsoPathTranslationSource.TaskIssueSourcePath
-                    : VsoPathTranslationSource.TaskLogIssueSourcePath;
                 _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>(), It.IsAny<VsoPathTranslationSource>()))
                     .Throws(new InvalidOperationException("Unexpected path-translation source for a diagnostic."));
-                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>(), source))
+                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>(), VsoPathTranslationSource.TaskLogIssueSourcePath))
                     .Returns((string path, VsoPathTranslationSource caller) => path);
                 var extension = new TaskCommandExtension();
                 extension.Initialize(hc);
@@ -430,7 +427,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 extension.ProcessCommand(_ec.Object, command);
 
-                _ec.Verify(x => x.TranslateToHostPath(sourcePath, source), Times.Once);
+                _ec.Verify(x => x.TranslateToHostPath(sourcePath, VsoPathTranslationSource.TaskLogIssueSourcePath), Times.Once);
                 _ec.Verify(x => x.TranslateToHostPath(It.IsAny<string>(), It.IsAny<VsoPathTranslationSource>()), Times.Once);
                 _ec.Verify(x => x.AddIssue(It.Is<Issue>(issue =>
                     issue.Type == IssueType.Warning &&

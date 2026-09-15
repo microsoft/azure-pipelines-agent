@@ -15,8 +15,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         TaskAddAttachment,
         TaskUploadFile,
         TaskUploadSummary,
+        /// <summary>Diagnostic sourcepath for task.logissue and its task.issue alias.</summary>
         TaskLogIssueSourcePath,
-        TaskIssueSourcePath,
         ArtifactUpload,
         BuildUploadLog,
         BuildUploadSummary,
