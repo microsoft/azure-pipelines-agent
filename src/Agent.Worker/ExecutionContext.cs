@@ -81,11 +81,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // others
         void ForceTaskComplete();
         /// <summary>
-        /// Translates a logging-command path, requesting Work validation for file-consuming operations.
+        /// Translates a logging-command path using its source-specific policy.
         /// </summary>
-        /// <param name="path">The file reference or diagnostic source location.</param>
-        /// <param name="source">The agent-owned command/path-field identifier used for validation policy,
-        /// logs and telemetry. Only diagnostic source locations skip the flag-gated Work check.</param>
         string TranslateToHostPath(string path, VsoPathTranslationSource source);
         string ValidateContainerPath(string originalPath, string resolvedPath);
         ExecutionTargetInfo StepTarget();
@@ -917,12 +914,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        /// <summary>
-        /// Translates a path and applies flag-gated container file validation based on its source.
-        /// </summary>
+        /// <inheritdoc />
         public string TranslateToHostPath(string path, VsoPathTranslationSource source)
         {
-            // Exempt only diagnostic metadata; new or unrecognized sources still require validation.
+            // Unknown sources retain Work validation.
             bool validateContainerPath = source != VsoPathTranslationSource.TaskLogIssueSourcePath;
             var stepTarget = StepTarget();
             Trace.Info($"TranslateToHostPath: source={source} validateContainerPath={validateContainerPath} target={stepTarget?.GetType().Name ?? "None"}");
@@ -944,7 +939,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"TranslateToHostPath: source={source} path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            // Diagnostic locations are metadata, not requests to read the referenced files.
             if (validateContainerPath && stepTarget is ContainerInfo)
             {
                 Trace.Info($"TranslateToHostPath: source={source} validating container path — original='{path}' preValidation='{resolved}'");

@@ -450,7 +450,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (extension != null)
                 {
-                    // Diagnostic source locations do not authorize file-content access.
                     sourcePath = context.TranslateToHostPath(sourcePath, source: VsoPathTranslationSource.TaskLogIssueSourcePath);
                     properties[ProjectIssueProperties.SourcePath] = sourcePath;
 

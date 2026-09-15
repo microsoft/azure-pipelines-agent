@@ -11,7 +11,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
     /// Thread-safe accumulator for VsoPathTranslation telemetry.
     /// Collects stats across all <c>TranslateToHostPath</c> calls in a job
     /// and exposes them as a flat dictionary for a single CI event at job completion.
-    /// Samples are distinct Before/After/source combinations, not per-source call counts or validation outcomes.
     /// </summary>
     internal sealed class VsoPathTranslationTelemetryAccumulator
     {
