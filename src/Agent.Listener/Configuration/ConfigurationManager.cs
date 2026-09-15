@@ -576,6 +576,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 if (isConfigured && hasCredentials)
                 {
                     AgentSettings settings = _store.GetSettings();
+                    
                     var credentialManager = HostContext.GetService<ICredentialManager>();
 
                     // Get the credentials
@@ -601,6 +602,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     var agentCertManager = HostContext.GetService<IAgentCertificateManager>();
                     IConfigurationProvider agentProvider = (extensionManager.GetExtensions<IConfigurationProvider>()).FirstOrDefault(x => x.ConfigurationProviderType == agentType);
                     ArgUtil.NotNull(agentProvider, agentType);
+
+                    // If a URL is provided via command line, override the stored ServerUrl BEFORE checking if hosted
+                    string commandUrl = command.GetUrl(suppressPromptIfEmpty: true);
+                    if (!string.IsNullOrEmpty(commandUrl))
+                    {
+                        Trace.Info($"Overriding stored ServerUrl '{settings.ServerUrl}' with command line URL '{commandUrl}' for removal operation");
+                        settings.ServerUrl = commandUrl;
+                    }
 
                     bool isHostedServer = await CheckIsHostedServer(agentProvider, settings, credProvider, agentCertManager.SkipServerCertificateValidation);
                     VssCredentials creds = credProvider.GetVssCredentials(HostContext);
