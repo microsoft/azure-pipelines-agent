@@ -11,7 +11,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
     /// Thread-safe accumulator for VsoPathTranslation telemetry.
     /// Collects stats across all <c>TranslateToHostPath</c> calls in a job
     /// and exposes them as a flat dictionary for a single CI event at job completion.
-    /// Each sampled pair retains its distinct sources, not per-source call counts or validation outcomes.
+    /// Samples are distinct Before/After/source combinations, not per-source call counts or validation outcomes.
     /// </summary>
     internal sealed class VsoPathTranslationTelemetryAccumulator
     {
@@ -22,8 +22,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         private int _translatedCount;
         private bool? _validationEnabled;
         private readonly HashSet<string> _stepTargetTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<(string Before, string After), HashSet<VsoPathTranslationSource>> _pathSamples =
-            new Dictionary<(string, string), HashSet<VsoPathTranslationSource>>();
+        private readonly HashSet<(string Before, string After, VsoPathTranslationSource Source)> _pathSamples =
+            new HashSet<(string, string, VsoPathTranslationSource)>();
 
         public bool HasData
         {
@@ -63,15 +63,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 if (!string.IsNullOrEmpty(stepTargetType))
                     _stepTargetTypes.Add(stepTargetType);
 
-                var pair = (pathBefore ?? string.Empty, pathAfter ?? string.Empty);
-                if (_pathSamples.TryGetValue(pair, out var sources))
-                {
-                    sources.Add(source);
-                }
-                else if (_pathSamples.Count < MaxPathSamples)
-                {
-                    _pathSamples.Add(pair, new HashSet<VsoPathTranslationSource> { source });
-                }
+                if (_pathSamples.Count < MaxPathSamples)
+                    _pathSamples.Add((pathBefore ?? string.Empty, pathAfter ?? string.Empty, source));
             }
         }
 
@@ -90,9 +83,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                     // List serialized once by PublishTelemetry — no double-escaping.
                     { "PathSamples",       _pathSamples.Select(p => new
                         {
-                            Before = p.Key.Before,
-                            After = p.Key.After,
-                            Sources = p.Value.OrderBy(source => source).Select(source => source.ToString()).ToList()
+                            Before = p.Before,
+                            After = p.After,
+                            TranslationSource = p.Source.ToString()
                         }).ToList() }
                 };
             }

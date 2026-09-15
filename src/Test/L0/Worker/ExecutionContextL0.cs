@@ -858,7 +858,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [InlineData(false)]
         [InlineData(true)]
-        public void TranslateToHostPath_PublishesCallerSourcesInJobTelemetry(bool enforce)
+        public void TranslateToHostPath_PublishesFlatTranslationSourceSamplesInJobTelemetry(bool enforce)
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -888,9 +888,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     events.Length == 1 &&
                     events[0].Feature == "VsoPathTranslation" &&
                     (bool)events[0].Properties["ValidationEnabled"] == enforce &&
-                    JToken.FromObject(events[0].Properties["PathSamples"]).Single()["Sources"].Values<string>()
+                    JToken.FromObject(events[0].Properties["PathSamples"]).Count() == 2 &&
+                    JToken.FromObject(events[0].Properties["PathSamples"]).Select(sample => sample.Value<string>("TranslationSource"))
                         .Contains(nameof(VsoPathTranslationSource.TaskLogIssueSourcePath)) &&
-                    JToken.FromObject(events[0].Properties["PathSamples"]).Single()["Sources"].Values<string>()
+                    JToken.FromObject(events[0].Properties["PathSamples"]).Select(sample => sample.Value<string>("TranslationSource"))
                         .Contains(nameof(VsoPathTranslationSource.TaskUploadFile)))), Times.Once);
             }
         }
