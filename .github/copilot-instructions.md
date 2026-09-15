@@ -72,7 +72,7 @@ git push
 
 ### Technology Stack
 - **Language**: C# (.NET Core)
-- **Target Framework**: net6.0 (default), net8.0 supported
+- **Target Framework**: net10.0 (default), net8.0 supported
 - **Platforms**: Windows (x64, x86, ARM64), macOS (x64, ARM64), Linux (x64, ARM)
 - **Build System**: MSBuild with custom scripts
 

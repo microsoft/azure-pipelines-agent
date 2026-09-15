@@ -34,7 +34,7 @@ NODE10_VERSION="10.24.1"
 NODE16_VERSION="16.20.2"
 NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.20.2"
-NODE24_VERSION="24.18.0"
+NODE24_VERSION="24.18.1"
 MINGIT_VERSION="2.55.0"
 
 LFS_VERSION="3.7.1"
@@ -376,5 +376,5 @@ fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline node20 task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/3b8784e0-6fc3-495e-9340-3c9dde4ce04f.zip" "Tasks" false dont_uncompress
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/d0c4ac01-adbe-42b5-845a-b063e9213a8c.zip" "Tasks" false dont_uncompress
 fi

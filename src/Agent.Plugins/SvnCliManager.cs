@@ -583,7 +583,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(_context, nameof(_context));
 
             // Invoke tf.
-            using (var processInvoker = new ProcessInvoker(_context))
+            using (var processInvoker = new ProcessInvoker(_context, disableWorkerCommands: true))
             {
                 var outputLock = new object();
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -619,7 +619,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(_context, nameof(_context));
 
             // Invoke tf.
-            using (var processInvoker = new ProcessInvoker(_context))
+            using (var processInvoker = new ProcessInvoker(_context, disableWorkerCommands: true))
             {
                 var output = new List<string>();
                 var outputLock = new object();

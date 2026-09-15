@@ -20,6 +20,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob DefaultMapDockerSocketToFalse = new Knob(
+            nameof(DefaultMapDockerSocketToFalse),
+            "If true, containers without an explicit mapDockerSocket setting do not map the Docker socket by default.",
+            new PipelineFeatureSource("DefaultMapDockerSocketToFalse"),
+            new EnvironmentKnobSource("AZP_AGENT_DEFAULT_MAP_DOCKER_SOCKET_TO_FALSE"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
             nameof(AllowMountTasksReadonlyOnWindows),
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
@@ -229,6 +236,14 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UseNode24withHandlerData"),
             new RuntimeKnobSource("AGENT_USE_NODE24_WITH_HANDLER_DATA"),
             new EnvironmentKnobSource("AGENT_USE_NODE24_WITH_HANDLER_DATA"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob WarnOnNode20Task = new Knob(
+            nameof(WarnOnNode20Task),
+            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            new PipelineFeatureSource("WarnOnNode20Task"),
+            new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob FetchByCommitForFullClone = new Knob(
@@ -851,6 +866,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob CaseInsensitiveArtifactMatchingFixEnabled = new Knob(
+            nameof(CaseInsensitiveArtifactMatchingFixEnabled),
+            "Enables artifact matching that follows destination filesystem case behavior on Windows and macOS.",
+            new PipelineFeatureSource(nameof(CaseInsensitiveArtifactMatchingFixEnabled)),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob Rosetta2Warning = new Knob(
             nameof(Rosetta2Warning),
             "Log warning when X64 Agent is used on a Apple Silicon device.",
@@ -977,6 +998,15 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("UseEnhancedNodeSelection"),
             new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
             new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        // Security
+        public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
+            nameof(EnforceContainerVsoPathValidation),
+            "If true, VSO commands (artifact.upload, build.uploadlog, task.addattachment, etc.) running inside a container job are restricted to referencing files within the agent work directory only. This prevents container-to-host path traversal via ##vso commands.",
+            new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
+            new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

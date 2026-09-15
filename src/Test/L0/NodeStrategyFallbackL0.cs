@@ -33,9 +33,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);
         }
 
-        private Mock<IExecutionContext> CreateExecutionContext(TestHostContext tc)
+        private Mock<IExecutionContext> CreateExecutionContext(
+            TestHostContext tc,
+            Dictionary<string, VariableValue> variableOverrides = null)
         {
-            var executionContext = new Mock<IExecutionContext>();
             var variables = new Dictionary<string, VariableValue>
             {
                 // Force node-selection knobs to deterministic values via RuntimeKnobSource, which
@@ -47,6 +48,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 { "AGENT_USE_NODE24", "false" },
                 { "AGENT_USE_NODE24_WITH_HANDLER_DATA", "false" }
             };
+            foreach (var variableOverride in variableOverrides ?? new Dictionary<string, VariableValue>())
+            {
+                variables[variableOverride.Key] = variableOverride.Value;
+            }
+
+            var executionContext = new Mock<IExecutionContext>();
             List<string> warnings;
 
             executionContext
@@ -226,6 +233,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Equal(NodeVersion.Node20, result.NodeVersion);
+            }
+        }
+
+        [Theory]
+        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "false", false)]
+        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "true", true)]
+        [InlineData("AGENT_WARN_ON_NODE20_TASK", "true", true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_GatesNode20TaskWarning(string knobName, string knobValue, bool expectWarning)
+        {
+            ClearEolKnob();
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var variables = new Dictionary<string, VariableValue>
+                {
+                    { knobName, knobValue }
+                };
+                var executionContext = CreateExecutionContext(thc, variables);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var strategy = new Node20Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
+
+                Assert.NotNull(result);
+                Assert.Equal(expectWarning, !string.IsNullOrEmpty(result.Warning));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_DoesNotWarnForRedirectedNode16Task()
+        {
+            ClearEolKnob();
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var variables = new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_NODE20_1", "true" },
+                    { "DistributedTask.Agent.WarnOnNode20Task", "true" }
+                };
+                var executionContext = CreateExecutionContext(thc, variables);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var strategy = new Node20Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node16HandlerData() };
+
+                var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
+
+                Assert.NotNull(result);
+                Assert.Null(result.Warning);
             }
         }
 

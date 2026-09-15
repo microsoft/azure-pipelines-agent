@@ -12,6 +12,16 @@
     <!-- Suppress warning CA1416: This call site is reachable on all platforms. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+    <AssemblyOriginatorKeyFile>..\FinalPublicKey.snk</AssemblyOriginatorKeyFile>
+    <!-- CS8002: referenced 3rd-party assemblies (e.g. azuredevops-testresultparser) are not strong-named; safe to ignore on modern .NET -->
+    <NoWarn>$(NoWarn);CS8002</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <ItemGroup>

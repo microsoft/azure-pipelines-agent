@@ -477,9 +477,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return _traceManager[name];
         }
 
-        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true)
+        public ContainerInfo CreateContainerInfo(Pipelines.ContainerResource container, Boolean isJobContainer = true, bool mapDockerSocketDefault = false)
         {
-            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer);
+            ContainerInfo containerInfo = new ContainerInfo(container, isJobContainer, mapDockerSocketDefault);
             if (TestUtil.IsWindows())
             {
                 // Tool cache folder may come from ENV, so we need a unique folder to avoid collision
@@ -494,10 +494,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Tools)] = "/__t";
                 containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Work)] = "/__w";
                 containerInfo.PathMappings[this.GetDirectory(WellKnownDirectory.Root)] = "/__a";
-                if (containerInfo.IsJobContainer)
-                {
-                    containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
-                }
+            }
+
+            if (containerInfo.IsJobContainer && containerInfo.MapDockerSocket)
+            {
+                containerInfo.MountVolumes.Add(new MountVolume("/var/run/docker.sock", "/var/run/docker.sock"));
             }
             return containerInfo;
         }

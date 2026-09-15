@@ -212,8 +212,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 throw new InvalidOperationException($"Could not read {c_activeDirectoryServiceEndpointResourceId}");
             }
 
+            using var msalHttpClientFactory = new MsalAgentHttpClientFactory(HostContext);
             var app = ConfidentialClientApplicationBuilder.Create(clientId)
                 .WithAuthority(AzureCloudInstance.AzurePublic, tenantId)
+                .WithHttpClientFactory(msalHttpClientFactory)
                 .WithClientAssertion(async (AssertionRequestOptions options) =>
                 {
                     var systemConnection = executionContext.Endpoints.SingleOrDefault(x => string.Equals(x.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.Ordinal));
@@ -591,7 +593,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     
                     container.ContainerCommand = isWindowsContainer
                         ? "cmd.exe /c ping -t localhost > nul"
-                        : "sleep infinity";
+                        : "bash -c \"sleep infinity\"";
                 }
                 else
                 {
@@ -979,7 +981,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Allow the new sudo group run any sudo command without providing password.
                     await DockerExec(executionContext, container.ContainerId, $"su -c \"echo '%{sudoGroupName} ALL=(ALL:ALL) NOPASSWD:ALL' >> /etc/sudoers\"");
 
-                    if (AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
+                    if (container.MapDockerSocket && AgentKnobs.SetupDockerGroup.GetValue(executionContext).AsBoolean())
                     {
                         executionContext.Output(StringUtil.Loc("AllowContainerUserRunDocker", containerUserName));
                         // Get docker.sock group id on Host

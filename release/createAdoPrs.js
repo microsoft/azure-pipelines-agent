@@ -23,7 +23,6 @@ const opt = require('node-getopt').create([
 const orgUrl = 'dev.azure.com/mseng';
 const httpsOrgUrl = `https://${orgUrl}`;
 const authHandler = azdev.getPersonalAccessTokenHandler(process.env.PAT);
-const connection = new azdev.WebApi(httpsOrgUrl, authHandler);
 
 /**
  * Fills InstallAgentPackage.xml and Publish.ps1 templates.
@@ -122,6 +121,7 @@ async function openPR(repo, project, sourceBranch, targetBranch, commitMessage, 
     const pullRequest = { ...refs, title, description };
 
     console.log('Getting Git API');
+    const connection = new azdev.WebApi(httpsOrgUrl, authHandler, { keepAlive: true });
     const gitApi = await connection.getGitApi();
 
     console.log('Checking if an active pull request for the source and target branch already exists');

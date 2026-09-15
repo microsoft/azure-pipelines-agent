@@ -5,9 +5,8 @@ using System;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Worker;
-using Xunit;
 using Moq;
-
+using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -198,5 +197,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             Assert.True(knobValue.AsBoolean());
         }
+
     }
 }

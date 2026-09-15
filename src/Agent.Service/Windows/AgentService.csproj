@@ -10,7 +10,7 @@
     <RootNamespace>AgentService</RootNamespace>
     <AssemblyName>AgentService</AssemblyName>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>FinalPublicKey.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>..\..\FinalPublicKey.snk</AssemblyOriginatorKeyFile>
     <DelaySign>true</DelaySign>
     <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -67,7 +67,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="FinalPublicKey.snk" />
+    <None Include="..\..\FinalPublicKey.snk" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resource.de-de.resx">
