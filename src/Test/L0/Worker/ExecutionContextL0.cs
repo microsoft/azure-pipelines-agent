@@ -737,7 +737,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 string insideWork = Path.Combine(work, "file.txt");
                 string outsideWork = Path.Combine(work + "-external", "file.txt");
 
-                Assert.Equal(insideWork, ec.TranslateToHostPath(insideWork, source));
+                // Validation resolves symlinked ancestors such as /var on macOS.
+                string expectedInsideWork = requiresValidation
+                    ? ec.ValidateContainerPath(insideWork, insideWork)
+                    : insideWork;
+                Assert.Equal(expectedInsideWork, ec.TranslateToHostPath(insideWork, source));
                 if (requiresValidation)
                 {
                     Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(outsideWork, source));
@@ -765,7 +769,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     string hostPath = Path.Combine(work, relativePath);
                     string containerPath = Path.Combine(workAlias, relativePath);
-                    Assert.Equal(Path.GetFullPath(hostPath), ec.TranslateToHostPath(containerPath, source: VsoPathTranslationSource.ArtifactUpload));
+                    string validatedHostPath = ec.ValidateContainerPath(containerPath, hostPath);
+                    Assert.Equal(validatedHostPath, ec.TranslateToHostPath(containerPath, source: VsoPathTranslationSource.ArtifactUpload));
                     Assert.Equal(Path.GetFullPath(hostPath), ec.TranslateToHostPath(containerPath, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
                 }
 
