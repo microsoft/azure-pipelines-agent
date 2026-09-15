@@ -491,6 +491,7 @@
   "PublishingCodeCoverage": "Publishing coverage summary data to TFS server.",
   "PublishingCodeCoverageFiles": "Publishing code coverage files to TFS server.",
   "PublishingTestResults": "Publishing test results to test run '{0}'",
+  "PublishPipelineArtifact": "Publish Pipeline Artifact",
   "PublishTestResults": "Publish test results",
   "QueryingWorkspaceInfo": "Querying workspace information.",
   "QueueConError": "{0:u}: Agent connect error: {1}. Retrying until reconnected.",
