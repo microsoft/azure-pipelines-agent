@@ -238,6 +238,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE24_WITH_HANDLER_DATA"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob WarnOnNode20Task = new Knob(
+            nameof(WarnOnNode20Task),
+            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            new PipelineFeatureSource("WarnOnNode20Task"),
+            new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FetchByCommitForFullClone = new Knob(
             nameof(FetchByCommitForFullClone),
             "If true, allow fetch by commit when doing a full clone (depth=0).",
