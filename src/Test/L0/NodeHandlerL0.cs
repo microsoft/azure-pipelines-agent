@@ -21,6 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     [Collection("Unified NodeHandler Tests")]
     public sealed class NodeHandlerL0
     {
+        private const string EnhancedNodeSelectionKnob = "AGENT_USE_ENHANCED_NODE_SELECTION";
+
         private Mock<INodeHandlerHelper> nodeHandlerHalper;
 
         public NodeHandlerL0()
@@ -601,6 +603,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             var executionContext = new Mock<IExecutionContext>();
             List<string> warnings;
             variables = variables ?? new Dictionary<string, VariableValue>();
+
+            if (!variables.ContainsKey(EnhancedNodeSelectionKnob))
+            {
+                variables[EnhancedNodeSelectionKnob] = new VariableValue("false");
+            }
 
             executionContext
                 .Setup(x => x.Variables)
