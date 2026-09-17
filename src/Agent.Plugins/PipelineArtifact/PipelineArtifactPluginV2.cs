@@ -56,6 +56,44 @@ namespace Agent.Plugins.PipelineArtifact
             public static readonly string ArtifactName = "artifact";
             public static readonly string ItemPattern = "patterns";
         }
+
+        // Resolves the id of the build that triggered the current run when 'preferTriggeringPipeline' is enabled.
+        // Returns 0 when there is no matching triggering build (callers fall back to the configured runVersion).
+        protected static int ResolveTriggeringPipelineId(AgentTaskPluginExecutionContext context, string pipelineDefinition)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            string hostType = context.Variables.GetValueOrDefault("system.hostType")?.Value;
+            string triggeringPipeline = null;
+            if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
+            {
+                context.Debug("Environment: Release");
+                var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
+                var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + (releaseAlias ?? string.Empty) + ".definitionId")?.Value;
+                if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                {
+                    triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + (releaseAlias ?? string.Empty) + ".buildId")?.Value;
+                    context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                }
+            }
+            else
+            {
+                context.Debug("Environment: Build");
+                var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
+                if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
+                {
+                    triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
+                    context.Debug($"TrigerringPipeline: {triggeringPipeline}");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(triggeringPipeline))
+            {
+                return int.Parse(triggeringPipeline);
+            }
+
+            return 0;
+        }
     }
 
     // Can be invoked from a build run or a release run should a build be set as the artifact. 
@@ -205,38 +243,10 @@ namespace Agent.Plugins.PipelineArtifact
                 // Set the default pipelineId to 0, which is an invalid build id and it has to be reassigned to a valid build id.
                 int pipelineId = 0;
 
-                bool pipelineTriggeringBool;
-                if (bool.TryParse(pipelineTriggering, out pipelineTriggeringBool) && pipelineTriggeringBool)
+                if (bool.TryParse(pipelineTriggering, out bool pipelineTriggeringBool) && pipelineTriggeringBool)
                 {
                     context.Debug("TrigerringPipeline: true");
-                    string hostType = context.Variables.GetValueOrDefault("system.hostType").Value;
-                    string triggeringPipeline = null;
-                    if (!string.IsNullOrWhiteSpace(hostType) && !hostType.Equals("build", StringComparison.OrdinalIgnoreCase)) // RM env.
-                    {
-                        context.Debug("Environment: Release");
-                        var releaseAlias = context.Variables.GetValueOrDefault("release.triggeringartifact.alias")?.Value;
-                        var definitionIdTriggered = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".definitionId")?.Value;
-                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
-                        {
-                            triggeringPipeline = context.Variables.GetValueOrDefault("release.artifacts." + releaseAlias ?? string.Empty + ".buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
-                        }
-                    }
-                    else
-                    {
-                        context.Debug("Environment: Build");
-                        var definitionIdTriggered = context.Variables.GetValueOrDefault("build.triggeredBy.definitionId")?.Value;
-                        if (!string.IsNullOrWhiteSpace(definitionIdTriggered) && definitionIdTriggered.Equals(pipelineDefinition, StringComparison.OrdinalIgnoreCase))
-                        {
-                            triggeringPipeline = context.Variables.GetValueOrDefault("build.triggeredBy.buildId")?.Value;
-                            context.Debug($"TrigerringPipeline: {triggeringPipeline}");
-                        }
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(triggeringPipeline))
-                    {
-                        pipelineId = int.Parse(triggeringPipeline);
-                    }
+                    pipelineId = ResolveTriggeringPipelineId(context, pipelineDefinition);
                     context.Debug($"PipelineId from trigerringBuild: {pipelineId}");
                 }
 
