@@ -376,5 +376,5 @@ fi
 
 if [[ "$L1_MODE" != "" || "$PRECACHE" != "" ]]; then
     # cmdline node20 task
-    acquireExternalTool "$CONTAINER_URL/l1Tasks/d0c4ac01-adbe-42b5-845a-b063e9213a8c.zip" "Tasks" false dont_uncompress
+    acquireExternalTool "$CONTAINER_URL/l1Tasks/4adc1294-7275-4e3d-b6a6-d9493d2ebad3.zip" "Tasks" false dont_uncompress
 fi
