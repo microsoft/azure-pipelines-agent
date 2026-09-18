@@ -1003,7 +1003,7 @@ namespace Agent.Sdk.Knob
         // Security
         public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
             nameof(EnforceContainerVsoPathValidation),
-            "If true, VSO commands (artifact.upload, build.uploadlog, task.addattachment, etc.) running inside a container job are restricted to referencing files within the agent work directory only. This prevents container-to-host path traversal via ##vso commands.",
+            "If true, file inputs to upload and publish VSO commands from container steps are restricted to the agent work directory. Diagnostic source paths from task.logissue and task.issue are not subject to this file-input validation.",
             new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
             new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),

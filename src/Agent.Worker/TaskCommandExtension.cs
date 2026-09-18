@@ -264,7 +264,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadSummaryProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                TaskAddAttachmentCommand.AddAttachment(context, uploadSummaryProperties, data);
+                TaskAddAttachmentCommand.AddAttachment(context, uploadSummaryProperties, data, VsoPathTranslationSource.TaskUploadSummary);
             }
             else
             {
@@ -292,7 +292,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var fileName = Path.GetFileName(data);
                 uploadFileProperties.Add(TaskAddAttachmentEventProperties.Name, fileName);
 
-                TaskAddAttachmentCommand.AddAttachment(context, uploadFileProperties, data);
+                TaskAddAttachmentCommand.AddAttachment(context, uploadFileProperties, data, VsoPathTranslationSource.TaskUploadFile);
             }
             else
             {
@@ -311,10 +311,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(command, nameof(command));
 
-            AddAttachment(context, command.Properties, command.Data);
+            AddAttachment(context, command.Properties, command.Data, VsoPathTranslationSource.TaskAddAttachment);
         }
 
-        public static void AddAttachment(IExecutionContext context, Dictionary<string, string> eventProperties, string data)
+        public static void AddAttachment(
+            IExecutionContext context,
+            Dictionary<string, string> eventProperties,
+            string data,
+            VsoPathTranslationSource source)
         {
             ArgUtil.NotNull(context, nameof(context));
             ArgUtil.NotNull(eventProperties, nameof(eventProperties));
@@ -343,7 +347,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             // Translate file path back from container path
-            string filePath = context.TranslateToHostPath(data);
+            string filePath = context.TranslateToHostPath(data, source: source);
 
             if (!String.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
@@ -408,7 +412,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _ = command.Properties.Remove("correlationId");
         }
 
-        private Issue CreateIssue(IExecutionContext context, string issueType, String message, Dictionary<String, String> properties)
+        private Issue CreateIssue(
+            IExecutionContext context,
+            string issueType,
+            String message,
+            Dictionary<String, String> properties)
         {
             Issue issue = new Issue()
             {
@@ -442,8 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (extension != null)
                 {
-                    // Translate file path back from container path
-                    sourcePath = context.TranslateToHostPath(sourcePath);
+                    sourcePath = context.TranslateToHostPath(sourcePath, source: VsoPathTranslationSource.TaskLogIssueSourcePath);
                     properties[ProjectIssueProperties.SourcePath] = sourcePath;
 
                     // Get the values that represent the server path given a local path
