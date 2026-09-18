@@ -451,8 +451,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
                         var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
                         var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
+                        var protectReadOnlyVariableNamesFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag, Trace);
 
                         var environment = new Dictionary<string, string>();
+                        environment[AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable] = protectReadOnlyVariableNamesFlag?.EffectiveState == "On" ? "true" : "false";
+
                         if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
                         {
                             environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");

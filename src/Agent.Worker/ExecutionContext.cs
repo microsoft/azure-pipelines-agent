@@ -72,6 +72,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
+        string GetVariableStorageName(string name, bool isOutput = false);
         void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
         void AddIssue(Issue issue);
@@ -390,6 +391,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             _logger.End();
 
             return Result.Value;
+        }
+
+        public string GetVariableStorageName(string name, bool isOutput = false)
+        {
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+
+            if (isOutput || OutputVariables.Contains(name))
+            {
+                ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
+                return $"{_record.RefName}.{name}";
+            }
+
+            return name;
         }
 
         public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false)
