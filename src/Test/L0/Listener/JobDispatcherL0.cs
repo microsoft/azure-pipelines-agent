@@ -7,9 +7,14 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Listener.Configuration;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.TeamFoundation.Framework.Common;
 using Microsoft.VisualStudio.Services.Agent.Listener;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.WebApi;
+using Microsoft.VisualStudio.Services.FeatureAvailability;
 using Moq;
 using Xunit;
 
@@ -17,6 +22,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
+    [Collection("Worker proxy environment tests")]
     public sealed class JobDispatcherL0
     {
         private Mock<IProcessChannel> _processChannel;
@@ -43,6 +49,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             Guid JobId = Guid.NewGuid();
             var jobRequest = new AgentJobRequestMessage(plan, timeline, JobId, "someJob", "someJob", environment, tasks);
             return Pipelines.AgentJobRequestMessageUtil.Convert(jobRequest);
+        }
+
+        [Theory]
+        [InlineData("On", null, "true")]
+        [InlineData("On", "false", "true")]
+        [InlineData("Off", null, "false")]
+        [InlineData("Off", "true", "false")]
+        [InlineData(null, null, "false")]
+        [InlineData(null, "true", "false")]
+        [InlineData("Undefined", "true", "false")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task DispatchesExplicitReadOnlyProtectionFlag(string state, string inheritedValue, string expected)
+        {
+            string previous = Environment.GetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable);
+            try
+            {
+                Environment.SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, inheritedValue);
+                using (var hc = new TestHostContext(this) { UseRealDelays = true })
+                {
+                    hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
+                    hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                    hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+                    hc.SetSingleton<IJobNotification>(new Mock<IJobNotification>().Object);
+                    hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                    hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
+                    _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings { PoolId = 1 });
+                    var flag = state == null ? null : new FeatureFlag(AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag, "", "", state, state);
+                    _featureFlagProvider.Setup(x => x.GetFeatureFlagAsync(hc, AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag, It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(flag);
+
+                    IDictionary<string, string> workerEnvironment = null;
+                    _processInvoker.Setup(x => x.ExecuteAsync(
+                        It.IsAny<string>(), It.IsAny<string>(), "spawnclient 1 2", It.IsAny<IDictionary<string, string>>(),
+                        false, null, true, null, false, false, true, ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault, It.IsAny<CancellationToken>()))
+                        .Callback((string directory, string file, string arguments, IDictionary<string, string> environment,
+                            bool requireZero, System.Text.Encoding encoding, bool killOnCancel, InputQueue<string> input,
+                            bool inheritConsole, bool keepInput, bool highPriority, bool continueAfterKill, CancellationToken token) => workerEnvironment = environment)
+                        .ReturnsAsync(TaskResultUtil.TranslateToReturnCode(TaskResult.Succeeded));
+                    _processChannel.Setup(x => x.StartServer(It.IsAny<StartProcessDelegate>(), It.IsAny<bool>()))
+                        .Callback((StartProcessDelegate start, bool disposeClient) => start("1", "2"));
+                    _processChannel.Setup(x => x.SendAsync(MessageType.NewJobRequest, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                        .Returns(Task.CompletedTask);
+                    var request = new TaskAgentJobRequest();
+                    request.GetType().GetProperty("LockedUntil", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                        .SetValue(request, DateTime.UtcNow.AddMinutes(5));
+                    _agentServer.Setup(x => x.RenewAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(request);
+                    _agentServer.Setup(x => x.FinishAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<TaskResult>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new TaskAgentJobRequest());
+                    var dispatcher = new JobDispatcher();
+                    dispatcher.Initialize(hc);
+
+                    var message = CreateJobRequestMessage();
+                    message.Resources.Endpoints.Add(new ServiceEndpoint
+                    {
+                        Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                        Url = new Uri("https://example.invalid")
+                    });
+                    dispatcher.Run(message);
+                    await dispatcher.WaitAsync(CancellationToken.None);
+
+                    Assert.NotNull(workerEnvironment);
+                    Assert.True(workerEnvironment.ContainsKey(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable));
+                    Assert.Equal(expected, workerEnvironment[AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable]);
+                    Assert.Equal(inheritedValue, Environment.GetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable));
+                    _featureFlagProvider.Verify(x => x.GetFeatureFlagAsync(hc, AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag, It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>()), Times.Once);
+                    _agentServer.Verify(x => x.FinishAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), TaskResult.Succeeded, It.IsAny<CancellationToken>()), Times.Once);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, previous);
+            }
         }
 
         [Fact]

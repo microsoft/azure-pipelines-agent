@@ -12,6 +12,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     public sealed class KnobL0
     {
+        [Theory]
+        [InlineData(null, "true", false)]
+        [InlineData(null, "false", false)]
+        [InlineData("false", "true", false)]
+        [InlineData("true", "false", true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ProtectReadOnlyVariableNames_UsesOnlyEnvironment(string environmentValue, string runtimeValue, bool expected)
+        {
+            var environment = new LocalEnvironment();
+            environment.SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, environmentValue);
+            var context = new Mock<IExecutionContext>();
+            context.Setup(x => x.GetScopedEnvironment()).Returns(environment);
+            context.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(runtimeValue);
+
+            var value = AgentKnobs.ProtectReadOnlyVariableNames.GetValue(context.Object);
+
+            Assert.Equal(expected, value.AsBoolean());
+            if (environmentValue == null)
+            {
+                Assert.IsType<BuiltInDefaultKnobSource>(value.Source);
+            }
+            else
+            {
+                Assert.IsType<EnvironmentKnobSource>(value.Source);
+            }
+
+            Assert.Null(AgentKnobs.ProtectReadOnlyVariableNames.GetValue<RuntimeKnobSource>(context.Object));
+            Assert.Null(AgentKnobs.ProtectReadOnlyVariableNames.GetValue<PipelineFeatureSource>(context.Object));
+            context.Verify(x => x.GetVariableValueOrDefault(It.IsAny<string>()), Times.Never);
+        }
 
         public class TestKnobs
         {
