@@ -241,6 +241,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 validator: Validators.NonEmptyValidator);
         }
 
+        // Returns the path to an OIDC/workload-identity federated token file, if provided.
+        // Does not prompt (empty default, no NonEmpty validator) so it stays optional and only
+        // takes effect when --federatedtokenfile is passed for --auth SP.
+        public string GetFederatedTokenFile()
+        {
+            return GetArg(
+                GetConfigureOrRemoveBase()?.FederatedTokenFile,
+                Constants.Agent.CommandLine.Args.FederatedTokenFile);
+        }
+
         public string GetTenantId()
         {
             return GetArgOrPrompt(
