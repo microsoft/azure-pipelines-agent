@@ -920,7 +920,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Unknown sources retain Work validation.
             bool validateContainerPath = source != VsoPathTranslationSource.TaskLogIssueSourcePath;
             var stepTarget = StepTarget();
-            Trace.Info($"TranslateToHostPath: source={source} validateContainerPath={validateContainerPath} target={stepTarget?.GetType().Name ?? "None"}");
+            Trace.Info($"TranslateToHostPath: target={stepTarget?.GetType().Name ?? "None"}");
             if (stepTarget == null)
             {
                 return path;
@@ -937,13 +937,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var resolved = stepTarget.TranslateToHostPath(path);
             PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true, source: source);
 
-            Trace.Info($"TranslateToHostPath: source={source} path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
+            Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
             if (validateContainerPath && stepTarget is ContainerInfo)
             {
-                Trace.Info($"TranslateToHostPath: source={source} validating container path — original='{path}' preValidation='{resolved}'");
+                Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
                 resolved = ValidateContainerPath(path, resolved);
-                Trace.Info($"TranslateToHostPath: source={source} validation passed — canonical='{resolved}'");
+                Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
             }
 
             return resolved;
@@ -959,7 +959,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             // Use the job-level context — tasks have a direct parent, job context has none.
             var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
 
-            Trace.Info($"VsoPathTranslation: source={source} before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
+            Trace.Info($"VsoPathTranslation: before='{pathBeforeTranslation}' after='{pathAfterTranslation}' target={stepTarget.GetType().Name} validationEnabled={validationEnabled}");
 
             jobContext._vsoPathTelemetry.Record(
                 pathBefore: pathBeforeTranslation,
