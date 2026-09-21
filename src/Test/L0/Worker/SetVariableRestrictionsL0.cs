@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _ec.Object.GetScopedEnvironment().SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, protectReadOnlyVariableNames.ToString());
+                _ec.SetupGet(x => x.ProtectReadOnlyVariableNames).Returns(protectReadOnlyVariableNames);
                 var variable = "myVar";
                 var value = "myValue";
                 var setVariable = new TaskSetVariableCommand();
@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using (TestHostContext hc = CreateTestContext())
             {
-                _ec.Object.GetScopedEnvironment().SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, protectReadOnlyVariableNames.ToString());
+                _ec.SetupGet(x => x.ProtectReadOnlyVariableNames).Returns(protectReadOnlyVariableNames);
                 var restrictions = new TaskRestrictions() { SettableVariables = new TaskVariableRestrictions() };
                 restrictions.SettableVariables.Allowed.Add("myVar");
                 restrictions.SettableVariables.Allowed.Add("otherVar");

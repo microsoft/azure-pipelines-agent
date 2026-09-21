@@ -208,8 +208,33 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             command.Data = "false";
             new TaskSetVariableCommand().Execute(_task, command);
 
+            Assert.Equal("false", _task.Variables.Get(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable));
             Assert.True(AgentKnobs.ProtectReadOnlyVariableNames.GetValue(_task).AsBoolean());
+            Assert.True(_task.ProtectReadOnlyVariableNames);
             AssertRejected(CreateCommand("SYSTEM_OIDCREQUESTURI"), "System.OidcRequestUri", "SYSTEM_OIDCREQUESTURI");
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Enabled_LaterTasksKeepJobStartDecision()
+        {
+            CreateContext("true", protectedName: "System.OidcRequestUri");
+            var command = CreateCommand(AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag);
+            command.Data = "false";
+            new TaskSetVariableCommand().Execute(_task, command);
+
+            Assert.False(AgentKnobs.ProtectReadOnlyVariableNames.GetValue(_task).AsBoolean());
+            Assert.True(_task.ProtectReadOnlyVariableNames);
+            AssertRejected(CreateCommand("SYSTEM_OIDCREQUESTURI"), "System.OidcRequestUri", "SYSTEM_OIDCREQUESTURI");
+
+            _host.EnqueueInstance<IPagingLogger>(new Mock<IPagingLogger>().Object);
+            var taskVariables = new Variables(_host, new Dictionary<string, VariableValue>(), out _);
+            using (var laterTask = (Agent.Worker.ExecutionContext)_job.CreateChild(Guid.NewGuid(), "later", "Later", taskVariables))
+            {
+                Assert.True(laterTask.ProtectReadOnlyVariableNames);
+                Assert.Throws<InvalidOperationException>(() => new TaskSetVariableCommand().Execute(laterTask, CreateCommand("SYSTEM_OIDCREQUESTURI")));
+            }
         }
 
         [Theory]
@@ -250,7 +275,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         public void Enabled_InternalSettersKeepExactWriteSemantics()
         {
             CreateContext("true", protectedName: "System.OidcRequestUri");
-            Assert.True(AgentKnobs.ProtectReadOnlyVariableNames.GetValue(_task).AsBoolean());
+            Assert.True(_task.ProtectReadOnlyVariableNames);
             _task.Variables.Set("System.OidcRequestUri", "internal store");
             Assert.Equal("internal store", _task.Variables.Get("System.OidcRequestUri"));
             _task.SetVariable("System.OidcRequestUri", "internal context");

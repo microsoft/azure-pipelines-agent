@@ -626,7 +626,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(preserveCaseValue, out preserveCase);
             }
 
-            if (AgentKnobs.ProtectReadOnlyVariableNames.GetValue(context).AsBoolean())
+            if (context.ProtectReadOnlyVariableNames)
             {
                 if (context.Variables.IsReadOnly(name))
                 {

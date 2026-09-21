@@ -11,6 +11,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob ProtectReadOnlyVariableNames = new Knob(
             nameof(ProtectReadOnlyVariableNames),
             "If true, task.setvariable rejects names and output destinations that alias existing read-only variables.",
+            new PipelineFeatureSource(nameof(ProtectReadOnlyVariableNames)),
             new EnvironmentKnobSource(ProtectReadOnlyVariableNamesEnvironmentVariable),
             new BuiltInDefaultKnobSource("false"));
 

@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Dictionary<string, string> JobSettings { get; }
 
         PlanFeatures Features { get; }
+        bool ProtectReadOnlyVariableNames { get; }
         Variables Variables { get; }
         Variables TaskVariables { get; }
         HashSet<string> OutputVariables { get; }
@@ -190,6 +191,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         public PlanFeatures Features { get; private set; }
+        public bool ProtectReadOnlyVariableNames { get; private set; }
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -258,6 +260,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var child = new ExecutionContext();
             child.Initialize(HostContext);
             child.Features = Features;
+            child.ProtectReadOnlyVariableNames = ProtectReadOnlyVariableNames;
             child.Variables = Variables;
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
@@ -595,6 +598,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+            ProtectReadOnlyVariableNames = AgentKnobs.ProtectReadOnlyVariableNames.GetValue(this).AsBoolean();
 
             if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {

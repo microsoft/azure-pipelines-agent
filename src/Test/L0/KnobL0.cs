@@ -13,35 +13,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
     public sealed class KnobL0
     {
         [Theory]
-        [InlineData(null, "true", false)]
-        [InlineData(null, "false", false)]
-        [InlineData("false", "true", false)]
-        [InlineData("true", "false", true)]
+        [InlineData(null, null, null, false)]
+        [InlineData(null, "true", null, false)]
+        [InlineData(null, "false", "true", true)]
+        [InlineData(null, "true", "false", false)]
+        [InlineData("false", "true", "true", false)]
+        [InlineData("true", "false", "false", true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void ProtectReadOnlyVariableNames_UsesOnlyEnvironment(string environmentValue, string runtimeValue, bool expected)
+        public void ProtectReadOnlyVariableNames_UsesSourcePrecedence(string pipelineValue, string runtimeValue, string environmentValue, bool expected)
         {
             var environment = new LocalEnvironment();
             environment.SetEnvironmentVariable(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable, environmentValue);
             var context = new Mock<IExecutionContext>();
             context.Setup(x => x.GetScopedEnvironment()).Returns(environment);
-            context.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(runtimeValue);
+            context.Setup(x => x.GetVariableValueOrDefault(AgentKnobs.ProtectReadOnlyVariableNamesFeatureFlag)).Returns(pipelineValue);
+            context.Setup(x => x.GetVariableValueOrDefault(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable)).Returns(runtimeValue);
 
             var value = AgentKnobs.ProtectReadOnlyVariableNames.GetValue(context.Object);
 
             Assert.Equal(expected, value.AsBoolean());
-            if (environmentValue == null)
+            if (pipelineValue != null)
             {
-                Assert.IsType<BuiltInDefaultKnobSource>(value.Source);
+                Assert.IsType<PipelineFeatureSource>(value.Source);
             }
-            else
+            else if (environmentValue != null)
             {
                 Assert.IsType<EnvironmentKnobSource>(value.Source);
             }
+            else
+            {
+                Assert.IsType<BuiltInDefaultKnobSource>(value.Source);
+            }
 
-            Assert.Null(AgentKnobs.ProtectReadOnlyVariableNames.GetValue<RuntimeKnobSource>(context.Object));
-            Assert.Null(AgentKnobs.ProtectReadOnlyVariableNames.GetValue<PipelineFeatureSource>(context.Object));
-            context.Verify(x => x.GetVariableValueOrDefault(It.IsAny<string>()), Times.Never);
+            context.Verify(x => x.GetVariableValueOrDefault(AgentKnobs.ProtectReadOnlyVariableNamesEnvironmentVariable), Times.Never);
         }
 
         public class TestKnobs
