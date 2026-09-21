@@ -1,5 +1,5 @@
 {
-  "AcceptTeeEula": "(Y/N) Team Explorer Everywhere 使用許諾契約書に今すぐ同意しますか?",
+  "AcceptTeeEula": "Team Explorer Everywhere 使用許諾契約書に今すぐ同意しますか? (Y/N)",
   "AccessDenied": "アクセスが拒否されました",
   "AccessDeniedSettingDelayedStartOption": "サービス遅延自動開始オプションの設定中にアクセスが拒否されました。",
   "AccessDeniedSettingRecoveryOption": "サービス回復オプションの設定中にアクセスが拒否されました。",
