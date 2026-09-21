@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Moq;
 using Xunit;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -147,6 +150,212 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal("replacement", _task.Variables.Get("Build." + name));
             Assert.Equal(secret, _taskRecord.Variables[name].IsSecret);
             Assert.Single(_records);
+        }
+
+        [Theory]
+        [InlineData(true, "Publisher.Result")]
+        [InlineData(true, "PUBLISHER_RESULT")]
+        [InlineData(false, "Publisher.Result")]
+        [InlineData(false, "PUBLISHER_RESULT")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void DeclaredOutputs_RespectReadOnlyProtectionAcrossTasks(bool protectReadOnlyVariableNames, string destination)
+        {
+            CreateContext(protectReadOnlyVariableNames.ToString(), refName: "Publisher");
+            _task.OutputVariables.Add("Result");
+            var publish = CreateCommand("Result");
+            publish.Data = "published";
+            new TaskSetVariableCommand().Execute(_task, publish);
+
+            var output = _job.Variables.Public.Single(x => x.Name == "Publisher.Result");
+            Assert.Equal("published", output.Value);
+            Assert.Equal(protectReadOnlyVariableNames, output.ReadOnly);
+            Assert.Null(_job.Variables.Get("Result"));
+            Assert.Equal("published", _taskRecord.Variables["Result"].Value);
+            Assert.Single(_records);
+
+            _host.EnqueueInstance<IPagingLogger>(new Mock<IPagingLogger>().Object);
+            var taskVariables = new Variables(_host, new Dictionary<string, VariableValue>(), out _);
+            using (var consumer = (Agent.Worker.ExecutionContext)_job.CreateChild(Guid.NewGuid(), "consumer", "Consumer", taskVariables))
+            {
+                Assert.Empty(consumer.OutputVariables);
+                var consumerRecord = _records.Last(x => x.Id == consumer.Id);
+                _records.Clear();
+                var command = CreateCommand(destination);
+
+                if (protectReadOnlyVariableNames)
+                {
+                    var before = _job.Variables.Public.Concat(_job.Variables.Private)
+                        .OrderBy(x => x.Name, StringComparer.Ordinal)
+                        .Select(x => (x.Name, x.Value, x.Secret, x.ReadOnly, x.PreserveCase)).ToArray();
+
+                    Assert.Throws<InvalidOperationException>(() => new TaskSetVariableCommand().Execute(consumer, command));
+
+                    Assert.Equal(before, _job.Variables.Public.Concat(_job.Variables.Private)
+                        .OrderBy(x => x.Name, StringComparer.Ordinal)
+                        .Select(x => (x.Name, x.Value, x.Secret, x.ReadOnly, x.PreserveCase)).ToArray());
+                }
+                else
+                {
+                    new TaskSetVariableCommand().Execute(consumer, command);
+
+                    Assert.Equal("replacement", _job.Variables.Get(destination));
+                    Assert.False(_job.Variables.IsReadOnly(destination));
+                    Assert.Equal(destination == "Publisher.Result" ? "replacement" : "published", _job.Variables.Get("Publisher.Result"));
+                }
+
+                Assert.Empty(_records);
+                Assert.Single(consumerRecord.Variables);
+                Assert.Equal(BuildConstants.AgentPackage.Version, consumerRecord.Variables[TaskWellKnownItems.AgentVersionTimelineVariable].Value);
+                Assert.Equal("published", _taskRecord.Variables["Result"].Value);
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ExplicitOutputs_RepeatedPublicationRespectsProtection(bool protectReadOnlyVariableNames)
+        {
+            CreateContext(protectReadOnlyVariableNames.ToString(), refName: "Publisher");
+            var publishedValues = new List<string>();
+            _queue.Setup(x => x.QueueTimelineRecordUpdate(It.IsAny<Guid>(), It.Is<TimelineRecord>(r => r.Id == _task.Id)))
+                .Callback((Guid timeline, TimelineRecord record) =>
+                {
+                    _records.Add(record);
+                    publishedValues.Add(record.Variables["Result"].Value);
+                });
+            var first = CreateCommand("Result", output: true);
+            first.Data = "FIRST";
+            new TaskSetVariableCommand().Execute(_task, first);
+
+            Assert.Equal("FIRST", _job.Variables.Get("Publisher.Result"));
+            Assert.True(_job.Variables.IsReadOnly("Publisher.Result"));
+            Assert.Equal("FIRST", _taskRecord.Variables["Result"].Value);
+            Assert.Equal(new[] { "FIRST" }, publishedValues);
+
+            var second = CreateCommand("Result", output: true);
+            second.Data = "SECOND";
+            if (protectReadOnlyVariableNames)
+            {
+                var error = Assert.Throws<InvalidOperationException>(() => new TaskSetVariableCommand().Execute(_task, second));
+                Assert.Equal(StringUtil.Loc("ReadOnlyVariable", "Publisher.Result"), error.Message);
+            }
+            else
+            {
+                new TaskSetVariableCommand().Execute(_task, second);
+            }
+
+            var expected = protectReadOnlyVariableNames ? "FIRST" : "SECOND";
+            Assert.Equal(expected, _job.Variables.Get("Publisher.Result"));
+            Assert.Equal(expected, _taskRecord.Variables["Result"].Value);
+            Assert.True(_job.Variables.IsReadOnly("Publisher.Result"));
+            Assert.Null(_job.Variables.Get("Result"));
+            Assert.Equal(protectReadOnlyVariableNames ? new[] { "FIRST" } : new[] { "FIRST", "SECOND" }, publishedValues);
+            Assert.Equal(publishedValues.Count, _records.Count);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task TaskRunner_DeclaredOutputLifecycleRespectsProtection(bool protectReadOnlyVariableNames)
+        {
+            CreateContext(protectReadOnlyVariableNames.ToString(), refName: "Publisher");
+            _task.Variables.Set("DistributedTask.Agent.USENEWNODEHANDLERTELEMETRY", "true");
+            _host.SetSingleton<ITaskManager>(new TaskManager());
+            _host.SetSingleton<IHandlerFactory>(new HandlerFactory());
+            _host.SetSingleton<ITaskDecoratorManager>(new Mock<ITaskDecoratorManager>().Object);
+            _host.SetSingleton<IResourceMetricsManager>(new Mock<IResourceMetricsManager>().Object);
+            _host.EnqueueInstance<IDefaultStepHost>(new Mock<IDefaultStepHost>().Object);
+            var handler = new Mock<INodeHandler>();
+            handler.SetupAllProperties();
+            handler.Setup(x => x.RunAsync()).Returns(() =>
+            {
+                Assert.Same(_task, handler.Object.ExecutionContext);
+                Assert.Single(_task.OutputVariables);
+                Assert.Contains("Result", _task.OutputVariables);
+                var command = CreateCommand("Result");
+                command.Data = "FIRST";
+                new TaskSetVariableCommand().Execute(handler.Object.ExecutionContext, command);
+                return Task.CompletedTask;
+            });
+            _host.EnqueueInstance<INodeHandler>(handler.Object);
+            var task = new Pipelines.TaskStep
+            {
+                Id = _task.Id,
+                Name = "Publisher",
+                DisplayName = "Publisher",
+                IsServerOwned = false,
+                Reference = new Pipelines.TaskStepDefinitionReference
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "DeclaredOutput",
+                    Version = "1.0.0"
+                }
+            };
+            var workDirectory = _host.GetDirectory(WellKnownDirectory.Work);
+            var taskDirectory = Path.Combine(_host.GetDirectory(WellKnownDirectory.Tasks), $"{task.Reference.Name}_{task.Reference.Id}", task.Reference.Version);
+            try
+            {
+                Directory.CreateDirectory(taskDirectory);
+                File.WriteAllText(Path.Combine(taskDirectory, Constants.Path.TaskJsonFile), $@"{{
+                    ""id"": ""{task.Reference.Id}"",
+                    ""name"": ""DeclaredOutput"",
+                    ""friendlyName"": ""Declared output lifecycle"",
+                    ""version"": {{ ""Major"": 1, ""Minor"": 0, ""Patch"": 0 }},
+                    ""outputVariables"": [{{ ""name"": ""Result"" }}],
+                    ""execution"": {{ ""Node20_1"": {{ ""target"": ""publish.js"" }} }}
+                }}");
+                var runner = new TaskRunner { ExecutionContext = _task, Task = task, Stage = JobRunStage.Main };
+                runner.Initialize(_host);
+                Assert.Empty(_task.OutputVariables);
+
+                await runner.RunAsync();
+
+                handler.Verify(x => x.RunAsync(), Times.Once);
+                var output = _job.Variables.Public.Single(x => x.Name == "Publisher.Result");
+                Assert.Equal("FIRST", output.Value);
+                Assert.Equal(protectReadOnlyVariableNames, output.ReadOnly);
+                Assert.Null(_job.Variables.Get("Result"));
+                Assert.Equal("FIRST", _taskRecord.Variables["Result"].Value);
+                Assert.Single(_records);
+
+                _host.EnqueueInstance<IPagingLogger>(new Mock<IPagingLogger>().Object);
+                var taskVariables = new Variables(_host, new Dictionary<string, VariableValue>(), out _);
+                using (var consumer = (Agent.Worker.ExecutionContext)_job.CreateChild(Guid.NewGuid(), "consumer", "Consumer", taskVariables))
+                {
+                    Assert.Empty(consumer.OutputVariables);
+                    var consumerRecord = _records.Last(x => x.Id == consumer.Id);
+                    _records.Clear();
+                    var overwrite = CreateCommand("Publisher.Result");
+                    overwrite.Data = "SECOND";
+                    if (protectReadOnlyVariableNames)
+                    {
+                        var error = Assert.Throws<InvalidOperationException>(() => new TaskSetVariableCommand().Execute(consumer, overwrite));
+                        Assert.Equal(StringUtil.Loc("ReadOnlyVariable", "Publisher.Result"), error.Message);
+                    }
+                    else
+                    {
+                        new TaskSetVariableCommand().Execute(consumer, overwrite);
+                    }
+
+                    Assert.Equal(protectReadOnlyVariableNames ? "FIRST" : "SECOND", _job.Variables.Get("Publisher.Result"));
+                    Assert.Equal("FIRST", _taskRecord.Variables["Result"].Value);
+                    Assert.Empty(_records);
+                    Assert.Single(consumerRecord.Variables);
+                    Assert.Equal(BuildConstants.AgentPackage.Version, consumerRecord.Variables[TaskWellKnownItems.AgentVersionTimelineVariable].Value);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(workDirectory))
+                {
+                    Directory.Delete(workDirectory, recursive: true);
+                }
+            }
         }
 
         [Fact]
