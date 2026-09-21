@@ -442,6 +442,7 @@
   "NeedAdminForUnconfigWinServiceAgent": "Needs Administrator privileges for unconfiguring agent that running as windows service.",
   "NetworkServiceNotFound": "Cannot find network service account",
   "NoArtifactsFound": "No artifacts are available in the version '{0}'.",
+  "Node20TaskRetirementWarning": "Task {0} relies on Node.js 20, which is no longer supported. Task maintainers should update the task to use Node.js 24. Learn More https://aka.ms/node-runner-guidance",
   "NodeEOLFallbackBlocked": "Would fallback to {0} (EOL) but EOL policy is enabled",
   "NodeEOLPolicyBlocked": "Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false",
   "NodeEOLRetirementWarning": "Task {0} relies on an unsupported version of Node.js. Unsupported Node versions (6, 10, and 16) are being retired, and any pipelines using tasks dependent on these versions will begin to fail. Learn More https://aka.ms/node-runner-guidance",
