@@ -1,3 +1,17 @@
+## Features
+ - Use ordinal comparison for VSO command (#5663)
+
+## Bugs
+ - Fix Windows artifact path matching (#5644)
+ - Support filesystem-aware artifact matching on macOS (#5649)
+ -  Disable worker commands for FileShareProvider robocopy output (#5652)
+ - Warn for Node 20 tasks in enhanced selection strategy (#5660)
+ - Fix operator-precedence bug in DownloadPipelineArtifact@2 triggering pipeline logic (#5662)
+
+## Misc
+ - update dotnet version to latest available .NET SDK and Runtime (#5659)
+ - update the CmdLineV2 task to latest version (#5664)
+
 
 ## Agent Downloads
 
