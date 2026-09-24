@@ -549,6 +549,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob EnableArtifactNameValidation = new Knob(
+            nameof(EnableArtifactNameValidation),
+            "Skip invalid artifact names during DownloadPipelineArtifact@2 download-all.",
+            new RuntimeKnobSource("agent.EnableArtifactNameValidation"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
             "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
