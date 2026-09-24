@@ -369,7 +369,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             // push all endpoints
             List<String> ids = new List<string>();
-            foreach (ServiceEndpoint endpoint in ExecutionContext.Endpoints)
+
+            // Only expose the service connections this task declared (plus SystemVssConnection), matching the modern handler.
+            foreach (ServiceEndpoint endpoint in Endpoints ?? new List<ServiceEndpoint>())
             {
                 string partialKey = null;
                 if (string.Equals(endpoint.Name, WellKnownServiceEndpointNames.SystemVssConnection, StringComparison.OrdinalIgnoreCase))
