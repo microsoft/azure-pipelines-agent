@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Agent.Sdk.Knob;
+using Agent.Plugins.PipelineArtifact;
 
 namespace Agent.Plugins
 {
@@ -259,6 +260,11 @@ namespace Agent.Plugins
                     throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
                 }
 
+                if (downloadParameters.SkipInvalidArtifactNames)
+                {
+                    artifacts = FilterArtifactsWithValidNames(context, artifacts);
+                }
+
                 IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.Container, StringComparison.OrdinalIgnoreCase));
                 IEnumerable<BuildArtifact> pipelineArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.PipelineArtifact, StringComparison.OrdinalIgnoreCase));
                 IEnumerable<BuildArtifact> fileShareArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.FileShareArtifact, StringComparison.OrdinalIgnoreCase));
@@ -321,6 +327,23 @@ namespace Agent.Plugins
 
             // Create a variable to store the resource types of the downloaded artifacts
             context.SetVariable("DownloadPipelineArtifactResourceTypes", string.Join(",", resourceTypes));
+        }
+
+        internal static List<BuildArtifact> FilterArtifactsWithValidNames(
+            AgentTaskPluginExecutionContext context, IEnumerable<BuildArtifact> artifacts)
+        {
+            return artifacts.Where(artifact =>
+            {
+                string name = artifact.Name;
+                if (!string.IsNullOrEmpty(name) && PipelineArtifactPathHelper.IsValidArtifactName(name) &&
+                    name.Trim('.', ' ').Length > 0)
+                {
+                    return true;
+                }
+
+                context.Warning(StringUtil.Loc("SkippingArtifactWithInvalidName", name));
+                return false;
+            }).ToList();
         }
     }
 

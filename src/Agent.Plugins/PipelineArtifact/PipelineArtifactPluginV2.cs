@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Agent.Plugins;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.Core.WebApi;
@@ -306,6 +307,9 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 downloadOptions = DownloadOptions.SingleDownload;
             }
+
+            downloadParameters.SkipInvalidArtifactNames = downloadOptions == DownloadOptions.MultiDownload &&
+                AgentKnobs.EnableArtifactNameValidation.GetValue(context).AsBoolean();
 
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOptions, token);
