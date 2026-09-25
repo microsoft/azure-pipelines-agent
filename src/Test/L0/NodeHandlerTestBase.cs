@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         protected Mock<INodeHandlerHelper> NodeHandlerHelper { get; private set; }
         protected List<string> CapturedWarnings { get; private set; } = new List<string>();
         private bool disposed = false;
+        private bool useEnhancedNodeSelection = false;
 
         protected NodeHandlerTestBase()
         {
@@ -59,6 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             
             Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", useStrategy ? "true" : "false");
+            useEnhancedNodeSelection = useStrategy;
 
             try
             {
@@ -378,6 +380,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             foreach (var knob in knobs)
             {
                 variables[knob.Key] = new VariableValue(knob.Value);
+            }
+
+            if (!variables.ContainsKey("AGENT_USE_ENHANCED_NODE_SELECTION"))
+            {
+                variables["AGENT_USE_ENHANCED_NODE_SELECTION"] = new VariableValue(useEnhancedNodeSelection ? "true" : "false");
             }
 
             List<string> warnings;
