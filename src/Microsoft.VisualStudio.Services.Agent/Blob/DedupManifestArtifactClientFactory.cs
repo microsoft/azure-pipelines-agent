@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
@@ -143,6 +144,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
             dedupStoreHttpClient.SetRedirectTimeout(clientSettings.GetRedirectTimeout());
 
             var dedupClient = new DedupStoreClientWithDataport(dedupStoreHttpClient, new DedupStoreClientContext(maxParallelism), hashType);
+
+            // For a ShardSet (DedupStorage-backed) domain, opt into the dedup-tree direct-upload path (behind a
+            // default-off knob) by constructing the client with both the dedup store client (tree/hash) and a
+            // container-set blobstore client (container-set SAS + direct byte transport) plus the domainId.
+            if (domainId is ShardSetDomainId && AgentKnobs.UseDedupTreeDirectUpload.GetValue(context).AsBoolean())
+            {
+                traceOutput("Dedup-tree direct upload to DedupStorage is enabled for this ShardSet domain.");
+                var containerSetClient = connection.GetClient<ContainerSetDomainBlobstoreHttpClient>();
+                return (new DedupManifestArtifactClient(dedupClient, containerSetClient, domainId, tracer, telemetry), telemetry);
+            }
+
             return (new DedupManifestArtifactClient(telemetry, dedupClient, tracer), telemetry);
         }
 
