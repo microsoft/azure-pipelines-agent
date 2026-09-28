@@ -552,7 +552,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnableArtifactNameValidation = new Knob(
             nameof(EnableArtifactNameValidation),
             "Skip invalid artifact names during DownloadPipelineArtifact@2 download-all.",
-            new RuntimeKnobSource("agent.EnableArtifactNameValidation"),
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
             new EnvironmentKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
             new BuiltInDefaultKnobSource("false"));
 

@@ -212,7 +212,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             environment.SetEnvironmentVariable("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION", environmentValue);
             var context = new Mock<IExecutionContext>();
             context.Setup(x => x.GetScopedEnvironment()).Returns(environment);
-            context.Setup(x => x.GetVariableValueOrDefault("agent.EnableArtifactNameValidation")).Returns(runtimeValue);
+            context.Setup(x => x.GetVariableValueOrDefault("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION")).Returns(runtimeValue);
+            context.Setup(x => x.GetVariableValueOrDefault("agent.EnableArtifactNameValidation")).Returns(pipelineFeatureValue);
             context.Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.EnableArtifactNameValidation")).Returns(pipelineFeatureValue);
 
             var value = AgentKnobs.EnableArtifactNameValidation.GetValue(context.Object);
@@ -220,6 +221,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             Assert.Equal(expected, value.AsBoolean());
             Assert.Equal(sourceType, value.Source.GetType());
             Assert.Null(AgentKnobs.EnableArtifactNameValidation.GetValue<PipelineFeatureSource>(context.Object));
+            context.Verify(x => x.GetVariableValueOrDefault("agent.EnableArtifactNameValidation"), Times.Never);
             context.Verify(x => x.GetVariableValueOrDefault("DistributedTask.Agent.EnableArtifactNameValidation"), Times.Never);
         }
 

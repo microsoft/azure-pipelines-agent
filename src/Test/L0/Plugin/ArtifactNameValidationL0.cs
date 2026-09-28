@@ -25,7 +25,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
 {
     public sealed class ArtifactNameValidationL0 : IDisposable
     {
-        private const string KnobVariable = "agent.EnableArtifactNameValidation";
+        private const string KnobVariable = "AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION";
         private readonly string target = Path.Combine(TestUtil.GetSrcPath(), "Test", "TestResults", Guid.NewGuid().ToString("N"));
         private readonly List<string> output = new List<string>();
         private readonly Mock<BuildHttpClient> client = new Mock<BuildHttpClient>(MockBehavior.Strict, new Uri("https://example.invalid"), new VssCredentials());
