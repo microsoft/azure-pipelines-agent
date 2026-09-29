@@ -633,7 +633,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Boolean.TryParse(preserveCaseValue, out preserveCase);
             }
 
-            if (context.Variables.IsReadOnly(name))
+            if (context.ProtectReadOnlyVariableNames)
+            {
+                if (context.Variables.IsReadOnly(name))
+                {
+                    throw new InvalidOperationException(StringUtil.Loc("ReadOnlyVariable", name));
+                }
+
+                string storageName = context.GetVariableStorageName(name, isOutput);
+                if (context.Variables.IsReadOnly(storageName, includeEnvironmentAliases: true))
+                {
+                    throw new InvalidOperationException(StringUtil.Loc("ReadOnlyVariable", storageName));
+                }
+            }
+            else if (context.Variables.IsReadOnly(name))
             {
                 // Check FF. If it is on then throw, otherwise warn
                 // TODO - remove this and just always throw once the feature has been fully rolled out.

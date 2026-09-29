@@ -463,6 +463,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return (existingVariable != null && IsReadOnly(existingVariable));
         }
 
+        public bool IsReadOnly(string name, bool includeEnvironmentAliases)
+        {
+            if (IsReadOnly(name))
+            {
+                return true;
+            }
+
+            if (includeEnvironmentAliases)
+            {
+                string environmentName = VarUtil.ConvertToEnvVariableFormat(name, false);
+                foreach (Variable variable in _expanded.Values)
+                {
+                    if (IsReadOnly(variable) &&
+                        string.Equals(environmentName, VarUtil.ConvertToEnvVariableFormat(variable.Name, false), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public bool TryGetValue(string name, out string val)
         {
             Variable variable;
