@@ -112,4 +112,43 @@ public class LegacyPowerShellHandlerL0
         Assert.True(handler.Environment.ContainsKey("VSTSPSHOSTENDPOINT_AUTH_" + first.Id.ToString("D").ToUpperInvariant()));
         Assert.True(handler.Environment.ContainsKey("VSTSPSHOSTENDPOINT_AUTH_" + second.Id.ToString("D").ToUpperInvariant()));
     }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void ExportsSystemVssConnection()
+    {
+        // TaskRunner always adds SystemVssConnection to the scoped Endpoints. In-box legacy tasks
+        // (QuickPerfTest, RunJMeterLoadTest, PowerShellOnTargetMachines, WindowsMachineFileCopy)
+        // rely on it, so it must still be exported after scoping.
+        using var hostContext = new TestHostContext(this);
+        hostContext.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+        hostContext.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+        ServiceEndpoint system = CreateEndpoint("SystemVssConnection", "https://dev.azure.com/org");
+        ServiceEndpoint other = CreateEndpoint("someOtherConnection", "https://other.example");
+
+        var executionContext = new Mock<IExecutionContext>();
+        executionContext.Setup(x => x.Variables)
+            .Returns(new Variables(hostContext, new Dictionary<string, VariableValue>(), out _));
+        executionContext.Setup(x => x.Endpoints)
+            .Returns(new List<ServiceEndpoint> { system, other });
+
+        var handler = new TestableLegacyPowerShellHandler();
+        handler.Initialize(hostContext);
+        handler.Inputs = new Dictionary<string, string>();
+        handler.TaskDirectory = string.Empty;
+        handler.Environment = new Dictionary<string, string>();
+        handler.ExecutionContext = executionContext.Object;
+        // Scoped set contains only SystemVssConnection (the task declared no connectedService input).
+        handler.Endpoints = new List<ServiceEndpoint> { system };
+
+        handler.InvokeAddLegacyHostEnvironmentVariables("script.ps1", string.Empty);
+
+        // SystemVssConnection is exported under its dedicated keys (no id suffix).
+        Assert.True(handler.Environment.ContainsKey("VSTSPSHOSTSYSTEMENDPOINT_URL"));
+        Assert.True(handler.Environment.ContainsKey("VSTSPSHOSTSYSTEMENDPOINT_AUTH"));
+        // The undeclared connection, not in the scoped set, is not exported.
+        Assert.False(handler.Environment.ContainsKey("VSTSPSHOSTENDPOINT_URL_" + other.Id.ToString("D").ToUpperInvariant()));
+    }
 }
