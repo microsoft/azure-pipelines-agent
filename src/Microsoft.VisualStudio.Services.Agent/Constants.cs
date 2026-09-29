@@ -184,6 +184,10 @@ namespace Microsoft.VisualStudio.Services.Agent
                     public const string Work = "work";
                     public const string ClientId = "clientid";
                     public const string TenantId = "tenantid";
+                    // Path to a file containing an OIDC/workload-identity federated token
+                    // (client assertion) used for --auth SP instead of a client secret.
+                    // Not a secret itself (it is a file path); the token is read at runtime.
+                    public const string FederatedTokenFile = "federatedtokenfile";
 
                     // Secret args. Must be added to the "Secrets" getter as well.
                     public const string Password = "password";
