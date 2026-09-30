@@ -26,6 +26,7 @@ namespace Agent.Plugins
         public string[] MinimatchFilters { get; set; }
         public bool MinimatchFilterWithArtifactName { get; set; }
         public bool IncludeArtifactNameInPath { get; set; }
+        public bool SkipInvalidArtifactNames { get; set; }
 
         public int ParallelizationLimit { get; set; } = 8;
         public int RetryDownloadCount { get; set; } = 4;

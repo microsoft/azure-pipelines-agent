@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Agent.Sdk.Knob;
+using Agent.Plugins.PipelineArtifact;
 
 namespace Agent.Plugins
 {
@@ -257,6 +258,20 @@ namespace Agent.Plugins
                 else
                 {
                     throw new InvalidOperationException($"Invalid {nameof(downloadParameters.ProjectRetrievalOptions)}!");
+                }
+
+                if (downloadParameters.SkipInvalidArtifactNames)
+                {
+                    artifacts = artifacts.Where(artifact =>
+                    {
+                        if (PipelineArtifactPathHelper.IsValidArtifactName(artifact.Name, useStrictValidation: true))
+                        {
+                            return true;
+                        }
+
+                        context.Error(StringUtil.Loc("ArtifactNameIsNotValidWithStrictValidation", artifact.Name));
+                        return false;
+                    }).ToList();
                 }
 
                 IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.Container, StringComparison.OrdinalIgnoreCase));
