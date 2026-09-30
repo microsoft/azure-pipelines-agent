@@ -262,7 +262,16 @@ namespace Agent.Plugins
 
                 if (downloadParameters.SkipInvalidArtifactNames)
                 {
-                    artifacts = FilterArtifactsWithValidNames(context, artifacts);
+                    artifacts = artifacts.Where(artifact =>
+                    {
+                        if (PipelineArtifactPathHelper.IsValidArtifactName(artifact.Name, useStrictValidation: true))
+                        {
+                            return true;
+                        }
+
+                        context.Error(StringUtil.Loc("ArtifactNameIsNotValidWithStrictValidation", artifact.Name));
+                        return false;
+                    }).ToList();
                 }
 
                 IEnumerable<BuildArtifact> buildArtifacts = artifacts.Where(a => string.Equals(a.Resource.Type, PipelineArtifactConstants.Container, StringComparison.OrdinalIgnoreCase));
@@ -327,23 +336,6 @@ namespace Agent.Plugins
 
             // Create a variable to store the resource types of the downloaded artifacts
             context.SetVariable("DownloadPipelineArtifactResourceTypes", string.Join(",", resourceTypes));
-        }
-
-        internal static List<BuildArtifact> FilterArtifactsWithValidNames(
-            AgentTaskPluginExecutionContext context, IEnumerable<BuildArtifact> artifacts)
-        {
-            return artifacts.Where(artifact =>
-            {
-                string name = artifact.Name;
-                if (!string.IsNullOrEmpty(name) && PipelineArtifactPathHelper.IsValidArtifactName(name) &&
-                    name.Trim('.', ' ').Length > 0)
-                {
-                    return true;
-                }
-
-                context.Warning(StringUtil.Loc("SkippingArtifactWithInvalidName", name));
-                return false;
-            }).ToList();
         }
     }
 

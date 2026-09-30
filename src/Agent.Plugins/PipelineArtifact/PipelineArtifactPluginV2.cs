@@ -141,9 +141,13 @@ namespace Agent.Plugins.PipelineArtifact
                 throw new InvalidOperationException(StringUtil.Loc("OnPremIsNotSupported"));
             }
 
-            if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName))
+            bool useStrictValidation = AgentKnobs.EnableArtifactNameValidation.GetValue(context).AsBoolean();
+            if ((!useStrictValidation || !string.IsNullOrEmpty(artifactName)) &&
+                !PipelineArtifactPathHelper.IsValidArtifactName(artifactName, useStrictValidation))
             {
-                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
+                throw new ArgumentException(useStrictValidation
+                    ? StringUtil.Loc("ArtifactNameIsNotValidWithStrictValidation", artifactName)
+                    : StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
             }
             context.Debug($"ArtifactName: {artifactName}");
 
@@ -309,7 +313,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             downloadParameters.SkipInvalidArtifactNames = downloadOptions == DownloadOptions.MultiDownload &&
-                AgentKnobs.EnableArtifactNameValidation.GetValue(context).AsBoolean();
+                useStrictValidation;
 
             context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOptions, token);
