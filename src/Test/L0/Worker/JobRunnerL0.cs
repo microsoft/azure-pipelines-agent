@@ -405,6 +405,43 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public async Task JobOwnsResourceMonitoringLifecycle()
+        {
+            using var tokenSource = new CancellationTokenSource();
+            using TestHostContext hc = CreateTestContext();
+            _resourceMetricManager.Setup(x => x.StopMonitoringAsync()).Returns(Task.CompletedTask);
+
+            await _jobRunner.RunAsync(_message, tokenSource.Token);
+
+            _resourceMetricManager.Verify(
+                x => x.StartMonitoring(It.IsAny<IExecutionContext>(), false),
+                Times.Once);
+            _resourceMetricManager.Verify(x => x.StopMonitoringAsync(), Times.Once);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task ResourceMonitoringFailureDoesNotFailJob()
+        {
+            using var tokenSource = new CancellationTokenSource();
+            using TestHostContext hc = CreateTestContext();
+            _resourceMetricManager
+                .Setup(x => x.StartMonitoring(It.IsAny<IExecutionContext>(), It.IsAny<bool>()))
+                .Throws(new InvalidOperationException("start failed"));
+            _resourceMetricManager
+                .Setup(x => x.StopMonitoringAsync())
+                .Returns(Task.FromException(new InvalidOperationException("stop failed")));
+
+            TaskResult result = await _jobRunner.RunAsync(_message, tokenSource.Token);
+
+            Assert.Equal(TaskResult.Succeeded, result);
+            _resourceMetricManager.Verify(x => x.StopMonitoringAsync(), Times.Once);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void DontUpdateWebConsoleLineRateIfJobServerQueueIsNull()
         {
             using (var _tokenSource = new CancellationTokenSource())

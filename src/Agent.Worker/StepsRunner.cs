@@ -111,10 +111,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             Trace.Info($"Non-task step {step.DisplayName} started [StepType:{step.GetType().Name}, Timeout:{step.Timeout?.TotalMinutes ?? 0}min]");
                         }
 
-                        // Change the current job context to the step context.
-                        var resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                        resourceDiagnosticManager.SetContext(step.ExecutionContext);
-
                         // Variable expansion.
                         step.ExecutionContext.SetStepTarget(step.Target);
                         List<string> expansionWarnings;
