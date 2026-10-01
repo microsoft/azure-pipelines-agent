@@ -29,7 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// <param name="filePath"></param>
         /// <param name="runContext"></param>
         /// <returns></returns>
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null, bool isParallelProcessingFFEnabled = false)
         {
             // http://windyroad.com.au/dl/Open%20Source/JUnit.xsd
 
@@ -78,7 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     foreach (XmlNode testSuiteNode in testSuiteNodeList)
                     {
                         //for each available suites get all suite details
-                        TestSuiteSummary testSuiteSummary = ReadTestSuite(testSuiteNode, runUserIdRef);
+                        TestSuiteSummary testSuiteSummary = ReadTestSuite(testSuiteNode, runUserIdRef, isParallelProcessingFFEnabled);
 
                         // sum up testsuite durations and test case durations, decision on what to use will be taken later
                         runSummary.TotalTestCaseDuration = runSummary.TotalTestCaseDuration.Add(testSuiteSummary.TotalTestCaseDuration);
@@ -108,7 +108,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                 XmlNode testSuiteNode = doc.SelectSingleNode("testsuite");
                 if (testSuiteNode != null)
                 {
-                    runSummary = ReadTestSuite(testSuiteNode, runUserIdRef);
+                    runSummary = ReadTestSuite(testSuiteNode, runUserIdRef, isParallelProcessingFFEnabled);
                     //only if start time is available then only we need to calculate completed time
                     if (runSummary.TimeStamp != DateTime.MaxValue)
                     {
@@ -177,7 +177,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
         /// Read testcases under testsuite node in xml
         /// </summary>
         /// <param name="rootNode"></param>
-        private TestSuiteSummary ReadTestSuite(XmlNode rootNode, IdentityRef runUserIdRef)
+        private TestSuiteSummary ReadTestSuite(XmlNode rootNode, IdentityRef runUserIdRef, bool isParallelProcessingFFEnabled = false)
         {
             TestSuiteSummary testSuiteSummary = new TestSuiteSummary(Name);
 
@@ -260,9 +260,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
                     var testCaseDuration = GetTimeSpan(testCaseNode, out TestCaseTimeDataAvailable);
                     totalTestCaseDuration = totalTestCaseDuration + testCaseDuration;
                     resultCreateModel.DurationInMs = testCaseDuration.TotalMilliseconds;
-                    resultCreateModel.StartedDate = testCaseStartTime;
-                    resultCreateModel.CompletedDate = testCaseStartTime.AddTicks(testCaseDuration.Ticks);
-                    testCaseStartTime = testCaseStartTime.AddTicks(1) + testCaseDuration; //next start time
+                    if (isParallelProcessingFFEnabled)
+                    {
+                        resultCreateModel.StartedDate = testSuiteStartTime;
+                        resultCreateModel.CompletedDate = testSuiteStartTime.AddTicks(testCaseDuration.Ticks);
+                    }
+                    else
+                    {
+                        resultCreateModel.StartedDate = testCaseStartTime;
+                        resultCreateModel.CompletedDate = testCaseStartTime.AddTicks(testCaseDuration.Ticks);
+                        testCaseStartTime = testCaseStartTime.AddTicks(1) + testCaseDuration; //next start time
+                    }
 
                     //test case outcome
                     XmlNode failure, error, skipped;
