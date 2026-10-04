@@ -325,10 +325,20 @@ then
             echo "--------Azure Linux Version--------"
             cat /etc/azurelinux-release
             echo "------------------------------"
-
-            command -v tdnf
-            if [ $? -eq 0 ]
+            
+	    if command -v dnf5 >/dev/null 2>&1
+            then
+                echo "Using dnf..."
+                dnf install -y icu
+                if [ $? -ne 0 ]
                 then
+                    echo "'dnf' failed with exit code '$?'"
+                    print_errormessage
+                    exit 1
+                fi
+            elif command -v tdnf >/dev/null 2>&1
+            then
+                echo "dnf not found, using tdnf..."
                 tdnf install -y icu
                 if [ $? -ne 0 ]
                 then
@@ -337,7 +347,7 @@ then
                     exit 1
                 fi
             else
-                echo "Can not find 'tdnf'"
+                echo "Can not find 'dnf' or 'tdnf'"
                 print_errormessage
                 exit 1
             fi
@@ -346,7 +356,6 @@ then
             print_errormessage
             exit 1
         fi
-    fi
 elif [ -e /etc/redhat-release ]
 # RHEL6 doesn't have an os-release file defined, read redhat-release instead
 # We no longer support RHEL6
