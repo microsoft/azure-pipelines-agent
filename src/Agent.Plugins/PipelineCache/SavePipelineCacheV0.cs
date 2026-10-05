@@ -19,12 +19,20 @@ namespace Agent.Plugins.PipelineCache
            Hence we are overriding the RunAsync function to include that logic. */
         public override async Task RunAsync(AgentTaskPluginExecutionContext context, CancellationToken token)
         {
+            bool saveOnPartialSuccess = false;
+            string saveOnPartialSuccessInput = context.GetInput(SaveOnPartialSuccessInputName, required: false);
+            if (!string.IsNullOrWhiteSpace(saveOnPartialSuccessInput))
+            {
+                bool.TryParse(saveOnPartialSuccessInput, out saveOnPartialSuccess);
+            }
+
             bool successSoFar = false;
             if (context.Variables.TryGetValue("agent.jobstatus", out VariableValue jobStatusVar))
             {
                 if (Enum.TryParse<TaskResult>(jobStatusVar?.Value ?? string.Empty, true, out TaskResult jobStatus))
                 {
-                    if (jobStatus == TaskResult.Succeeded)
+                    if (jobStatus == TaskResult.Succeeded ||
+                        (saveOnPartialSuccess && jobStatus == TaskResult.SucceededWithIssues))
                     {
                         successSoFar = true;
                     }
@@ -33,7 +41,7 @@ namespace Agent.Plugins.PipelineCache
 
             if (!successSoFar)
             {
-                context.Info($"Skipping because the job status was not 'Succeeded'.");
+                context.Info($"Skipping because the job status was not 'Succeeded'{(saveOnPartialSuccess ? " or 'SucceededWithIssues'" : string.Empty)}.");
                 return;
             }
 

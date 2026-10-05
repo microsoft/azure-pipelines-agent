@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent
             try
             {
                 // Get the index of the prefix.
-                int prefixIndex = message.IndexOf(LoggingCommandPrefix);
+                int prefixIndex = message.IndexOf(LoggingCommandPrefix, StringComparison.Ordinal);
                 if (prefixIndex < 0)
                 {
                     return false;

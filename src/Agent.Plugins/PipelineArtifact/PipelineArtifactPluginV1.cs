@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
@@ -126,9 +127,12 @@ namespace Agent.Plugins.PipelineArtifact
                     artifactName = normalizedJobIdentifier;
                 }
 
-                if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName))
+                bool useStrictValidation = AgentKnobs.EnableArtifactNameValidation.GetValue(context).AsBoolean();
+                if (!PipelineArtifactPathHelper.IsValidArtifactName(artifactName, useStrictValidation))
                 {
-                    throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
+                    throw new ArgumentException(useStrictValidation
+                        ? StringUtil.Loc("ArtifactNameIsNotValidWithStrictValidation", artifactName)
+                        : StringUtil.Loc("ArtifactNameIsNotValid", artifactName));
                 }
 
                 string fullPath = Path.GetFullPath(targetPath);

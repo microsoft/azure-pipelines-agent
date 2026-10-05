@@ -344,7 +344,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             //   "TF_BUILD" is set by ProcessInvoker.
                             //   "agent.jobstatus" is set by ???.
                             if (string.Equals(key, Constants.TFBuild, StringComparison.Ordinal)
-                                || string.Equals(key, Constants.Variables.Agent.JobStatus, StringComparison.Ordinal))
+                                || string.Equals(key, Constants.Variables.Agent.JobStatus, StringComparison.Ordinal)
+                                || ProcessHandlerHelper.IsProxyEnvironmentVariable(key))
                             {
                                 return;
                             }

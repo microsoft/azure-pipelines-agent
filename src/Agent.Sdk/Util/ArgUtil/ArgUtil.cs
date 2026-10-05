@@ -37,6 +37,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             ArgUtil.ArgUtilInstance.NotNullOrEmpty(value, name);
         }
 
+        public static void ThrowIfContainsNull(string name, string value)
+        {
+            // A NUL (U+0000) is the entry separator in the Windows native environment block and the
+            // C-string terminator in POSIX envp. It is never valid in an environment variable name or
+            // value on any OS; allowing it lets one approved variable split into two native variables
+            // (environment variable injection).
+            string field = (name != null && name.IndexOf('\0') >= 0) ? "name"
+                         : (value != null && value.IndexOf('\0') >= 0) ? "value"
+                         : null;
+            if (field != null)
+            {
+                throw new ArgumentException(StringUtil.Loc("EnvironmentVariableContainsNullCharacter", name ?? string.Empty, field));
+            }
+        }
+
         public static void ListNotNullOrEmpty<T>([ValidatedNotNull] IEnumerable<T> value, string name)
         {
             ArgUtil.ArgUtilInstance.ListNotNullOrEmpty(value, name);

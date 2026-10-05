@@ -163,7 +163,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             var propertyDictionary = ArtifactCommandExtensionUtil.ExtractArtifactProperties(eventProperties);
 
             // Translate file path back from container path
-            string localPath = context.TranslateToHostPath(data);
+            string localPath = context.TranslateToHostPath(data, source: VsoPathTranslationSource.ArtifactUpload);
 
             if (string.IsNullOrEmpty(localPath))
             {

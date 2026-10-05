@@ -234,6 +234,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         protected void AddEnvironmentVariable(string key, string value)
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
+            ArgUtil.ThrowIfContainsNull(key, value);
             Trace.Verbose($"Setting env '{key}' to '{value}'.");
 
             Environment[key] = value ?? string.Empty;

@@ -134,5 +134,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 hc.EnqueueInstance<IProcessInvoker>(processInvoker);
             }
         }
+
+        protected Mock<IProcessInvoker> SetupProcessInvokerMockForVerification(TestHostContext hc)
+        {
+            var processInvoker = new Mock<IProcessInvoker>();
+            processInvoker
+                .Setup(x => x.ExecuteAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<IDictionary<string, string>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<Encoding>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, CancellationToken>(
+                    (_, fileName, arguments, _, _, _, _) =>
+                    {
+                        string output = fileName switch
+                        {
+                            "whoami" => "testuser",
+                            "id" when arguments.StartsWith("-u") => "1000",
+                            "id" when arguments.StartsWith("-gn") => "testgroup",
+                            "id" when arguments.StartsWith("-g") => "1000",
+                            "node" when arguments.Contains("-v") => "v16.20.2",
+                            _ => null,
+                        };
+
+                        if (output != null)
+                        {
+                            processInvoker.Raise(
+                                x => x.OutputDataReceived += null,
+                                processInvoker.Object,
+                                new ProcessDataReceivedEventArgs(output));
+                        }
+                    })
+                .ReturnsAsync(0);
+
+            for (int i = 0; i < 10; i++)
+            {
+                hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+            }
+
+            return processInvoker;
+        }
     }
 }

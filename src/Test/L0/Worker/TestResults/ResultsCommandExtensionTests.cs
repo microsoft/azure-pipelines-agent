@@ -64,6 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 command.Properties.Add("resultFiles", "ResultFile.txt");
 
                 Assert.Throws<ArgumentException>(() => resultCommand.ProcessCommand(_ec.Object, command));
+                _ec.Verify(x => x.TranslateToHostPath("ResultFile.txt", VsoPathTranslationSource.ResultsPublishResultFiles), Times.Once);
             }
         }
 
@@ -96,6 +97,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 resultCommand.ProcessCommand(_ec.Object, command);
 
                 Assert.Equal(0, _errors.Count());
+                _ec.Verify(x => x.TranslateToHostPath("testfile1", VsoPathTranslationSource.ResultsPublishData), Times.Once);
+                _ec.Verify(x => x.TranslateToHostPath("testfile2", VsoPathTranslationSource.ResultsPublishData), Times.Once);
             }
         }
 

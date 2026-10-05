@@ -32,6 +32,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+            string node20TaskWarning =
+                AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean() &&
+                context.HandlerData is Node20_1HandlerData
+                    ? StringUtil.Loc("Node20TaskRetirementWarning", taskName)
+                    : null;
 
             // Only use Node20 if the binary actually exists on disk. When absent, return null
             // so the orchestrator falls through to the next strategy (and ultimately its clean
@@ -59,7 +64,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected via global AGENT_USE_NODE20_1 override",
-                    Warning = null
+                    Warning = node20TaskWarning
                 };
             }
 
@@ -70,7 +75,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Upgraded from end-of-life Node version due to EOL policy",
-                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null
+                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion
+                        ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
+                        : node20TaskWarning
                 };
             }
 
@@ -87,7 +94,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected for Node20 task handler",
-                    Warning = null
+                    Warning = node20TaskWarning
                 };
             }
 

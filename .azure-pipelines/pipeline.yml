@@ -148,7 +148,6 @@ extends:
                   --token "$(ACCESS_TOKEN)" \
                   --templateParameters "{ \"branch\": \"${branch}\", \"target_framework\": \"$(targetFramework)\"}"
             displayName: Test Proxy Agent
-            continueOnError: true
 
   # Windows (x64)
       - ${{ if parameters.win_x64 }}:

@@ -24,6 +24,8 @@ namespace Agent.Plugins.PipelineCache
     {
         protected const string RestoreStepRanVariableName = "RESTORE_STEP_RAN";
         protected const string RestoreStepRanVariableValue = "true";
+        // Matches the 'saveOnPartialSuccess' input in the Cache task.
+        protected const string SaveOnPartialSuccessInputName = "saveOnPartialSuccess";
         private const string SaltVariableName = "AZP_CACHING_SALT";
         private const string OldKeyFormatMessage = "'key' format is changing to a single line: https://aka.ms/pipeline-caching-docs";
         protected const string ContentFormatVariableName = "AZP_CACHING_CONTENT_FORMAT";

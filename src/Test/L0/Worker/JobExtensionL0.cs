@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.WebPlatform;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
+    [Collection("Worker proxy environment tests")]
     public sealed class JobExtensionL0
     {
         private class TestJobExtension : JobExtension

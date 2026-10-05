@@ -75,12 +75,6 @@ namespace Agent.Plugins.BuildArtifacts
         static readonly string buildVersionToDownloadSpecific = "specific";
         static readonly string buildVersionToDownloadLatestFromBranch = "latestFromBranch";
         static readonly string extractedTarsTempDir = "extracted_tars";
-        static readonly Options minimatchOptions = new Options()
-        {
-            Dot = true,
-            NoBrace = true,
-            AllowWindowsPaths = PlatformUtil.RunningOnWindows
-        };
 
         protected override async Task ProcessCommandInternalAsync(
             AgentTaskPluginExecutionContext context,
@@ -209,7 +203,6 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions,
                     ExtractTars = extractTarsBool,
                     ExtractedTarsTempPath = extractedTarsTempPath
                 };
@@ -306,7 +299,6 @@ namespace Agent.Plugins.BuildArtifacts
                     ParallelizationLimit = int.TryParse(parallelizationLimit, out var parallelLimit) ? parallelLimit : 8,
                     RetryDownloadCount = int.TryParse(retryDownloadCount, out var retryCount) ? retryCount : 4,
                     CheckDownloadedFiles = bool.TryParse(checkDownloadedFiles, out var checkDownloads) && checkDownloads,
-                    CustomMinimatchOptions = minimatchOptions,
                     ExtractTars = extractTarsBool,
                     ExtractedTarsTempPath = extractedTarsTempPath
                 };
@@ -321,6 +313,8 @@ namespace Agent.Plugins.BuildArtifacts
             {
                 CleanDirectory(context, fullPath, token);
             }
+
+            downloadParameters.CustomMinimatchOptions = CreateMinimatchOptions(context, fullPath);
             var downloadOption = downloadType == "single" ? DownloadOptions.SingleDownload : DownloadOptions.MultiDownload;
 
             // Build artifacts always includes the artifact in the path name
@@ -485,6 +479,46 @@ namespace Agent.Plugins.BuildArtifacts
             }
 
             return result;
+        }
+
+        internal static Options CreateMinimatchOptions(
+            IKnobValueContext context,
+            string targetPath)
+        {
+            return CreateMinimatchOptions(
+                context,
+                targetPath,
+                IOUtil.IsFileSystemCaseSensitive,
+                PlatformUtil.RunningOnWindows,
+                PlatformUtil.RunningOnMacOS);
+        }
+
+        internal static Options CreateMinimatchOptions(
+            IKnobValueContext context,
+            string targetPath,
+            Func<string, bool?> isFileSystemCaseSensitive,
+            bool runningOnWindows,
+            bool runningOnMacOS)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(targetPath, nameof(targetPath));
+            ArgUtil.NotNull(isFileSystemCaseSensitive, nameof(isFileSystemCaseSensitive));
+
+            bool useCaseInsensitiveMatching = false;
+            if (AgentKnobs.CaseInsensitiveArtifactMatchingFixEnabled.GetValue(context).AsBoolean())
+            {
+                useCaseInsensitiveMatching = runningOnWindows
+                    || (runningOnMacOS
+                        && isFileSystemCaseSensitive(targetPath) == false);
+            }
+
+            return new Options()
+            {
+                Dot = true,
+                NoBrace = true,
+                AllowWindowsPaths = PlatformUtil.RunningOnWindows,
+                NoCase = useCaseInsensitiveMatching
+            };
         }
 
         private async Task<Guid> GetProjectIdAsync(AgentTaskPluginExecutionContext context, string projectName)

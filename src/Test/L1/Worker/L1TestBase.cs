@@ -129,9 +129,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("3b8784e0-6fc3-495e-9340-3c9dde4ce04f"),
+                    Id = Guid.Parse("20ae8e90-cba3-4e58-a89c-7783b7ac8762"),
                     Name = "CmdLine",
-                    Version = "2.274.0"
+                    Version = "2.281.0"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
@@ -416,9 +416,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       },
       'type': 'task',
       'reference': {
-        'id': '3b8784e0-6fc3-495e-9340-3c9dde4ce04f',
+        'id': '20ae8e90-cba3-4e58-a89c-7783b7ac8762',
         'name': 'CmdLine',
-        'version': '2.274.0'
+        'version': '2.281.0'
       },
       'id': '9c939e41-62c2-5605-5e05-fc3554afc9f5',
       'name': 'CmdLine',

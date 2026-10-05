@@ -40,6 +40,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RejectsEnvironmentVariableContainingNullCharacter()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.Initialize(hc);
+
+                    // A NUL in an environment value would split into two native env vars
+                    // (environment variable injection). It must be rejected before the
+                    // process is started.
+                    var environment = new Dictionary<string, string>
+                    {
+                        { "SAFE_QUEUE_LABEL", "safe-label\0NODE_OPTIONS=--max-old-space-size=2048" }
+                    };
+
+                    await Assert.ThrowsAsync<ArgumentException>(async () =>
+                    {
+                        await processInvoker.ExecuteAsync(
+                            "",
+                            TestUtil.IsWindows() ? "cmd.exe" : "bash",
+                            "",
+                            environment,
+                            CancellationToken.None);
+                    });
+                }
+            }
+        }
+
         //Run a process that normally takes 20sec to finish and cancel it.
         [Fact]
         [Trait("Level", "L0")]
