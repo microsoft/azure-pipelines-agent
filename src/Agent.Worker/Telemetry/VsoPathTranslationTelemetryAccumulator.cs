@@ -19,6 +19,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         private readonly object _lock = new object();
         private int _totalCalls;
         private int _translatedCount;
+        private int _blockedCount;
         private bool? _validationEnabled;
         private readonly HashSet<string> _stepTargetTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<(string Before, string After, VsoPathTranslationSource Source)> _pathSamples =
@@ -37,6 +38,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         public int TranslatedCount
         {
             get { lock (_lock) { return _translatedCount; } }
+        }
+
+        /// <summary>
+        /// Count of TranslateToHostPath calls where ValidateContainerPath actually threw
+        /// (i.e. was truly blocked), as opposed to inferring block outcome from path patterns.
+        /// </summary>
+        public int BlockedCount
+        {
+            get { lock (_lock) { return _blockedCount; } }
         }
 
         public bool ValidationEnabled
@@ -67,6 +77,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             }
         }
 
+        /// <summary>
+        /// Records whether a given TranslateToHostPath call was actually blocked by
+        /// ValidateContainerPath (i.e. it threw), as reported by the caller immediately
+        /// after the validation attempt. This closes the gap where Record() above only
+        /// captures pre-validation path samples and FF state, not the real outcome.
+        /// </summary>
+        public void RecordValidationOutcome(bool blocked)
+        {
+            if (!blocked) return;
+
+            lock (_lock)
+            {
+                _blockedCount++;
+            }
+        }
+
         public Dictionary<string, object> ToTelemetryProperties(string definitionId, string buildId)
         {
             lock (_lock)
@@ -75,6 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 {
                     { "TotalCalls",        _totalCalls },
                     { "TranslatedCount",   _translatedCount },
+                    { "BlockedCount",      _blockedCount },
                     { "ValidationEnabled", _validationEnabled ?? false },
                     { "StepTargetTypes",   string.Join(",", _stepTargetTypes) },
                     { "DefinitionId",      definitionId ?? string.Empty },
