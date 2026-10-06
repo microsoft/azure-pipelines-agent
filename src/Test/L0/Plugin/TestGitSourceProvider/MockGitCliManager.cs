@@ -11,6 +11,7 @@ namespace Test.L0.Plugin.TestGitSourceProvider
     {
         public List<string> GitCommandCallsOptions = new List<string>();
         public bool IsLfsConfigExistsing = false;
+        
         public override Task<Version> GitVersion(AgentTaskPluginExecutionContext context)
         {
             return Task.FromResult(new Version("2.30.2"));
@@ -19,6 +20,12 @@ namespace Test.L0.Plugin.TestGitSourceProvider
         public override Task<Version> GitLfsVersion(AgentTaskPluginExecutionContext context)
         {
             return Task.FromResult(new Version("2.30.2"));
+        }
+
+        public override Task<int> GitConfig(AgentTaskPluginExecutionContext context, string repositoryPath, string configKey, string configValue)
+        {
+            GitCommandCallsOptions.Add($"{repositoryPath},config,{configKey} {configValue},");
+            return Task.FromResult(0);
         }
 
         protected override Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, IList<string> output)
