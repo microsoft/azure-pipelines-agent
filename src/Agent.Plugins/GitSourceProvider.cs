@@ -1523,7 +1523,7 @@ namespace Agent.Plugins.Repository
                 }
 
                 var repositoryUrlWithCred = executionContext.TaskVariables.GetValueOrDefault("repoUrlWithCred")?.Value;
-                if (string.IsNullOrEmpty(repositoryUrlWithCred))
+                if (!string.IsNullOrEmpty(repositoryUrlWithCred))
                 {
                     await RemoveCachedCredential(executionContext, gitCommandManager, new Uri(repositoryUrlWithCred), targetPath, repositoryUrl, "origin");
                 }
