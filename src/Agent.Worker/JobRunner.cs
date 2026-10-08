@@ -529,7 +529,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             foreach (var volume in container.UserMountVolumes.Values)
             {
                 // After mount volume variables are expanded, they are final
-                container.MountVolumes.Add(new MountVolume(volume));
+                var mountVolume = new MountVolume(volume);
+                container.MountVolumes.Add(mountVolume);
+
+                // Also register in PathMappings so VSO command path translation works for this
+                // volume. Skip named Docker volumes (no host-side path to translate).
+                if (!string.IsNullOrEmpty(mountVolume.SourceVolumePath))
+                {
+                    container.PathMappings[mountVolume.SourceVolumePath] = mountVolume.TargetVolumePath;
+                }
             }
 
             // Expand env vars
