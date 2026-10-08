@@ -685,7 +685,7 @@
   "UnrecognizedCmdArgs": "無法辨識的命令列輸入引數: '{0}'。如需使用方式，請參閱: .\\config.cmd --help 或 ./config.sh --help",
   "UnregisteringAgent": "正在從伺服器移除代理程式",
   "UnsupportedGitLfsVersion": "您目前的 Git LFS 版本為 '{0}'，代理程式不支援此版本。請升級至 '{1}' 以上的版本。如需詳細資料，請參閱 https://github.com/git-lfs/git-lfs/issues/3571。",
-  "UnsupportedOsVersionByNet8": "管線代理程式即將更新時，不支援此代理程式在 ({0}) 上執行的操作系統版本。如需支援的操作系統版本，請參閱 https://aka.ms/azdo-pipeline-agent-net8.",
+  "UnsupportedOsVersionByNet8": "The operating system version this agent is running on ({0}) is not supported on an upcoming update to the Pipelines Agent. For supported operating system versions, see https://aka.ms/azdo-pipeline-agent-net8.",
   "UpdateBuildNumber": "更新組建編號",
   "UpdateBuildNumberForBuild": "將組建 {1} 的組建編號更新為 {0}",
   "UpdateInProgress": "代理程式更新進行中，請勿關閉代理程式。",
