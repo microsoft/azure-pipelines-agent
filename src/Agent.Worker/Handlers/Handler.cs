@@ -235,13 +235,55 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             ArgUtil.ThrowIfContainsNull(key, value);
-            Trace.Verbose($"Setting env '{key}' to '{value}'.");
+            bool runningOnWindows = PlatformUtil.RunningOnWindows;
+            string environmentValue = value ?? string.Empty;
 
-            Environment[key] = value ?? string.Empty;
-
-            if (PlatformUtil.RunningOnWindows && Environment[key].Length > _windowsEnvironmentVariableMaximumSize)
+            foreach (string environmentKey in GetEnvironmentVariableKeys(key, runningOnWindows))
             {
-                ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", key, value.Length, _windowsEnvironmentVariableMaximumSize));
+                Trace.Verbose($"Setting env '{environmentKey}' to '{value}'.");
+                Environment[environmentKey] = environmentValue;
+
+                if (runningOnWindows && environmentValue.Length > _windowsEnvironmentVariableMaximumSize)
+                {
+                    ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", environmentKey, environmentValue.Length, _windowsEnvironmentVariableMaximumSize));
+                }
+            }
+        }
+
+        internal static IEnumerable<string> GetEnvironmentVariableKeys(string key, bool runningOnWindows)
+        {
+            yield return key;
+
+            if (runningOnWindows)
+            {
+                yield break;
+            }
+
+            string uppercaseKey;
+            string lowercaseKey;
+            if (string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "HTTPS_PROXY";
+                lowercaseKey = "https_proxy";
+            }
+            else if (string.Equals(key, "NO_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "NO_PROXY";
+                lowercaseKey = "no_proxy";
+            }
+            else
+            {
+                yield break;
+            }
+
+            if (!string.Equals(key, uppercaseKey, StringComparison.Ordinal))
+            {
+                yield return uppercaseKey;
+            }
+
+            if (!string.Equals(key, lowercaseKey, StringComparison.Ordinal))
+            {
+                yield return lowercaseKey;
             }
         }
 
