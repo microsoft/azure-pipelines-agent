@@ -25,7 +25,7 @@ _List manual or automated tests performed beyond unit tests (e.g., integration, 
 --- 
 
 ### **Change Behind Feature Flag** (Yes / No)
-_Can this change be behine feature flag, if not why?_
+_Can this change be behind a feature flag, if not why?_
 
 ---
 
