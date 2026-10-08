@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Translates a logging-command path using its source-specific policy.
         /// </summary>
         string TranslateToHostPath(string path, VsoPathTranslationSource source);
-        string ValidateContainerPath(string originalPath, string resolvedPath);
+        string ValidateContainerPath(string originalPath, string resolvedPath, ContainerInfo container = null, VsoPathTranslationSource? source = null);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -939,14 +939,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            if (validateContainerPath && stepTarget is ContainerInfo)
+            if (validateContainerPath && stepTarget is ContainerInfo containerTarget)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
-                resolved = ValidateContainerPath(path, resolved);
+                resolved = ValidateContainerPath(path, resolved, containerTarget, source);
                 Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
             }
 
             return resolved;
+        }
+
+        private void RecordVsoPathValidationBlocked(string originalPath, string resolvedPath, VsoPathTranslationSource source)
+        {
+            // Use the job-level context, same resolution as PublishVsoPathTranslationTelemetry,
+            // so BLOCKED paths land in the same per-job event (already carries DefinitionId/BuildId
+            // for org/pipeline lookup).
+            var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
+            jobContext._vsoPathTelemetry.RecordBlocked(originalPath, resolvedPath, source);
         }
 
         private void PublishVsoPathTranslationTelemetry(
@@ -973,7 +982,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (!_vsoPathTelemetry.HasData) return;
 
-            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
+            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} BlockedCount={_vsoPathTelemetry.BlockedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
 
             PublishTelemetry(
                 _vsoPathTelemetry.ToTelemetryProperties(
@@ -983,7 +992,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IsAgentTelemetry: true);
         }
 
-        public string ValidateContainerPath(string originalPath, string resolvedPath)
+        public string ValidateContainerPath(string originalPath, string resolvedPath, ContainerInfo container = null, VsoPathTranslationSource? source = null)
         {
             if (string.IsNullOrEmpty(resolvedPath))
             {
@@ -1007,18 +1016,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
                 fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
 
-            if (!underWork)
+            // Also allow paths under any agent-mounted volume (Tools override, user volumes) —
+            // Docker already granted the container access, so blocking here adds no security value.
+            string matchedMountSource = null;
+            bool underMountedVolume = !underWork && TryFindMatchingMountVolume(fullResolved, container, out matchedMountSource);
+
+            if (!underWork && !underMountedVolume)
             {
-                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}'");
+                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}' and outside all mounted volumes.");
+                if (source.HasValue)
+                {
+                    RecordVsoPathValidationBlocked(originalPath, fullResolved, source.Value);
+                }
                 throw new InvalidOperationException(
-                    $"Container jobs may only reference files within the work directory. " +
+                    $"Container jobs may only reference files within the work directory or an explicitly mounted volume. " +
                     $"The path '{originalPath}' resolves to '{fullResolved}', " +
-                    $"which is outside the allowed directory '{workDir}'.");
+                    $"which is outside the allowed directory '{workDir}' and outside all container mount volumes.");
             }
 
-            Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
             // Return canonical path so the sink opens exactly what was validated.
             return fullResolved;
+        }
+
+        /// <summary>
+        /// Checks whether <paramref name="fullResolved"/> is under any of the container's real
+        /// Docker mount sources. Mount sources are symlink-resolved too, so junction tricks can't
+        /// bypass this.
+        /// </summary>
+        private bool TryFindMatchingMountVolume(string fullResolved, ContainerInfo container, out string matchedMountSource)
+        {
+            matchedMountSource = null;
+
+            if (container?.MountVolumes == null)
+            {
+                return false;
+            }
+
+            foreach (var volume in container.MountVolumes)
+            {
+                if (string.IsNullOrEmpty(volume?.SourceVolumePath))
+                {
+                    continue;
+                }
+
+                string fullVolumeSource = ResolveAllLinks(volume.SourceVolumePath);
+                bool matches =
+                    fullResolved.Equals(fullVolumeSource, IOUtil.FilePathStringComparison) ||
+                    fullResolved.StartsWith(fullVolumeSource + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+
+                if (matches)
+                {
+                    matchedMountSource = volume.SourceVolumePath;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
