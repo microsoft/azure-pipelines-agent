@@ -113,6 +113,91 @@ public sealed class TestPluginGitSourceProviderL0
         Assert.Contains("dev.azure.com/test/_git/myrepo", tc.TaskVariables.GetValueOrDefault("repoUrlWithCred").Value);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Plugin")]
+    public async Task FailedExternalGitFetch_RunsCredentialCleanup(bool cleanupThrows)
+    {
+        using TestHostContext hc = new(this);
+        MockAgentTaskPluginExecutionContext tc = new(hc.GetTrace());
+        string repositoryPath = Path.Combine(getWorkFolder(hc), "1", "testrepo");
+        const string repositoryUrl = "https://example.invalid/repo.git";
+        const string credential = "fake-token";
+
+        var endpoint = new ServiceEndpoint
+        {
+            Name = "ExternalGit",
+            Id = Guid.NewGuid(),
+            Authorization = new EndpointAuthorization
+            {
+                Scheme = EndpointAuthorizationSchemes.UsernamePassword,
+                Parameters =
+                {
+                    { EndpointAuthorizationParameters.Username, "test-user" },
+                    { EndpointAuthorizationParameters.Password, credential }
+                }
+            }
+        };
+        var systemConnectionEndpoint = new ServiceEndpoint
+        {
+            Name = WellKnownServiceEndpointNames.SystemVssConnection,
+            Id = Guid.NewGuid(),
+            Url = new Uri("https://dev.azure.com"),
+            Authorization = new EndpointAuthorization
+            {
+                Scheme = EndpointAuthorizationSchemes.OAuth,
+                Parameters = { { EndpointAuthorizationParameters.AccessToken, "Test" } }
+            }
+        };
+        var repository = new Pipelines.RepositoryResource
+        {
+            Alias = "testrepo",
+            Type = Pipelines.RepositoryTypes.ExternalGit,
+            Url = new Uri(repositoryUrl),
+            Endpoint = new Pipelines.ServiceEndpointReference { Id = endpoint.Id }
+        };
+        repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, repositoryPath);
+
+        tc.Endpoints.Add(endpoint);
+        tc.Endpoints.Add(systemConnectionEndpoint);
+        tc.Repositories.Add(repository);
+        tc.Variables.Add("agent.workfolder", getWorkFolder(hc));
+        tc.Variables.Add("agent.homedirectory", hc.GetDirectory(WellKnownDirectory.Root));
+
+        var provider = new MockCleanupExternalGitSourceProvider();
+        provider.CliManager.GitFetchExitCode = 1;
+        if (cleanupThrows)
+        {
+            provider.CliManager.ThrowOnCommand = $"remote set-url origin {repositoryUrl}";
+        }
+
+        InvalidOperationException sourceFailure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => provider.GetSourceAsync(tc, repository, System.Threading.CancellationToken.None));
+
+        Assert.Contains("Git fetch failed", sourceFailure.Message, StringComparison.Ordinal);
+
+        int credentialInjectionIndex = provider.CliManager.ExecutedCommands.FindIndex(
+            command => command.Contains(credential, StringComparison.Ordinal));
+        int failedFetchIndex = provider.CliManager.ExecutedCommands.FindIndex(
+            command => command.StartsWith("fetch ", StringComparison.Ordinal));
+        int fetchUrlCleanupIndex = provider.CliManager.ExecutedCommands.IndexOf($"remote set-url origin {repositoryUrl}");
+        int pushUrlCleanupIndex = provider.CliManager.ExecutedCommands.IndexOf($"remote set-url --push origin {repositoryUrl}");
+
+        Assert.True(credentialInjectionIndex >= 0);
+        Assert.True(failedFetchIndex > credentialInjectionIndex);
+        Assert.True(fetchUrlCleanupIndex > failedFetchIndex);
+        if (cleanupThrows)
+        {
+            Assert.Equal(-1, pushUrlCleanupIndex);
+        }
+        else
+        {
+            Assert.True(pushUrlCleanupIndex > failedFetchIndex);
+        }
+    }
+
     private Pipelines.RepositoryResource GetRepository(TestHostContext hostContext, String alias, String relativePath)
     {
         var workFolder = hostContext.GetDirectory(WellKnownDirectory.Work);
