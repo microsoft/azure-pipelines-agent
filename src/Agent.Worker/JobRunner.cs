@@ -106,7 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 CancellationTokenRegistration? workerTimeoutRegistration = null;
                 VssConnection taskConnection = null;
                 VssConnection legacyTaskConnection = null;
-                IResourceMetricsManager resourceDiagnosticManager = null;
+                IResourceMetricsManager resourceMetricsManager = null;
                 try
                 {
                     // Create the job execution context.
@@ -120,22 +120,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     EvaluateHttpTraceKnob(jobContext);
                     EvaluateTraceVerboseKnob(jobContext);
 
-                    //Start Resource Diagnostics if enabled in the job message 
+                    // Start resource monitoring for the lifetime of the job.
                     jobContext.Variables.TryGetValue("system.debug", out var systemDebug);
 
-                    resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                    resourceDiagnosticManager.SetContext(jobContext);
-
-                    if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase))
+                    resourceMetricsManager = HostContext.GetService<IResourceMetricsManager>();
+                    bool enableResourceMonitorDebugOutput = string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase)
+                        && AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean();
+                    try
                     {
-                        if (AgentKnobs.EnableResourceMonitorDebugOutput.GetValue(jobContext).AsBoolean())
-                        {
-                            _ = resourceDiagnosticManager.RunDebugResourceMonitorAsync();
-                        }
-                        else
-                        {
-                            jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
-                        }
+                        resourceMetricsManager.StartMonitoring(jobContext, enableResourceMonitorDebugOutput);
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Warning($"Resource monitoring failed to start and will not affect job execution. Exception: {ex.Message}");
+                        Trace.Warning(ex.ToString());
+                    }
+
+                    if (string.Equals(systemDebug, "true", StringComparison.OrdinalIgnoreCase) && !enableResourceMonitorDebugOutput)
+                    {
+                        jobContext.Debug(StringUtil.Loc("ResourceUtilizationDebugOutputIsDisabled"));
                     }
 
                     agentShutdownRegistration = HostContext.AgentShutdownToken.Register(() =>
@@ -456,6 +459,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 finally
                 {
+                    if (resourceMetricsManager != null)
+                    {
+                        try
+                        {
+                            Task stopMonitoringTask = resourceMetricsManager.StopMonitoringAsync();
+                            if (stopMonitoringTask != null)
+                            {
+                                await stopMonitoringTask;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Warning($"Resource monitoring failed to stop cleanly and will not affect job execution. Exception: {ex.Message}");
+                            Trace.Warning(ex.ToString());
+                        }
+                    }
+
                     if (agentShutdownRegistration != null)
                     {
                         agentShutdownRegistration.Value.Dispose();

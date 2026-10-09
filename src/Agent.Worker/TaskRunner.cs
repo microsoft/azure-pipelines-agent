@@ -438,45 +438,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 var enableResourceUtilizationWarnings = AgentKnobs.EnableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean()
                     && !AgentKnobs.DisableResourceUtilizationWarnings.GetValue(ExecutionContext).AsBoolean();
 
-                //Start Resource utility monitors
-                IResourceMetricsManager resourceDiagnosticManager = null;
-
-                resourceDiagnosticManager = HostContext.GetService<IResourceMetricsManager>();
-                resourceDiagnosticManager.SetContext(ExecutionContext);
-
-                if (enableResourceUtilizationWarnings)
+                IDisposable resourceMonitoringScope = null;
+                try
                 {
-                    _ = resourceDiagnosticManager.RunMemoryUtilizationMonitorAsync();
-                    _ = resourceDiagnosticManager.RunDiskSpaceUtilizationMonitorAsync();
-                    _ = resourceDiagnosticManager.RunCpuUtilizationMonitorAsync(Task.Reference.Id.ToString());
-                }
-                else
-                {
-                    ExecutionContext.Debug(StringUtil.Loc("ResourceUtilizationWarningsIsDisabled"));
-                }
-
-                Trace.Info($"Task handler execution initiated - Task: '{DisplayName}', Retry count: {Task.RetryCountOnTaskFailure}");
-                // Run the task.
-                int retryCount = this.Task.RetryCountOnTaskFailure;
-
-                if (retryCount > 0)
-                {
-                    if (retryCount > RetryCountOnTaskFailureLimit)
+                    try
                     {
-                        ExecutionContext.Warning(StringUtil.Loc("RetryCountLimitExceeded", RetryCountOnTaskFailureLimit, retryCount));
-                        Trace.Warning($"Retry count limit exceeded - Limiting from {retryCount} to {RetryCountOnTaskFailureLimit}");
-                        retryCount = RetryCountOnTaskFailureLimit;
+                        var resourceMetricsManager = HostContext.GetService<IResourceMetricsManager>();
+                        resourceMonitoringScope = resourceMetricsManager.AttachTask(
+                            ExecutionContext,
+                            Task.Reference.Id,
+                            enableResourceUtilizationWarnings);
                     }
-                    Trace.Info($"Retry configuration active - Executing with retry helper, max retries: {retryCount}");
-                    RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
-                    await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                    catch (Exception ex)
+                    {
+                        Trace.Warning($"Resource monitoring task output failed to attach and will not affect task execution. Exception: {ex.Message}");
+                        Trace.Warning(ex.ToString());
+                    }
+
+                    if (!enableResourceUtilizationWarnings)
+                    {
+                        ExecutionContext.Debug(StringUtil.Loc("ResourceUtilizationWarningsIsDisabled"));
+                    }
+
+                    Trace.Info($"Task handler execution initiated - Task: '{DisplayName}', Retry count: {Task.RetryCountOnTaskFailure}");
+                    // Run the task.
+                    int retryCount = this.Task.RetryCountOnTaskFailure;
+
+                    if (retryCount > 0)
+                    {
+                        if (retryCount > RetryCountOnTaskFailureLimit)
+                        {
+                            ExecutionContext.Warning(StringUtil.Loc("RetryCountLimitExceeded", RetryCountOnTaskFailureLimit, retryCount));
+                            Trace.Warning($"Retry count limit exceeded - Limiting from {retryCount} to {RetryCountOnTaskFailureLimit}");
+                            retryCount = RetryCountOnTaskFailureLimit;
+                        }
+                        Trace.Info($"Retry configuration active - Executing with retry helper, max retries: {retryCount}");
+                        RetryHelper rh = new RetryHelper(ExecutionContext, retryCount);
+                        await rh.RetryStep(async () => await handler.RunAsync(), RetryHelper.ExponentialDelay);
+                    }
+                    else
+                    {
+                        Trace.Info("Standard execution - Running handler without retry");
+                        await handler.RunAsync();
+                    }
+                    Trace.Info($"Task handler execution completed - Task: '{DisplayName}'");
                 }
-                else
+                finally
                 {
-                    Trace.Info("Standard execution - Running handler without retry");
-                    await handler.RunAsync();
+                    try
+                    {
+                        resourceMonitoringScope?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.Warning($"Resource monitoring task output failed to detach and will not affect task execution. Exception: {ex.Message}");
+                        Trace.Warning(ex.ToString());
+                    }
                 }
-                Trace.Info($"Task handler execution completed - Task: '{DisplayName}'");
             }
         }
 
