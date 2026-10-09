@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
 
         protected bool _continueAfterCancelProcessTreeKillAttempt;
+        private bool _enableProxyVariableCaseAliases;
 
         protected IWorkerCommandManager CommandManager { get; private set; }
 
@@ -67,6 +68,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             _continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(ExecutionContext).AsBoolean();
             Trace.Info($"Handler.AfterExecutionContextInitialized _continueAfterCancelProcessTreeKillAttempt = {_continueAfterCancelProcessTreeKillAttempt}");
+            _enableProxyVariableCaseAliases = AgentKnobs.EnableProxyVariableCaseAliases.GetValue(ExecutionContext).AsBoolean();
+            Trace.Info($"Handler.AfterExecutionContextInitialized _enableProxyVariableCaseAliases = {_enableProxyVariableCaseAliases}");
         }
 
         protected void AddEndpointsToEnvironment()
@@ -235,13 +238,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             ArgUtil.NotNullOrEmpty(key, nameof(key));
             ArgUtil.ThrowIfContainsNull(key, value);
-            Trace.Verbose($"Setting env '{key}' to '{value}'.");
+            bool runningOnWindows = PlatformUtil.RunningOnWindows;
+            string environmentValue = value ?? string.Empty;
 
-            Environment[key] = value ?? string.Empty;
-
-            if (PlatformUtil.RunningOnWindows && Environment[key].Length > _windowsEnvironmentVariableMaximumSize)
+            foreach (string environmentKey in GetEnvironmentVariableKeys(key, runningOnWindows, _enableProxyVariableCaseAliases))
             {
-                ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", key, value.Length, _windowsEnvironmentVariableMaximumSize));
+                Trace.Verbose($"Setting env '{environmentKey}' to '{value}'.");
+                Environment[environmentKey] = environmentValue;
+
+                if (runningOnWindows && environmentValue.Length > _windowsEnvironmentVariableMaximumSize)
+                {
+                    ExecutionContext.Warning(StringUtil.Loc("EnvironmentVariableExceedsMaximumLength", environmentKey, environmentValue.Length, _windowsEnvironmentVariableMaximumSize));
+                }
+            }
+        }
+
+        internal static IEnumerable<string> GetEnvironmentVariableKeys(string key, bool runningOnWindows, bool enableProxyVariableCaseAliases)
+        {
+            yield return key;
+
+            if (runningOnWindows || !enableProxyVariableCaseAliases)
+            {
+                yield break;
+            }
+
+            // Pipeline variables are case-insensitive, so differently cased names resolve to one value.
+            // Unix environment variables are case-sensitive, and proxy clients recognize different casings.
+            string uppercaseKey;
+            string lowercaseKey;
+            if (string.Equals(key, "HTTP_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "HTTP_PROXY";
+                lowercaseKey = "http_proxy";
+            }
+            else if (string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "HTTPS_PROXY";
+                lowercaseKey = "https_proxy";
+            }
+            else if (string.Equals(key, "NO_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "NO_PROXY";
+                lowercaseKey = "no_proxy";
+            }
+            else if (string.Equals(key, "ALL_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "ALL_PROXY";
+                lowercaseKey = "all_proxy";
+            }
+            else
+            {
+                yield break;
+            }
+
+            if (!string.Equals(key, uppercaseKey, StringComparison.Ordinal))
+            {
+                yield return uppercaseKey;
+            }
+
+            if (!string.Equals(key, lowercaseKey, StringComparison.Ordinal))
+            {
+                yield return lowercaseKey;
             }
         }
 
