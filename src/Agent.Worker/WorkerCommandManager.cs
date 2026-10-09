@@ -6,7 +6,6 @@ using Agent.Sdk.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
-using System.Linq;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using Agent.Sdk;
@@ -17,12 +16,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public interface IWorkerCommandManager : IAgentService
     {
         void EnablePluginInternalCommand(bool enable);
+        void ResetCommandSuppression(IExecutionContext context);
         bool TryProcessCommand(IExecutionContext context, string input);
     }
 
     public sealed class WorkerCommandManager : AgentService, IWorkerCommandManager
     {
+        private const string _agentCommandArea = "agent";
+        private const string _pauseCommandsEvent = "pausecommands";
+        private const string _resumeCommandsEvent = "resumecommands";
+        private const int _minimumCommandSuppressionTokenLength = 16;
+        private const int _maximumCommandSuppressionTokenLength = 128;
+
         private readonly Dictionary<string, IWorkerCommandExtension> _commandExtensions = new Dictionary<string, IWorkerCommandExtension>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<Guid, string> _commandSuppressionTokens = new Dictionary<Guid, string>();
 
         private IWorkerCommandExtension _pluginInternalCommandExtensions;
 
@@ -66,6 +73,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        public void ResetCommandSuppression(IExecutionContext context)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+
+            lock (_commandSerializeLock)
+            {
+                if (_commandSuppressionTokens.Remove(context.Id))
+                {
+                    Trace.Info("Reset logging command suppression at task boundary.");
+                    context.Output(StringUtil.Loc("LoggingCommandProcessingResumedAtTaskCompletion"));
+                }
+            }
+        }
+
         public bool TryProcessCommand(IExecutionContext context, string input)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -74,38 +95,63 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return false;
             }
 
-            // TryParse input to Command
-            Command command;
-            var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
-            if (!Command.TryParse(input, unescapePercents, out command))
+            lock (_commandSerializeLock)
             {
-                // if parse fail but input contains ##vso, print warning with DOC link
-                if (input.IndexOf("##vso") >= 0)
+                if (_commandSuppressionTokens.TryGetValue(context.Id, out string suppressionToken))
                 {
-                    context.Warning(StringUtil.Loc("CommandKeywordDetected", input));
-                }
+                    if (IsCommandSuppressionControlLine(input, _resumeCommandsEvent, suppressionToken))
+                    {
+                        _commandSuppressionTokens.Remove(context.Id);
+                        Trace.Info("Resume processing logging commands.");
+                        context.Output(StringUtil.Loc("LoggingCommandProcessingResumed"));
+                        return true;
+                    }
 
-                return false;
-            }
-
-            IWorkerCommandExtension extension = null;
-            if (_invokePluginInternalCommand && string.Equals(command.Area, _pluginInternalCommandExtensions.CommandArea, StringComparison.OrdinalIgnoreCase))
-            {
-                extension = _pluginInternalCommandExtensions;
-            }
-
-            if (extension != null || _commandExtensions.TryGetValue(command.Area, out extension))
-            {
-                if (!extension.SupportedHostTypes.HasFlag(context.Variables.System_HostType))
-                {
-                    context.Error(StringUtil.Loc("CommandNotSupported", command.Area, context.Variables.System_HostType));
-                    context.CommandResult = TaskResult.Failed;
                     return false;
                 }
 
-                // process logging command in serialize order.
-                lock (_commandSerializeLock)
+                // TryParse input to Command
+                Command command;
+                var unescapePercents = AgentKnobs.DecodePercents.GetValue(context).AsBoolean();
+                if (!Command.TryParse(input, unescapePercents, out command))
                 {
+                    // if parse fail but input contains ##vso, print warning with DOC link
+                    if (input.IndexOf("##vso") >= 0)
+                    {
+                        context.Warning(StringUtil.Loc("CommandKeywordDetected", input));
+                    }
+
+                    return false;
+                }
+
+                if (IsCommandSuppressionControl(command, input, _pauseCommandsEvent))
+                {
+                    _commandSuppressionTokens[context.Id] = command.Data;
+                    Trace.Info("Pause processing logging commands.");
+                    context.Output(StringUtil.Loc("LoggingCommandProcessingPaused"));
+                    return true;
+                }
+
+                if (IsCommandSuppressionEvent(command))
+                {
+                    return false;
+                }
+
+                IWorkerCommandExtension extension = null;
+                if (_invokePluginInternalCommand && string.Equals(command.Area, _pluginInternalCommandExtensions.CommandArea, StringComparison.OrdinalIgnoreCase))
+                {
+                    extension = _pluginInternalCommandExtensions;
+                }
+
+                if (extension != null || _commandExtensions.TryGetValue(command.Area, out extension))
+                {
+                    if (!extension.SupportedHostTypes.HasFlag(context.Variables.System_HostType))
+                    {
+                        context.Error(StringUtil.Loc("CommandNotSupported", command.Area, context.Variables.System_HostType));
+                        context.CommandResult = TaskResult.Failed;
+                        return false;
+                    }
+
                     try
                     {
                         extension.ProcessCommand(context, command);
@@ -133,19 +179,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
+                else
+                {
+                    context.Warning(StringUtil.Loc("CommandNotFound", command.Area));
+                }
+
+                // Only if we've successfully parsed do we show this warning
+                if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%AZP25"))
+                {
+                    context.Warning("%AZP25 detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
+                }
+
+                return true;
             }
-            else
+        }
+
+        private static bool IsCommandSuppressionControl(Command command, string input, string eventName)
+        {
+            return string.Equals(command.Area, _agentCommandArea, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(command.Event, eventName, StringComparison.OrdinalIgnoreCase) &&
+                   IsValidCommandSuppressionToken(command.Data) &&
+                   IsCommandSuppressionControlLine(input, eventName, command.Data);
+        }
+
+        private static bool IsCommandSuppressionEvent(Command command)
+        {
+            return string.Equals(command.Area, _agentCommandArea, StringComparison.OrdinalIgnoreCase) &&
+                   (string.Equals(command.Event, _pauseCommandsEvent, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(command.Event, _resumeCommandsEvent, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsValidCommandSuppressionToken(string token)
+        {
+            if (token == null ||
+                token.Length < _minimumCommandSuppressionTokenLength ||
+                token.Length > _maximumCommandSuppressionTokenLength)
             {
-                context.Warning(StringUtil.Loc("CommandNotFound", command.Area));
+                return false;
             }
 
-            // Only if we've successfully parsed do we show this warning
-            if (AgentKnobs.DecodePercents.GetValue(context).AsString() == "" && input.Contains("%AZP25"))
+            foreach (char value in token)
             {
-                context.Warning("%AZP25 detected in ##vso command. In March 2021, the agent command parser will be updated to unescape this to %. To opt out of this behavior, set a job level variable DECODE_PERCENTS to false. Setting to true will force this behavior immediately. More information can be found at https://github.com/microsoft/azure-pipelines-agent/blob/master/docs/design/percentEncoding.md");
+                if (!char.IsAsciiLetterOrDigit(value) && value != '_' && value != '-')
+                {
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        private static bool IsCommandSuppressionControlLine(string input, string eventName, string token)
+        {
+            string commandPrefix = $"##vso[{_agentCommandArea}.{eventName}]";
+            return input.Length == commandPrefix.Length + token.Length &&
+                   input.StartsWith(commandPrefix, StringComparison.OrdinalIgnoreCase) &&
+                   string.CompareOrdinal(input, commandPrefix.Length, token, 0, token.Length) == 0;
         }
     }
 
