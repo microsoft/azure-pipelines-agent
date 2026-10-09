@@ -259,6 +259,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 yield break;
             }
 
+            // Pipeline variables are case-insensitive, so differently cased names resolve to one value.
+            // Unix environment variables are case-sensitive, and proxy clients recognize different casings.
             string uppercaseKey;
             string lowercaseKey;
             if (string.Equals(key, "HTTP_PROXY", StringComparison.OrdinalIgnoreCase))
