@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private const int _windowsEnvironmentVariableMaximumSize = 32766;
 
         protected bool _continueAfterCancelProcessTreeKillAttempt;
+        private bool _enableProxyVariableCaseAliases;
 
         protected IWorkerCommandManager CommandManager { get; private set; }
 
@@ -67,6 +68,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         {
             _continueAfterCancelProcessTreeKillAttempt = AgentKnobs.ContinueAfterCancelProcessTreeKillAttempt.GetValue(ExecutionContext).AsBoolean();
             Trace.Info($"Handler.AfterExecutionContextInitialized _continueAfterCancelProcessTreeKillAttempt = {_continueAfterCancelProcessTreeKillAttempt}");
+            _enableProxyVariableCaseAliases = AgentKnobs.EnableProxyVariableCaseAliases.GetValue(ExecutionContext).AsBoolean();
+            Trace.Info($"Handler.AfterExecutionContextInitialized _enableProxyVariableCaseAliases = {_enableProxyVariableCaseAliases}");
         }
 
         protected void AddEndpointsToEnvironment()
@@ -238,7 +241,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool runningOnWindows = PlatformUtil.RunningOnWindows;
             string environmentValue = value ?? string.Empty;
 
-            foreach (string environmentKey in GetEnvironmentVariableKeys(key, runningOnWindows))
+            foreach (string environmentKey in GetEnvironmentVariableKeys(key, runningOnWindows, _enableProxyVariableCaseAliases))
             {
                 Trace.Verbose($"Setting env '{environmentKey}' to '{value}'.");
                 Environment[environmentKey] = environmentValue;
@@ -250,11 +253,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
         }
 
-        internal static IEnumerable<string> GetEnvironmentVariableKeys(string key, bool runningOnWindows)
+        internal static IEnumerable<string> GetEnvironmentVariableKeys(string key, bool runningOnWindows, bool enableProxyVariableCaseAliases)
         {
             yield return key;
 
-            if (runningOnWindows)
+            if (runningOnWindows || !enableProxyVariableCaseAliases)
             {
                 yield break;
             }

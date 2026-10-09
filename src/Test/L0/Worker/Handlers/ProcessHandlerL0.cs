@@ -12,6 +12,7 @@ using Moq;
 using System.Collections.Generic;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System.Diagnostics;
 using System;
 using System.Linq;
@@ -55,6 +56,12 @@ public class ProcessHandlerL0
             RuntimeVariables = variables,
         };
         handler.Initialize(hostContext);
+        var executionContext = CreateMockExecutionContext(hostContext);
+        executionContext
+            .Setup(x => x.GetVariableValueOrDefault(AgentKnobs.EnableProxyVariableCaseAliasesVariableName))
+            .Returns("true");
+        handler.ExecutionContext = executionContext.Object;
+        handler.AfterExecutionContextInitialized();
 
         handler.AddRuntimeVariablesToEnvironment();
 
@@ -85,7 +92,7 @@ public class ProcessHandlerL0
     [Trait("Category", "Worker.Handlers")]
     public void GetEnvironmentVariableKeys_AddsProxyCaseVariantsOnUnix(string variable, params string[] expected)
     {
-        Assert.Equal(expected, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false));
+        Assert.Equal(expected, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: true));
     }
 
     [Theory]
@@ -102,16 +109,44 @@ public class ProcessHandlerL0
     [Trait("Category", "Worker.Handlers")]
     public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsOnWindows(string variable)
     {
-        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: true));
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: true, enableProxyVariableCaseAliases: true));
     }
 
     [Theory]
-    [InlineData("AZP_UNRELATED_VARIABLE")]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
+    [InlineData("HTTPS_PROXY")]
+    [InlineData("https_proxy")]
+    [InlineData("NO_PROXY")]
+    [InlineData("no_proxy")]
+    [InlineData("ALL_PROXY")]
+    [InlineData("all_proxy")]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
-    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsForOtherVariables(string variable)
+    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsWhenDisabled(string variable)
     {
-        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false));
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: false));
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void EnableProxyVariableCaseAliases_DefaultsToFalse()
+    {
+        using var hostContext = CreateTestHostContext();
+        var executionContext = CreateMockExecutionContext(hostContext);
+
+        Assert.False(AgentKnobs.EnableProxyVariableCaseAliases.GetValue(executionContext.Object).AsBoolean());
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsForOtherVariables()
+    {
+        const string variable = "AZP_UNRELATED_VARIABLE";
+
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: true));
     }
 
     [Theory]
