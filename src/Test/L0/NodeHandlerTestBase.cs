@@ -52,13 +52,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         protected void RunScenarioAndAssert(TestScenario scenario, bool useStrategy)
         {
             ResetEnvironment();
-            
-            foreach (var knob in scenario.Knobs)
+
+            var knobs = new Dictionary<string, string>(scenario.Knobs)
             {
-                Environment.SetEnvironmentVariable(knob.Key, knob.Value);
-            }
-            
-            Environment.SetEnvironmentVariable("AGENT_USE_ENHANCED_NODE_SELECTION", useStrategy ? "true" : "false");
+                ["AGENT_USE_ENHANCED_NODE_SELECTION"] = useStrategy ? "true" : "false"
+            };
 
             try
             {
@@ -88,7 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                         if (scenario.InContainer)
                         {
-                            actualLocation = TestActualContainerNodeSelection(thc, scenario);
+                            actualLocation = TestActualContainerNodeSelection(thc, scenario, knobs);
                         }
                         else
                         {
@@ -97,7 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                             NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
                             nodeHandler.Initialize(thc);
 
-                            var executionContextMock = CreateTestExecutionContext(thc, scenario);
+                            var executionContextMock = CreateTestExecutionContext(thc, scenario, knobs);
                             nodeHandler.ExecutionContext = executionContextMock.Object;
                             nodeHandler.Data = CreateHandlerData(scenario.HandlerDataType);
 
@@ -123,9 +121,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (expectations.ExpectedErrorType != null)
                     {
-                        Assert.NotNull(ex);
                         Assert.IsType(expectations.ExpectedErrorType, ex);
 
                         if (!string.IsNullOrEmpty(expectations.ExpectedError))
@@ -217,11 +214,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return dockerManagerMock;
         }
 
-        private string TestActualContainerNodeSelection(TestHostContext thc, TestScenario scenario)
+        private string TestActualContainerNodeSelection(
+            TestHostContext thc,
+            TestScenario scenario,
+            Dictionary<string, string> knobs)
         {
             try
             {
-                var executionContextMock = CreateTestExecutionContext(thc, scenario);
+                var executionContextMock = CreateTestExecutionContext(thc, scenario, knobs);
                 var orchestrator = new NodeVersionOrchestrator(executionContextMock.Object, thc, NodeHandlerHelper.Object);
                 var taskContext = new TaskContext
                 {
@@ -387,7 +387,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             executionContext
                 .Setup(x => x.GetScopedEnvironment())
-                .Returns(new SystemEnvironment());
+                .Returns(new LocalEnvironment(knobs));
 
             executionContext
                 .Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
@@ -397,7 +397,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     {
                         return value.Value;
                     }
-                    return Environment.GetEnvironmentVariable(variableName);
+                    return null;
                 });
 
             executionContext
@@ -412,9 +412,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             return executionContext;
         }
 
-        protected Mock<IExecutionContext> CreateTestExecutionContext(TestHostContext tc, TestScenario scenario)
+        protected Mock<IExecutionContext> CreateTestExecutionContext(
+            TestHostContext tc,
+            TestScenario scenario,
+            Dictionary<string, string> knobs)
         {
-            var executionContext = CreateTestExecutionContext(tc, scenario.Knobs);
+            var executionContext = CreateTestExecutionContext(tc, knobs);
             
             if (!string.IsNullOrWhiteSpace(scenario.CustomNodePath))
             {
