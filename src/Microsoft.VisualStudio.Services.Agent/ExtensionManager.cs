@@ -74,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case "Microsoft.VisualStudio.Services.Agent.Worker.IWorkerCommandExtension":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TaskCommandExtension, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.ArtifactCommandExtension, Agent.Worker");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.PipelineArtifactCommandExtension, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.Build.BuildCommandExtension, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage.CodeCoverageCommandExtension, Agent.Worker");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Worker.TestResults.ResultsCommandExtension, Agent.Worker");
