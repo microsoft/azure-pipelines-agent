@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Xunit;
@@ -777,6 +778,66 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 string agentFileAlias = ec.StepTarget().TranslateToContainerPath(agentFile);
                 Assert.Equal(agentFile, ec.TranslateToHostPath(agentFileAlias, source: VsoPathTranslationSource.TaskLogIssueSourcePath));
                 Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(agentFileAlias, source: VsoPathTranslationSource.TaskUploadFile));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_AllowsPathsUnderMountedVolume()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+
+                // A path outside Work but inside a volume the agent itself mounted into the
+                // container (e.g. a customer "resources.containers.*.volumes" mount, or a
+                // Tools/ToolCache override) must be allowed, not blocked.
+                string mountSource = Path.Combine(Path.GetTempPath(), "mounted-volume-" + Guid.NewGuid());
+                Directory.CreateDirectory(mountSource);
+                try
+                {
+                    var container = ec.StepTarget() as ContainerInfo;
+                    Assert.NotNull(container);
+                    container.MountVolumes.Add(new MountVolume(mountSource, "/mounted"));
+
+                    string pathUnderMount = Path.Combine(mountSource, "report.xml");
+                    string expected = ec.ValidateContainerPath(pathUnderMount, pathUnderMount, container);
+                    string resolved = ec.TranslateToHostPath(pathUnderMount, source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                    Assert.Equal(expected, resolved);
+
+                    // A path outside both Work and all mounted volumes is still blocked.
+                    string stillOutside = Path.Combine(Path.GetTempPath(), "not-mounted-" + Guid.NewGuid(), "file.txt");
+                    Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(stillOutside, source: VsoPathTranslationSource.ResultsPublishResultFiles));
+                }
+                finally
+                {
+                    Directory.Delete(mountSource, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_RecordsBlockedCountTelemetryOnActualBlock()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string outsideWork = Path.Combine(work + "-external", "file.txt");
+
+                Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(outsideWork, source: VsoPathTranslationSource.TaskUploadFile));
+
+                var telemetryField = typeof(Agent.Worker.ExecutionContext)
+                    .GetField("_vsoPathTelemetry", BindingFlags.NonPublic | BindingFlags.Instance);
+                var accumulator = telemetryField.GetValue(ec);
+                var blockedCount = (int)accumulator.GetType().GetProperty("BlockedCount").GetValue(accumulator);
+
+                Assert.Equal(1, blockedCount);
             }
         }
 
