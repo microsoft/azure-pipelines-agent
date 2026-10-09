@@ -33,15 +33,21 @@ public class ProcessHandlerL0
     [Trait("SkipOn", "windows")]
     public void AddVariablesToEnvironment_AddsBothProxyVariableCasingsOnUnix()
     {
+        const string httpProxyValue = "http://lowercase-http.example:18079";
         const string httpsProxyValue = "http://lowercase.example:18081";
         const string noProxyValue = "lowercase.example";
+        const string allProxyValue = "socks5://lowercase-all.example:18082";
 
         using var hostContext = CreateTestHostContext();
         var variables = new Variables(hostContext, new Dictionary<string, VariableValue>(), out _);
+        variables.Set("HTTP_PROXY", "http://uppercase-http.example:18078", preserveCase: true);
+        variables.Set("http_proxy", httpProxyValue, preserveCase: true);
         variables.Set("HTTPS_PROXY", "http://uppercase.example:18080", preserveCase: true);
         variables.Set("https_proxy", httpsProxyValue, preserveCase: true);
         variables.Set("NO_PROXY", "uppercase.example", preserveCase: true);
         variables.Set("no_proxy", noProxyValue, preserveCase: true);
+        variables.Set("ALL_PROXY", "socks5://uppercase-all.example:18083", preserveCase: true);
+        variables.Set("all_proxy", allProxyValue, preserveCase: true);
 
         var handler = new TestHandler
         {
@@ -52,19 +58,29 @@ public class ProcessHandlerL0
 
         handler.AddRuntimeVariablesToEnvironment();
 
+        Assert.Equal(httpProxyValue, handler.Environment["HTTP_PROXY"]);
+        Assert.Equal(httpProxyValue, handler.Environment["http_proxy"]);
         Assert.Equal(httpsProxyValue, handler.Environment["HTTPS_PROXY"]);
         Assert.Equal(httpsProxyValue, handler.Environment["https_proxy"]);
         Assert.Equal(noProxyValue, handler.Environment["NO_PROXY"]);
         Assert.Equal(noProxyValue, handler.Environment["no_proxy"]);
+        Assert.Equal(allProxyValue, handler.Environment["ALL_PROXY"]);
+        Assert.Equal(allProxyValue, handler.Environment["all_proxy"]);
     }
 
     [Theory]
+    [InlineData("HTTP_PROXY", "HTTP_PROXY", "http_proxy")]
+    [InlineData("http_proxy", "http_proxy", "HTTP_PROXY")]
+    [InlineData("HtTp_PrOxY", "HtTp_PrOxY", "HTTP_PROXY", "http_proxy")]
     [InlineData("HTTPS_PROXY", "HTTPS_PROXY", "https_proxy")]
     [InlineData("https_proxy", "https_proxy", "HTTPS_PROXY")]
     [InlineData("HtTpS_pRoXy", "HtTpS_pRoXy", "HTTPS_PROXY", "https_proxy")]
     [InlineData("NO_PROXY", "NO_PROXY", "no_proxy")]
     [InlineData("no_proxy", "no_proxy", "NO_PROXY")]
     [InlineData("No_PrOxY", "No_PrOxY", "NO_PROXY", "no_proxy")]
+    [InlineData("ALL_PROXY", "ALL_PROXY", "all_proxy")]
+    [InlineData("all_proxy", "all_proxy", "ALL_PROXY")]
+    [InlineData("AlL_pRoXy", "AlL_pRoXy", "ALL_PROXY", "all_proxy")]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
     public void GetEnvironmentVariableKeys_AddsProxyCaseVariantsOnUnix(string variable, params string[] expected)
@@ -73,10 +89,14 @@ public class ProcessHandlerL0
     }
 
     [Theory]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
     [InlineData("HTTPS_PROXY")]
     [InlineData("https_proxy")]
     [InlineData("NO_PROXY")]
     [InlineData("no_proxy")]
+    [InlineData("ALL_PROXY")]
+    [InlineData("all_proxy")]
     [InlineData("AZP_UNRELATED_VARIABLE")]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
@@ -86,10 +106,6 @@ public class ProcessHandlerL0
     }
 
     [Theory]
-    [InlineData("HTTP_PROXY")]
-    [InlineData("http_proxy")]
-    [InlineData("ALL_PROXY")]
-    [InlineData("all_proxy")]
     [InlineData("AZP_UNRELATED_VARIABLE")]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]

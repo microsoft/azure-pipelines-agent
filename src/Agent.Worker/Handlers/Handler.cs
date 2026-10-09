@@ -261,7 +261,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             string uppercaseKey;
             string lowercaseKey;
-            if (string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(key, "HTTP_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "HTTP_PROXY";
+                lowercaseKey = "http_proxy";
+            }
+            else if (string.Equals(key, "HTTPS_PROXY", StringComparison.OrdinalIgnoreCase))
             {
                 uppercaseKey = "HTTPS_PROXY";
                 lowercaseKey = "https_proxy";
@@ -270,6 +275,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 uppercaseKey = "NO_PROXY";
                 lowercaseKey = "no_proxy";
+            }
+            else if (string.Equals(key, "ALL_PROXY", StringComparison.OrdinalIgnoreCase))
+            {
+                uppercaseKey = "ALL_PROXY";
+                lowercaseKey = "all_proxy";
             }
             else
             {
