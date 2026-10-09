@@ -261,6 +261,39 @@ namespace Agent.Plugins.Repository
             Pipelines.RepositoryResource repository,
             CancellationToken cancellationToken)
         {
+            Func<Task> cleanupInjectedCredentials = null;
+
+            try
+            {
+                await GetSourceInternalAsync(
+                    executionContext,
+                    repository,
+                    cleanup => cleanupInjectedCredentials = cleanup,
+                    cancellationToken);
+            }
+            finally
+            {
+                if (cleanupInjectedCredentials != null)
+                {
+                    try
+                    {
+                        await cleanupInjectedCredentials();
+                    }
+                    catch (Exception)
+                    {
+                        // A registered callback means source checkout already failed before normal cleanup completed.
+                        // Preserve that original failure instead of replacing it with the fallback cleanup failure.
+                    }
+                }
+            }
+        }
+
+        private async Task GetSourceInternalAsync(
+            AgentTaskPluginExecutionContext executionContext,
+            Pipelines.RepositoryResource repository,
+            Action<Func<Task>> setInjectedCredentialCleanup,
+            CancellationToken cancellationToken)
+        {
             // Validate args.
             ArgUtil.NotNull(executionContext, nameof(executionContext));
             ArgUtil.NotNull(repository, nameof(repository));
@@ -878,6 +911,13 @@ namespace Agent.Plugins.Repository
                     executionContext.Debug("Inject credential into git remote url.");
                     ArgUtil.NotNull(repositoryUrlWithCred, nameof(repositoryUrlWithCred));
 
+                    // Register cleanup before the first command, which can modify the URL even when it reports failure.
+                    if (!exposeCred)
+                    {
+                        setInjectedCredentialCleanup(
+                            () => RemoveCachedCredential(executionContext, gitCommandManager, repositoryUrlWithCred, targetPath, repositoryUrl, "origin"));
+                    }
+
                     // inject credential into fetch url
                     executionContext.Debug("Inject credential into git remote fetch url.");
                     int exitCode_seturl = await gitCommandManager.GitRemoteSetUrl(executionContext, targetPath, "origin", repositoryUrlWithCred.AbsoluteUri);
@@ -1281,6 +1321,7 @@ namespace Agent.Plugins.Repository
                 {
                     // remove cached credential from origin's fetch/push url.
                     await RemoveCachedCredential(executionContext, gitCommandManager, repositoryUrlWithCred, targetPath, repositoryUrl, "origin");
+                    setInjectedCredentialCleanup(null);
                 }
 
                 if (exposeCred)
