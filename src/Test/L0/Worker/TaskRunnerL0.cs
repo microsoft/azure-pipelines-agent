@@ -6,9 +6,11 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Xunit;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using System;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
@@ -221,6 +223,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 taskRunner.VerifyTask(taskManager.Object, definition);
                 taskManager.Verify(x => x.Extract(It.IsAny<IExecutionContext>(), It.IsAny<Pipelines.TaskStep>()), Times.Exactly(4));
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task RunAsyncResetsCommandSuppressionWhenTaskFails()
+        {
+            using TestHostContext hc = CreateTestContext();
+            var commandManager = new Mock<IWorkerCommandManager>();
+            hc.SetSingleton(commandManager.Object);
+
+            var taskManager = new Mock<ITaskManager>();
+            taskManager
+                .Setup(x => x.Load(It.IsAny<Pipelines.TaskStep>()))
+                .Throws(new InvalidOperationException("Expected test failure."));
+            hc.SetSingleton(taskManager.Object);
+            hc.SetSingleton(new Mock<IHandlerFactory>().Object);
+
+            var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out _);
+            var executionContext = new Mock<IExecutionContext>();
+            executionContext.SetupGet(x => x.Variables).Returns(variables);
+            executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+            executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns((string)null);
+
+            var taskRunner = new TaskRunner
+            {
+                ExecutionContext = executionContext.Object,
+                Stage = JobRunStage.Main,
+                Task = new Pipelines.TaskStep
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "TestTask",
+                    Reference = new Pipelines.TaskStepDefinitionReference
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = "TestTask",
+                        Version = "1.0.0"
+                    }
+                }
+            };
+            taskRunner.Initialize(hc);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => taskRunner.RunAsync());
+
+            commandManager.Verify(x => x.ResetCommandSuppression(executionContext.Object), Times.Once);
         }
     }
 }

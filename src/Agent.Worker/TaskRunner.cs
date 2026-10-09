@@ -83,6 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 finally
                 {
+                    HostContext.GetService<IWorkerCommandManager>().ResetCommandSuppression(ExecutionContext);
+
                     if (logTaskNameInUserAgent)
                     {
                         VssUtil.RemoveTaskFromAgentInfo();
