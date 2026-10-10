@@ -5,6 +5,16 @@ namespace Agent.Sdk.Knob
 {
     public class AgentKnobs
     {
+        public const string ProtectReadOnlyVariableNamesFeatureFlag = "DistributedTask.Agent.ProtectReadOnlyVariableNames";
+        public const string ProtectReadOnlyVariableNamesEnvironmentVariable = "AZP_AGENT_PROTECT_READ_ONLY_VARIABLE_NAMES";
+
+        public static readonly Knob ProtectReadOnlyVariableNames = new Knob(
+            nameof(ProtectReadOnlyVariableNames),
+            "If true, task.setvariable rejects names and output destinations that alias existing read-only variables.",
+            new PipelineFeatureSource(nameof(ProtectReadOnlyVariableNames)),
+            new EnvironmentKnobSource(ProtectReadOnlyVariableNamesEnvironmentVariable),
+            new BuiltInDefaultKnobSource("false"));
+
         // Containers
         public static readonly Knob PreferPowershellHandlerOnContainers = new Knob(
             nameof(PreferPowershellHandlerOnContainers),
