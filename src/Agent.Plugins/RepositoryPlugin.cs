@@ -187,34 +187,43 @@ namespace Agent.Plugins.Repository
             executionContext.Debug($"Repository requires to be placed at '{expectRepoPath}', current location is '{currentRepoPath}'");
             if (!string.Equals(currentRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), expectRepoPath.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), IOUtil.FilePathStringComparison))
             {
-                executionContext.Output($"Repository is current at '{currentRepoPath}', move to '{expectRepoPath}'.");
-                var count = 1;
-                var staging = Path.Combine(tempDirectory, $"_{count}");
-                while (Directory.Exists(staging))
+                if (IsEmptyOrMissingDirectory(executionContext, currentRepoPath))
                 {
-                    count++;
-                    staging = Path.Combine(tempDirectory, $"_{count}");
+                    executionContext.Output($"Repository source directory '{currentRepoPath}' is empty, nothing to move to '{expectRepoPath}'.");
+                    TryDeleteEmptyDirectory(executionContext, currentRepoPath);
+                    Directory.CreateDirectory(expectRepoPath);
                 }
-
-                try
+                else
                 {
-                    executionContext.Debug($"Move existing repository '{currentRepoPath}' to '{expectRepoPath}' via staging directory '{staging}'.");
-                    IOUtil.MoveDirectory(currentRepoPath, expectRepoPath, staging, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    executionContext.Debug("Catch exception during repository move.");
-                    executionContext.Debug(ex.ToString());
-                    executionContext.Warning("Unable move and reuse existing repository to required location.");
+                    executionContext.Output($"Repository is current at '{currentRepoPath}', move to '{expectRepoPath}'.");
+                    var count = 1;
+                    var staging = Path.Combine(tempDirectory, $"_{count}");
+                    while (Directory.Exists(staging))
+                    {
+                        count++;
+                        staging = Path.Combine(tempDirectory, $"_{count}");
+                    }
 
                     try
                     {
-                        await IOUtil.DeleteDirectoryWithRetry(expectRepoPath, CancellationToken.None);
+                        executionContext.Debug($"Move existing repository '{currentRepoPath}' to '{expectRepoPath}' via staging directory '{staging}'.");
+                        IOUtil.MoveDirectory(currentRepoPath, expectRepoPath, staging, CancellationToken.None);
                     }
-                    catch (Exception ioEx)
+                    catch (Exception ex)
                     {
-                        executionContext.Output($"Unable to delete existing repository on required location: {ioEx.GetType()}");
-                        throw;
+                        executionContext.Debug("Catch exception during repository move.");
+                        executionContext.Debug(ex.ToString());
+                        executionContext.Warning("Unable move and reuse existing repository to required location.");
+
+                        try
+                        {
+                            await IOUtil.DeleteDirectoryWithRetry(expectRepoPath, CancellationToken.None);
+                        }
+                        catch (Exception ioEx)
+                        {
+                            executionContext.Output($"Unable to delete existing repository on required location: {ioEx.GetType()}");
+                            throw;
+                        }
                     }
                 }
 
@@ -230,6 +239,36 @@ namespace Agent.Plugins.Repository
 
             ISourceProvider sourceProvider = SourceProviderFactory.GetSourceProvider(repo.Type);
             await sourceProvider.GetSourceAsync(executionContext, repo, token);
+        }
+
+        private static bool IsEmptyOrMissingDirectory(AgentTaskPluginExecutionContext executionContext, string path)
+        {
+            try
+            {
+                return !Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any();
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"Unable to check whether repository source directory '{path}' is empty: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void TryDeleteEmptyDirectory(AgentTaskPluginExecutionContext executionContext, string directory)
+        {
+            if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.Delete(directory, recursive: false);
+            }
+            catch (Exception ex)
+            {
+                executionContext.Debug($"Unable to delete empty repository source directory '{directory}': {ex.Message}");
+            }
         }
     }
 
