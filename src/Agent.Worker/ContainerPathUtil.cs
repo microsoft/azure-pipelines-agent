@@ -67,7 +67,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (linkTarget != null)
                     {
                         Log($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
+
+                        // Recurse so the target is canonicalized the same way as a direct path
+                        // (e.g. macOS's /var -> /private/var), not just lexically GetFullPath'd.
+                        current = ResolveAllLinks(Path.GetFullPath(linkTarget.FullName), trace);
                     }
                 }
                 catch (Exception ex)
