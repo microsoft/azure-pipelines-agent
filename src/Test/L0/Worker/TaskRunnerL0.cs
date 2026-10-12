@@ -282,6 +282,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 store.Setup(x => x.GetSettings()).Returns(settings);
                 hc.SetSingleton(store.Object);
                 taskRunner.Initialize(hc);
+                // signatureService.VerifyAsync is called with ExecutionContext.CancellationToken
+                // before the success/failure branch is evaluated, so ExecutionContext must be non-null
+                // even on this failure path.
+                taskRunner.ExecutionContext = new Mock<IExecutionContext>().Object;
 
                 Definition staleDefinition = new Definition() { ZipPath = "test" };
 
