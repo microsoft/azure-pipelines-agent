@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Agent.Sdk.Util;
+using Agent.Sdk.Knob;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
 {
@@ -116,6 +117,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             var commandContext = context.GetHostContext().CreateService<IAsyncCommandContext>();
             commandContext.InitializeCommandContext(context, StringUtil.Loc("Telemetry"));
             commandContext.Task = PublishEventsAsync(context, ciService, ciEvent);
+
+            // Flag-off keeps the existing fire-and-forget behavior. Flag-on registers with
+            // AsyncCommands so the job waits for the publish instead of risking a dropped event.
+            // TODO: make this unconditional once the flag is fully rolled out.
+            if (AgentKnobs.EnforceContainerVsoPathValidation.GetValue(context).AsBoolean())
+            {
+                context.AsyncCommands.Add(commandContext);
+            }
         }
 
         private async Task PublishEventsAsync(IExecutionContext context, ICustomerIntelligenceServer ciService, CustomerIntelligenceEvent ciEvent)

@@ -926,8 +926,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return path;
             }
 
+            bool enforcePathValidation = AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean();
+
+            // Keep ContainerInfo's own flag in sync (it dispatches unconditionally).
+            // TODO: remove once EnforceContainerVsoPathValidation is fully rolled out.
+            if (stepTarget is ContainerInfo containerTargetForFlag)
+            {
+                containerTargetForFlag.EnforceVsoPathValidation = enforcePathValidation;
+            }
+
             // Preserve the existing translation behavior when the feature is disabled.
-            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            if (!enforcePathValidation)
             {
                 var legacyResolved = stepTarget.TranslateToHostPath(path);
                 PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false, source: source);
@@ -1010,16 +1019,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"ValidateContainerPath: canonical — fullResolved='{fullResolved}' fullWork='{fullWork}'");
 
-            // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
-            // Allow exact match or anything strictly inside work dir.
-            bool underWork =
-                fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
-                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+            // Root-aware: a Work dir that is itself a drive/volume root still matches.
+            bool underWork = ContainerPathUtil.IsUnderOrEqual(fullResolved, fullWork, IOUtil.FilePathStringComparison);
 
-            // Also allow paths under any agent-mounted volume (Tools override, user volumes) —
-            // Docker already granted the container access, so blocking here adds no security value.
-            string matchedMountSource = null;
-            bool underMountedVolume = !underWork && TryFindMatchingMountVolume(fullResolved, container, out matchedMountSource);
+            // Also allow any agent-mounted volume — Docker already granted access to it.
+            bool underMountedVolume = !underWork && TryFindMatchingMountVolume(fullResolved, container);
 
             if (!underWork && !underMountedVolume)
             {
@@ -1039,14 +1043,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         /// <summary>
-        /// Checks whether <paramref name="fullResolved"/> is under any of the container's real
-        /// Docker mount sources. Mount sources are symlink-resolved too, so junction tricks can't
-        /// bypass this.
+        /// Checks whether <paramref name="fullResolved"/> is under one of the container's bind
+        /// mounts. Resolved live each call (not cached) — a mount swapped mid-job for a symlink
+        /// can still evade this, a known TOCTOU gap deferred to a follow-up PR.
         /// </summary>
-        private bool TryFindMatchingMountVolume(string fullResolved, ContainerInfo container, out string matchedMountSource)
+        private bool TryFindMatchingMountVolume(string fullResolved, ContainerInfo container)
         {
-            matchedMountSource = null;
-
             if (container?.MountVolumes == null)
             {
                 return false;
@@ -1054,19 +1056,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             foreach (var volume in container.MountVolumes)
             {
-                if (string.IsNullOrEmpty(volume?.SourceVolumePath))
+                if (volume == null || !volume.IsBindMount)
                 {
                     continue;
                 }
 
-                string fullVolumeSource = ResolveAllLinks(volume.SourceVolumePath);
-                bool matches =
-                    fullResolved.Equals(fullVolumeSource, IOUtil.FilePathStringComparison) ||
-                    fullResolved.StartsWith(fullVolumeSource + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+                string canonicalSource = ResolveAllLinks(volume.SourceVolumePath);
 
-                if (matches)
+                if (ContainerPathUtil.IsUnderOrEqual(fullResolved, canonicalSource, IOUtil.FilePathStringComparison))
                 {
-                    matchedMountSource = volume.SourceVolumePath;
                     return true;
                 }
             }
@@ -1081,67 +1079,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private string ResolveAllLinks(string path)
         {
-            // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
-            // without lexically resolving ".." before symlinks are followed.
-            if (!Path.IsPathRooted(path))
-            {
-                string abs = Path.Combine(Directory.GetCurrentDirectory(), path);
-                Trace.Info($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
-                path = abs;
-            }
-
-            string root = Path.GetPathRoot(path) ?? string.Empty;
-            string relative = path.Substring(root.Length);
-            string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-            // Use root as-is — Path.Combine handles trailing separators correctly on all platforms.
-            // ("/" on Linux, "C:\" on Windows — both work with Path.Combine without trimming.)
-            string current = root;
-
-            foreach (string segment in segments)
-            {
-                if (string.IsNullOrEmpty(segment) || segment == ".") continue;
-
-                if (segment == "..")
-                {
-                    // Move up after symlink resolution — not lexically before.
-                    string parent = Path.GetDirectoryName(current);
-                    if (parent != null)
-                    {
-                        Trace.Info($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
-                        current = parent;
-                    }
-                    continue;
-                }
-
-                current = Path.Combine(current, segment);
-
-                if (!Directory.Exists(current) && !File.Exists(current))
-                {
-                    Trace.Info($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
-                    continue;
-                }
-
-                try
-                {
-                    FileSystemInfo linkTarget = Directory.Exists(current)
-                        ? Directory.ResolveLinkTarget(current, returnFinalTarget: true)
-                        : File.ResolveLinkTarget(current, returnFinalTarget: true);
-
-                    if (linkTarget != null)
-                    {
-                        Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
-                }
-            }
-
-            Trace.Info($"ResolveAllLinks: result '{current}'");
-            return current;
+            return ContainerPathUtil.ResolveAllLinks(path, message => Trace.Info(message));
         }
 
         public string TranslatePathForStepTarget(string val)

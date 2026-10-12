@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Telemetry;
@@ -241,6 +242,67 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Telemetry")]
+        public void PublishTelemetryCommand_WhenEnforceContainerVsoPathValidationOff_DoesNotAwaitPublish()
+        {
+            // Flag-off regression guard: must preserve the original fire-and-forget behavior —
+            // the publish task is still kicked off (ciService.PublishEventsAsync is still called),
+            // but it is NOT registered in AsyncCommands, exactly as before the reliability fix.
+            using (var _hc = SetupMocks())
+            {
+                var ex_context = _ec.Object;
+                ex_context.Variables.Set("DistributedTask.Agent.EnforceContainerVsoPathValidation", false.ToString());
+                _ec.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
+                    .Returns<string>(name => ex_context.Variables.Get(name));
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
+
+                var data = new Dictionary<string, object>() { { "key1", "value1" } };
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(data, Formatting.None);
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(ex_context, cmd);
+
+                Assert.Empty(ex_context.AsyncCommands);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Telemetry")]
+        public void PublishTelemetryCommand_WhenEnforceContainerVsoPathValidationOn_RegistersAsyncCommandSoPublishIsAwaited()
+        {
+            // Flag-on: the publish task must be registered in AsyncCommands so the job waits for
+            // it (including BlockedCount/BlockedSamples) to complete before the worker exits.
+            using (var _hc = SetupMocks())
+            {
+                var ex_context = _ec.Object;
+                ex_context.Variables.Set("DistributedTask.Agent.EnforceContainerVsoPathValidation", true.ToString());
+                _ec.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>()))
+                    .Returns<string>(name => ex_context.Variables.Get(name));
+
+                var publishTelemetryCmd = new TelemetryCommandExtension();
+                publishTelemetryCmd.Initialize(_hc);
+
+                var data = new Dictionary<string, object>() { { "key1", "value1" } };
+                var cmd = new Command("telemetry", "publish");
+                cmd.Data = JsonConvert.SerializeObject(data, Formatting.None);
+                cmd.Properties.Add("area", "Test");
+                cmd.Properties.Add("feature", "Task");
+
+                publishTelemetryCmd.ProcessCommand(ex_context, cmd);
+
+                Assert.Single(ex_context.AsyncCommands);
+                _mockCiService.Verify(s => s.PublishEventsAsync(It.Is<CustomerIntelligenceEvent[]>(e => VerifyEvent(e, data))), Times.Once);
+            }
+        }
+
 
         private TestHostContext SetupMocks([CallerMemberName] string name = "")
         {
@@ -267,6 +329,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Telemetry
             _ec.Setup(x => x.Variables).Returns(variables);
             var asyncCommands = new List<IAsyncCommandContext>();
             _ec.Setup(x => x.AsyncCommands).Returns(asyncCommands);
+            // Required by AgentKnobs.EnforceContainerVsoPathValidation.GetValue(context) in
+            // PublishEvent (EnvironmentKnobSource falls back to context.GetScopedEnvironment()) —
+            // without this, every test here throws NullReferenceException, not just the new ones.
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
             _ec.Setup(x => x.AddIssue(It.IsAny<Issue>()))
             .Callback<Issue>
             ((issue) =>

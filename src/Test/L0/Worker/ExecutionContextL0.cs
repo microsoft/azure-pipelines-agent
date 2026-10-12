@@ -800,7 +800,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     var container = ec.StepTarget() as ContainerInfo;
                     Assert.NotNull(container);
-                    container.MountVolumes.Add(new MountVolume(mountSource, "/mounted"));
+                    var mountVolume = new MountVolume(mountSource, "/mounted");
+                    container.MountVolumes.Add(mountVolume);
 
                     string pathUnderMount = Path.Combine(mountSource, "report.xml");
                     string expected = ec.ValidateContainerPath(pathUnderMount, pathUnderMount, container);
@@ -814,6 +815,173 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 finally
                 {
                     Directory.Delete(mountSource, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_AllowsSymlinkThatCrossesBetweenTwoTrustedRoots()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+
+                // A mounted volume containing a symlink pointing back into Work — a legitimate
+                // pattern (npm/yarn workspace links, Python venvs, ToolCache version links). The
+                // target is still inside a trusted root, so it must be allowed.
+                string mountSource = Path.Combine(Path.GetTempPath(), "mounted-volume-" + Guid.NewGuid());
+                Directory.CreateDirectory(mountSource);
+                string linkedWorkTarget = Path.Combine(work, "linked-target-" + Guid.NewGuid());
+                Directory.CreateDirectory(linkedWorkTarget);
+                File.WriteAllText(Path.Combine(linkedWorkTarget, "report.xml"), "content");
+                string linkPath = Path.Combine(mountSource, "link");
+                try
+                {
+                    Directory.CreateSymbolicLink(linkPath, linkedWorkTarget);
+
+                    var container = ec.StepTarget() as ContainerInfo;
+                    Assert.NotNull(container);
+                    var mountVolume = new MountVolume(mountSource, "/mounted");
+                    container.MountVolumes.Add(mountVolume);
+
+                    string pathThroughLink = Path.Combine(linkPath, "report.xml");
+                    string resolved = ec.TranslateToHostPath(pathThroughLink, source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                    Assert.False(string.IsNullOrEmpty(resolved));
+                }
+                finally
+                {
+                    Directory.Delete(mountSource, recursive: true);
+                    Directory.Delete(linkedWorkTarget, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_BlocksSymlinkThatEscapesAllTrustedRoots()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+
+                // A mounted volume containing a symlink whose target is outside Work and outside
+                // any mount. TryFindMatchingMountVolume resolves symlinks before comparing, so
+                // this is still blocked.
+                string mountSource = Path.Combine(Path.GetTempPath(), "mounted-volume-" + Guid.NewGuid());
+                Directory.CreateDirectory(mountSource);
+                string hostSecret = Path.Combine(Path.GetTempPath(), "host-secret-" + Guid.NewGuid());
+                Directory.CreateDirectory(hostSecret);
+                File.WriteAllText(Path.Combine(hostSecret, "secret.txt"), "content");
+                string linkPath = Path.Combine(mountSource, "link");
+                try
+                {
+                    Directory.CreateSymbolicLink(linkPath, hostSecret);
+
+                    var container = ec.StepTarget() as ContainerInfo;
+                    Assert.NotNull(container);
+                    var mountVolume = new MountVolume(mountSource, "/mounted");
+                    container.MountVolumes.Add(mountVolume);
+
+                    string pathThroughLink = Path.Combine(linkPath, "secret.txt");
+                    Assert.Throws<InvalidOperationException>(
+                        () => ec.TranslateToHostPath(pathThroughLink, source: VsoPathTranslationSource.ResultsPublishResultFiles));
+                }
+                finally
+                {
+                    Directory.Delete(mountSource, recursive: true);
+                    Directory.Delete(hostSecret, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TranslateToHostPath_WhenValidationDisabled_PreservesLegacyBehaviorForAllFiveScenarios()
+        {
+            // Regression guard: flag off must behave exactly like pre-redesign code for all 5
+            // reviewed scenarios — no new blocking, checks, or exceptions.
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, false, "container", null);
+                var container = ec.StepTarget() as ContainerInfo;
+                Assert.NotNull(container);
+                Assert.False(container.EnforceVsoPathValidation);
+
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+
+                // 1) Mount-registration fix: with validation off, a bind mount must not be
+                // consulted during translation — it falls through unchanged (no mapping found).
+                string unfrozenMount = Path.Combine(Path.GetTempPath(), "legacy-unfrozen-" + Guid.NewGuid());
+                Directory.CreateDirectory(unfrozenMount);
+                try
+                {
+                    container.MountVolumes.Add(new MountVolume(unfrozenMount, "/mounted1"));
+                    string pathUnderMount = Path.Combine(unfrozenMount, "report.xml");
+                    string result = ec.TranslateToHostPath(pathUnderMount, source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                    Assert.Equal(pathUnderMount, result);
+                }
+                finally
+                {
+                    Directory.Delete(unfrozenMount, recursive: true);
+                }
+
+                // 2) PathMappings nested-target fix: with validation off, translation still goes
+                // through the original single-dictionary, first-match legacy path and must not
+                // throw.
+                container.PathMappings[work] = "/__w";
+                string nestedChildSource = Path.Combine(work, "1", "s", "private");
+                Directory.CreateDirectory(nestedChildSource);
+                try
+                {
+                    container.PathMappings[nestedChildSource] = "/__w/1/s/private";
+                    string viaDeepTarget = ec.TranslateToHostPath("/__w/1/s/private/file.txt", source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                    Assert.False(string.IsNullOrEmpty(viaDeepTarget));
+                }
+                finally
+                {
+                    Directory.Delete(nestedChildSource, recursive: true);
+                }
+
+                // 3) Named-volume fabrication fix: with validation off, a named volume (non-
+                // rooted source) must not throw — it simply never matches any mapping.
+                container.MountVolumes.Add(new MountVolume("myvolume", "/data"));
+                string namedVolumeResult = ec.TranslateToHostPath("/data/file.txt", source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                Assert.Equal("/data/file.txt", namedVolumeResult);
+
+                // 4) Root bind-mount containment fix: with validation off, a path outside Work
+                // and outside any mapping is returned unchanged, not blocked.
+                string outsideEverything = Path.Combine(Path.GetTempPath(), "outside-" + Guid.NewGuid(), "file.txt");
+                string outsideResult = ec.TranslateToHostPath(outsideEverything, source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                Assert.Equal(outsideEverything, outsideResult);
+
+                // 5) Symlink-escape fix: with validation off, ValidateContainerPath is never
+                // called, so a symlink escaping every trusted root must not throw.
+                string mountSource = Path.Combine(Path.GetTempPath(), "legacy-mounted-" + Guid.NewGuid());
+                Directory.CreateDirectory(mountSource);
+                string hostSecret = Path.Combine(Path.GetTempPath(), "legacy-secret-" + Guid.NewGuid());
+                Directory.CreateDirectory(hostSecret);
+                File.WriteAllText(Path.Combine(hostSecret, "secret.txt"), "content");
+                string linkPath = Path.Combine(mountSource, "link");
+                try
+                {
+                    Directory.CreateSymbolicLink(linkPath, hostSecret);
+                    container.PathMappings[mountSource] = "/mounted2";
+                    string pathThroughLink = Path.Combine(linkPath, "secret.txt");
+                    string resolved = ec.TranslateToHostPath(pathThroughLink, source: VsoPathTranslationSource.ResultsPublishResultFiles);
+                    Assert.False(string.IsNullOrEmpty(resolved));
+                }
+                finally
+                {
+                    Directory.Delete(mountSource, recursive: true);
+                    Directory.Delete(hostSecret, recursive: true);
                 }
             }
         }
