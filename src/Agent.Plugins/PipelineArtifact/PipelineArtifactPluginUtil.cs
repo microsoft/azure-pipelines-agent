@@ -21,8 +21,13 @@ namespace Agent.Plugins.PipelineArtifact
                         '"', ':', '<', '>', '|', '*', '?', '/', '\\' };
         private static readonly HashSet<Char> ForbiddenArtifactNameCharsSet = new HashSet<Char>(ForbiddenArtifactNameChars);
 
-        public static bool IsValidArtifactName(string artifactName)
+        public static bool IsValidArtifactName(string artifactName, bool useStrictValidation = false)
         {
+            if (useStrictValidation && (string.IsNullOrEmpty(artifactName) || artifactName.Trim('.', ' ').Length == 0))
+            {
+                return false;
+            }
+
             return !artifactName.Any(c => ForbiddenArtifactNameCharsSet.Contains(c));
         }
     }
