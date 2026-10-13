@@ -448,86 +448,119 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         Trace.Info(StringUtil.Format("Initializing worker process communication channel for job: {0}",
                             message.JobId));
 
-                        var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
-                        var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
-                        var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
-
-                        var environment = new Dictionary<string, string>();
-                        if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
+                        // Anything that throws from here until the worker has the job must stop the job request renewal,
+                        // otherwise the renewal loop keeps the job request alive forever while nothing runs the job.
+                        try
                         {
-                            environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
-                        }
+                            var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                            var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
+                            var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
 
-                        // Ensure worker sees the enhanced logging knob if the listener enabled it
-                        if (enhancedLoggingFlag?.EffectiveState == "On")
-                        {
-                            environment["AZP_USE_ENHANCED_LOGGING"] = "true";
-                            var traceManager = HostContext.GetService<ITraceManager>();
-                            traceManager.SetEnhancedLoggingEnabled(true);
-                        }
-
-                        // Start the process channel.
-                        // It's OK if StartServer bubbles an execption after the worker process has already started.
-                        // The worker will shutdown after 30 seconds if it hasn't received the job message.
-                        Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
-                            message.JobId));
-                        processChannel.StartServer(
-                            // Delegate to start the child process.
-                            startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                            var environment = new Dictionary<string, string>();
+                            if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
                             {
-                                // Validate args.
-                                ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
-                                ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
-
-                                Trace.Info(StringUtil.Format("Setting up worker process output capture [JobId:{0}]", message.JobId));
-                                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
-                                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
-                                {
-                                    if (!string.IsNullOrEmpty(stdout.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stdout.Data);
-                                        }
-                                    }
-                                };
-
-                                // Save STDERR from worker, worker will use STDERR on crash.
-                                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                                {
-                                    if (!string.IsNullOrEmpty(stderr.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stderr.Data);
-                                        }
-                                    }
-                                };
-
-
-                                // Start the child process.
-                                HostContext.WritePerfCounter("StartingWorkerProcess");
-                                var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
-                                string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
-                                Trace.Info(StringUtil.Format("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
-                                    workerFileName, pipeHandleOut, pipeHandleIn, message.JobId));
-                                workerProcessTask = processInvoker.ExecuteAsync(
-                                    workingDirectory: assemblyDirectory,
-                                    fileName: workerFileName,
-                                    arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
-                                    environment: environment,
-                                    requireExitCodeZero: false,
-                                    outputEncoding: null,
-                                    killProcessOnCancel: true,
-                                    redirectStandardIn: null,
-                                    inheritConsoleHandler: false,
-                                    keepStandardInOpen: false,
-                                    highPriorityProcess: true,
-                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                                    cancellationToken: workerProcessCancelTokenSource.Token);
-                                Trace.Info("Worker process started successfully");
+                                environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
                             }
-                        );
+
+                            // Ensure worker sees the enhanced logging knob if the listener enabled it
+                            if (enhancedLoggingFlag?.EffectiveState == "On")
+                            {
+                                environment["AZP_USE_ENHANCED_LOGGING"] = "true";
+                                var traceManager = HostContext.GetService<ITraceManager>();
+                                traceManager.SetEnhancedLoggingEnabled(true);
+                            }
+
+                            // Start the process channel.
+                            // It's OK if StartServer bubbles an execption after the worker process has already started.
+                            // The worker will shutdown after 30 seconds if it hasn't received the job message.
+                            Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
+                                message.JobId));
+                            processChannel.StartServer(
+                                // Delegate to start the child process.
+                                startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                                {
+                                    // Validate args.
+                                    ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
+                                    ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
+
+                                    Trace.Info(StringUtil.Format("Setting up worker process output capture [JobId:{0}]", message.JobId));
+                                    // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                                    {
+                                        if (!string.IsNullOrEmpty(stdout.Data))
+                                        {
+                                            lock (_outputLock)
+                                            {
+                                                workerOutput.Add(stdout.Data);
+                                            }
+                                        }
+                                    };
+
+                                    // Save STDERR from worker, worker will use STDERR on crash.
+                                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                                    {
+                                        if (!string.IsNullOrEmpty(stderr.Data))
+                                        {
+                                            lock (_outputLock)
+                                            {
+                                                workerOutput.Add(stderr.Data);
+                                            }
+                                        }
+                                    };
+
+
+                                    // Start the child process.
+                                    HostContext.WritePerfCounter("StartingWorkerProcess");
+                                    var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
+                                    string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
+                                    Trace.Info(StringUtil.Format("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
+                                        workerFileName, pipeHandleOut, pipeHandleIn, message.JobId));
+                                    workerProcessTask = processInvoker.ExecuteAsync(
+                                        workingDirectory: assemblyDirectory,
+                                        fileName: workerFileName,
+                                        arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
+                                        environment: environment,
+                                        requireExitCodeZero: false,
+                                        outputEncoding: null,
+                                        killProcessOnCancel: true,
+                                        redirectStandardIn: null,
+                                        inheritConsoleHandler: false,
+                                        keepStandardInOpen: false,
+                                        highPriorityProcess: true,
+                                        continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
+                                        cancellationToken: workerProcessCancelTokenSource.Token);
+                                    Trace.Info("Worker process started successfully");
+                                }
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Trace.Error(StringUtil.Format("Failed to start worker process before job was dispatched, stop renew job request [JobId:{0}, RequestId:{1}]",
+                                message.JobId, requestId));
+                            Trace.Error(ex);
+
+                            // kill the worker process if it was already started.
+                            workerProcessCancelTokenSource.Cancel();
+                            if (workerProcessTask != null)
+                            {
+                                try
+                                {
+                                    await workerProcessTask;
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    Trace.Info("worker process has been killed.");
+                                }
+                            }
+
+                            // stop renew lock
+                            lockRenewalTokenSource.Cancel();
+                            // renew job request should never blows up.
+                            await renewJobRequest;
+
+                            // not finish the job request since the job haven't run on worker at all, the server will abandon it once the lock expires.
+                            throw;
+                        }
 
                         // Send the job request message.
                         // Kill the worker process if sending the job message times out. The worker
