@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
@@ -14,13 +16,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class SetVariableRestrictionsL0
     {
-        [Fact]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void NoRestrictions()
+        public void NoRestrictions(bool protectReadOnlyVariableNames)
         {
             using (TestHostContext hc = CreateTestContext())
             {
+                _ec.SetupGet(x => x.ProtectReadOnlyVariableNames).Returns(protectReadOnlyVariableNames);
                 var variable = "myVar";
                 var value = "myValue";
                 var setVariable = new TaskSetVariableCommand();
@@ -67,13 +72,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ExactMatchAllowed()
+        public void ExactMatchAllowed(bool protectReadOnlyVariableNames)
         {
             using (TestHostContext hc = CreateTestContext())
             {
+                _ec.SetupGet(x => x.ProtectReadOnlyVariableNames).Returns(protectReadOnlyVariableNames);
                 var restrictions = new TaskRestrictions() { SettableVariables = new TaskVariableRestrictions() };
                 restrictions.SettableVariables.Allowed.Add("myVar");
                 restrictions.SettableVariables.Allowed.Add("otherVar");
@@ -265,6 +273,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             _ec.Setup(x => x.PrependPath).Returns(new List<string>());
             _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.GetHostContext()).Returns(hc);
+            _ec.Setup(x => x.GetScopedEnvironment()).Returns(new LocalEnvironment());
+            _ec.Setup(x => x.GetVariableStorageName(It.IsAny<string>(), It.IsAny<bool>()))
+                .Returns((string name, bool isOutput) => name);
             _ec.Setup(x => x.Variables).Returns(_variables);
             _ec.Setup(x => x.SetVariable(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
                 .Callback<string, string, bool, bool, bool, bool, bool>((name, value, secret, b2, b3, readOnly, preserveCase) => _variables.Set(name, value, secret, readOnly, preserveCase));
