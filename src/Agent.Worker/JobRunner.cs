@@ -544,7 +544,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!enforcePathValidation)
                 {
-                    // Flag off: don't touch PathMappings here, matches pre-redesign behavior.
+                    // Flag off: leave UserPathMappings empty, matches pre-redesign behavior.
                     continue;
                 }
 
@@ -555,7 +555,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     continue;
                 }
 
-                // Tag as User and register separately so it always wins over a System mount.
+                // Tag as User and register separately; translation picks the more specific (longest)
+                // match across both tiers, see ContainerInfo.UserPathMappings.
                 mountVolume.Kind = MountVolume.MountVolumeKind.User;
                 container.UserPathMappings[mountVolume.SourceVolumePath] = mountVolume.TargetVolumePath;
             }

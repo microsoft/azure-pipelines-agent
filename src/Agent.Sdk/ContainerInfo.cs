@@ -213,9 +213,7 @@ namespace Agent.Sdk
         }
 
         /// <summary>
-        /// User-authored bind mounts, kept separate from <see cref="PathMappings"/> (System mounts).
-        /// Only populated when EnforceContainerVsoPathValidation is on. Checked first during
-        /// translation so a user mount nested under a System mount always wins.
+        /// User-authored bind mounts, separate from <see cref="PathMappings"/> (System). Longest match wins; User wins ties.
         /// </summary>
         public Dictionary<string, string> UserPathMappings
         {
@@ -277,20 +275,22 @@ namespace Agent.Sdk
                     ? StringComparison.OrdinalIgnoreCase
                     : StringComparison.Ordinal;
 
-                // User mounts win over System mounts regardless of insertion order.
-                if (TryFindLongestMatchBySource(_userPathMappings, path, comparison, out string userKey, out string userValue))
+                bool hasUserMatch = TryFindLongestMatchBySource(_userPathMappings, path, comparison, out string userKey, out string userValue);
+                bool hasSystemMatch = TryFindLongestMatchBySource(_pathMappings, path, comparison, out string systemKey, out string systemValue);
+
+                // Longest (most specific) source wins regardless of tier; User wins only on a tie.
+                if (hasUserMatch && (!hasSystemMatch || userKey.Length >= systemKey.Length))
                 {
                     return string.Equals(path, userKey, comparison)
                         ? userValue
                         : userValue + path.Remove(0, userKey.Length);
                 }
 
-                // Prefer the longest (most specific) match, mirroring Docker's mount-shadowing rules.
-                if (TryFindLongestMatchBySource(_pathMappings, path, comparison, out string bestKey, out string bestValue))
+                if (hasSystemMatch)
                 {
-                    return string.Equals(path, bestKey, comparison)
-                        ? bestValue
-                        : bestValue + path.Remove(0, bestKey.Length);
+                    return string.Equals(path, systemKey, comparison)
+                        ? systemValue
+                        : systemValue + path.Remove(0, systemKey.Length);
                 }
             }
 
@@ -409,16 +409,18 @@ namespace Agent.Sdk
                     ? StringComparison.OrdinalIgnoreCase
                     : StringComparison.Ordinal;
 
-                // User mounts win over System mounts, same rationale as TranslateToContainerPath.
-                if (TryFindLongestMatchByTarget(_userPathMappings, path, comparison, out string userKey, out string userValue))
+                bool hasUserMatch = TryFindLongestMatchByTarget(_userPathMappings, path, comparison, out string userKey, out string userValue);
+                bool hasSystemMatch = TryFindLongestMatchByTarget(_pathMappings, path, comparison, out string systemKey, out string systemValue);
+
+                // Longest (most specific) target wins regardless of tier; User wins only on a tie.
+                if (hasUserMatch && (!hasSystemMatch || userValue.Length >= systemValue.Length))
                 {
                     return NormalizeAndValidateHostPath(path, userKey, userValue, comparison);
                 }
 
-                // Prefer the longest (most specific) match.
-                if (TryFindLongestMatchByTarget(_pathMappings, path, comparison, out string bestKey, out string bestValue))
+                if (hasSystemMatch)
                 {
-                    return NormalizeAndValidateHostPath(path, bestKey, bestValue, comparison);
+                    return NormalizeAndValidateHostPath(path, systemKey, systemValue, comparison);
                 }
             }
 
