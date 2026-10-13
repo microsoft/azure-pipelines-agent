@@ -3,7 +3,7 @@ parameters:
 - name: testProxyAgent
   type: boolean
   displayName: Test Proxy Agent
-  default: true
+  default: false
 
 # Targets
 - name: win_x64
