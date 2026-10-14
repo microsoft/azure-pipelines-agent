@@ -1,3 +1,14 @@
+## Features
+ - Reload task Definition after signature verification re-extracts task … (#5692)
+
+## Bugs
+ - Legacy PowerShell handler leaks unscoped service connection auth (#5666)
+ - Fix Artifact Name Validation Bug (#5668)
+ - Run one memory and disk utilization monitor at a time (#5685)
+
+## Misc
+ - update CmdLineV2 task to latest version (#5669)
+
 
 ## Agent Downloads
 
