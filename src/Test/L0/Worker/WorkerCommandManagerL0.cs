@@ -86,6 +86,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         {
             using var fixture = new WorkerCommandManagerFixture();
             var context = fixture.CreateExecutionContext();
+            context.SetupGet(x => x.WriteDebug).Returns(true);
             const string token = "abcdef0123456789abcdef0123456789";
 
             Assert.True(fixture.Manager.TryProcessCommand(context.Object, "##vso[TestL0.foo]"));
@@ -104,8 +105,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             Assert.Equal(2, fixture.FooCommand.ExecutionCount);
             context.Verify(x => x.Write(null, StringUtil.Loc("LoggingCommandProcessingPaused"), true), Times.Once);
             context.Verify(x => x.Write(null, StringUtil.Loc("LoggingCommandProcessingResumed"), true), Times.Once);
+            context.Verify(x => x.Write(WellKnownTags.Debug, "Processed: ##vso[agent.pausecommands]", true), Times.Once);
+            context.Verify(x => x.Write(WellKnownTags.Debug, "Processed: ##vso[agent.resumecommands]", true), Times.Once);
             context.Verify(
-                x => x.Write(null, It.Is<string>(message => message.Contains(token, StringComparison.Ordinal)), true),
+                x => x.Write(
+                    It.IsAny<string>(),
+                    It.Is<string>(message => message.Contains(token, StringComparison.Ordinal)),
+                    true),
                 Times.Never);
         }
 

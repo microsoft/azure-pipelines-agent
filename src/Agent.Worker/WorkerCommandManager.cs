@@ -25,6 +25,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private const string _agentCommandArea = "agent";
         private const string _pauseCommandsEvent = "pausecommands";
         private const string _resumeCommandsEvent = "resumecommands";
+        private const string _pauseCommandsProcessedMessage = "Processed: ##vso[agent.pausecommands]";
+        private const string _resumeCommandsProcessedMessage = "Processed: ##vso[agent.resumecommands]";
         private const int _minimumCommandSuppressionTokenLength = 16;
         private const int _maximumCommandSuppressionTokenLength = 128;
 
@@ -104,6 +106,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         _commandSuppressionTokens.Remove(context.Id);
                         Trace.Info("Resume processing logging commands.");
                         context.Output(StringUtil.Loc("LoggingCommandProcessingResumed"));
+                        context.Debug(_resumeCommandsProcessedMessage);
                         return true;
                     }
 
@@ -129,6 +132,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     _commandSuppressionTokens[context.Id] = command.Data;
                     Trace.Info("Pause processing logging commands.");
                     context.Output(StringUtil.Loc("LoggingCommandProcessingPaused"));
+                    context.Debug(_pauseCommandsProcessedMessage);
                     return true;
                 }
 
