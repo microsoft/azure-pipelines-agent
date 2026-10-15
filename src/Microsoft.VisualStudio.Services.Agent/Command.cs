@@ -52,7 +52,6 @@ namespace Microsoft.VisualStudio.Services.Agent
                 {
                     return false;
                 }
-
                 // Get the command info (area.event and properties).
                 int cmdIndex = prefixIndex + LoggingCommandPrefix.Length;
                 string cmdInfo = message.Substring(cmdIndex, rbIndex - cmdIndex);

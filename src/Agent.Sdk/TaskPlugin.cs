@@ -223,6 +223,13 @@ namespace Agent.Sdk
             }
         }
 
+        public void OutputExternal(string message, ExternalOutputOptions options)
+        {
+            ArgUtil.NotNull(message, nameof(message));
+            ArgUtil.NotNull(options, nameof(options));
+            Output(ExternalOutputFilter.Filter(message, options));
+        }
+
         public bool IsSystemDebugTrue()
         {
             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
