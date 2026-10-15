@@ -749,18 +749,17 @@ namespace Agent.Plugins.Repository
         {
             string arg = StringUtil.Format($"{command} {options}").Trim();
             context.Command($"git {arg}");
-            var externalOutputOptions = new ExternalOutputOptions();
 
-            using (var processInvoker = new ProcessInvoker(context))
+            using (var processInvoker = new ProcessInvoker(context, disableWorkerCommands: true))
             {
                 processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
                 {
-                    context.OutputExternal(message.Data, externalOutputOptions);
+                    context.Output(message.Data);
                 };
 
                 processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs message)
                 {
-                    context.OutputExternal(message.Data, externalOutputOptions);
+                    context.Output(message.Data);
                 };
 
                 return await processInvoker.ExecuteAsync(
