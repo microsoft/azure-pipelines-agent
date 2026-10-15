@@ -101,7 +101,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (_commandSuppressionTokens.TryGetValue(context.Id, out string suppressionToken))
                 {
-                    if (IsCommandSuppressionControlLine(input, _resumeCommandsEvent, suppressionToken))
+                    if (IsMatchingResumeCommand(input, suppressionToken))
                     {
                         _commandSuppressionTokens.Remove(context.Id);
                         Trace.Info("Resume processing logging commands.");
@@ -127,7 +127,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return false;
                 }
 
-                if (IsCommandSuppressionControl(command, input, _pauseCommandsEvent))
+                if (IsValidPauseCommand(command, input))
                 {
                     _commandSuppressionTokens[context.Id] = command.Data;
                     Trace.Info("Pause processing logging commands.");
@@ -198,12 +198,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        private static bool IsCommandSuppressionControl(Command command, string input, string eventName)
+        private static bool IsValidPauseCommand(Command command, string input)
         {
             return string.Equals(command.Area, _agentCommandArea, StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals(command.Event, eventName, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(command.Event, _pauseCommandsEvent, StringComparison.OrdinalIgnoreCase) &&
                    IsValidCommandSuppressionToken(command.Data) &&
-                   IsCommandSuppressionControlLine(input, eventName, command.Data);
+                   IsExactSuppressionControlLine(input, _pauseCommandsEvent, command.Data);
+        }
+
+        private static bool IsMatchingResumeCommand(string input, string suppressionToken)
+        {
+            return IsExactSuppressionControlLine(input, _resumeCommandsEvent, suppressionToken);
         }
 
         private static bool IsCommandSuppressionEvent(Command command)
@@ -233,7 +238,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return true;
         }
 
-        private static bool IsCommandSuppressionControlLine(string input, string eventName, string token)
+        private static bool IsExactSuppressionControlLine(string input, string eventName, string token)
         {
             string commandPrefix = $"##vso[{_agentCommandArea}.{eventName}]";
             return input.Length == commandPrefix.Length + token.Length &&
