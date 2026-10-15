@@ -80,7 +80,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         // others
         void ForceTaskComplete();
-        string TranslateToHostPath(string path);
+        /// <summary>
+        /// Translates a logging-command path using its source-specific policy.
+        /// </summary>
+        string TranslateToHostPath(string path, VsoPathTranslationSource source);
         string ValidateContainerPath(string originalPath, string resolvedPath);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
@@ -911,9 +914,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public string TranslateToHostPath(string path)
+        /// <inheritdoc />
+        public string TranslateToHostPath(string path, VsoPathTranslationSource source)
         {
+            // Unknown sources retain Work validation.
+            bool validateContainerPath = source != VsoPathTranslationSource.TaskLogIssueSourcePath;
             var stepTarget = StepTarget();
+            Trace.Info($"TranslateToHostPath: target={stepTarget?.GetType().Name ?? "None"}");
             if (stepTarget == null)
             {
                 return path;
@@ -923,18 +930,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
             {
                 var legacyResolved = stepTarget.TranslateToHostPath(path);
-                PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false);
+                PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false, source: source);
                 return legacyResolved;
             }
 
             var resolved = stepTarget.TranslateToHostPath(path);
-            PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true);
+            PublishVsoPathTranslationTelemetry(path, resolved, stepTarget, validationEnabled: true, source: source);
 
             Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            // Always validate — only file paths reach here (variable values bypass via stepTarget directly).
-            // Symlink resolution requires full filesystem inspection regardless of how the path looks.
-            if (stepTarget is ContainerInfo)
+            if (validateContainerPath && stepTarget is ContainerInfo)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
                 resolved = ValidateContainerPath(path, resolved);
@@ -948,7 +953,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             string pathBeforeTranslation,
             string pathAfterTranslation,
             ExecutionTargetInfo stepTarget,
-            bool validationEnabled)
+            bool validationEnabled,
+            VsoPathTranslationSource source)
         {
             // Use the job-level context — tasks have a direct parent, job context has none.
             var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
@@ -959,7 +965,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 pathBefore: pathBeforeTranslation,
                 pathAfter: pathAfterTranslation,
                 stepTargetType: stepTarget.GetType().Name,
-                validationEnabled: validationEnabled);
+                validationEnabled: validationEnabled,
+                source: source);
         }
 
         private void FlushVsoPathTranslationTelemetry()

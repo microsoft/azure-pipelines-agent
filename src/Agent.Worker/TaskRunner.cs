@@ -117,8 +117,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Definition definition = taskManager.Load(Task);
                 ArgUtil.NotNull(definition, nameof(definition));
 
-                // Verify Signatures and Re-Extract Tasks if neccessary
-                await VerifyTask(taskManager, definition);
+                // Verify Signatures and Re-Extract Tasks if neccessary.
+                // If verification re-extracts the task, the in-memory definition must be
+                // reloaded from the freshly-extracted files.
+                definition = await VerifyTask(taskManager, definition);
+                ArgUtil.NotNull(definition, nameof(definition));
 
                 // Print out task metadata
                 PrintTaskMetaData(definition);
@@ -503,7 +506,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return inputs;
         }
         
-        public async Task VerifyTask(ITaskManager taskManager, Definition definition)
+        // Returns the Definition that must be used for the remainder of task execution.
+        // Whenever this method re-extracts the task (taskManager.Extract), it reloads
+        // and returns a fresh Definition parsed from the newly-extracted, verified
+        // files, instead of returning the definition that was parsed before
+        // re-extraction. 
+        public async Task<Definition> VerifyTask(ITaskManager taskManager, Definition definition)
         {
             // Verify task signatures if a fingerprint is configured for the Agent.
             var configurationStore = HostContext.GetService<IConfigurationStore>();
@@ -527,6 +535,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (!String.IsNullOrEmpty(definition.ZipPath))
                     {
                         taskManager.Extract(ExecutionContext, Task);
+                        definition = taskManager.Load(Task);
+                        ArgUtil.NotNull(definition, nameof(definition));
                     }
                 }
                 else
@@ -549,8 +559,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (!String.IsNullOrEmpty(definition.ZipPath))
                 {
                     taskManager.Extract(ExecutionContext, Task);
+                    definition = taskManager.Load(Task);
+                    ArgUtil.NotNull(definition, nameof(definition));
                 }
             }
+
+            return definition;
         }
 
         public HandlerData GetHandlerData(IExecutionContext ExecutionContext, ExecutionData currentExecution, PlatformUtil.OS hostOS)

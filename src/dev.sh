@@ -384,7 +384,12 @@ function cmd_report() {
 
     mkdir -p "$REPORT_DIR"
 
-    LATEST_COVERAGE_FILE=$(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0 | xargs -r -0 ls -1 -t | head -1)
+    LATEST_COVERAGE_FILE=""
+    while IFS= read -r -d '' coverage_file; do
+        if [[ -z "$LATEST_COVERAGE_FILE" || "$coverage_file" -nt "$LATEST_COVERAGE_FILE" ]]; then
+            LATEST_COVERAGE_FILE="$coverage_file"
+        fi
+    done < <(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0)
 
     if [[ ("$LATEST_COVERAGE_FILE" == "") ]]; then
         echo "No coverage file found. Skipping coverage report generation."

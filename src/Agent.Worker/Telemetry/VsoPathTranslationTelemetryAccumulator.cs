@@ -21,7 +21,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         private int _translatedCount;
         private bool? _validationEnabled;
         private readonly HashSet<string> _stepTargetTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<(string Before, string After)> _pathSamples = new HashSet<(string, string)>();
+        private readonly HashSet<(string Before, string After, VsoPathTranslationSource Source)> _pathSamples =
+            new HashSet<(string, string, VsoPathTranslationSource)>();
 
         public bool HasData
         {
@@ -47,7 +48,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             string pathBefore,
             string pathAfter,
             string stepTargetType,
-            bool validationEnabled)
+            bool validationEnabled,
+            VsoPathTranslationSource source)
         {
             bool translated = !string.Equals(pathBefore, pathAfter, StringComparison.OrdinalIgnoreCase);
 
@@ -61,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                     _stepTargetTypes.Add(stepTargetType);
 
                 if (_pathSamples.Count < MaxPathSamples)
-                    _pathSamples.Add((pathBefore ?? string.Empty, pathAfter ?? string.Empty));
+                    _pathSamples.Add((pathBefore ?? string.Empty, pathAfter ?? string.Empty, source));
             }
         }
 
@@ -78,7 +80,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                     { "DefinitionId",      definitionId ?? string.Empty },
                     { "BuildId",           buildId ?? string.Empty },
                     // List serialized once by PublishTelemetry — no double-escaping.
-                    { "PathSamples",       _pathSamples.Select(p => new { Before = p.Before, After = p.After }).ToList() }
+                    { "PathSamples",       _pathSamples.Select(p => new
+                        {
+                            Before = p.Before,
+                            After = p.After,
+                            TranslationSource = p.Source.ToString()
+                        }).ToList() }
                 };
             }
         }

@@ -35,6 +35,7 @@
   "ArtifactDownloadFailed": "Failed to download the artifact from {0}.",
   "ArtifactLocationRequired": "Artifact location is required.",
   "ArtifactNameIsNotValid": "Artifact name is not valid: {0}. It cannot contain '\\', /', \"', ':', '<', '>', '|', '*', and '?'",
+  "ArtifactNameIsNotValidWithStrictValidation": "Artifact name is not valid: {0}. It cannot contain '\\', /', \"', ':', '<', '>', '|', '*', and '?'. It cannot be empty or consist entirely of dots or spaces.",
   "ArtifactNameRequired": "Artifact Name is required.",
   "ArtifactTypeRequired": "Artifact Type is required.",
   "AssociateArtifact": "Associate Artifact",

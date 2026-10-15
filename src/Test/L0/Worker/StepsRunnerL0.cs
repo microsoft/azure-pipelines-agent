@@ -443,6 +443,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task InvalidArtifactNamesFailTaskWithoutStoppingValidDownloads(bool mixed)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var fixture = new Plugin.ArtifactNameValidationL0())
+            {
+                var step = CreateStep(TaskResult.Succeeded, ExpressionManager.Succeeded);
+                var context = Mock.Get(step.Object.ExecutionContext);
+                _variables.Set("system.hostType", "build");
+                context.Setup(x => x.GetHostContext()).Returns(hc);
+                context.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns((string name) => _variables.Get(name));
+                context.Setup(x => x.GetScopedEnvironment()).Returns(new LocalEnvironment());
+                var extensions = new Mock<IExtensionManager>();
+                extensions.Setup(x => x.GetExtensions<IWorkerCommandExtension>())
+                    .Returns(new List<IWorkerCommandExtension> { new TaskCommandExtension() });
+                hc.SetSingleton(extensions.Object);
+                var restrictions = new Mock<ITaskRestrictionsChecker>();
+                restrictions.Setup(x => x.CheckCommand(It.IsAny<IExecutionContext>(), It.IsAny<IWorkerCommand>(), It.IsAny<Command>())).Returns(true);
+                restrictions.Setup(x => x.CheckSettableVariable(It.IsAny<IExecutionContext>(), It.IsAny<string>())).Returns(true);
+                hc.SetSingleton(restrictions.Object);
+                var manager = new WorkerCommandManager();
+                manager.Initialize(hc);
+                Task download = null;
+                step.Setup(x => x.RunAsync()).Returns(() => download = fixture.VerifyDownloadContinuationAsync(
+                    mixed, message => manager.TryProcessCommand(context.Object, message)));
+                var next = CreateStep(TaskResult.Succeeded, ExpressionManager.Succeeded);
+                var always = CreateStep(TaskResult.Succeeded, ExpressionManager.Always);
+
+                await _stepsRunner.RunAsync(_ec.Object, new[] { step.Object, next.Object, always.Object });
+                await download;
+
+                context.Verify(x => x.AddIssue(It.Is<Issue>(issue => issue.Type == IssueType.Error)), Times.Exactly(4));
+                context.Verify(x => x.ForceTaskComplete(), Times.Never);
+                Assert.False(context.Object.CancellationToken.IsCancellationRequested);
+                Assert.Null(context.Object.CommandResult);
+                Assert.Equal(TaskResult.Failed, context.Object.Result);
+                Assert.Equal(TaskResult.Failed, _ec.Object.Result);
+                next.Verify(x => x.RunAsync(), Times.Never);
+                always.Verify(x => x.RunAsync(), Times.Once);
+            }
+        }
+
         private Mock<IStep> CreateStep(TaskResult result, IExpressionNode condition, Boolean continueOnError = false)
         {
             // Setup the step.
