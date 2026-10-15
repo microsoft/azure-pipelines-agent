@@ -83,6 +83,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 }
                 finally
                 {
+                    HostContext.GetService<IWorkerCommandManager>().ResetCommandSuppression(ExecutionContext);
+
                     if (logTaskNameInUserAgent)
                     {
                         VssUtil.RemoveTaskFromAgentInfo();
@@ -510,7 +512,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // Whenever this method re-extracts the task (taskManager.Extract), it reloads
         // and returns a fresh Definition parsed from the newly-extracted, verified
         // files, instead of returning the definition that was parsed before
-        // re-extraction. 
+        // re-extraction.
         public async Task<Definition> VerifyTask(ITaskManager taskManager, Definition definition)
         {
             // Verify task signatures if a fingerprint is configured for the Agent.
