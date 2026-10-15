@@ -5,10 +5,12 @@ using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Agent.Util;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.FeatureAvailability;
 using Microsoft.VisualStudio.Services.FeatureAvailability.WebApi;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -55,17 +57,30 @@ namespace Agent.Listener.Configuration
 
             ArgUtil.NotNull(creds, nameof(creds));
 
+            string stage = "CreateConnection";
             try
             {
                 // GetClient may call the server (connectionData, OAuth token), so it must be inside the try as well.
                 // Otherwise a network failure escapes to callers such as JobDispatcher.RunAsync before the worker starts.
                 using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter, agentCertManager.SkipServerCertificateValidation);
+                stage = "CreateClient";
                 var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
+                stage = "GetFeatureFlag";
                 return await client.GetFeatureFlagByNameAsync(featureFlagName, checkFeatureExists: false, ctk);
             }
             catch (Exception e)
             {
                 Trace.Warning("Unable to retrieve feature flag status: " + e.ToString());
+                await ListenerFailureTelemetry.PublishAsync(context, "FeatureFlagLookupFailure", new Dictionary<string, object>
+                {
+                    ["FeatureFlagName"] = featureFlagName,
+                    ["Stage"] = stage,
+                    ["ExceptionType"] = e.GetType().FullName,
+                    ["ExceptionHResult"] = e.HResult,
+                    ["AgentId"] = settings.AgentId,
+                    ["PoolId"] = settings.PoolId,
+                    ["FallbackState"] = "Off"
+                }, Trace);
                 return new FeatureFlag(featureFlagName, "", "", "Off", "Off");
             }
         }
