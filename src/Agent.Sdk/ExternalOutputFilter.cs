@@ -50,7 +50,7 @@ namespace Agent.Sdk
                 {
                     filtered = new StringBuilder(line.Length + 1);
                 }
-                
+
                 filtered.Append(line, position, markerIndex - position);
 
                 int commandStart = markerIndex + Marker.Length;
