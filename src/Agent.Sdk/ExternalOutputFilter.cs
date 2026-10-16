@@ -9,8 +9,8 @@ namespace Agent.Sdk
 {
     public sealed class ExternalOutputOptions
     {
-        public bool EnableVsoCommands { get; set; }
-        public IReadOnlyCollection<string> AllowedVsoCommands { get; set; }
+        public bool EnableVsoCommands { get; set; }  // Indicates whether allowed VSO commands are enabled or all VSO commands are blocked
+        public IReadOnlyCollection<string> AllowedVsoCommands { get; set; }  // Specifies the list of allowed VSO commands
     }
 
     public static class ExternalOutputFilter
@@ -26,12 +26,12 @@ namespace Agent.Sdk
         {
             if (line == null)
             {
-                throw new ArgumentNullException(nameof(line));
+                line = string.Empty;
             }
 
             if (options == null)
             {
-                throw new ArgumentNullException(nameof(options));
+                options = new ExternalOutputOptions();
             }
 
             HashSet<string> allowedCommands = ResolveAllowedCommands(options);

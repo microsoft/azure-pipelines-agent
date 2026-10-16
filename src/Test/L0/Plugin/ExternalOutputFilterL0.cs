@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -104,12 +105,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public void RejectsNullArguments()
+        public void NullArgumentsFailClosed()
         {
             var options = new ExternalOutputOptions();
 
-            Assert.Throws<ArgumentNullException>(() => ExternalOutputFilter.Filter(null, options));
-            Assert.Throws<ArgumentNullException>(() => ExternalOutputFilter.Filter("message", null));
+            Assert.Equal(string.Empty, ExternalOutputFilter.Filter(null, options));
+            Assert.Equal(
+                "##_vso[task.debug]message",
+                ExternalOutputFilter.Filter("##vso[task.debug]message", null));
         }
 
         [Fact]
@@ -123,8 +126,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                 .Setup(x => x.Info(It.IsAny<string>(), It.IsAny<string>()))
                 .Callback((string message, string operation) => messages.Add(message));
             var context = new AgentTaskPluginExecutionContext(trace.Object);
+            context.Variables["AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"] =
+                new VariableValue("true");
             var options = new ExternalOutputOptions();
 
+            context.OutputExternal(null, null);
             context.OutputExternal("##vso[task.setvariable variable=x]external", options);
             context.Output("##vso[task.setvariable variable=x]trusted");
 
@@ -135,6 +141,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
                     "##vso[task.setvariable variable=x]trusted"
                 },
                 messages);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void OutputExternalPreservesOutputWhenFilteringIsDisabled()
+        {
+            var messages = new List<string>();
+            var trace = new Mock<ITraceWriter>();
+            trace
+                .Setup(x => x.Info(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback((string message, string operation) => messages.Add(message));
+            var context = new AgentTaskPluginExecutionContext(trace.Object);
+            const string command = "##vso[task.setvariable variable=x]value";
+
+            context.OutputExternal(null);
+            context.OutputExternal(command, new ExternalOutputOptions());
+
+            Assert.Equal(new[] { command }, messages);
         }
     }
 }

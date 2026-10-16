@@ -1015,5 +1015,12 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnablePluginExternalOutputFiltering = new Knob(
+            nameof(EnablePluginExternalOutputFiltering),
+            "Filters VSO logging commands from external output emitted by agent plugin tasks.",
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }
