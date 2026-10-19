@@ -6,12 +6,12 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Xunit;
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using System;
 using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
@@ -63,6 +63,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     Assert.True(Got == Expected, $"{Name} - Expected {Expected} Got {Got}");
                 }
+            }
+        }
+
+        [Theory]
+        [InlineData("6f650d20-9c5d-4cce-ad66-e68742ceadf5", false, true)]
+        [InlineData("6f650d20-9c5d-4cce-ad66-e68742ceadf6", false, false)]
+        [InlineData("11111111-2222-3333-4444-555555555555", false, false)]
+        [InlineData("11111111-2222-3333-4444-555555555555", true, true)]
+        [InlineData("11111111-2222-3333-4444-555555555555", null, true)]
+        [InlineData("6d15af64-176c-496d-b583-fd2ae21d4df4", false, true)]
+        [InlineData("cbbf7f14-c386-4c1f-80a3-fe500e2bd976", false, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task RunAsyncSetsPublishTelemetryAccordingToTaskIdentityAndOwnership(string taskId, bool? isServerOwned, bool expected)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            {
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out _);
+                var executionContext = new Mock<IExecutionContext>();
+                executionContext.Setup(x => x.Variables).Returns(variables);
+                executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+
+                bool? publishTelemetry = null;
+                var stopAfterVariableSetup = new InvalidOperationException("Stop before executing the task.");
+                var taskManager = new Mock<ITaskManager>();
+                taskManager.Setup(x => x.Load(It.IsAny<Pipelines.TaskStep>()))
+                    .Callback(() => publishTelemetry = variables.GetBoolean(Constants.Variables.Task.PublishTelemetry))
+                    .Throws(stopAfterVariableSetup);
+                hc.SetSingleton(taskManager.Object);
+                hc.SetSingleton(new Mock<IHandlerFactory>().Object);
+
+                var taskRunner = new TaskRunner
+                {
+                    ExecutionContext = executionContext.Object,
+                    Task = new Pipelines.TaskStep
+                    {
+                        IsServerOwned = isServerOwned,
+                        Reference = new Pipelines.TaskStepDefinitionReference { Id = new Guid(taskId) }
+                    }
+                };
+                taskRunner.Initialize(hc);
+
+                // Observe the scoped variable while it is set, without loading or executing a task.
+                InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => taskRunner.RunAsync());
+
+                Assert.Same(stopAfterVariableSetup, exception);
+                Assert.Equal(expected, publishTelemetry);
+                taskManager.Verify(x => x.Load(taskRunner.Task), Times.Once);
             }
         }
 

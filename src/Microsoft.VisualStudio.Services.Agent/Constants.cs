@@ -55,6 +55,7 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public static class MicrosoftExtensionTaskIds
         {
+            public static readonly Guid AnsibleTask = new Guid("6f650d20-9c5d-4cce-ad66-e68742ceadf5");
             public static readonly Guid GooglePlayIncreaseRolloutTask = new Guid("f8c97cf9-4e17-4244-b0fb-f540cea78153");
             public static readonly Guid GooglePlayPromoteTask = new Guid("4dae1f76-29d3-482f-97d5-e3189a8347c2");
             public static readonly Guid GooglePlayReleaseTask = new Guid("8cf7cac0-620b-11e5-b4cf-8565e60f4d27");
@@ -83,6 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static List<Guid> RequiredForTelemetry = new()
         {
             PluginTaskIds.CheckoutTask,
+            MicrosoftExtensionTaskIds.AnsibleTask,
             MicrosoftExtensionTaskIds.GooglePlayIncreaseRolloutTask,
             MicrosoftExtensionTaskIds.GooglePlayPromoteTask,
             MicrosoftExtensionTaskIds.GooglePlayReleaseTask,
