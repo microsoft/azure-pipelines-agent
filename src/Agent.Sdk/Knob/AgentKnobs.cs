@@ -1019,6 +1019,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnablePluginExternalOutputFiltering = new Knob(
             nameof(EnablePluginExternalOutputFiltering),
             "Filters VSO logging commands from external output emitted by agent plugin tasks.",
+            new PipelineFeatureSource("EnablePluginExternalOutputFiltering"),
             new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new BuiltInDefaultKnobSource("false"));
