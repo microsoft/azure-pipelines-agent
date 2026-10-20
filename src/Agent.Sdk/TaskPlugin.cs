@@ -223,6 +223,23 @@ namespace Agent.Sdk
             }
         }
 
+        public void OutputExternal(string message, ExternalOutputOptions options = null)
+        {
+            if (message == null)
+            {
+                return;
+            }
+
+            if (AgentKnobs.EnablePluginExternalOutputFiltering.GetValue(this).AsBoolean())
+            {
+                Output(ExternalOutputFilter.Filter(message, options));
+            }
+            else
+            {
+                Output(message);
+            }
+        }
+
         public bool IsSystemDebugTrue()
         {
             if (Variables.TryGetValue("system.debug", out VariableValue systemDebugVar))
