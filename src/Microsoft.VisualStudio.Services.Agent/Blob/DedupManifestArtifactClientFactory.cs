@@ -105,7 +105,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
 
             return CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
+                    (str) => context.OutputExternal(str),
                     connection,
                     domainId,
                     clientSettings,
