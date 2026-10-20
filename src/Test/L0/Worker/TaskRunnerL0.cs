@@ -102,6 +102,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     .Throws(stopAfterVariableSetup);
                 hc.SetSingleton(taskManager.Object);
                 hc.SetSingleton(new Mock<IHandlerFactory>().Object);
+                hc.SetSingleton(new Mock<IWorkerCommandManager>().Object);
 
                 var taskRunner = new TaskRunner
                 {
