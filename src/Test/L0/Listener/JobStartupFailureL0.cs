@@ -27,9 +27,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
     public sealed class JobStartupFailureL0
     {
-        public JobStartupFailureL0()
+        [Theory]
+        [InlineData("FeatureFlags", false)]
+        [InlineData("StartWorker", true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public void StartupFailureMessageIncludesDetailsWithoutChangingGlobalLocalization(string stage, bool processFault)
         {
-            StringUtil.LoadExternalLocalization(Path.Combine(TestUtil.GetSrcPath(), "Misc", "layoutbin", "en-US", "strings.json"));
+            string localizationBefore = StringUtil.Loc("MissingNodePath");
+            using (var hc = new TestHostContext(this))
+            {
+                const string secret = "startup-test-secret";
+                hc.SecretMasker.AddValue(secret, "JobStartupFailure");
+                var exception = processFault
+                    ? (Exception)new Win32Exception("Unable to launch worker " + secret)
+                    : new InvalidOperationException("Startup failed " + secret);
+                var jobId = Guid.NewGuid();
+                const long requestId = 123;
+                var resources = IOUtil.LoadObject<Dictionary<string, object>>(
+                    Path.Combine(TestUtil.GetSrcPath(), "Misc", "layoutbin", "en-US", "strings.json"));
+                string format = Assert.IsType<string>(resources["AgentWorkerStartupFailed"]);
+                string message = hc.SecretMasker.MaskSecrets(StringUtil.Format(format, stage, jobId, requestId, exception.ToString()));
+
+                Assert.Contains("startup", message);
+                Assert.Contains(stage, message);
+                Assert.Contains(jobId.ToString(), message);
+                Assert.Contains(requestId.ToString(), message);
+                Assert.Contains(exception.GetType().FullName, message);
+                Assert.Contains(hc.SecretMasker.MaskSecrets(exception.Message), message);
+                Assert.DoesNotContain(secret, message);
+                Assert.Equal(localizationBefore, StringUtil.Loc("MissingNodePath"));
+            }
         }
 
         [Theory]
@@ -46,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Category", "Agent")]
         public async Task ReportsStartupFailureWithoutCompletingJob(string stage, bool processFault, bool reportingFails, bool missingRecord, bool telemetryFails)
         {
+            string localizationBefore = StringUtil.Loc("MissingNodePath");
             using (var hc = new TestHostContext(this))
             {
                 hc.UseRealDelays = true;
@@ -172,7 +201,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 Assert.Equal("WorkerStartupFailure", telemetry.Properties["feature"]);
                 var data = JObject.Parse(telemetry.Data);
                 Assert.Equal(message.JobId.ToString(), data.Value<string>("JobId"));
-                Assert.Equal(delayedProcessFault ? "StartWorker" : stage, data.Value<string>("Stage"));
+                string expectedStage = delayedProcessFault ? "StartWorker" : stage;
+                Assert.Equal(expectedStage, data.Value<string>("Stage"));
                 Assert.Equal(exception.GetType().FullName, data.Value<string>("ExceptionType"));
                 Assert.DoesNotContain(secret, telemetry.Data);
                 if (!reportingFails)
@@ -180,8 +210,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     Assert.NotNull(reportedRecord);
                     var issue = Assert.Single(reportedRecord.Issues);
                     Assert.Equal(IssueType.Error, issue.Type);
-                    Assert.Contains(exception.GetType().FullName, issue.Message);
-                    Assert.Contains("startup", issue.Message.ToLowerInvariant());
+                    Assert.Equal("AgentStartupFailure", issue.Category);
+                    string expectedMessage = hc.SecretMasker.MaskSecrets(StringUtil.Loc("AgentWorkerStartupFailed",
+                        expectedStage, message.JobId, message.RequestId, exception.ToString()));
+                    Assert.Equal(expectedMessage, issue.Message);
                     Assert.DoesNotContain(secret, issue.Message);
                     Assert.Equal(1, reportedRecord.ErrorCount);
                     Assert.Null(reportedRecord.Result);
@@ -192,6 +224,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     It.IsAny<JobCompletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
                 agentServer.Verify(x => x.FinishAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(),
                     It.IsAny<DateTime>(), It.IsAny<TaskResult>(), It.IsAny<CancellationToken>()), Times.Never);
+                Assert.Equal(localizationBefore, StringUtil.Loc("MissingNodePath"));
             }
         }
     }
