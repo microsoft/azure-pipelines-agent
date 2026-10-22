@@ -37,10 +37,29 @@ stages:
 
     - powershell: |
         git config --global user.email "$(github_email)"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to configure Git user email." }
         git config --global user.name "$(username)"
+        if ($LASTEXITCODE -ne 0) { throw "Failed to configure Git user name." }
         git checkout -b Localization origin/Localization
+        if ($LASTEXITCODE -ne 0) { throw "Failed to check out the Localization branch." }
+
+        # Normalize CRLF/LF differences during the three-way merge.
+        git config merge.renormalize true
+        if ($LASTEXITCODE -ne 0) { throw "Failed to enable Git merge renormalization." }
+
         git merge origin/master
+        if ($LASTEXITCODE -ne 0) {
+          $mergeHead = git rev-parse --git-path MERGE_HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Sync with master failed; could not determine merge state." }
+          if (Test-Path -LiteralPath $mergeHead) {
+            git merge --abort
+            if ($LASTEXITCODE -ne 0) { throw "Sync with master failed and the merge could not be aborted." }
+          }
+          throw "Sync with master failed. Resolve the merge or working-tree errors on Localization and re-run."
+        }
+
         git push origin Localization
+        if ($LASTEXITCODE -ne 0) { throw "Failed to push the Localization branch." }
       displayName: "Sync with master branch"
       condition: and(succeeded(), in(variables['build.reason'], 'Schedule', 'Manual'))
 
