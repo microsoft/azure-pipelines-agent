@@ -41,19 +41,16 @@ reporting is limited to 15 seconds; if the service cannot be reached, inspect
 `_diag\Agent_*.log` on the agent machine instead. Worker diagnostic uploads cannot
 run if the worker never starts.
 
-The listener also attempts to publish these customer-intelligence events under
-area `AzurePipelinesAgent`, with a separate 10-second reporting limit:
-
-- `WorkerStartupFailure`: job/request/plan IDs, agent/pool IDs, agent version,
-  startup stage, exception type/HResult, whether a worker process task was created, and
-  confirmation that renewal stopped.
-- `FeatureFlagLookupFailure`: feature flag name, lookup stage, exception type/HResult,
-  agent/pool IDs, agent version, and fallback state (`Off`). A failed feature flag
-  lookup does not by itself fail the job.
+The listener also attempts to publish the `WorkerStartupFailure`
+customer-intelligence event under area `AzurePipelinesAgent`, with a separate
+10-second reporting limit. It includes job/request/plan IDs, agent/pool IDs, agent
+version, startup stage, exception type/HResult, whether a worker process task was
+created, and confirmation that renewal stopped.
 
 Telemetry contains exception types, not exception messages or stack traces.
-Reporting failures are logged locally and do not replace the startup error or
-prevent the feature flag fallback.
+Reporting failures are logged locally and do not replace the startup error.
+Feature flag lookup failures are logged locally and fall back to `Off` without
+publishing telemetry; they do not by themselves fail the job.
 
 ## Http Tracing
 
