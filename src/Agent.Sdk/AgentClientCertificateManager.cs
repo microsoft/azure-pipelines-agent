@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Security.Cryptography.X509Certificates;
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.Common;
 
 namespace Agent.Sdk
@@ -35,7 +36,7 @@ namespace Agent.Sdk
         {
             if (!string.IsNullOrEmpty(clientCertificateArchiveFile))
             {
-                _clientCertificates.Add(new X509Certificate2(clientCertificateArchiveFile, clientCertificatePassword));
+                _clientCertificates.Add(CertificateUtil.LoadCertificate(clientCertificateArchiveFile, clientCertificatePassword));
             }
         }
     }

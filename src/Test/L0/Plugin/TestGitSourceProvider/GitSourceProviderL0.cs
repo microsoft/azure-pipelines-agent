@@ -9,6 +9,7 @@ using System;
 using Moq;
 using Agent.Plugins.Repository;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -32,7 +33,7 @@ public sealed class TestPluginGitSourceProviderL0
     [Trait("SkipOn", "darwin")]
     [Trait("SkipOn", "linux")]
     [MemberData(nameof(FeatureFlagsStatusData))]
-    public void TestSetGitConfiguration(bool featureFlagsStatus)
+    public async Task TestSetGitConfiguration(bool featureFlagsStatus)
     {
         using TestHostContext hc = new(this, $"FeatureFlagsStatus_{featureFlagsStatus}");
         MockAgentTaskPluginExecutionContext tc = new(hc.GetTrace());
@@ -47,7 +48,7 @@ public sealed class TestPluginGitSourceProviderL0
         tc.Variables.Add("FIX_POSSIBLE_GIT_OUT_OF_MEMORY_PROBLEM", featureFlagStatusString);
 
         Agent.Plugins.Repository.GitSourceProvider gitSourceProvider = new Agent.Plugins.Repository.ExternalGitSourceProvider();
-        gitSourceProvider.SetGitFeatureFlagsConfiguration(tc, gitCliManagerMock.Object, repositoryPath);
+        await gitSourceProvider.SetGitFeatureFlagsConfiguration(tc, gitCliManagerMock.Object, repositoryPath);
 
         // Assert.
         gitCliManagerMock.Verify(x => x.GitConfig(tc, repositoryPath, "pack.threads", "1"), invocation);

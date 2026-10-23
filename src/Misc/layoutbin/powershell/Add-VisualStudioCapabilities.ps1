@@ -30,7 +30,7 @@ function Add-TestCapability {
 function Get-VSCapabilities {
     param (
         [Parameter(Mandatory = $true)]
-        [ValidateSet(15, 16, 17)]
+        [ValidateSet(15, 16, 17, 18)]
         [int]$MajorVersion,
 
         [Parameter(Mandatory = $true)]
@@ -87,6 +87,7 @@ $keyName14 = 'Software\Microsoft\VisualStudio\14.0'
 $keyName15 = 'Software\Microsoft\VisualStudio\15.0'
 $keyName16 = 'Software\Microsoft\VisualStudio\16.0'
 $keyName17 = 'Software\Microsoft\VisualStudio\17.0'
+$keyName18 = 'Software\Microsoft\VisualStudio\18.0'
 
 # Add the capabilities.
 $latestVS = $null
@@ -111,3 +112,5 @@ Get-VSCapabilities -MajorVersion 15 -keyName $keyName15
 Get-VSCapabilities -MajorVersion 16 -keyName $keyName16
 
 Get-VSCapabilities -MajorVersion 17 -keyName $keyName17
+
+Get-VSCapabilities -MajorVersion 18 -keyName $keyName18

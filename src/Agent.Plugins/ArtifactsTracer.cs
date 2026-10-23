@@ -21,6 +21,7 @@ namespace Agent.Plugins
         {
             ArgUtil.NotNull(context, nameof(context));
             bool verbose = context.IsSystemDebugTrue();
+
             return new CallbackAppTraceSource(
                 (str, level) =>
                 {
@@ -30,7 +31,7 @@ namespace Agent.Plugins
                     }
                     else
                     {
-                        context.Output(str);
+                        context.OutputExternal(str);
                     }
                 },
                 verbose

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.CustomerIntelligence.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -13,7 +14,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
     public interface ICustomerIntelligenceServer : IAgentService
     {
         void Initialize(VssConnection connection);
+        Task InitializeAsync(VssConnection connection, CancellationToken cancellationToken);
         Task PublishEventsAsync(CustomerIntelligenceEvent[] ciEvents);
+        Task PublishEventsAsync(CustomerIntelligenceEvent[] ciEvents, CancellationToken cancellationToken);
     }
 
     // This service is used for tracking task events which are applicable for VSTS internal tasks
@@ -30,6 +33,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
         public Task PublishEventsAsync(CustomerIntelligenceEvent[] ciEvents)
         {
             return _ciClient.PublishEventsAsync(events: ciEvents);
+        }
+
+        public async Task InitializeAsync(VssConnection connection, CancellationToken cancellationToken)
+        {
+            ArgUtil.NotNull(connection, nameof(connection));
+            _ciClient = await connection.GetClientAsync<CustomerIntelligenceHttpClient>(cancellationToken);
+        }
+
+        public Task PublishEventsAsync(CustomerIntelligenceEvent[] ciEvents, CancellationToken cancellationToken)
+        {
+            return _ciClient.PublishEventsAsync(events: ciEvents, cancellationToken: cancellationToken);
         }
     }
 }

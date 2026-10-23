@@ -14,6 +14,74 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
     public sealed class IOUtilL0
     {
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(true, false, false, false)]
+        [InlineData(false, true, false, true)]
+        public void IsFileSystemCaseSensitiveUsesStaticWindowsAndLinuxSemantics(
+            bool runningOnWindows,
+            bool runningOnLinux,
+            bool runningOnMacOS,
+            bool expectedCaseSensitive)
+        {
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                "unused",
+                runningOnWindows,
+                runningOnLinux,
+                runningOnMacOS,
+                (_, _) => throw new InvalidOperationException("Unexpected pathconf call."));
+
+            Assert.Equal(expectedCaseSensitive, isCaseSensitive);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(0, 0)]
+        [InlineData(1, 1)]
+        [InlineData(-1, -1)]
+        public void IsFileSystemCaseSensitiveUsesMacVolumeCapability(
+            long pathConfigurationResult,
+            int expectedCaseSensitive)
+        {
+            const string path = "/Volumes/Build/download";
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                path,
+                runningOnWindows: false,
+                runningOnLinux: false,
+                runningOnMacOS: true,
+                (actualPath, name) =>
+                {
+                    Assert.Equal(path, actualPath);
+                    Assert.Equal(11, name);
+                    return pathConfigurationResult;
+                });
+
+            bool? expected = expectedCaseSensitive switch
+            {
+                0 => false,
+                1 => true,
+                _ => null,
+            };
+            Assert.Equal(expected, isCaseSensitive);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsFileSystemCaseSensitiveIsIndeterminateOnUnsupportedPlatforms()
+        {
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                "unused",
+                runningOnWindows: false,
+                runningOnLinux: false,
+                runningOnMacOS: false,
+                (_, _) => throw new InvalidOperationException("Unexpected pathconf call."));
+
+            Assert.Null(isCaseSensitive);
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
@@ -85,7 +153,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeleteTargetFileWithASymlink()
+        public async Task DeleteDirectory_DeleteTargetFileWithASymlink()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -385,7 +453,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeletesWithRetry_Success()
+        public async Task DeleteDirectory_DeletesWithRetry_Success()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -418,7 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteDirectory_DeletesWithRetry_CancellationRequested()
+        public async Task DeleteDirectory_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -450,7 +518,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteDirectory_DeletesWithRetry_NonExistenDir()
+        public async Task DeleteDirectory_DeletesWithRetry_NonExistenDir()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -470,7 +538,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteDirectory_DeletesWithRetry_IOException()
+        public async Task DeleteDirectory_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -841,7 +909,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteFile_DeletesWithRetry_Success()
+        public async Task DeleteFile_DeletesWithRetry_Success()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -873,7 +941,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public async void DeleteFile_DeletesWithRetry_NonExistenFile()
+        public async Task DeleteFile_DeletesWithRetry_NonExistenFile()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -893,7 +961,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteFile_DeletesWithRetry_IOException()
+        public async Task DeleteFile_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -922,7 +990,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DeleteFile_DeletesWithRetry_CancellationRequested()
+        public async Task DeleteFile_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -1331,6 +1399,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                     environment: null,
                     requireExitCodeZero: true,
                     cancellationToken: CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_CreatesNewDirectory()
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            try
+            {
+                Assert.True(IOUtil.TryCreateDirectory(tempPath));
+                Assert.True(Directory.Exists(tempPath));
+            }
+            finally
+            {
+                if (Directory.Exists(tempPath))
+                {
+                    Directory.Delete(tempPath, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsTrueForExistingDirectory()
+        {
+            Assert.True(IOUtil.TryCreateDirectory(Path.GetTempPath()));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void TryCreateDirectory_ReturnsFalseOnInvalidPath()
+        {
+            // Creating a directory at a path where a file already exists triggers IOException
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                Assert.False(IOUtil.TryCreateDirectory(tempFile));
+            }
+            finally
+            {
+                File.Delete(tempFile);
             }
         }
     }

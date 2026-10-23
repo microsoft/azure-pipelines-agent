@@ -20,6 +20,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_SETUP_DOCKERGROUP"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob DefaultMapDockerSocketToFalse = new Knob(
+            nameof(DefaultMapDockerSocketToFalse),
+            "If true, containers without an explicit mapDockerSocket setting do not map the Docker socket by default.",
+            new PipelineFeatureSource("DefaultMapDockerSocketToFalse"),
+            new EnvironmentKnobSource("AZP_AGENT_DEFAULT_MAP_DOCKER_SOCKET_TO_FALSE"),
+            new BuiltInDefaultKnobSource("true"));
+
         public static readonly Knob AllowMountTasksReadonlyOnWindows = new Knob(
             nameof(AllowMountTasksReadonlyOnWindows),
             "If true, allows the user to mount 'tasks' volume read-only on Windows OS",
@@ -135,6 +142,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_GIT_USE_SECURE_PARAMETER_PASSING"),
             new BuiltInDefaultKnobSource("true"));
 
+        public static readonly Knob UseBuildTagsBodyApi = new Knob(
+            nameof(UseBuildTagsBodyApi),
+            "If true, the agent posts build tags via the body-based BuildHttpClient.AddBuildTagsAsync overload, preserving reserved URL characters such as ';'. If false (default), uses the legacy URL-path AddBuildTagAsync overload.",
+            new RuntimeKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new EnvironmentKnobSource("AGENT_USE_BUILD_TAGS_BODY_API"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FixPossibleGitOutOfMemoryProblem = new Knob(
             nameof(FixPossibleGitOutOfMemoryProblem),
             "When true, set config git properties to fix possible out of memory problem",
@@ -224,11 +238,26 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE24_WITH_HANDLER_DATA"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob WarnOnNode20Task = new Knob(
+            nameof(WarnOnNode20Task),
+            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            new PipelineFeatureSource("WarnOnNode20Task"),
+            new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FetchByCommitForFullClone = new Knob(
             nameof(FetchByCommitForFullClone),
             "If true, allow fetch by commit when doing a full clone (depth=0).",
             new RuntimeKnobSource("VSTS.FetchByCommitForFullClone"),
             new EnvironmentKnobSource("VSTS_FETCHBYCOMMITFORFULLCLONE"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob DisableAutoManagedVhdShallowOverride = new Knob(
+            nameof(DisableAutoManagedVhdShallowOverride),
+            "If true, the agent will NOT override shallow-fetch settings when an AutoManagedVHD full clone is detected.",
+            new RuntimeKnobSource("VSTS.DisableAutoManagedVhdShallowOverride"),
+            new EnvironmentKnobSource("VSTS_DISABLEAUTOMANAGEDVHD_SHALLOW_OVERRIDE"),
             new BuiltInDefaultKnobSource("false"));
 
         // Agent logging
@@ -339,6 +368,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_HTTP_RETRY"),
             new BuiltInDefaultKnobSource("3"));
 
+        public static readonly Knob EnableProgressiveRetryBackoff = new Knob(
+            nameof(EnableProgressiveRetryBackoff),
+            "If true, enables progressive backoff delays for agent message polling and keep-alive retries when encountering retriable errors",
+            new EnvironmentKnobSource("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob HttpTimeout = new Knob(
             nameof(HttpTimeout),
             "Timeout for Http requests",
@@ -364,6 +399,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("VSTS_HTTP_PROXY"),
             new EnvironmentKnobSource("http_proxy"),
             new BuiltInDefaultKnobSource(string.Empty));
+
+        public const string EnableProxyVariableCaseAliasesVariableName = "AGENT_ENABLE_PROXY_VARIABLE_CASE_ALIASES";
+
+        public static readonly Knob EnableProxyVariableCaseAliases = new Knob(
+            nameof(EnableProxyVariableCaseAliases),
+            "If true, exports uppercase and lowercase aliases for proxy variables on non-Windows systems",
+            new RuntimeKnobSource(EnableProxyVariableCaseAliasesVariableName),
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob ProxyPassword = new SecretKnob(
             nameof(ProxyPassword),
@@ -514,6 +557,13 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public static readonly Knob EnableArtifactNameValidation = new Knob(
+            nameof(EnableArtifactNameValidation),
+            "Enable strict pipeline artifact name validation.",
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
             "Return DownloadBuildArtifactsV1 target path resolution behavior back to how it was originally implemented. This breaks back compatibility with DownloadBuildArtifactsV0.",
@@ -559,6 +609,13 @@ namespace Agent.Sdk.Knob
             "Disables Node 6 tasks and Node 6 runner.",
             new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
             new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
+            nameof(EnableEOLNodeVersionPolicy),
+            "When enabled, tasks that specify end-of-life Node.js versions (6, 10, 16) will run using a supported Node.js version available on the agent (Node 20.1 or Node 24), ignoring the  EOL Node.js version(s) in respective task. An error is thrown if no supported version is available.",
+            new RuntimeKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
+            new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob DisableTeePluginRemoval = new Knob(
@@ -699,13 +756,19 @@ namespace Agent.Sdk.Knob
             "Ignores the VSTSTaskLib folder when copying tasks.",
             new RuntimeKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
             new EnvironmentKnobSource("AZP_AGENT_IGNORE_VSTSTASKLIB"),
-            new BuiltInDefaultKnobSource("false"));
+            new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob FailJobWhenAgentDies = new Knob(
             nameof(FailJobWhenAgentDies),
             "Mark the Job as Failed instead of Canceled when the Agent dies due to User Cancellation or Shutdown",
             new RuntimeKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
             new EnvironmentKnobSource("FAIL_JOB_WHEN_AGENT_DIES"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnhancedWorkerCrashHandling = new Knob(
+            nameof(EnhancedWorkerCrashHandling),
+            "If true, enables enhanced worker crash handling with forced completion for Plan v8+ scenarios where worker crashes cannot send completion events",
+            new EnvironmentKnobSource("AZP_ENHANCED_WORKER_CRASH_HANDLING"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob AllowWorkDirectoryRepositories = new Knob(
@@ -733,13 +796,15 @@ namespace Agent.Sdk.Knob
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
             new PipelineFeatureSource("UseNode20ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE20_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob UseNode24ToStartContainer = new Knob(
             nameof(UseNode24ToStartContainer),
             "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
-            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new PipelineFeatureSource("UseNode24ToStartContainer"),
+            new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
+            new EnvironmentKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableNewMaskerAndRegexes = new Knob(
@@ -783,6 +848,14 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_CHECKOUT_TASK"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob UseFetchFilterInGitSubmoduleUpdate = new Knob(
+            nameof(UseFetchFilterInGitSubmoduleUpdate),
+            "If true, agent will pass fetch filter options in checkout task to git submodule update.",
+            new PipelineFeatureSource("UseFetchFilterInGitSubmoduleUpdate"),
+            new RuntimeKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new EnvironmentKnobSource("AGENT_USE_FETCH_FILTER_IN_GIT_SUBMODULE_UPDATE"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob StoreAgentKeyInCSPContainer = new Knob(
             nameof(StoreAgentKeyInCSPContainer),
             "Store agent key in named container (Windows).",
@@ -806,6 +879,12 @@ namespace Agent.Sdk.Knob
             "If true, agent will not throw warnings related to high resource utilization",
             new RuntimeKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob CaseInsensitiveArtifactMatchingFixEnabled = new Knob(
+            nameof(CaseInsensitiveArtifactMatchingFixEnabled),
+            "Enables artifact matching that follows destination filesystem case behavior on Windows and macOS.",
+            new PipelineFeatureSource(nameof(CaseInsensitiveArtifactMatchingFixEnabled)),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob Rosetta2Warning = new Knob(
@@ -834,6 +913,12 @@ namespace Agent.Sdk.Knob
             nameof(Net8UnsupportedOsWarning),
             "Show warning message on the OS which is not supported by .NET 8",
             new PipelineFeatureSource("Net8UnsupportedOsWarning"),
+            new BuiltInDefaultKnobSource("true"));
+
+        public static readonly Knob DisableUnsupportedOsWarningNet10 = new Knob(
+            nameof(DisableUnsupportedOsWarningNet10),
+            "Show warning message on the OS which is not supported by .NET 10",
+            new PipelineFeatureSource("DisableUnsupportedOsWarningNet10"),
             new BuiltInDefaultKnobSource("true"));
 
         public static readonly Knob UsePSScriptWrapper = new Knob(
@@ -920,6 +1005,31 @@ namespace Agent.Sdk.Knob
             "If true, collect and report comprehensive diagnostics when docker exec commands fail, including container state, resource limits, logs, and platform-specific analysis.",
             new PipelineFeatureSource("EnableDockerExecDiagnostics"),
             new EnvironmentKnobSource("AGENT_ENABLE_DOCKER_EXEC_DIAGNOSTICS"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob UseEnhancedNodeSelection = new Knob(
+            nameof(UseEnhancedNodeSelection),
+            "If true, use the enhanced Node.js version selection logic (both host and container). This provides centralized node selection with EOL policy enforcement and correct container keepalive. Set to false to use legacy node selection logic.",
+            new PipelineFeatureSource("UseEnhancedNodeSelection"),
+            new RuntimeKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new EnvironmentKnobSource("AGENT_USE_ENHANCED_NODE_SELECTION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        // Security
+        public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
+            nameof(EnforceContainerVsoPathValidation),
+            "If true, file inputs to upload and publish VSO commands from container steps are restricted to the agent work directory. Diagnostic source paths from task.logissue and task.issue are not subject to this file-input validation.",
+            new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
+            new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnablePluginExternalOutputFiltering = new Knob(
+            nameof(EnablePluginExternalOutputFiltering),
+            "Filters VSO logging commands from external output emitted by agent plugin tasks.",
+            new PipelineFeatureSource("EnablePluginExternalOutputFiltering"),
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

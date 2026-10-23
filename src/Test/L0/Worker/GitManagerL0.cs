@@ -3,6 +3,7 @@
 
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Moq;
 using Xunit;
@@ -16,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
-        public async void DownloadAsync()
+        public async Task DownloadAsync()
         {
             using var tokenSource = new CancellationTokenSource();
             using var hostContext = new TestHostContext(this);

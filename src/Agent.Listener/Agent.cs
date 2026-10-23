@@ -277,13 +277,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         var systemVersion = PlatformUtil.GetSystemVersion();
 
                         Dictionary<string, string> telemetryData = new Dictionary<string, string>
-                    {
-                        { "OS", PlatformUtil.GetSystemId() ?? "" },
-                        { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
-                        { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
-                        { "configuredAsService", $"{configuredAsService}"},
-                        { "startupType", startupTypeAsString }
-                    };
+                        {
+                            { "OS", PlatformUtil.GetSystemId() ?? "" },
+                            { "OSVersion", systemVersion?.Name?.ToString() ?? "" },
+                            { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
+                            { "configuredAsService", $"{configuredAsService}"},
+                            { "startupType", startupTypeAsString }
+                        };
+
+                        // Check for EnableAgent fallback indicator
+                        string fallbackUsed = Environment.GetEnvironmentVariable("VSTS_AGENT_VMEXT_FALLBACK_USED");
+                        if (!string.IsNullOrEmpty(fallbackUsed) && fallbackUsed.Equals("true", StringComparison.OrdinalIgnoreCase))
+                        {
+                            telemetryData["EnableAgentVmExtFallbackUsed"] = "true";
+                            Trace.Info("EnableAgent VM extension fallback detected");
+                        }
+
                         var cmd = new Command("telemetry", "publish");
                         cmd.Data = JsonConvert.SerializeObject(telemetryData);
                         cmd.Properties.Add("area", "PipelinesTasks");
@@ -295,7 +304,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     {
                         Trace.Warning($"Unable to publish telemetry data. {ex}");
                     }
-
 
                     // Run the agent interactively or as service
                     return await RunAsync(settings, command.GetRunOnce());
@@ -371,12 +379,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
                 bool enhancedLoggingEnabled = string.Equals(enhancedLoggingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
 
+                // Check enhanced worker crash handling feature flag
+                var enhancedWorkerCrashHandlingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnhancedWorkerCrashHandling", Trace);
+                bool enhancedWorkerCrashHandlingEnabled = string.Equals(enhancedWorkerCrashHandlingFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
                 Trace.Info($"Enhanced logging feature flag is {(enhancedLoggingEnabled ? "enabled" : "disabled")}");
                 // Set the result on TraceManager - this automatically switches all trace sources
                 traceManager.SetEnhancedLoggingEnabled(enhancedLoggingEnabled);
 
                 // Ensure child processes (worker/plugin) pick up enhanced logging via knob
                 Environment.SetEnvironmentVariable("AZP_USE_ENHANCED_LOGGING", enhancedLoggingEnabled ? "true" : null);
+
+                // Check progressive backoff feature flag
+                var progressiveBackoffFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableProgressiveRetryBackoff", Trace);
+                bool progressiveBackoffEnabled = string.Equals(progressiveBackoffFlag?.EffectiveState, "On", StringComparison.OrdinalIgnoreCase);
+
+                Trace.Info($"Progressive backoff feature flag is {(progressiveBackoffEnabled ? "enabled" : "disabled")}");
+                // Ensure listener process picks up progressive backoff via knob
+                Environment.SetEnvironmentVariable("AGENT_ENABLE_PROGRESSIVE_RETRY_BACKOFF", progressiveBackoffEnabled ? "true" : null);
+
+                Trace.Info($"Enhanced worker crash handling feature flag is {(enhancedWorkerCrashHandlingEnabled ? "enabled" : "disabled")}");
+                // Ensure child processes (worker/plugin) pick up enhanced crash handling via knob
+                Environment.SetEnvironmentVariable("AZP_ENHANCED_WORKER_CRASH_HANDLING", enhancedWorkerCrashHandlingEnabled ? "true" : null);
 
                 Trace.Info("Runtime features initialization completed successfully");
             }
@@ -439,7 +463,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                         else
                         {
-                            notification.StartClient(settings.NotificationPipeName, settings.MonitorSocketAddress, HostContext.AgentShutdownToken);
+                            await notification.StartClient(settings.NotificationPipeName, settings.MonitorSocketAddress, HostContext.AgentShutdownToken);
                         }
                         // this is not a reliable way to disable auto update.
                         // we need server side work to really enable the feature

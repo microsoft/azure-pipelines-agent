@@ -39,7 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonConfiguration()
+        public async Task TestAutoLogonConfiguration()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -60,7 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonRunOnce()
+        public async Task TestAutoLogonRunOnce()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonConfigurationForDotAsDomainName()
+        public async Task TestAutoLogonConfigurationForDotAsDomainName()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -110,7 +110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonConfigurationForDifferentUser()
+        public async Task TestAutoLogonConfigurationForDifferentUser()
         {
             using (var hc = new TestHostContext(this))
             {
@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonUnConfigure()
+        public async Task TestAutoLogonUnConfigure()
         {
             //strategy-
             //1. fill some existing values in the registry
@@ -158,7 +158,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async void TestAutoLogonUnConfigureForDifferentUser()
+        public async Task TestAutoLogonUnConfigureForDifferentUser()
         {
             //strategy-
             //1. fill some existing values in the registry

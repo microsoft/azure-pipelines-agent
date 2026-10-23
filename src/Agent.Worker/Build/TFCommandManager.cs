@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Agent.Sdk.Util;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using System;
 using System.Collections.Generic;
@@ -157,7 +158,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public void SetupClientCertificate(string clientCert, string clientCertKey, string clientCertArchive, string clientCertPassword)
         {
             ArgUtil.File(clientCert, nameof(clientCert));
-            X509Certificate2 cert = new X509Certificate2(clientCert);
+
+            // Pass null for password to maintain original behavior (certificate without password)
+            X509Certificate2 cert = CertificateUtil.LoadCertificate(clientCert, password: null);
+
             ExecutionContext.Debug($"Set VstsClientCertificate={cert.Thumbprint} for Tf.exe to support client certificate.");
             AdditionalEnvironmentVariables["VstsClientCertificate"] = cert.Thumbprint;
 

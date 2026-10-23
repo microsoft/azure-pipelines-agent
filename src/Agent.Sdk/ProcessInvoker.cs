@@ -283,6 +283,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 foreach (KeyValuePair<string, string> kvp in environment)
                 {
+                    ArgUtil.ThrowIfContainsNull(kvp.Key, kvp.Value);
                     _proc.StartInfo.Environment[kvp.Key] = kvp.Value;
                 }
             }
@@ -332,10 +333,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             AsyncManualResetEvent afterCancelKillProcessTreeAttemptSignal = new AsyncManualResetEvent();
             using (var registration = cancellationToken.Register(async () =>
             {
-                await CancelAndKillProcessTree(killProcessOnCancel);
-
-                // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
-                afterCancelKillProcessTreeAttemptSignal.Set();
+                try
+                {
+                    await CancelAndKillProcessTree(killProcessOnCancel);
+                }
+                catch (Exception ex)
+                {
+                    // Log the exception but continue with cleanup to prevent silent failures
+                    Trace.Info($"Exception details: {ex}");
+                }
+                finally
+                {
+                    // signal to ensure we exit the loop after we attempt to cancel and kill the process tree (which is best effort)
+                    afterCancelKillProcessTreeAttemptSignal.Set();
+                }
             }))
             {
                 Trace.Info($"Process started, waiting for process exit.");
@@ -461,7 +472,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
 
             // Store proc reference locally to prevent race conditions with Dispose()
             ArgUtil.NotNull(_proc, nameof(_proc));
-
+ 
             if (!killProcessOnCancel)
             {
                 bool sigint_succeed = await SendSIGINT(SigintTimeout);

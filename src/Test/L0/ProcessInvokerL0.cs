@@ -40,6 +40,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task RejectsEnvironmentVariableContainingNullCharacter()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.Initialize(hc);
+
+                    // A NUL in an environment value would split into two native env vars
+                    // (environment variable injection). It must be rejected before the
+                    // process is started.
+                    var environment = new Dictionary<string, string>
+                    {
+                        { "SAFE_QUEUE_LABEL", "safe-label\0NODE_OPTIONS=--max-old-space-size=2048" }
+                    };
+
+                    await Assert.ThrowsAsync<ArgumentException>(async () =>
+                    {
+                        await processInvoker.ExecuteAsync(
+                            "",
+                            TestUtil.IsWindows() ? "cmd.exe" : "bash",
+                            "",
+                            environment,
+                            CancellationToken.None);
+                    });
+                }
+            }
+        }
+
         //Run a process that normally takes 20sec to finish and cancel it.
         [Fact]
         [Trait("Level", "L0")]
@@ -444,6 +477,122 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     Assert.Equal(0, exitCode);
 
                     Assert.True(stdout.Contains("##vso somecommand"), "##vso commands should not be escaped.");
+                }
+            }
+        }
+
+        // Race condition tests for ICM 698323303: Process exits during cancellation
+        // Validates that the try/catch in the cancellation callback (line 335-343) 
+        // properly handles InvalidOperationException when _proc is disposed during cancel.
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task TestCancel_ProcessExitsBeforeCancellation_NoException()
+        {
+            // Start a process that exits instantly, then cancel after a small delay.
+            // Validates: no InvalidOperationException when cancel fires on an already-exited process.
+            using (TestHostContext hc = new TestHostContext(this))
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.Initialize(hc);
+
+                    // Start a process that exits immediately
+                    var execTask = (TestUtil.IsWindows())
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c exit 0", null, false, null, false, null, false, false, false, false, tokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"exit 0\"", null, false, null, false, null, false, false, false, false, tokenSource.Token);
+
+                    // Small delay to let process exit, then cancel
+                    await Task.Delay(500);
+                    tokenSource.Cancel();
+
+                    // Should complete without throwing
+                    int exitCode = await execTask;
+                    trace.Info($"Exit Code: {exitCode}");
+                    Assert.Equal(0, exitCode);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task TestCancel_ProcessAlreadyExited_NoException()
+        {
+            // Start a process that exits instantly, wait for completion, then fire cancellation.
+            // Validates that the cancellation callback handles an already-exited process gracefully.
+            using (TestHostContext hc = new TestHostContext(this))
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                Tracing trace = hc.GetTrace();
+                using (var processInvoker = new ProcessInvokerWrapper())
+                {
+                    processInvoker.Initialize(hc);
+
+                    // Start a process that exits immediately with a cancellation token
+                    var execTask = (TestUtil.IsWindows())
+                        ? processInvoker.ExecuteAsync("", "cmd.exe", "/c exit 0", null, false, null, false, null, false, false, false, false, tokenSource.Token)
+                        : processInvoker.ExecuteAsync("", "bash", "-c \"exit 0\"", null, false, null, false, null, false, false, false, false, tokenSource.Token);
+
+                    // Wait for the process to complete
+                    int exitCode = await execTask;
+                    trace.Info($"Exit Code: {exitCode}");
+                    Assert.Equal(0, exitCode);
+
+                    // Now cancel — the callback will attempt CancelAndKillProcessTree on an exited process.
+                    // This should not throw any unhandled exceptions.
+                    tokenSource.Cancel();
+
+                    // If we get here without crashing, the test passes
+                    trace.Info("Cancellation after process exit completed without exception.");
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task TestCancel_ConcurrentExitAndCancel_NoException()
+        {
+            // Stress test: start a very short-lived process and cancel immediately.
+            // Run multiple iterations to maximize the chance of hitting the race window.
+            // Validates: no unhandled exception regardless of timing.
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    using (var tokenSource = new CancellationTokenSource())
+                    using (var processInvoker = new ProcessInvokerWrapper())
+                    {
+                        processInvoker.Initialize(hc);
+
+                        // Start a process that exits very quickly
+                        var execTask = (TestUtil.IsWindows())
+                            ? processInvoker.ExecuteAsync("", "cmd.exe", "/c ping 127.0.0.1 -n 1 > nul", null, false, null, false, null, false, false, false, false, tokenSource.Token)
+                            : processInvoker.ExecuteAsync("", "bash", "-c \"sleep 0.05\"", null, false, null, false, null, false, false, false, false, tokenSource.Token);
+
+                        // Cancel almost immediately to race with process exit
+                        await Task.Delay(30);
+                        tokenSource.Cancel();
+
+                        // Should complete without crashing — either process exits first or cancel succeeds
+                        try
+                        {
+                            int exitCode = await execTask;
+                            trace.Info($"Iteration {i}: Exit Code: {exitCode}");
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Expected if cancellation wins the race
+                            trace.Info($"Iteration {i}: OperationCanceledException (expected)");
+                        }
+                        // Any other exception (InvalidOperationException, NullReferenceException) would fail the test
+                    }
                 }
             }
         }

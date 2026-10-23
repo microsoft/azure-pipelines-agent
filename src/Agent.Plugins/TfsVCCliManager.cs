@@ -126,7 +126,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
 
             // Invoke tf.
-            using (var processInvoker = new ProcessInvoker(ExecutionContext))
+            using (var processInvoker = new ProcessInvoker(ExecutionContext, disableWorkerCommands: true))
             {
                 var outputLock = new object();
                 processInvoker.OutputDataReceived += (object sender, ProcessDataReceivedEventArgs e) =>
@@ -241,7 +241,7 @@ namespace Agent.Plugins.Repository
             ArgUtil.NotNull(ExecutionContext, nameof(ExecutionContext));
 
             // Invoke tf.
-            using (var processInvoker = new ProcessInvoker(ExecutionContext))
+            using (var processInvoker = new ProcessInvoker(ExecutionContext, disableWorkerCommands: true))
             {
                 var result = new TfsVCPorcelainCommandResult();
                 var outputLock = new object();

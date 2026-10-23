@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             var data = command.Data;
             // Translate file path back from container path
-            data = context.TranslateToHostPath(data);
+            data = context.TranslateToHostPath(data, source: VsoPathTranslationSource.BuildUploadLog);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 context.QueueAttachFile(CoreAttachmentType.Log, "CustomToolLog", data);
@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             var data = command.Data;
             // Translate file path back from container path
-            data = context.TranslateToHostPath(data);
+            data = context.TranslateToHostPath(data, source: VsoPathTranslationSource.BuildUploadSummary);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 var fileName = Path.GetFileName(data);
@@ -147,7 +147,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             ArgUtil.NotNull(context.Endpoints, nameof(context.Endpoints));
             ArgUtil.NotNull(command, nameof(command));
 
-            string data = command.Data;
+            string data = command.Data?.Trim();
 
             Guid projectId = context.Variables.System_TeamProjectId ?? Guid.Empty;
             ArgUtil.NotEmpty(projectId, nameof(projectId));
@@ -185,7 +185,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         {
             var buildServer = context.GetHostContext().GetService<IBuildServer>();
             await buildServer.ConnectAsync(connection);
-            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, cancellationToken);
+            var tags = await buildServer.AddBuildTag(buildId, projectId, buildTag, context, cancellationToken);
 
             if (tags == null || !tags.Any(t => t.Equals(buildTag, StringComparison.OrdinalIgnoreCase)))
             {

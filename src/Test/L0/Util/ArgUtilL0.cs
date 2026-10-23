@@ -146,5 +146,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
                 });
             }
         }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowIfContainsNull_AllowsCleanNameAndValue()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                // Act/Assert - none of these contain a NUL, so nothing is thrown.
+                ArgUtil.ThrowIfContainsNull("SAFE_QUEUE_LABEL", "safe-label");
+                ArgUtil.ThrowIfContainsNull("NAME", null);
+                ArgUtil.ThrowIfContainsNull(null, "value");
+                // Newlines are legal in environment variable values and must not be rejected.
+                ArgUtil.ThrowIfContainsNull("MULTILINE", "line1\r\nline2");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowIfContainsNull_ThrowsWhenValueContainsNull()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                // A NUL in the value would split into two native environment variables.
+                string value = "safe-label\0NODE_OPTIONS=--max-old-space-size=2048";
+
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    ArgUtil.ThrowIfContainsNull("SAFE_QUEUE_LABEL", value);
+                });
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void ThrowIfContainsNull_ThrowsWhenNameContainsNull()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                Tracing trace = hc.GetTrace();
+
+                // A NUL in the name is also rejected.
+                string name = "SAFE\0INJECTED";
+
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    ArgUtil.ThrowIfContainsNull(name, "value");
+                });
+            }
+        }
     }
 }

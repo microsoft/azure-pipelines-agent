@@ -160,15 +160,11 @@ namespace Agent.Sdk
         public void Verbose(string message, [CallerMemberName] string operation = "")
         {
             ArgUtil.NotNull(message, nameof(message));
-#if DEBUG
-            Debug(message);
-#else
             string vstsAgentTrace = AgentKnobs.TraceVerbose.GetValue(this).AsString();
             if (!string.IsNullOrEmpty(vstsAgentTrace))
             {
                 Debug(message);
             }
-#endif
         }
 
         public void Error(string message)
@@ -224,6 +220,23 @@ namespace Agent.Sdk
                 {
                     _trace.Info(message);
                 }
+            }
+        }
+
+        public void OutputExternal(string message, ExternalOutputOptions options = null)
+        {
+            if (message == null)
+            {
+                return;
+            }
+
+            if (AgentKnobs.EnablePluginExternalOutputFiltering.GetValue(this).AsBoolean())
+            {
+                Output(ExternalOutputFilter.Filter(message, options));
+            }
+            else
+            {
+                Output(message);
             }
         }
 

@@ -5,26 +5,260 @@ using Xunit;
 using Microsoft.VisualStudio.Services.Agent.Tests;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using System.IO;
 using Moq;
 using System.Collections.Generic;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using System.Diagnostics;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Test.L0.Worker.Handlers;
 
+[CollectionDefinition("Worker proxy environment tests")]
+public class ProcessHandlerEnvironmentTestFixture
+{
+}
+
+[Collection("Worker proxy environment tests")]
 public class ProcessHandlerL0
 {
     [Fact]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "windows")]
+    public void AddVariablesToEnvironment_AddsBothProxyVariableCasingsOnUnix()
+    {
+        const string httpProxyValue = "http://lowercase-http.example:18079";
+        const string httpsProxyValue = "http://lowercase.example:18081";
+        const string noProxyValue = "lowercase.example";
+        const string allProxyValue = "socks5://lowercase-all.example:18082";
+
+        using var hostContext = CreateTestHostContext();
+        var variables = new Variables(hostContext, new Dictionary<string, VariableValue>(), out _);
+        variables.Set("HTTP_PROXY", "http://uppercase-http.example:18078", preserveCase: true);
+        variables.Set("http_proxy", httpProxyValue, preserveCase: true);
+        variables.Set("HTTPS_PROXY", "http://uppercase.example:18080", preserveCase: true);
+        variables.Set("https_proxy", httpsProxyValue, preserveCase: true);
+        variables.Set("NO_PROXY", "uppercase.example", preserveCase: true);
+        variables.Set("no_proxy", noProxyValue, preserveCase: true);
+        variables.Set("ALL_PROXY", "socks5://uppercase-all.example:18083", preserveCase: true);
+        variables.Set("all_proxy", allProxyValue, preserveCase: true);
+
+        var handler = new TestHandler
+        {
+            Environment = new Dictionary<string, string>(VarUtil.EnvironmentVariableKeyComparer),
+            RuntimeVariables = variables,
+        };
+        handler.Initialize(hostContext);
+        var executionContext = CreateMockExecutionContext(hostContext);
+        executionContext
+            .Setup(x => x.GetVariableValueOrDefault(AgentKnobs.EnableProxyVariableCaseAliasesVariableName))
+            .Returns("true");
+        handler.ExecutionContext = executionContext.Object;
+        handler.AfterExecutionContextInitialized();
+
+        handler.AddRuntimeVariablesToEnvironment();
+
+        Assert.Equal(httpProxyValue, handler.Environment["HTTP_PROXY"]);
+        Assert.Equal(httpProxyValue, handler.Environment["http_proxy"]);
+        Assert.Equal(httpsProxyValue, handler.Environment["HTTPS_PROXY"]);
+        Assert.Equal(httpsProxyValue, handler.Environment["https_proxy"]);
+        Assert.Equal(noProxyValue, handler.Environment["NO_PROXY"]);
+        Assert.Equal(noProxyValue, handler.Environment["no_proxy"]);
+        Assert.Equal(allProxyValue, handler.Environment["ALL_PROXY"]);
+        Assert.Equal(allProxyValue, handler.Environment["all_proxy"]);
+    }
+
+    [Theory]
+    [InlineData("HTTP_PROXY", "HTTP_PROXY", "http_proxy")]
+    [InlineData("http_proxy", "http_proxy", "HTTP_PROXY")]
+    [InlineData("HtTp_PrOxY", "HtTp_PrOxY", "HTTP_PROXY", "http_proxy")]
+    [InlineData("HTTPS_PROXY", "HTTPS_PROXY", "https_proxy")]
+    [InlineData("https_proxy", "https_proxy", "HTTPS_PROXY")]
+    [InlineData("HtTpS_pRoXy", "HtTpS_pRoXy", "HTTPS_PROXY", "https_proxy")]
+    [InlineData("NO_PROXY", "NO_PROXY", "no_proxy")]
+    [InlineData("no_proxy", "no_proxy", "NO_PROXY")]
+    [InlineData("No_PrOxY", "No_PrOxY", "NO_PROXY", "no_proxy")]
+    [InlineData("ALL_PROXY", "ALL_PROXY", "all_proxy")]
+    [InlineData("all_proxy", "all_proxy", "ALL_PROXY")]
+    [InlineData("AlL_pRoXy", "AlL_pRoXy", "ALL_PROXY", "all_proxy")]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void GetEnvironmentVariableKeys_AddsProxyCaseVariantsOnUnix(string variable, params string[] expected)
+    {
+        Assert.Equal(expected, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: true));
+    }
+
+    [Theory]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
+    [InlineData("HTTPS_PROXY")]
+    [InlineData("https_proxy")]
+    [InlineData("NO_PROXY")]
+    [InlineData("no_proxy")]
+    [InlineData("ALL_PROXY")]
+    [InlineData("all_proxy")]
+    [InlineData("AZP_UNRELATED_VARIABLE")]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsOnWindows(string variable)
+    {
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: true, enableProxyVariableCaseAliases: true));
+    }
+
+    [Theory]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
+    [InlineData("HTTPS_PROXY")]
+    [InlineData("https_proxy")]
+    [InlineData("NO_PROXY")]
+    [InlineData("no_proxy")]
+    [InlineData("ALL_PROXY")]
+    [InlineData("all_proxy")]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsWhenDisabled(string variable)
+    {
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: false));
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void EnableProxyVariableCaseAliases_DefaultsToFalse()
+    {
+        using var hostContext = CreateTestHostContext();
+        var executionContext = CreateMockExecutionContext(hostContext);
+
+        Assert.False(AgentKnobs.EnableProxyVariableCaseAliases.GetValue(executionContext.Object).AsBoolean());
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void GetEnvironmentVariableKeys_DoesNotAddCaseVariantsForOtherVariables()
+    {
+        const string variable = "AZP_UNRELATED_VARIABLE";
+
+        Assert.Equal(new[] { variable }, Handler.GetEnvironmentVariableKeys(variable, runningOnWindows: false, enableProxyVariableCaseAliases: true));
+    }
+
+    [Theory]
+    [InlineData("HTTP_PROXY")]
+    [InlineData("http_proxy")]
+    [InlineData("HtTpS_pRoXy")]
+    [InlineData("No_PrOxY")]
+    [InlineData("all_proxy")]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    public void IsProxyEnvironmentVariable_IsCaseInsensitive(string variable)
+    {
+        Assert.True(ProcessHandlerHelper.IsProxyEnvironmentVariable(variable));
+        Assert.False(ProcessHandlerHelper.IsProxyEnvironmentVariable("AZP_UNRELATED_VARIABLE"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_BasicExecution()
+    public async Task ModifyEnvironment_DoesNotPersistProxyVariables(bool useV2)
+    {
+        const string httpProxy = "HTTP_PROXY";
+        const string httpsProxy = "HTTPS_PROXY";
+        const string noProxy = "NO_PROXY";
+        const string allProxy = "ALL_PROXY";
+        const string unrelatedVariable = "AZP_PROCESS_HANDLER_MODIFY_ENVIRONMENT_TEST";
+        const string workerHttpProxy = "http://worker-http";
+        const string workerHttpsProxy = "http://worker-https";
+        const string workerNoProxy = "worker.example.com";
+        const string workerAllProxy = "socks5://worker-all";
+        string originalHttpProxy = Environment.GetEnvironmentVariable(httpProxy);
+        string originalHttpsProxy = Environment.GetEnvironmentVariable(httpsProxy);
+        string originalNoProxy = Environment.GetEnvironmentVariable(noProxy);
+        string originalAllProxy = Environment.GetEnvironmentVariable(allProxy);
+        string originalUnrelatedVariable = Environment.GetEnvironmentVariable(unrelatedVariable);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(httpProxy, null);
+            Environment.SetEnvironmentVariable(httpsProxy, null);
+            Environment.SetEnvironmentVariable(noProxy, null);
+            Environment.SetEnvironmentVariable(allProxy, null);
+            Environment.SetEnvironmentVariable("http_proxy", workerHttpProxy);
+            Environment.SetEnvironmentVariable("HtTpS_pRoXy", workerHttpsProxy);
+            Environment.SetEnvironmentVariable("no_proxy", workerNoProxy);
+            Environment.SetEnvironmentVariable("AlL_pRoXy", workerAllProxy);
+            Environment.SetEnvironmentVariable(unrelatedVariable, null);
+
+            using var hostContext = CreateTestHostContext();
+            using var processInvoker = new ProcessInvokerWrapper();
+            hostContext.EnqueueInstance<IProcessInvoker>(processInvoker);
+
+            using var targetScript = new TestScript(
+                testTemp: hostContext.GetDirectory(WellKnownDirectory.Temp),
+                scriptName: "modify-environment.cmd"
+            );
+            targetScript.WriteContent($@"
+@echo off
+set {unrelatedVariable}=persisted");
+
+            IProcessHandler handler = useV2 ? new ProcessHandlerV2() : new ProcessHandler();
+            handler.Initialize(hostContext);
+            handler.Data = new ProcessHandlerData()
+            {
+                Target = targetScript.ScriptPath,
+                ArgumentFormat = "",
+                DisableInlineExecution = false.ToString(),
+                ModifyEnvironment = true.ToString()
+            };
+            handler.Inputs = new();
+            handler.TaskDirectory = "";
+            handler.Environment = new()
+            {
+                ["http_proxy"] = "http://task-http",
+                ["HtTpS_pRoXy"] = "http://task-https",
+                ["no_proxy"] = "task.example.com",
+                ["AlL_pRoXy"] = "socks5://task-all",
+            };
+            handler.RuntimeVariables = new(hostContext, new Dictionary<string, VariableValue>(), out _);
+
+            var executionContext = CreateMockExecutionContext(hostContext);
+            executionContext.Setup(x => x.GetVariableValueOrDefault("AZP_75787_ENABLE_NEW_LOGIC")).Returns("false");
+            handler.ExecutionContext = executionContext.Object;
+
+            await handler.RunAsync();
+
+            Assert.Equal(workerHttpProxy, Environment.GetEnvironmentVariable(httpProxy));
+            Assert.Equal(workerHttpsProxy, Environment.GetEnvironmentVariable(httpsProxy));
+            Assert.Equal(workerNoProxy, Environment.GetEnvironmentVariable(noProxy));
+            Assert.Equal(workerAllProxy, Environment.GetEnvironmentVariable(allProxy));
+            Assert.Equal("persisted", Environment.GetEnvironmentVariable(unrelatedVariable));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(httpProxy, originalHttpProxy);
+            Environment.SetEnvironmentVariable(httpsProxy, originalHttpsProxy);
+            Environment.SetEnvironmentVariable(noProxy, originalNoProxy);
+            Environment.SetEnvironmentVariable(allProxy, originalAllProxy);
+            Environment.SetEnvironmentVariable(unrelatedVariable, originalUnrelatedVariable);
+        }
+    }
+
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker.Handlers")]
+    [Trait("SkipOn", "linux")]
+    [Trait("SkipOn", "darwin")]
+    public async Task ProcessHandlerV2_BasicExecution()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -70,7 +304,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_FileExecution()
+    public async Task ProcessHandlerV2_FileExecution()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -126,7 +360,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_Validation_passes()
+    public async Task ProcessHandlerV2_Validation_passes()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -176,7 +410,7 @@ echo hello");
     [Trait("Category", "Worker.Handlers")]
     [Trait("SkipOn", "linux")]
     [Trait("SkipOn", "darwin")]
-    public async void ProcessHandlerV2_Validation_fails()
+    public async Task ProcessHandlerV2_Validation_fails()
     {
         using var hostContext = CreateTestHostContext();
 
@@ -235,6 +469,14 @@ echo hello");
         hostContext.SetSingleton(new ExtensionManager() as IExtensionManager);
 
         return hostContext;
+    }
+
+    private sealed class TestHandler : Handler
+    {
+        public void AddRuntimeVariablesToEnvironment()
+        {
+            AddVariablesToEnvironment();
+        }
     }
 
     private class TestScript : IDisposable

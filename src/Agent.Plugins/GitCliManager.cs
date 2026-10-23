@@ -447,7 +447,7 @@ namespace Agent.Plugins.Repository
         }
 
         // git submodule update --init --force [--depth=15] [--recursive]
-        public async Task<int> GitSubmoduleUpdate(AgentTaskPluginExecutionContext context, string repositoryPath, int fetchDepth, string additionalCommandLine, bool recursive, CancellationToken cancellationToken)
+        public async Task<int> GitSubmoduleUpdate(AgentTaskPluginExecutionContext context, string repositoryPath, int fetchDepth, IEnumerable<string> filters, string additionalCommandLine, bool recursive, CancellationToken cancellationToken)
         {
             context.Debug("Update the registered git submodules.");
             string options = "update --init --force";
@@ -455,6 +455,11 @@ namespace Agent.Plugins.Repository
             {
                 options = options + $" --depth={fetchDepth}";
             }
+            if (AgentKnobs.UseFetchFilterInGitSubmoduleUpdate.GetValue(context).AsBoolean() && filters != null)
+            {
+                options += " " + string.Join(" ", filters.Select(f => "--filter=" + f));
+            }
+
             if (recursive)
             {
                 options = options + " --recursive";
@@ -474,6 +479,32 @@ namespace Agent.Plugins.Repository
             }
 
             return await ExecuteGitCommandAsync(context, repositoryPath, "submodule", options, cancellationToken);
+        }
+
+        // git submodule foreach [--recursive] --quiet "printf '%s\n' \"$displaypath\""
+        public async Task<List<string>> GitSubmodulePaths(AgentTaskPluginExecutionContext context, string repositoryPath, bool recursive, CancellationToken cancellationToken)
+        {
+            context.Debug("Enumerate submodule paths.");
+            string options = "foreach";
+            if (recursive)
+            {
+                options = options + " --recursive";
+            }
+            options = options + " --quiet \"printf '%s\\n' \\\"$displaypath\\\"\"";
+
+            List<string> outputStrings = new List<string>();
+            int exitCode = await ExecuteGitCommandAsync(context, repositoryPath, "submodule", options, outputStrings);
+
+            if (exitCode != 0)
+            {
+                context.Warning($"'git submodule foreach' failed with exit code: {exitCode}");
+                return new List<string>();
+            }
+
+            return outputStrings
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Select(o => Path.Combine(repositoryPath, o.Trim().Replace('/', Path.DirectorySeparatorChar)))
+                .ToList();
         }
 
         // git config --get remote.origin.url
@@ -579,6 +610,13 @@ namespace Agent.Plugins.Repository
         {
             context.Debug($"Unset git config --unset-all {configKey}");
             return await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"--unset-all {configKey}"));
+        }
+
+        // git config -f <file> --unset-all <key>
+        public async Task<int> GitConfigUnsetFile(AgentTaskPluginExecutionContext context, string repositoryPath, string configFilePath, string configKey)
+        {
+            context.Debug($"Unset git config -f --unset-all {configKey}");
+            return await ExecuteGitCommandAsync(context, repositoryPath, "config", StringUtil.Format($"-f \"{configFilePath}\" --unset-all {configKey}"));
         }
 
         // git config gc.auto 0
