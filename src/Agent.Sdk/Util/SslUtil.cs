@@ -1,22 +1,24 @@
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
-using System.Net.Http;
 using Agent.Sdk;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace Microsoft.VisualStudio.Services.Agent.Util
 {
     public sealed class SslUtil
     {
-        private ITraceWriter _trace { get; set; }
-        private bool _IgnoreCertificateErrors { get; set; }
+        private readonly ITraceWriter _trace;
 
-        public SslUtil(ITraceWriter trace, bool IgnoreCertificateErrors = false)
+        private readonly bool _ignoreCertificateErrors;
+
+        public SslUtil(ITraceWriter trace, bool ignoreCertificateErrors = false)
         {
             this._trace = trace;
-            this._IgnoreCertificateErrors = IgnoreCertificateErrors;
+            this._ignoreCertificateErrors = ignoreCertificateErrors;
         }
 
         /// <summary>Implementation of custom callback function that logs SSL-related data from the web request to the agent's logs.</summary>
@@ -24,38 +26,42 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public bool RequestStatusCustomValidation(HttpRequestMessage requestMessage, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslErrors)
         {
             bool isRequestSuccessful = (sslErrors == SslPolicyErrors.None);
-            
+
             if (!isRequestSuccessful)
             {
                 LoggingRequestDiagnosticData(requestMessage, certificate, chain, sslErrors);
             }
 
-            if (this._IgnoreCertificateErrors) {
-                 this._trace?.Info("Ignoring certificate errors.");
+            if (this._ignoreCertificateErrors)
+            {
+                this._trace?.Info("Ignoring certificate errors.");
             }
 
-            return this._IgnoreCertificateErrors || isRequestSuccessful;
+            return this._ignoreCertificateErrors || isRequestSuccessful;
         }
 
         /// <summary>Logs SSL related data to agent's logs</summary>
         private void LoggingRequestDiagnosticData(HttpRequestMessage requestMessage, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslErrors)
         {
-            string diagInfo = "Diagnostic data for request:\n";
-
             if (this._trace != null)
             {
-                diagInfo += SslDiagnosticDataProvider.ResolveSslPolicyErrorsMessage(sslErrors);
-                diagInfo += SslDiagnosticDataProvider.GetRequestMessageData(requestMessage);
-                diagInfo += SslDiagnosticDataProvider.GetCertificateData(certificate);
-                diagInfo += SslDiagnosticDataProvider.GetChainData(chain);
+                var logBuilder = new SslDiagnosticsLogBuilder();
+                logBuilder.AddSslPolicyErrorsMessages(sslErrors);
+                logBuilder.AddRequestMessageLog(requestMessage);
+                logBuilder.AddCertificateLog(certificate);
+                logBuilder.AddChainLog(chain);
 
-                this._trace?.Info(diagInfo);
+                var formattedLog = logBuilder.BuildLog();
+
+                this._trace?.Info($"Diagnostic data for request:{Environment.NewLine}{formattedLog}");
             }
         }
     }
 
-    public static class SslDiagnosticDataProvider
+    internal sealed class SslDiagnosticsLogBuilder
     {
+        private readonly StringBuilder _logBuilder = new StringBuilder();
+
         /// <summary>A predefined list of headers to get from the request</summary>
         private static readonly string[] _requiredRequestHeaders = new[]
         {
@@ -74,122 +80,99 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         };
 
         /// <summary>
-        /// Get diagnostic data about the HTTP request.
+        /// Add diagnostics data about the HTTP request.
         /// This method extracts common information about the request itself and the request's headers.
         /// To expand list of headers please update <see cref="_requiredRequestHeaders"/></summary>.
-        /// <returns>Diagnostic data as a formatted string</returns>
-        public static string GetRequestMessageData(HttpRequestMessage requestMessage)
+        public void AddRequestMessageLog(HttpRequestMessage requestMessage)
         {
             // Getting general information about request
-            string requestDiagInfoHeader = "HttpRequest";
-            string diagInfo = string.Empty;
-
             if (requestMessage is null)
             {
-                return $"{requestDiagInfoHeader} data is empty";
+                _logBuilder.AppendLine($"HttpRequest data is empty");
+                return;
             }
 
-            var requestDiagInfo = new List<KeyValuePair<string, string>>();
 
             var requestedUri = requestMessage?.RequestUri.ToString();
             var methodType = requestMessage?.Method.ToString();
-            requestDiagInfo.Add(new KeyValuePair<string, string>("Requested URI", requestedUri));
-            requestDiagInfo.Add(new KeyValuePair<string, string>("Request method", methodType));
-
-            diagInfo = GetFormattedData(requestDiagInfoHeader, requestDiagInfo);
+            _logBuilder.AppendLine($"[HttpRequest]");
+            _logBuilder.AppendLine($"Requested URI: {requestedUri}");
+            _logBuilder.AppendLine($"Requested method: {methodType}");
 
             // Getting informantion from headers
             var requestHeaders = requestMessage?.Headers;
 
-            if (requestHeaders is null)
+            if (requestHeaders is null || !requestHeaders.Any())
             {
-                return diagInfo;
+                return;
             }
 
-            string headersDiagInfoHeader = "HttpRequestHeaders";
-
-            var headersDiagInfo = new List<KeyValuePair<string, string>>();
+            _logBuilder.AppendLine($"[HttpRequestHeaders]");
             foreach (var headerKey in _requiredRequestHeaders)
             {
                 IEnumerable<string> headerValues;
 
                 if (requestHeaders.TryGetValues(headerKey, out headerValues))
                 {
-                    var headerValue = string.Join(", ", headerValues.ToArray());
-                    if (headerValue != null)
-                    {
-                        headersDiagInfo.Add(new KeyValuePair<string, string>(headerKey, headerValue.ToString()));
-                    }
+                    _logBuilder.AppendLine($"{headerKey}: {string.Join(", ", headerValues.ToArray())}");
                 }
             }
-
-            diagInfo += GetFormattedData(headersDiagInfoHeader, headersDiagInfo);
-
-            return diagInfo;
         }
 
         /// <summary>
-        /// Get diagnostic data about the certificate.
+        /// Add diagnostics data about the certificate.
         /// This method extracts common information about the certificate.
         /// </summary>
-        /// <returns>Diagnostic data as a formatted string</returns>
-        public static string GetCertificateData(X509Certificate2 certificate)
+        public void AddCertificateLog(X509Certificate2 certificate)
         {
-            string diagInfoHeader = "Certificate";
             var diagInfo = new List<KeyValuePair<string, string>>();
 
             if (certificate is null)
             {
-                return $"{diagInfoHeader} data is empty";
+                _logBuilder.AppendLine($"Certificate data is empty");
+                return;
             }
 
-            diagInfo.Add(new KeyValuePair<string, string>("Effective date", certificate?.GetEffectiveDateString()));
-            diagInfo.Add(new KeyValuePair<string, string>("Expiration date", certificate?.GetExpirationDateString()));
-            diagInfo.Add(new KeyValuePair<string, string>("Issuer", certificate?.Issuer));
-            diagInfo.Add(new KeyValuePair<string, string>("Subject", certificate?.Subject));
-
-            return GetFormattedData(diagInfoHeader, diagInfo);
+            _logBuilder.AppendLine($"[Certificate]");
+            AddCertificateData(certificate);
         }
 
         /// <summary>
-        /// Get diagnostic data about the chain.
+        /// Add diagnostics data about the chain.
         /// This method extracts common information about the chain.
         /// </summary>
-        /// <returns>Diagnostic data as a formatted string</returns>
-        public static string GetChainData(X509Chain chain) 
+        public void AddChainLog(X509Chain chain)
         {
-            string diagInfoHeader = "ChainStatus";
-            var diagInfo = new List<KeyValuePair<string, string>>();
-
-            if (chain is null)
+            if (chain is null || chain.ChainElements is null)
             {
-                return $"{diagInfoHeader} data is empty";
+                _logBuilder.AppendLine($"ChainElements data is empty");
+                return;
             }
 
-            foreach (var status in chain.ChainStatus)
+            _logBuilder.AppendLine("[ChainElements]");
+            foreach (var chainElement in chain.ChainElements)
             {
-                diagInfo.Add(new KeyValuePair<string, string>("Status", status.Status.ToString()));
-                diagInfo.Add(new KeyValuePair<string, string>("Status Information", status.StatusInformation));
+                AddCertificateData(chainElement.Certificate);
+                foreach (var status in chainElement.ChainElementStatus)
+                {
+                    _logBuilder.AppendLine($"Status: {status.Status}");
+                    _logBuilder.AppendLine($"Status Information: {status.StatusInformation}");
+                }
             }
-
-            return GetFormattedData(diagInfoHeader, diagInfo);
         }
 
         /// <summary>
-        /// Get list of SSL policy errors with descriptions.
+        /// Add list of SSL policy errors with descriptions.
         /// This method checks SSL policy errors and mapping them to user-friendly descriptions.
         /// To update SSL policy errors description please update <see cref="_sslPolicyErrorsMapping"/>.
         /// </summary>
-        /// <returns>Diagnostic data as a formatted string</returns>
-        public static string ResolveSslPolicyErrorsMessage(SslPolicyErrors sslErrors)
+        public void AddSslPolicyErrorsMessages(SslPolicyErrors sslErrors)
         {
-            string diagInfoHeader = $"SSL Policy Errors";
-            var diagInfo = new List<KeyValuePair<string, string>>();
+            _logBuilder.AppendLine($"[SSL Policy Errors]");
 
             if (sslErrors == SslPolicyErrors.None)
             {
-                diagInfo.Add(new KeyValuePair<string, string>(sslErrors.ToString(), _sslPolicyErrorsMapping[sslErrors]));
-                return GetFormattedData(diagInfoHeader, diagInfo);
+                _logBuilder.AppendLine($"No SSL policy errors");
             }
 
             // Since we can get several SSL policy errors we should check all of them
@@ -197,33 +180,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             {
                 if ((sslErrors & errorCode) != 0)
                 {
-                    string errorValue = errorCode.ToString();
-                    string errorMessage = string.Empty;
-
-                    if (!_sslPolicyErrorsMapping.TryGetValue(errorCode, out errorMessage))
+                    if (!_sslPolicyErrorsMapping.ContainsKey(errorCode))
                     {
-                        errorMessage = "Could not resolve related error message";
+                        _logBuilder.AppendLine($"{errorCode.ToString()}: Could not resolve related error message");
                     }
-
-                    diagInfo.Add(new KeyValuePair<string, string>(errorValue, errorMessage));
+                    else
+                    {
+                        _logBuilder.AppendLine($"{errorCode.ToString()}: {_sslPolicyErrorsMapping[errorCode]}");
+                    }
                 }
             }
-
-            return GetFormattedData(diagInfoHeader, diagInfo);
         }
 
-        /// <summary>Get diagnostic data as formatted text</summary>
-        /// <returns>Formatted string</returns>
-        private static string GetFormattedData(string diagInfoHeader, List<KeyValuePair<string, string>> diagInfo)
+        public string BuildLog()
         {
-            string formattedData = $"[{diagInfoHeader}]\n";
+            return _logBuilder.ToString();
+        }
 
-            foreach (var record in diagInfo)
-            {
-                formattedData += $"{record.Key}: {record.Value}\n";
-            }
 
-            return formattedData;
+        private void AddCertificateData(X509Certificate2 certificate)
+        {
+            _logBuilder.AppendLine($"Effective date: {certificate?.GetEffectiveDateString()}");
+            _logBuilder.AppendLine($"Expiration date: {certificate?.GetExpirationDateString()}");
+            _logBuilder.AppendLine($"Issuer: {certificate?.Issuer}");
+            _logBuilder.AppendLine($"Subject: {certificate?.Subject}");
+            _logBuilder.AppendLine($"Thumbprint: {certificate?.Thumbprint}");
         }
     }
 }
