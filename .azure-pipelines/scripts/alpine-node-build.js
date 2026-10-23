@@ -18,8 +18,9 @@ async function request(url, token, fetchImpl, method = 'GET', body) {
     return { data: await response.json(), continuation: response.headers.get('x-ms-continuationtoken') };
 }
 
-async function readBuildHistory(token, fetchImpl) {
-    const builds = [];
+async function readBuildHistory(versions, token, fetchImpl) {
+    const matches = new Map();
+    const wanted = new Set(versions);
     const seenTokens = new Set();
     let continuation;
     do {
@@ -36,14 +37,23 @@ async function readBuildHistory(token, fetchImpl) {
                 typeof build.templateParameters !== 'object' || Array.isArray(build.templateParameters))))) {
             throw new Error('Invalid Alpine-NodeJs-Build history; no builds will be queued.');
         }
-        builds.push(...page.data.value);
+        for (const build of page.data.value) {
+            const value = build.templateParameters?.nodeVersion;
+            const version = typeof value === 'string' ? semver.clean(value.trim()) : null;
+            if (wanted.has(version) && !matches.has(version)) {
+                matches.set(version, build);
+            }
+        }
+        if (matches.size === wanted.size) {
+            break;
+        }
         continuation = page.continuation;
         if (continuation && seenTokens.has(continuation)) {
             throw new Error('Repeated continuation token in Alpine-NodeJs-Build history; no builds will be queued.');
         }
         seenTokens.add(continuation);
     } while (continuation);
-    return builds;
+    return matches;
 }
 
 function runDetails(run, queued = false) {
@@ -69,11 +79,10 @@ async function ensureAlpineBuilds(checked, { token, fetchImpl = fetch }) {
     if (versions.some(version => !semver.valid(version) || semver.prerelease(version))) {
         throw new Error('Invalid target Node version for Alpine-NodeJs-Build.');
     }
-    const history = await readBuildHistory(token, fetchImpl);
+    const history = await readBuildHistory(versions, token, fetchImpl);
     const results = [];
     for (const nodeVersion of versions) {
-        const existing = history.find(build => typeof build.templateParameters?.nodeVersion === 'string' &&
-            semver.clean(build.templateParameters.nodeVersion.trim()) === nodeVersion);
+        const existing = history.get(nodeVersion);
         if (existing) {
             results.push({ nodeVersion, outcome: 'existing', ...runDetails(existing) });
             continue;

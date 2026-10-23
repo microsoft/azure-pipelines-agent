@@ -97,6 +97,36 @@ test('does not confuse another Node version or a missing default with an exact v
     assert.equal(results[0].nodeVersion, '24.23.0');
 });
 
+test('stops reading history once all targets are found and retains the newest matching run', async () => {
+    let calls = 0;
+    const results = await ensureAlpineBuilds(checked, {
+        token: 'test-token',
+        fetchImpl: async (url, options) => {
+            assert.equal(options.method, 'GET');
+            assert.equal(++calls, 1, 'No older pages are needed after every target is found');
+            return response({ value: [
+                build(30, '24.23.0', 'inProgress', null), build(29, '22.23.4'),
+                build(28, '24.23.0', 'completed', 'failed'), build(27, '20.99.0')
+            ] }, 'unneeded-page');
+        }
+    });
+    assert.deepEqual(results.map(result => [result.nodeVersion, result.runId]), [['22.23.4', 29], ['24.23.0', 30]]);
+});
+
+test('does not queue missing targets when a later history page fails', async () => {
+    let calls = 0;
+    await assert.rejects(ensureAlpineBuilds(checked, {
+        token: 'test-token',
+        fetchImpl: async (url, options) => {
+            assert.equal(options.method, 'GET', 'Incomplete history must never cause a POST');
+            return ++calls === 1
+                ? response({ value: [build(30, '24.23.0')] }, 'next-page')
+                : new Response('', { status: 503 });
+        }
+    }), /503/);
+    assert.equal(calls, 2);
+});
+
 test('does not call Azure DevOps or require a token when no eligible pins are outdated', async () => {
     assert.deepEqual(await ensureAlpineBuilds([checked[3]], {
         fetchImpl: () => assert.fail('No builds should be queried')

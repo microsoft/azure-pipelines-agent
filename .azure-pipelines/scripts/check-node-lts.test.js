@@ -115,6 +115,20 @@ test('checks platform-specific pins independently within the same LTS major', ()
     assert.deepEqual(result.checked.map(pin => pin.securityUpdateRequired), [false, true]);
 });
 
+test('evaluates lifecycle and stable release metadata once per major, not per platform pin', () => {
+    let lifecycleReads = 0;
+    let releaseChecks = 0;
+    const result = analyzeSource('NODE24_VERSION="24.23.0"\nNODE24_WIN_ARM64_VERSION="24.18.1"', {
+        schedule: { get v24() { lifecycleReads++; return schedule.v24; } },
+        releases: releases.map(release => release.version === 'v24.18.1'
+            ? { ...release, get date() { releaseChecks++; return release.date; } } : release)
+    });
+    assert.equal(lifecycleReads, 1);
+    assert.equal(releaseChecks, 1);
+    assert.deepEqual(result.checked.map(pin => pin.securityUpdateRequired), [false, true]);
+    assert.deepEqual(result.checked.map(pin => pin.vulnerabilities.length), [0, 1]);
+});
+
 test('selects the newest stable security release numerically within each major', () => {
     const result = analyzeSource('NODE24_VERSION="24.18.1"', {
         releases: [...releases, { version: 'v24.9.1', date: '2026-10-23', security: true }]
@@ -227,10 +241,17 @@ async function runMonitor(t, options = {}) {
                 'https://raw.githubusercontent.com/nodejs/Release/main/schedule.json': options.schedule || schedule
             };
             assert.ok(Object.hasOwn(data, url), `Unexpected request: ${url}`);
+            assert.equal(requestOptions.headers?.Authorization, undefined, 'Never send ADO credentials to upstream feeds');
             return { ok: true, json: async () => data[url] };
         })
     });
     return { exitCode, logs, requests, outputDirectory };
+}
+
+function alpineFetch(builds, queue) {
+    return async (url, options) => options.method === 'GET'
+        ? new Response(JSON.stringify({ value: builds }))
+        : queue(JSON.parse(options.body));
 }
 
 test('publishes per-pin Markdown and JSON reports and failures for every vulnerable LTS line', async t => {
@@ -298,25 +319,13 @@ test('triggers Alpine builds even when CVEs fail the monitor and records all out
     let posts = 0;
     const result = await runMonitor(t, {
         triggerAlpineBuilds: true, accessToken: 'test-token',
-        fetchImpl: async (url, options) => {
-            const feeds = {
-                'https://nodejs.org/dist/index.json': releases,
-                'https://raw.githubusercontent.com/nodejs/security-wg/main/vuln/core/index.json': { 1: advisory() },
-                'https://raw.githubusercontent.com/nodejs/Release/main/schedule.json': schedule
-            };
-            if (Object.hasOwn(feeds, String(url))) {
-                assert.equal(options.headers?.Authorization, undefined, 'Never send ADO credentials to upstream feeds');
-                return new Response(JSON.stringify(feeds[String(url)]));
-            }
-            if (options.method === 'GET') {
-                return new Response(JSON.stringify({ value: [
-                    { id: 10, templateParameters: { nodeVersion: '22.23.4' }, status: 'completed', result: 'failed' }
-                ] }));
-            }
+        adoFetchImpl: alpineFetch([
+            { id: 10, templateParameters: { nodeVersion: '22.23.4' }, status: 'completed', result: 'failed' }
+        ], body => {
             posts++;
-            assert.equal(JSON.parse(options.body).templateParameters.nodeVersion, '24.23.0');
+            assert.equal(body.templateParameters.nodeVersion, '24.23.0');
             return new Response(JSON.stringify({ id: 11, state: 'inProgress' }));
-        }
+        })
     });
     assert.equal(posts, 1);
     assert.equal(result.exitCode, 1, 'Queuing a build must not clear the security failure');
@@ -346,14 +355,11 @@ test('requests the latest nonsecurity stable update without changing the clean s
     let posts = 0;
     const result = await runMonitor(t, {
         source: 'NODE24_VERSION="24.22.1"', triggerAlpineBuilds: true, accessToken: 'test-token',
-        adoFetchImpl: async (url, options) => {
-            if (options.method === 'GET') {
-                return new Response(JSON.stringify({ value: [] }));
-            }
+        adoFetchImpl: alpineFetch([], body => {
             posts++;
-            assert.equal(JSON.parse(options.body).templateParameters.nodeVersion, '24.23.0');
+            assert.equal(body.templateParameters.nodeVersion, '24.23.0');
             return new Response(JSON.stringify({ id: 12, state: 'inProgress' }));
-        }
+        })
     });
     assert.equal(posts, 1);
     assert.equal(result.exitCode, 0);
@@ -372,14 +378,10 @@ test('reports an enabled Alpine no-op without credentials when no LTS update is 
 test('retains queued builds and CVEs in reports when a different Alpine request fails', async t => {
     const result = await runMonitor(t, {
         triggerAlpineBuilds: true, accessToken: 'test-token',
-        adoFetchImpl: async (url, options) => {
-            if (options.method === 'GET') {
-                return new Response(JSON.stringify({ value: [] }));
-            }
-            return JSON.parse(options.body).templateParameters.nodeVersion === '22.23.4'
+        adoFetchImpl: alpineFetch([], body =>
+            body.templateParameters.nodeVersion === '22.23.4'
                 ? new Response(JSON.stringify({ id: 15, state: 'inProgress' }))
-                : new Response('', { status: 403 });
-        }
+                : new Response('', { status: 403 }))
     });
     assert.equal(result.exitCode, 2);
     const report = JSON.parse(await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.json'), 'utf8'));

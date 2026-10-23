@@ -127,8 +127,10 @@ the **latest stable release**, including when the update is nonsecurity-only.
 Multiple packaging pins targeting the same version produce only one request.
 End-of-life and not-yet-LTS pins never request builds.
 
-Before queuing, it reads all retained runs of pipeline 21894, following
-pagination, and matches the exact `nodeVersion` template parameter. Any
+Before queuing, it scans retained runs of pipeline 21894, following
+pagination, and matches the exact `nodeVersion` template parameter. It keeps
+only matching runs and stops once every target version is found. If any
+target is missing, it completes the history scan before queuing. Any
 existing run prevents another request, regardless of branch, pool, status,
 or result. Failed and canceled runs are reported with a warning and link,
 not retried automatically. Deleted or expired runs are no longer available
@@ -141,6 +143,7 @@ Alpine builds. That pipeline builds the binary and opens its normal binary
 update PR; this monitor does not wait for completion, change agent pins, or
 clear the original security failure. Markdown and JSON reports include an
 `alpineBuilds` list of existing/queued runs and any per-version queue errors.
+The Markdown summary uses compact tables; the JSON retains full per-pin data.
 
 The YAML maps `System.AccessToken` only to the monitoring step. Its build
 identity needs **View builds** and **Queue builds** on pipeline 21894; no

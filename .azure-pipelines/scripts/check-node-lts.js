@@ -87,37 +87,45 @@ function analyze(pins, releases, advisories, schedule, asOf) {
 
     const checked = [];
     const skipped = [];
+    const majors = new Map();
     for (const pin of pins) {
-        const lifecycle = getLifecycle(pin.major, schedule, asOf);
-        const result = { variable: pin.variable, major: pin.major, pinnedVersion: pin.version, ...lifecycle };
-        if (!['active-lts', 'maintenance-lts'].includes(lifecycle.status)) {
+        if (!majors.has(pin.major)) {
+            const info = getLifecycle(pin.major, schedule, asOf);
+            if (['active-lts', 'maintenance-lts'].includes(info.status)) {
+                const lineReleases = releases.filter(release =>
+                    semver.major(release.version) === pin.major && !semver.prerelease(release.version))
+                    .sort((left, right) => semver.rcompare(left.version, right.version));
+                if (lineReleases.length === 0) {
+                    throw new Error(`Release index contains no stable Node ${pin.major} releases.`);
+                }
+                if (lineReleases.some(release => !isDate(release.date) || typeof release.security !== 'boolean')) {
+                    throw new Error(`Invalid metadata for a Node ${pin.major} release.`);
+                }
+                const latest = lineReleases[0];
+                const security = lineReleases.find(release => release.security === true);
+                Object.assign(info, {
+                    latestVersion: semver.clean(latest.version), latestReleaseDate: latest.date,
+                    latestReleaseIsSecurity: latest.security,
+                    latestSecurityVersion: security ? semver.clean(security.version) : null,
+                    latestSecurityReleaseDate: security ? security.date : null
+                });
+            }
+            majors.set(pin.major, info);
+        }
+        const info = majors.get(pin.major);
+        const result = { variable: pin.variable, major: pin.major, pinnedVersion: pin.version, ...info };
+        if (!['active-lts', 'maintenance-lts'].includes(info.status)) {
             skipped.push(result);
             continue;
         }
-        const lineReleases = releases.filter(release =>
-            semver.major(release.version) === pin.major && !semver.prerelease(release.version))
-            .sort((left, right) => semver.rcompare(left.version, right.version));
-        if (lineReleases.length === 0) {
-            throw new Error(`Release index contains no stable Node ${pin.major} releases.`);
-        }
-        if (lineReleases.some(release => !isDate(release.date) || typeof release.security !== 'boolean')) {
-            throw new Error(`Invalid metadata for a Node ${pin.major} release.`);
-        }
-        const latest = lineReleases[0];
-        const latestSecurity = lineReleases.find(release => release.security === true);
         // Upstream vulnerable ranges can include patched versions (for example, "24.x").
         const vulnerabilities = normalizedAdvisories.filter(advisory => advisory.cve.length > 0 &&
             semver.satisfies(pin.version, advisory.vulnerable) &&
             (advisory.patched === '' || !semver.satisfies(pin.version, advisory.patched)));
         checked.push({
             ...result,
-            latestVersion: semver.clean(latest.version),
-            latestReleaseDate: latest.date,
-            latestReleaseIsSecurity: latest.security,
-            latestSecurityVersion: latestSecurity ? semver.clean(latestSecurity.version) : null,
-            latestSecurityReleaseDate: latestSecurity ? latestSecurity.date : null,
-            securityUpdateRequired: latestSecurity ? semver.lt(pin.version, latestSecurity.version) : false,
-            outdated: semver.lt(pin.version, latest.version),
+            securityUpdateRequired: info.latestSecurityVersion ? semver.lt(pin.version, info.latestSecurityVersion) : false,
+            outdated: semver.lt(pin.version, info.latestVersion),
             vulnerabilities
         });
     }
@@ -143,6 +151,11 @@ function markdownCell(value) {
     return String(value).replace(/[\\`*_[\]<>|]/g, '\\$&').replace(/[\r\n]+/g, ' ');
 }
 
+function markdownTable(headers, rows) {
+    return [headers, headers.map(() => '---'), ...rows]
+        .map(cells => `| ${cells.join(' | ')} |`).join('\n');
+}
+
 function renderMarkdown(report) {
     const lines = [
         '# Agent Node CVE monitoring', '', `Checked at: ${report.checkedAt}`, '',
@@ -155,42 +168,28 @@ function renderMarkdown(report) {
         if (report.checked.length === 0) {
             lines.push('**No bundled Node versions are currently in LTS. No security comparisons were performed.**');
         } else {
-            lines.push(
-                '| Pin | LTS status | Bundled | Latest stable | Latest security release | Security update required |',
-                '| --- | --- | --- | --- | --- | --- |'
-            );
-            for (const pin of report.checked) {
-                const security = pin.latestSecurityVersion
-                    ? `${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate})` : 'None marked';
-                lines.push(`| ${pin.variable} | ${pin.status} | ${pin.pinnedVersion} | ${pin.latestVersion} | ${security} | ${pin.securityUpdateRequired ? 'Yes' : 'No'} |`);
-            }
+            lines.push(markdownTable(
+                ['Pin', 'LTS status', 'Bundled', 'Latest stable', 'Latest security release', 'Security update required'],
+                report.checked.map(pin => [pin.variable, pin.status, pin.pinnedVersion, pin.latestVersion,
+                    pin.latestSecurityVersion ? `${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate})` : 'None marked',
+                    pin.securityUpdateRequired ? 'Yes' : 'No'])));
             for (const pin of report.checked) {
                 lines.push('', `## ${pin.variable} (Node ${pin.major})`, '');
-                if (pin.securityUpdateRequired) {
-                    lines.push(`**Security update required:** ${pin.pinnedVersion} is older than ${pin.latestSecurityVersion}, marked \`security: true\`.`, '');
-                }
-                if (pin.outdated) {
-                    lines.push(`Update ${pin.variable} from ${pin.pinnedVersion} to ${pin.latestVersion}.`, '');
-                }
-                if (pin.vulnerabilities.length === 0) {
-                    lines.push(pin.securityUpdateRequired
-                        ? 'No matching CVEs are currently listed in the working-group index. This does not clear the newer security release; the check still fails.'
+                lines.push(pin.vulnerabilities.length ? markdownTable(
+                    ['Advisory', 'CVEs', 'Severity', 'Description', 'Patched versions'],
+                    pin.vulnerabilities.map(advisory => [
+                        `[${advisory.id}](https://github.com/nodejs/security-wg/blob/main/vuln/core/${advisory.id.slice('NSWG-COR-'.length)}.json)`,
+                        advisory.cve.join(', '), markdownCell(advisory.severity || 'Not supplied by upstream'),
+                        markdownCell(advisory.description || 'Not supplied by upstream'),
+                        markdownCell(advisory.patched || 'No patched version listed')]))
+                    : pin.securityUpdateRequired ? 'No matching CVEs indexed; the newer security release still fails this check.'
                         : 'No applicable CVEs found for this pin in the working-group advisory index.');
-                    continue;
-                }
-                lines.push('| Advisory | CVEs | Severity | Description | Patched versions |', '| --- | --- | --- | --- | --- |');
-                for (const advisory of pin.vulnerabilities) {
-                    const url = `https://github.com/nodejs/security-wg/blob/main/vuln/core/${advisory.id.slice('NSWG-COR-'.length)}.json`;
-                    lines.push(`| [${advisory.id}](${url}) | ${advisory.cve.join(', ')} | ${markdownCell(advisory.severity || 'Not supplied by upstream')} | ${markdownCell(advisory.description || 'Not supplied by upstream')} | ${markdownCell(advisory.patched || 'No patched version listed')} |`);
-                }
             }
         }
         if (report.skipped.length > 0) {
             lines.push('', '## Pins outside current LTS scope', '',
-                '| Pin | Bundled | Status | LTS starts | Support ends |', '| --- | --- | --- | --- | --- |');
-            for (const pin of report.skipped) {
-                lines.push(`| ${pin.variable} | ${pin.pinnedVersion} | ${pin.status} | ${pin.ltsStart || 'Not scheduled'} | ${pin.endOfLife} |`);
-            }
+                markdownTable(['Pin', 'Bundled', 'Status', 'LTS starts', 'Support ends'],
+                    report.skipped.map(pin => [pin.variable, pin.pinnedVersion, pin.status, pin.ltsStart || 'Not scheduled', pin.endOfLife])));
         }
     }
     if (report.alpineBuilds || report.alpineBuildError) {
@@ -199,29 +198,20 @@ function renderMarkdown(report) {
         if (report.alpineBuildError) {
             lines.push(`**Alpine build check incomplete:** ${markdownCell(report.alpineBuildError)}`, '');
         }
-        if (report.alpineBuilds?.length === 0) {
-            lines.push('No outdated bundled LTS versions require Alpine builds.');
-        } else if (report.alpineBuilds) {
-            lines.push('| Node version | Action | Run | Status | Result |',
-                '| --- | --- | --- | --- | --- |');
-            for (const build of report.alpineBuilds) {
-                if (build.outcome === 'error') {
-                    lines.push(`| ${build.nodeVersion} | Error | ${markdownCell(build.error)} | Unknown | Unknown |`);
-                } else {
-                    lines.push(`| ${build.nodeVersion} | ${build.outcome} | [${build.runId}](${build.url}) | ${markdownCell(build.status)} | ${markdownCell(build.result || 'Pending')} |`);
-                }
-            }
+        if (report.alpineBuilds) {
+            lines.push(report.alpineBuilds.length ? markdownTable(['Node version', 'Action', 'Run', 'Status', 'Result'],
+                report.alpineBuilds.map(build => build.outcome === 'error'
+                    ? [build.nodeVersion, 'Error', markdownCell(build.error), 'Unknown', 'Unknown']
+                    : [build.nodeVersion, build.outcome, `[${build.runId}](${build.url})`,
+                        markdownCell(build.status), markdownCell(build.result || 'Pending')]))
+                : 'No outdated bundled LTS versions require Alpine builds.');
         }
         lines.push('', 'Queuing or finding an Alpine build does not clear security findings or update the agent pins.');
     }
     lines.push(
-        '', `Release index: ${sources.releases}`, '', `Advisory index: ${sources.advisories}`,
-        '', `Lifecycle schedule: ${sources.schedule}`,
-        '', 'This checks bundled Node pins, not the monitoring machine runtime or LTS lines the agent does not bundle.',
-        'A newer security-flagged release requires an update even if its CVEs have not yet been indexed.',
-        'The security flag does not identify individual CVEs or establish exploitability in an agent job.',
+        '', ...Object.entries(sources).map(([name, url]) => `${name}: ${url}`), '',
         'Coverage depends on upstream lifecycle dates, release flags, and published advisories.',
-        ''
+        'A newer security release requires an update even without indexed CVEs; its flag alone does not establish exploitability.', ''
     );
     return lines.join('\n');
 }
@@ -231,6 +221,7 @@ async function monitor({
     triggerAlpineBuilds = false, accessToken
 }) {
     await fs.mkdir(outputDirectory, { recursive: true });
+    const issue = (type, message) => log(`##vso[task.logissue type=${type}]${escapeLoggingValue(message)}`);
     const report = { checkedAt: now.toISOString(), sources };
     let exitCode;
     try {
@@ -266,10 +257,10 @@ async function monitor({
     log('##vso[task.setvariable variable=NodeCveReportReady]true');
     log(`##vso[task.uploadsummary]${escapeLoggingValue(summaryPath)}`);
     if (report.error) {
-        log(`##vso[task.logissue type=error]${escapeLoggingValue(`Node LTS check incomplete: ${report.error}`)}`);
+        issue('error', `Node LTS check incomplete: ${report.error}`);
     } else {
         if (report.checked.length === 0) {
-            log('##vso[task.logissue type=warning]No bundled Node versions are currently in LTS; no security comparisons were performed.');
+            issue('warning', 'No bundled Node versions are currently in LTS; no security comparisons were performed.');
         }
         for (const pin of report.skipped) {
             log(`Skipped ${pin.variable} (${pin.pinnedVersion}): ${pin.status}.`);
@@ -277,26 +268,26 @@ async function monitor({
         for (const pin of report.checked) {
             log(`${pin.variable}: bundled Node ${pin.pinnedVersion}; latest stable Node ${pin.major}: ${pin.latestVersion}.`);
             if (pin.outdated) {
-                log(`##vso[task.logissue type=warning]${pin.variable} bundles older Node ${pin.pinnedVersion}; latest Node ${pin.major} is ${pin.latestVersion}.`);
+                issue('warning', `${pin.variable} bundles older Node ${pin.pinnedVersion}; latest Node ${pin.major} is ${pin.latestVersion}.`);
             }
             if (pin.securityUpdateRequired) {
-                log(`##vso[task.logissue type=error]${pin.variable} bundles Node ${pin.pinnedVersion}, older than Node ${pin.major} security release ${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate}, security: true). Update src/Misc/externals.sh.`);
+                issue('error', `${pin.variable} bundles Node ${pin.pinnedVersion}, older than Node ${pin.major} security release ${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate}, security: true). Update src/Misc/externals.sh.`);
             }
             for (const advisory of pin.vulnerabilities) {
-                log(`##vso[task.logissue type=error]${escapeLoggingValue(`${advisory.cve.join(', ')} affects ${pin.variable} (${pin.pinnedVersion}). Patched versions: ${advisory.patched || 'none listed'}.`)}`);
+                issue('error', `${advisory.cve.join(', ')} affects ${pin.variable} (${pin.pinnedVersion}). Patched versions: ${advisory.patched || 'none listed'}.`);
             }
         }
     }
     if (report.alpineBuildError) {
-        log(`##vso[task.logissue type=error]${escapeLoggingValue(`Alpine build check incomplete: ${report.alpineBuildError}`)}`);
+        issue('error', `Alpine build check incomplete: ${report.alpineBuildError}`);
     }
     for (const build of report.alpineBuilds || []) {
         if (build.outcome === 'error') {
-            log(`##vso[task.logissue type=error]${escapeLoggingValue(`Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`)}`);
+            issue('error', `Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`);
         } else {
             const message = `Alpine-NodeJs-Build ${build.outcome} for Node ${build.nodeVersion}: ${build.url} (${build.status}, ${build.result || 'pending'}).`;
             if (build.outcome === 'existing' && build.result && build.result !== 'succeeded') {
-                log(`##vso[task.logissue type=warning]${escapeLoggingValue(`${message} Not retrying automatically.`)}`);
+                issue('warning', `${message} Not retrying automatically.`);
             } else {
                 log(message);
             }
