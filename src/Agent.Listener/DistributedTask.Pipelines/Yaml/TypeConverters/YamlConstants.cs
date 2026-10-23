@@ -34,10 +34,14 @@ namespace Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Pipeline
         internal const String Parameters = "parameters";
         internal const String Percentage = "percentage";
         internal const String Phases = "phases";
+        internal const String Pipeline = "pipeline";
+        internal const String Pipelines = "pipelines";
         internal const String PowerShell = "powershell";
         internal const String Queue = "queue";
         internal const String Repo = "repo";
         internal const String Resources = "resources";
+        internal const String Source = "source";
+        internal const String SourceId = "sourceId";
         internal const String Script = "script";
         internal const String Self = "self";
         internal const String Server = "server";
