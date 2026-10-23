@@ -59,22 +59,36 @@ Use the following pipeline task sample to install the latest version of Node 6 r
 
 Please, check more details in [NodeTaskRunnerInstaller task](https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/node-task-runner-installer-v0) documentation.
 
-## Scheduled Node 24 security monitoring
+## Scheduled Node CVE monitoring
 
-`.azure-pipelines/node24-security.yml` checks the `NODE24_VERSION` pin in
-`src/Misc/externals.sh` daily at 06:00 UTC on `master`, even when the repository
-has not changed. It does not inspect the Node runtime on the monitoring machine
-or the older Node major versions shipped for backward compatibility.
+`.azure-pipelines/agent-node-cve-monitoring.yml` checks all bundled Node pins
+in `src/Misc/externals.sh` daily at 06:00 UTC on `master`, even when the
+repository has not changed. It discovers `NODE_VERSION`,
+`NODE<major>_VERSION`, and platform-specific `NODE<major>_<variant>_VERSION`
+assignments automatically, rather than maintaining a fixed list of majors.
+
+The [official Node.js lifecycle schedule](https://github.com/nodejs/Release/blob/main/schedule.json)
+determines which bundled versions are currently in Active LTS or Maintenance
+LTS. Both phases are checked. Eligibility is evaluated using the run's UTC
+date, starting on the `lts` date and stopping on the `end` date. End-of-life,
+Current/pre-LTS, and not-yet-released lines are listed as skipped with their
+lifecycle dates; they do not cause security-update failures in this check.
+Unknown majors or invalid lifecycle data fail the check as incomplete.
+The release index's historical `lts` labels are not used to decide whether
+a line is still supported. A newly bundled major is included automatically
+when its scheduled LTS period starts, including platform-specific pins.
+Supported upstream lines the agent does not bundle are outside this check's
+scope, as is the monitoring machine's Node runtime.
 
 The [Node.js release index](https://nodejs.org/dist/index.json) is the source
-for security release decisions. The check selects the newest stable Node 24
-version marked `security: true`, comparing semantic versions rather than
-release dates or index ordering. If the agent pin is older, the pipeline fails
-and reports the pinned version, latest security release, and release date.
-This failure does not depend on individual CVE records being available.
-Releases from other major versions and prereleases are excluded. A newer
-nonsecurity release only produces a warning when the pin already includes
-the latest security release.
+for security release decisions. For each eligible pin, the check selects the
+newest stable version in the same major marked `security: true`, comparing
+semantic versions rather than release dates or index ordering. If any pin is
+older, the pipeline fails and reports the variable, pinned version, latest
+security release, and release date. This failure does not depend on individual
+CVE records being available. Prereleases and other majors are excluded.
+A newer nonsecurity release only produces a warning when that pin already
+includes its major's latest security release.
 
 The [Node.js security working group's core advisory index](https://github.com/nodejs/security-wg/blob/main/vuln/core/index.json)
 provides available CVE details. The check evaluates both vulnerable and patched
@@ -85,23 +99,28 @@ exists, the report explicitly states that the check still fails for the
 security update. CVE identifiers are never inferred from a release flag.
 No RSS feeds or security blog pages are fetched.
 
-A failed download, invalid pin, invalid source data, or missing/non-boolean
-security flag on a stable Node 24 release fails the check as incomplete rather
-than treating unknown security status as `false`.
+A failed download, invalid or duplicate pin, invalid source data, or
+missing/non-boolean security flag on a checked major's stable release fails
+the check as incomplete rather than treating unknown status as `false`.
 
 Every completed check publishes Markdown and JSON reports as the
-`node24-security` pipeline artifact, including when a security update is
+`node-cve-monitoring` pipeline artifact, including when a security update is
 required, an applicable CVE is found, or the check is incomplete. The JSON
-includes `latestSecurityVersion`, `latestSecurityReleaseDate`, and
-`securityUpdateRequired`, in addition to the current pin and any indexed CVEs.
-If no stable Node 24 release is marked as a security release, the latest
-security version and date are `null` and the report states this explicitly.
+report (`node-lts-report.json`) contains `checked` and `skipped` pin arrays,
+with lifecycle status and dates. Each checked pin includes
+`latestSecurityVersion`, `latestSecurityReleaseDate`, `securityUpdateRequired`,
+and any applicable indexed CVEs. If a major has no stable security release,
+its latest security version and date are `null`. When no bundled pins are
+currently in LTS, the check succeeds with a warning and explicitly reports
+that no security comparisons were performed, rather than claiming a clean
+vulnerability assessment. The Markdown report is `node-lts-report.md`.
 A clean result depends on upstream flags and advisory coverage; it is not a
 guarantee that no vulnerabilities exist. A security flag does not establish
 which CVEs affect the pin or exploitability in an agent job.
 
-After merging, register a new Azure DevOps YAML pipeline pointing to
-`.azure-pipelines/node24-security.yml`, with `master` as its default branch.
+Register an Azure DevOps pipeline named `Agent - Node CVE monitoring` pointing
+to `.azure-pipelines/agent-node-cve-monitoring.yml`. Use `master` as the default
+branch after merging the YAML.
 Keep UI-defined schedules empty so the YAML schedule takes effect. The default
 pool is Microsoft-hosted `ubuntu-latest`; organizations using self-hosted pools
 can replace the `pool` parameter default. For manual testing in `tarun-msft` /
@@ -117,12 +136,14 @@ To run the monitoring tests and a live check locally, from the repository root:
 Push-Location .azure-pipelines\scripts
 npm ci --ignore-scripts --no-audit --no-fund
 npm test
-node check-node24.js "$env:TEMP\agent-node24-security"
+node check-node-lts.js "$env:TEMP\agent-node-cve-monitoring"
 Pop-Location
 ```
 
-The script requires Node 24. Its exit codes are `0` for no required security
-update and no applicable indexed CVEs (including a nonsecurity-only update
-warning), `1` for a required security update or applicable indexed CVEs, and
-`2` for an incomplete check or reporting failure. The Markdown and JSON output
-directory is the script's only required argument.
+The script uses Node 24 as its monitoring runtime, but its scope is all
+currently LTS bundled pins. Its exit codes are `0` for no required security
+update or applicable indexed CVEs among checked pins (including a
+nonsecurity-only warning or an explicitly empty LTS scope), `1` when any
+checked pin requires a security update or has applicable indexed CVEs, and
+`2` for an incomplete check or reporting failure. The Markdown and JSON
+output directory is the script's only required argument.
