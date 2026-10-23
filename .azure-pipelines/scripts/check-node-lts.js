@@ -238,7 +238,12 @@ async function monitor({
             issues.push(['error', `Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`]);
         } else if (build.outcome === 'existing' && build.result && build.result !== 'succeeded') {
             issues.push(['warning', `Alpine-NodeJs-Build ${build.result} for Node ${build.nodeVersion}: ${build.url}. Not retrying automatically.`]);
+        } else {
+            log(`Alpine-NodeJs-Build ${build.outcome} for Node ${build.nodeVersion}: ${build.url} (${build.status}, ${build.result || 'pending'}).`);
         }
+    }
+    if (report.alpineBuilds?.length === 0) {
+        log('Alpine-NodeJs-Build skipped: no outdated bundled LTS versions require a build.');
     }
     const summaryPath = path.join(outputDirectory, 'node-lts-report.md');
     await Promise.all([

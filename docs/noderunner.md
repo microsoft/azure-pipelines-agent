@@ -145,8 +145,9 @@ clear the original security failure. Markdown and JSON reports include an
 `alpineBuilds` list of existing/queued runs and any per-version queue errors.
 The Markdown summary lists pin status, versions, CVE identifiers, and Alpine
 run outcomes. CVE descriptions, severity, patched ranges, and lifecycle/release
-dates remain in JSON. Console output contains only actionable warnings/errors
-and report-publication commands, rather than repeating the full report.
+dates remain in JSON. Console output includes one line per Alpine build
+decision (version, run link, status/result), or an explicit no-build-needed
+message, alongside warnings/errors and report-publication commands.
 
 The YAML maps `System.AccessToken` only to the monitoring step. Its build
 identity needs **View builds** and **Queue builds** on pipeline 21894; no

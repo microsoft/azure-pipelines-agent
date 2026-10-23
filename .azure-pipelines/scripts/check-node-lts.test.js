@@ -166,6 +166,10 @@ test('end-to-end: compact summaries, full JSON, exit codes, and preserved securi
         { name: 'missing token', token: null, code: 2, posts: [] },
         { name: 'source failure', sourceError: true, code: 2, posts: [] },
         { name: 'history failure', historyError: true, code: 2, posts: [] },
+        { name: 'existing builds', code: 1, posts: [], history: [
+            { id: 8, templateParameters: { nodeVersion: '22.23.4' }, status: 'inProgress', result: null },
+            { id: 9, templateParameters: { nodeVersion: '24.23.0' }, status: 'completed', result: 'succeeded' }
+        ] },
         { name: 'existing failed builds', code: 1, posts: [], history: [
             { id: 10, templateParameters: { nodeVersion: '22.23.4' }, status: 'completed', result: 'failed' },
             { id: 11, templateParameters: { nodeVersion: '24.23.0' }, status: 'completed', result: 'canceled' }
@@ -182,6 +186,15 @@ test('end-to-end: compact summaries, full JSON, exit codes, and preserved securi
         assert.ok(result.logs.some(line => line.startsWith('##vso[task.uploadsummary]')));
         assert.deepEqual(Object.keys(result.report.sources).sort(), ['advisories', 'releases', 'schedule']);
         assert.match(result.markdown, /Agent Node CVE monitoring/);
+        for (const build of result.report.alpineBuilds || []) {
+            if (build.outcome !== 'error') {
+                assert.ok(result.logs.some(line => line.includes(`Node ${build.nodeVersion}`) &&
+                    line.includes(build.url) && line.includes(build.result || build.status)), scenario.name);
+            }
+        }
+        if (result.report.alpineBuilds?.length === 0) {
+            assert.ok(result.logs.some(line => line.startsWith('Alpine-NodeJs-Build skipped:')), scenario.name);
+        }
         if (scenario.code === 2) {
             assert.ok(result.logs.some(line => line.includes('type=error')), scenario.name);
         }
