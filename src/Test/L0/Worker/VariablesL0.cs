@@ -13,6 +13,64 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
     public sealed class VariablesL0
     {
+        [Theory]
+        [InlineData("System.OidcRequestUri", "SYSTEM_OIDCREQUESTURI", true)]
+        [InlineData("System.OidcRequestUri", "system_oidcrequesturi", true)]
+        [InlineData("System.OidcRequestUri", "SyStEm OiDcReQuEsTuRi", true)]
+        [InlineData("Custom.ReadOnly.Value", "custom_READONLY value", true)]
+        [InlineData("User name.With space", "USER_NAME_WITH_SPACE", true)]
+        [InlineData("CUSTOM_READONLY", "Custom.ReadOnly", true)]
+        [InlineData("System.AccessToken", "system_accesstoken", false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_EnvironmentAliasesAreOptIn(string protectedName, string alias, bool metadataReadOnly)
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>
+                {
+                    [protectedName] = new VariableValue("original") { IsReadOnly = metadataReadOnly },
+                    [alias] = new VariableValue("existing alias") { IsReadOnly = false }
+                }, out _);
+
+                Assert.True(variables.IsReadOnly(protectedName));
+                Assert.False(variables.IsReadOnly(alias));
+                Assert.False(variables.IsReadOnly(alias, includeEnvironmentAliases: false));
+                Assert.True(variables.IsReadOnly(alias, includeEnvironmentAliases: true));
+                Assert.False(variables.IsReadOnly(alias + "_OTHER", includeEnvironmentAliases: true));
+                Assert.Equal("original", variables.Get(protectedName));
+                Assert.Equal("existing alias", variables.Get(alias));
+
+                variables.Set(protectedName, "internal update");
+                Assert.Equal("internal update", variables.Get(protectedName));
+                Assert.True(variables.IsReadOnly(protectedName));
+                Assert.False(variables.IsReadOnly(alias));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void IsReadOnly_EnvironmentAliasesRequireAnExistingReadOnlyEntry()
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                var variables = new Variables(hc, new Dictionary<string, VariableValue>
+                {
+                    ["Custom.Writable"] = new VariableValue("value") { IsReadOnly = false }
+                }, out _);
+
+                Assert.False(variables.IsReadOnly("CUSTOM_WRITABLE", includeEnvironmentAliases: true));
+                Assert.False(variables.IsReadOnly(Constants.Variables.System.AccessToken, includeEnvironmentAliases: true));
+                Assert.False(variables.IsReadOnly("SYSTEM_ACCESSTOKEN", includeEnvironmentAliases: true));
+
+                variables.Set("Custom.Writable", "value", secret: true, readOnly: true, preserveCase: true);
+                Assert.True(variables.IsReadOnly("custom writable", includeEnvironmentAliases: true));
+                variables.Unset("Custom.Writable");
+                Assert.False(variables.IsReadOnly("CUSTOM_WRITABLE", includeEnvironmentAliases: true));
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
