@@ -1,3 +1,15 @@
+## Features
+ - Filter VSO commands in agent plugin external output (#5697)
+ - Add temporary VSO command suppression (#5688)
+
+## Bugs
+ - Enable telemetry publishing for all azure-pipelines-extensions tasks (#5699)
+ - Mirror proxy variable casing on Unix agents (#5689)
+ - Fix pre-worker job hangs and report worker startup failures (#5703)
+
+## Misc
+ - Localization update (#5706)
+
 
 ## Agent Downloads
 
