@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const semver = require('semver');
+const { ensureAlpineBuilds } = require('./alpine-node-build');
 
 const sources = {
     releases: 'https://nodejs.org/dist/index.json',
@@ -192,6 +193,27 @@ function renderMarkdown(report) {
             }
         }
     }
+    if (report.alpineBuilds || report.alpineBuildError) {
+        lines.push('', '## Alpine-NodeJs-Build', '',
+            'Target: latest stable release in each outdated bundled LTS major. Existing runs are never retried automatically.', '');
+        if (report.alpineBuildError) {
+            lines.push(`**Alpine build check incomplete:** ${markdownCell(report.alpineBuildError)}`, '');
+        }
+        if (report.alpineBuilds?.length === 0) {
+            lines.push('No outdated bundled LTS versions require Alpine builds.');
+        } else if (report.alpineBuilds) {
+            lines.push('| Node version | Action | Run | Status | Result |',
+                '| --- | --- | --- | --- | --- |');
+            for (const build of report.alpineBuilds) {
+                if (build.outcome === 'error') {
+                    lines.push(`| ${build.nodeVersion} | Error | ${markdownCell(build.error)} | Unknown | Unknown |`);
+                } else {
+                    lines.push(`| ${build.nodeVersion} | ${build.outcome} | [${build.runId}](${build.url}) | ${markdownCell(build.status)} | ${markdownCell(build.result || 'Pending')} |`);
+                }
+            }
+        }
+        lines.push('', 'Queuing or finding an Alpine build does not clear security findings or update the agent pins.');
+    }
     lines.push(
         '', `Release index: ${sources.releases}`, '', `Advisory index: ${sources.advisories}`,
         '', `Lifecycle schedule: ${sources.schedule}`,
@@ -204,7 +226,10 @@ function renderMarkdown(report) {
     return lines.join('\n');
 }
 
-async function monitor({ externalsPath, outputDirectory, fetchImpl = fetch, log = console.log, now = new Date() }) {
+async function monitor({
+    externalsPath, outputDirectory, fetchImpl = fetch, log = console.log, now = new Date(),
+    triggerAlpineBuilds = false, accessToken
+}) {
     await fs.mkdir(outputDirectory, { recursive: true });
     const report = { checkedAt: now.toISOString(), sources };
     let exitCode;
@@ -220,6 +245,17 @@ async function monitor({ externalsPath, outputDirectory, fetchImpl = fetch, log 
     } catch (error) {
         report.error = error.message;
         exitCode = 2;
+    }
+    if (!report.error && triggerAlpineBuilds) {
+        try {
+            report.alpineBuilds = await ensureAlpineBuilds(report.checked, { token: accessToken, fetchImpl });
+            if (report.alpineBuilds.some(build => build.outcome === 'error')) {
+                exitCode = 2;
+            }
+        } catch (error) {
+            report.alpineBuildError = error.message;
+            exitCode = 2;
+        }
     }
 
     const summaryPath = path.join(outputDirectory, 'node-lts-report.md');
@@ -251,18 +287,36 @@ async function monitor({ externalsPath, outputDirectory, fetchImpl = fetch, log 
             }
         }
     }
+    if (report.alpineBuildError) {
+        log(`##vso[task.logissue type=error]${escapeLoggingValue(`Alpine build check incomplete: ${report.alpineBuildError}`)}`);
+    }
+    for (const build of report.alpineBuilds || []) {
+        if (build.outcome === 'error') {
+            log(`##vso[task.logissue type=error]${escapeLoggingValue(`Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`)}`);
+        } else {
+            const message = `Alpine-NodeJs-Build ${build.outcome} for Node ${build.nodeVersion}: ${build.url} (${build.status}, ${build.result || 'pending'}).`;
+            if (build.outcome === 'existing' && build.result && build.result !== 'succeeded') {
+                log(`##vso[task.logissue type=warning]${escapeLoggingValue(`${message} Not retrying automatically.`)}`);
+            } else {
+                log(message);
+            }
+        }
+    }
     return exitCode;
 }
 
 if (require.main === module) {
     const outputDirectory = process.argv[2];
-    if (!outputDirectory || process.argv.length !== 3) {
-        console.error('Usage: node check-node-lts.js <report-directory>');
+    const triggerAlpineBuilds = process.argv[3] === '--trigger-alpine-builds';
+    if (!outputDirectory || (process.argv.length !== 3 && !(process.argv.length === 4 && triggerAlpineBuilds))) {
+        console.error('Usage: node check-node-lts.js <report-directory> [--trigger-alpine-builds]');
         process.exitCode = 2;
     } else {
         monitor({
             externalsPath: path.resolve(__dirname, '..', '..', 'src', 'Misc', 'externals.sh'),
-            outputDirectory
+            outputDirectory,
+            triggerAlpineBuilds,
+            accessToken: process.env.SYSTEM_ACCESSTOKEN
         }).then(exitCode => {
             process.exitCode = exitCode;
         }).catch(error => {

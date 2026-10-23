@@ -118,6 +118,39 @@ A clean result depends on upstream flags and advisory coverage; it is not a
 guarantee that no vulnerabilities exist. A security flag does not establish
 which CVEs affect the pin or exploitability in an agent job.
 
+### Requesting missing Alpine builds
+
+The scheduled pipeline also checks
+[Alpine-NodeJs-Build](https://dev.azure.com/mseng/AzureDevOps/_build?definitionId=21894&_a=summary)
+in `mseng/AzureDevOps`. For each outdated bundled LTS major, it requests
+the **latest stable release**, including when the update is nonsecurity-only.
+Multiple packaging pins targeting the same version produce only one request.
+End-of-life and not-yet-LTS pins never request builds.
+
+Before queuing, it reads all retained runs of pipeline 21894, following
+pagination, and matches the exact `nodeVersion` template parameter. Any
+existing run prevents another request, regardless of branch, pool, status,
+or result. Failed and canceled runs are reported with a warning and link,
+not retried automatically. Deleted or expired runs are no longer available
+for duplicate detection.
+
+New runs use `refs/heads/master` of `CIPlat.Externals` with
+`nodeVersion: <latest stable version>` and
+`poolName: 1ES-ABTT-Shared-ARM-64-Pool`, matching the pool used by successful
+Alpine builds. That pipeline builds the binary and opens its normal binary
+update PR; this monitor does not wait for completion, change agent pins, or
+clear the original security failure. Markdown and JSON reports include an
+`alpineBuilds` list of existing/queued runs and any per-version queue errors.
+
+The YAML maps `System.AccessToken` only to the monitoring step. Its build
+identity needs **View builds** and **Queue builds** on pipeline 21894; no
+personal access token is stored in the repository or passed on the command
+line. Authorization failures, incomplete history, and queue errors fail the
+check with exit code `2`, while preserving the security findings and any
+successful requests in the report. Queue requests are not retried after
+ambiguous failures. History checks and queuing are separate API operations,
+so avoid overlapping monitoring runs when a new version first appears.
+
 Register an Azure DevOps pipeline named `Agent - Node CVE monitoring` pointing
 to `.azure-pipelines/agent-node-cve-monitoring.yml`. Use `master` as the default
 branch after merging the YAML.
@@ -140,10 +173,15 @@ node check-node-lts.js "$env:TEMP\agent-node-cve-monitoring"
 Pop-Location
 ```
 
+Local checks do not access or trigger Azure DevOps builds by default. To
+enable the same build behavior as the scheduled pipeline, append
+`--trigger-alpine-builds` and supply a short-lived authorized token through
+the `SYSTEM_ACCESSTOKEN` environment variable.
+
 The script uses Node 24 as its monitoring runtime, but its scope is all
 currently LTS bundled pins. Its exit codes are `0` for no required security
 update or applicable indexed CVEs among checked pins (including a
 nonsecurity-only warning or an explicitly empty LTS scope), `1` when any
 checked pin requires a security update or has applicable indexed CVEs, and
-`2` for an incomplete check or reporting failure. The Markdown and JSON
-output directory is the script's only required argument.
+`2` for an incomplete check, Alpine build request failure, or reporting failure.
+The Markdown and JSON output directory is the script's only required argument.

@@ -212,9 +212,15 @@ async function runMonitor(t, options = {}) {
     const requests = [];
     const exitCode = await monitor({
         externalsPath, outputDirectory, now: new Date(`${asOf}T12:00:00Z`),
+        triggerAlpineBuilds: options.triggerAlpineBuilds,
+        accessToken: options.accessToken,
         log: message => logs.push(message),
-        fetchImpl: options.fetchImpl || (async url => {
+        fetchImpl: options.fetchImpl || (async (url, requestOptions) => {
             requests.push(url);
+            if (String(url).startsWith('https://dev.azure.com/')) {
+                assert.ok(options.adoFetchImpl, `Unexpected Azure DevOps request: ${url}`);
+                return options.adoFetchImpl(url, requestOptions);
+            }
             const data = {
                 'https://nodejs.org/dist/index.json': options.releases || releases,
                 'https://raw.githubusercontent.com/nodejs/security-wg/main/vuln/core/index.json': options.advisories || { 1: advisory() },
@@ -286,4 +292,102 @@ test('fails explicitly with an incomplete report when any source cannot be fetch
     const markdown = await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.md'), 'utf8');
     assert.match(markdown, /incomplete/i);
     assert.doesNotMatch(markdown, /No applicable CVEs/);
+});
+
+test('triggers Alpine builds even when CVEs fail the monitor and records all outcomes', async t => {
+    let posts = 0;
+    const result = await runMonitor(t, {
+        triggerAlpineBuilds: true, accessToken: 'test-token',
+        fetchImpl: async (url, options) => {
+            const feeds = {
+                'https://nodejs.org/dist/index.json': releases,
+                'https://raw.githubusercontent.com/nodejs/security-wg/main/vuln/core/index.json': { 1: advisory() },
+                'https://raw.githubusercontent.com/nodejs/Release/main/schedule.json': schedule
+            };
+            if (Object.hasOwn(feeds, String(url))) {
+                assert.equal(options.headers?.Authorization, undefined, 'Never send ADO credentials to upstream feeds');
+                return new Response(JSON.stringify(feeds[String(url)]));
+            }
+            if (options.method === 'GET') {
+                return new Response(JSON.stringify({ value: [
+                    { id: 10, templateParameters: { nodeVersion: '22.23.4' }, status: 'completed', result: 'failed' }
+                ] }));
+            }
+            posts++;
+            assert.equal(JSON.parse(options.body).templateParameters.nodeVersion, '24.23.0');
+            return new Response(JSON.stringify({ id: 11, state: 'inProgress' }));
+        }
+    });
+    assert.equal(posts, 1);
+    assert.equal(result.exitCode, 1, 'Queuing a build must not clear the security failure');
+    const report = JSON.parse(await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.json'), 'utf8'));
+    assert.deepEqual(report.alpineBuilds.map(build => build.outcome), ['existing', 'queued']);
+    const markdown = await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.md'), 'utf8');
+    assert.match(markdown, /Alpine-NodeJs-Build/);
+    assert.match(markdown, /buildId=11/);
+    assert.match(markdown, /failed/);
+    assert.ok(result.logs.some(line => line.includes('type=warning') && line.includes('buildId=10')));
+    assert.ok(result.logs.some(line => line.includes('queued') && line.includes('24.23.0')));
+});
+
+test('publishes security findings alongside explicit Alpine authentication failures', async t => {
+    const result = await runMonitor(t, { triggerAlpineBuilds: true });
+    assert.equal(result.exitCode, 2);
+    const report = JSON.parse(await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.json'), 'utf8'));
+    assert.equal(report.checked.length, 2);
+    assert.match(report.alpineBuildError, /System.AccessToken/);
+    assert.ok(result.logs.some(line => line.includes('type=error') && line.includes('System.AccessToken')));
+    const markdown = await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.md'), 'utf8');
+    assert.match(markdown, /CVE-2026-12345/);
+    assert.match(markdown, /System.AccessToken/);
+});
+
+test('requests the latest nonsecurity stable update without changing the clean security result', async t => {
+    let posts = 0;
+    const result = await runMonitor(t, {
+        source: 'NODE24_VERSION="24.22.1"', triggerAlpineBuilds: true, accessToken: 'test-token',
+        adoFetchImpl: async (url, options) => {
+            if (options.method === 'GET') {
+                return new Response(JSON.stringify({ value: [] }));
+            }
+            posts++;
+            assert.equal(JSON.parse(options.body).templateParameters.nodeVersion, '24.23.0');
+            return new Response(JSON.stringify({ id: 12, state: 'inProgress' }));
+        }
+    });
+    assert.equal(posts, 1);
+    assert.equal(result.exitCode, 0);
+});
+
+test('reports an enabled Alpine no-op without credentials when no LTS update is needed', async t => {
+    for (const source of ['NODE20_VERSION="20.20.2"', 'NODE24_VERSION="24.23.0"']) {
+        const result = await runMonitor(t, { source, triggerAlpineBuilds: true });
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.requests.length, 3);
+        const markdown = await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.md'), 'utf8');
+        assert.match(markdown, /No outdated bundled LTS versions require Alpine builds/);
+    }
+});
+
+test('retains queued builds and CVEs in reports when a different Alpine request fails', async t => {
+    const result = await runMonitor(t, {
+        triggerAlpineBuilds: true, accessToken: 'test-token',
+        adoFetchImpl: async (url, options) => {
+            if (options.method === 'GET') {
+                return new Response(JSON.stringify({ value: [] }));
+            }
+            return JSON.parse(options.body).templateParameters.nodeVersion === '22.23.4'
+                ? new Response(JSON.stringify({ id: 15, state: 'inProgress' }))
+                : new Response('', { status: 403 });
+        }
+    });
+    assert.equal(result.exitCode, 2);
+    const report = JSON.parse(await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.json'), 'utf8'));
+    assert.deepEqual(report.alpineBuilds.map(build => build.outcome), ['queued', 'error']);
+    assert.equal(report.checked[0].vulnerabilities.length, 1);
+    const markdown = await fs.readFile(path.join(result.outputDirectory, 'node-lts-report.md'), 'utf8');
+    for (const expected of [/buildId=15/, /403/, /CVE-2026-12345/]) {
+        assert.match(markdown, expected);
+    }
+    assert.ok(result.logs.some(line => line.includes('type=error') && line.includes('403')));
 });
