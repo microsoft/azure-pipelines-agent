@@ -15,11 +15,10 @@ parameters:
   default:
     vmImage: ubuntu-latest
 
-pool: ${{ parameters.pool }}
-
 jobs:
 - job: CheckNode24
   displayName: Check bundled Node 24 for security releases and CVEs
+  pool: ${{ parameters.pool }}
   timeoutInMinutes: 15
   steps:
   - checkout: self
