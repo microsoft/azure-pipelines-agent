@@ -157,61 +157,35 @@ function markdownTable(headers, rows) {
 }
 
 function renderMarkdown(report) {
-    const lines = [
-        '# Agent Node CVE monitoring', '', `Checked at: ${report.checkedAt}`, '',
-        'Version source: `src/Misc/externals.sh`. Scope: bundled Node versions currently in Active or Maintenance LTS.', ''
-    ];
+    const lines = ['# Agent Node CVE monitoring', '', `Checked at: ${report.checkedAt}`, '',
+        'Scope: bundled pins in `src/Misc/externals.sh` currently in Active or Maintenance LTS.', ''];
     if (report.error) {
         lines.push('**Check incomplete. Vulnerability status is unknown.**', '', markdownCell(report.error));
     } else {
-        lines.push(`Lifecycle date (UTC): ${report.asOf}. Checked ${report.advisoriesChecked} upstream core advisories.`, '');
         if (report.checked.length === 0) {
             lines.push('**No bundled Node versions are currently in LTS. No security comparisons were performed.**');
-        } else {
-            lines.push(markdownTable(
-                ['Pin', 'LTS status', 'Bundled', 'Latest stable', 'Latest security release', 'Security update required'],
-                report.checked.map(pin => [pin.variable, pin.status, pin.pinnedVersion, pin.latestVersion,
-                    pin.latestSecurityVersion ? `${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate})` : 'None marked',
-                    pin.securityUpdateRequired ? 'Yes' : 'No'])));
-            for (const pin of report.checked) {
-                lines.push('', `## ${pin.variable} (Node ${pin.major})`, '');
-                lines.push(pin.vulnerabilities.length ? markdownTable(
-                    ['Advisory', 'CVEs', 'Severity', 'Description', 'Patched versions'],
-                    pin.vulnerabilities.map(advisory => [
-                        `[${advisory.id}](https://github.com/nodejs/security-wg/blob/main/vuln/core/${advisory.id.slice('NSWG-COR-'.length)}.json)`,
-                        advisory.cve.join(', '), markdownCell(advisory.severity || 'Not supplied by upstream'),
-                        markdownCell(advisory.description || 'Not supplied by upstream'),
-                        markdownCell(advisory.patched || 'No patched version listed')]))
-                    : pin.securityUpdateRequired ? 'No matching CVEs indexed; the newer security release still fails this check.'
-                        : 'No applicable CVEs found for this pin in the working-group advisory index.');
-            }
         }
-        if (report.skipped.length > 0) {
-            lines.push('', '## Pins outside current LTS scope', '',
-                markdownTable(['Pin', 'Bundled', 'Status', 'LTS starts', 'Support ends'],
-                    report.skipped.map(pin => [pin.variable, pin.pinnedVersion, pin.status, pin.ltsStart || 'Not scheduled', pin.endOfLife])));
-        }
+        lines.push(markdownTable(['Pin', 'Bundled', 'Lifecycle', 'Latest stable', 'Security release', 'Security update required', 'CVEs'],
+            [...report.checked, ...report.skipped].map(pin => [pin.variable, pin.pinnedVersion, pin.status,
+                pin.latestVersion || 'Not checked', pin.latestVersion ? pin.latestSecurityVersion || 'None marked' : 'Not checked',
+                pin.latestVersion ? (pin.securityUpdateRequired ? 'Yes' : 'No') : 'Not checked',
+                pin.vulnerabilities ? pin.vulnerabilities.flatMap(advisory => advisory.cve).join(', ') || 'None indexed' : 'Not checked'])));
     }
-    if (report.alpineBuilds || report.alpineBuildError) {
+    if (report.alpineBuildError) {
+        lines.push('', `**Alpine build check incomplete:** ${markdownCell(report.alpineBuildError)}`);
+    }
+    if (report.alpineBuilds?.length) {
         lines.push('', '## Alpine-NodeJs-Build', '',
-            'Target: latest stable release in each outdated bundled LTS major. Existing runs are never retried automatically.', '');
-        if (report.alpineBuildError) {
-            lines.push(`**Alpine build check incomplete:** ${markdownCell(report.alpineBuildError)}`, '');
-        }
-        if (report.alpineBuilds) {
-            lines.push(report.alpineBuilds.length ? markdownTable(['Node version', 'Action', 'Run', 'Status', 'Result'],
+            markdownTable(['Node version', 'Action', 'Run', 'Status', 'Result'],
                 report.alpineBuilds.map(build => build.outcome === 'error'
                     ? [build.nodeVersion, 'Error', markdownCell(build.error), 'Unknown', 'Unknown']
                     : [build.nodeVersion, build.outcome, `[${build.runId}](${build.url})`,
-                        markdownCell(build.status), markdownCell(build.result || 'Pending')]))
-                : 'No outdated bundled LTS versions require Alpine builds.');
-        }
-        lines.push('', 'Queuing or finding an Alpine build does not clear security findings or update the agent pins.');
+                        markdownCell(build.status), markdownCell(build.result || 'Pending')])));
     }
     lines.push(
         '', ...Object.entries(sources).map(([name, url]) => `${name}: ${url}`), '',
-        'Coverage depends on upstream lifecycle dates, release flags, and published advisories.',
-        'A newer security release requires an update even without indexed CVEs; its flag alone does not establish exploitability.', ''
+        'Full lifecycle dates, release metadata, CVE descriptions and patched ranges are in `node-lts-report.json`.',
+        'Security updates fail even without indexed CVEs. Alpine builds do not clear findings; existing runs are never retried.', ''
     );
     return lines.join('\n');
 }
@@ -221,9 +195,7 @@ async function monitor({
     triggerAlpineBuilds = false, accessToken
 }) {
     await fs.mkdir(outputDirectory, { recursive: true });
-    const issue = (type, message) => log(`##vso[task.logissue type=${type}]${escapeLoggingValue(message)}`);
     const report = { checkedAt: now.toISOString(), sources };
-    let exitCode;
     try {
         const pins = readPinnedVersions(await fs.readFile(externalsPath, 'utf8'));
         const [releases, advisories, schedule] = await Promise.all([
@@ -232,23 +204,42 @@ async function monitor({
             fetchJson(sources.schedule, fetchImpl)
         ]);
         Object.assign(report, analyze(pins, releases, advisories, schedule, report.checkedAt.slice(0, 10)));
-        exitCode = report.checked.some(pin => pin.securityUpdateRequired || pin.vulnerabilities.length > 0) ? 1 : 0;
     } catch (error) {
         report.error = error.message;
-        exitCode = 2;
     }
     if (!report.error && triggerAlpineBuilds) {
         try {
             report.alpineBuilds = await ensureAlpineBuilds(report.checked, { token: accessToken, fetchImpl });
-            if (report.alpineBuilds.some(build => build.outcome === 'error')) {
-                exitCode = 2;
-            }
         } catch (error) {
             report.alpineBuildError = error.message;
-            exitCode = 2;
         }
     }
 
+    const issues = [];
+    if (report.error) {
+        issues.push(['error', `Node LTS check incomplete: ${report.error}`]);
+    }
+    if (report.checked?.length === 0) {
+        issues.push(['warning', 'No bundled Node versions are currently in LTS; no security comparisons were performed.']);
+    }
+    for (const pin of report.checked || []) {
+        const securityFailure = pin.securityUpdateRequired || pin.vulnerabilities.length > 0;
+        if (pin.outdated || securityFailure) {
+            issues.push([securityFailure ? 'error' : 'warning',
+                `${pin.variable} bundles ${pin.pinnedVersion}; latest stable: ${pin.latestVersion}; ` +
+                `security release: ${pin.latestSecurityVersion || 'none marked'}; CVEs: ${pin.vulnerabilities.flatMap(advisory => advisory.cve).join(', ') || 'none indexed'}.`]);
+        }
+    }
+    if (report.alpineBuildError) {
+        issues.push(['error', `Alpine build check incomplete: ${report.alpineBuildError}`]);
+    }
+    for (const build of report.alpineBuilds || []) {
+        if (build.outcome === 'error') {
+            issues.push(['error', `Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`]);
+        } else if (build.outcome === 'existing' && build.result && build.result !== 'succeeded') {
+            issues.push(['warning', `Alpine-NodeJs-Build ${build.result} for Node ${build.nodeVersion}: ${build.url}. Not retrying automatically.`]);
+        }
+    }
     const summaryPath = path.join(outputDirectory, 'node-lts-report.md');
     await Promise.all([
         fs.writeFile(summaryPath, renderMarkdown(report)),
@@ -256,44 +247,13 @@ async function monitor({
     ]);
     log('##vso[task.setvariable variable=NodeCveReportReady]true');
     log(`##vso[task.uploadsummary]${escapeLoggingValue(summaryPath)}`);
-    if (report.error) {
-        issue('error', `Node LTS check incomplete: ${report.error}`);
-    } else {
-        if (report.checked.length === 0) {
-            issue('warning', 'No bundled Node versions are currently in LTS; no security comparisons were performed.');
-        }
-        for (const pin of report.skipped) {
-            log(`Skipped ${pin.variable} (${pin.pinnedVersion}): ${pin.status}.`);
-        }
-        for (const pin of report.checked) {
-            log(`${pin.variable}: bundled Node ${pin.pinnedVersion}; latest stable Node ${pin.major}: ${pin.latestVersion}.`);
-            if (pin.outdated) {
-                issue('warning', `${pin.variable} bundles older Node ${pin.pinnedVersion}; latest Node ${pin.major} is ${pin.latestVersion}.`);
-            }
-            if (pin.securityUpdateRequired) {
-                issue('error', `${pin.variable} bundles Node ${pin.pinnedVersion}, older than Node ${pin.major} security release ${pin.latestSecurityVersion} (${pin.latestSecurityReleaseDate}, security: true). Update src/Misc/externals.sh.`);
-            }
-            for (const advisory of pin.vulnerabilities) {
-                issue('error', `${advisory.cve.join(', ')} affects ${pin.variable} (${pin.pinnedVersion}). Patched versions: ${advisory.patched || 'none listed'}.`);
-            }
-        }
+    for (const [type, message] of issues) {
+        log(`##vso[task.logissue type=${type}]${escapeLoggingValue(message)}`);
     }
-    if (report.alpineBuildError) {
-        issue('error', `Alpine build check incomplete: ${report.alpineBuildError}`);
+    if (report.error || report.alpineBuildError || report.alpineBuilds?.some(build => build.outcome === 'error')) {
+        return 2;
     }
-    for (const build of report.alpineBuilds || []) {
-        if (build.outcome === 'error') {
-            issue('error', `Alpine-NodeJs-Build for Node ${build.nodeVersion}: ${build.error}`);
-        } else {
-            const message = `Alpine-NodeJs-Build ${build.outcome} for Node ${build.nodeVersion}: ${build.url} (${build.status}, ${build.result || 'pending'}).`;
-            if (build.outcome === 'existing' && build.result && build.result !== 'succeeded') {
-                issue('warning', `${message} Not retrying automatically.`);
-            } else {
-                log(message);
-            }
-        }
-    }
-    return exitCode;
+    return issues.some(([type]) => type === 'error') ? 1 : 0;
 }
 
 if (require.main === module) {

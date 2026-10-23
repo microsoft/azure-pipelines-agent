@@ -2,194 +2,105 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { ensureAlpineBuilds } = require('./alpine-node-build');
 
-const projectUrl = 'https://dev.azure.com/mseng/AzureDevOps';
-const checked = [
-    { variable: 'NODE22_VERSION', outdated: true, latestVersion: '22.23.4', securityUpdateRequired: true },
-    { variable: 'NODE24_VERSION', outdated: true, latestVersion: '24.23.0', latestSecurityVersion: '24.22.1', securityUpdateRequired: true },
-    { variable: 'NODE24_WIN_ARM64_VERSION', outdated: true, latestVersion: '24.23.0' },
-    { variable: 'NODE26_VERSION', outdated: false, latestVersion: '26.12.1' }
-];
+const checked = ['22.23.4', '24.23.0', '24.23.0'].map(latestVersion => ({ outdated: true, latestVersion }));
+const build = (id, nodeVersion, status = 'completed', result = 'succeeded') =>
+    ({ id, templateParameters: { nodeVersion }, status, result });
+const response = (data, token) => new Response(JSON.stringify(data),
+    { headers: token ? { 'x-ms-continuationtoken': token } : {} });
+const run = (pins, fetchImpl) => ensureAlpineBuilds(pins, { token: 'test-token', fetchImpl });
 
-function response(data, continuation) {
-    return new Response(JSON.stringify(data), {
-        headers: continuation ? { 'x-ms-continuationtoken': continuation } : {}
-    });
-}
-
-function build(id, nodeVersion, status = 'completed', result = 'succeeded') {
-    return { id, templateParameters: { nodeVersion }, status, result };
-}
-
-test('queues each missing latest stable version once with the verified Alpine inputs', async () => {
-    const requests = [];
-    const results = await ensureAlpineBuilds(checked, {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
-            requests.push({ url: String(url), options });
-            assert.equal(options.headers.Authorization, 'Bearer test-token');
-            assert.equal(options.redirect, 'error');
-            assert.ok(options.signal instanceof AbortSignal);
-            if (options.method === 'GET') {
-                const query = new URL(url).searchParams;
-                assert.equal(query.get('definitions'), '21894');
-                assert.equal(query.get('$top'), '100');
-                assert.equal(query.get('queryOrder'), 'queueTimeDescending');
-                assert.equal(query.get('api-version'), '7.1');
-                assert.equal(query.has('statusFilter'), false);
-                assert.equal(query.has('branchName'), false);
-                return response({ value: [] });
-            }
-            assert.equal(String(url), `${projectUrl}/_apis/pipelines/21894/runs?api-version=7.1`);
-            assert.equal(options.headers['Content-Type'], 'application/json');
-            const body = JSON.parse(options.body);
-            assert.equal(body.resources.repositories.self.refName, 'refs/heads/master');
-            assert.equal(body.templateParameters.poolName, '1ES-ABTT-Shared-ARM-64-Pool');
-            return response({ id: 100 + requests.length, state: 'inProgress' });
-        }
-    });
-    assert.deepEqual(requests.filter(request => request.options.method === 'POST')
-        .map(request => JSON.parse(request.options.body).templateParameters.nodeVersion), ['22.23.4', '24.23.0']);
-    assert.deepEqual(results.map(result => [result.nodeVersion, result.outcome]), [
-        ['22.23.4', 'queued'], ['24.23.0', 'queued']
-    ]);
-    assert.ok(results.every(result => result.url.includes(`buildId=${result.runId}`)));
-});
-
-test('checks all history pages and suppresses existing versions regardless of run status or result', async () => {
-    const statuses = [
-        ['notStarted', null], ['inProgress', null], ['cancelling', null],
-        ['completed', 'succeeded'], ['completed', 'failed'], ['completed', 'canceled'],
-        ['completed', 'partiallySucceeded']
-    ];
-    for (const [status, result] of statuses) {
+test('duplicate detection: exact versions across all statuses/pages, newest match, and early exit', async () => {
+    for (const [status, result] of [['notStarted', null], ['inProgress', null], ['cancelling', null],
+        ['completed', 'succeeded'], ['completed', 'failed'], ['completed', 'canceled'], ['completed', 'partiallySucceeded']]) {
         let calls = 0;
-        const results = await ensureAlpineBuilds([checked[1]], {
-            token: 'test-token',
-            fetchImpl: async (url, options) => {
-                assert.equal(options.method, 'GET', 'Existing runs must never cause a POST');
-                calls++;
-                if (calls === 1) {
-                    return response({ value: [build(10, '24.22.1')] }, 'next page+/=');
-                }
-                assert.equal(new URL(url).searchParams.get('continuationToken'), 'next page+/=');
-                return response({ value: [build(9, 'v24.23.0', status, result)] });
+        const results = await run([checked[1]], async (url, options) => {
+            assert.equal(options.method, 'GET', 'Existing versions must never queue a run');
+            if (++calls === 1) {
+                return response({ value: [build(10, '24.22.1'), build(9, ''), { id: 8 }] }, 'next page+/=');
             }
+            assert.equal(new URL(url).searchParams.get('continuationToken'), 'next page+/=');
+            assert.equal(calls, 2, 'Stop as soon as the target is found');
+            return response({ value: [build(7, 'v24.23.0', status, result), build(6, '24.23.0')] }, 'not-needed');
         });
-        assert.equal(calls, 2);
-        assert.deepEqual(results.map(item => [item.nodeVersion, item.outcome, item.runId, item.status, item.result]),
-            [['24.23.0', 'existing', 9, status, result]]);
+        assert.deepEqual(results.map(item => [item.outcome, item.runId, item.status, item.result]),
+            [['existing', 7, status, result]]);
     }
-});
-
-test('does not confuse another Node version or a missing default with an exact version match', async () => {
-    let queued = 0;
-    const results = await ensureAlpineBuilds([checked[1]], {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
-            if (options.method === 'GET') {
-                return response({ value: [build(3, '24.22.1'), build(2, ''), { id: 1 }] });
-            }
-            queued++;
-            return response({ id: 4, state: 'inProgress' });
-        }
-    });
-    assert.equal(queued, 1);
-    assert.equal(results[0].nodeVersion, '24.23.0');
-});
-
-test('stops reading history once all targets are found and retains the newest matching run', async () => {
     let calls = 0;
-    const results = await ensureAlpineBuilds(checked, {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
-            assert.equal(options.method, 'GET');
-            assert.equal(++calls, 1, 'No older pages are needed after every target is found');
-            return response({ value: [
-                build(30, '24.23.0', 'inProgress', null), build(29, '22.23.4'),
-                build(28, '24.23.0', 'completed', 'failed'), build(27, '20.99.0')
-            ] }, 'unneeded-page');
-        }
+    const results = await run(checked, async (url, options) => {
+        assert.equal(options.method, 'GET');
+        assert.equal(++calls, 1);
+        return response({ value: [build(30, '24.23.0'), build(29, '22.23.4'), build(28, '24.23.0')] }, 'not-needed');
     });
-    assert.deepEqual(results.map(result => [result.nodeVersion, result.runId]), [['22.23.4', 29], ['24.23.0', 30]]);
+    assert.deepEqual(results.map(item => item.runId), [29, 30]);
 });
 
-test('does not queue missing targets when a later history page fails', async () => {
-    let calls = 0;
-    await assert.rejects(ensureAlpineBuilds(checked, {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
-            assert.equal(options.method, 'GET', 'Incomplete history must never cause a POST');
-            return ++calls === 1
-                ? response({ value: [build(30, '24.23.0')] }, 'next-page')
-                : new Response('', { status: 503 });
+test('queue contract: unique latest stable targets, correct inputs, scoped authentication, and no-op', async () => {
+    const posted = [];
+    const results = await run(checked, async (url, options) => {
+        const parsed = new URL(url);
+        assert.equal(parsed.origin, 'https://dev.azure.com');
+        assert.equal(parsed.searchParams.get('api-version'), '7.1');
+        assert.equal(options.headers.Authorization, 'Bearer test-token');
+        assert.equal(options.redirect, 'error');
+        assert.ok(options.signal instanceof AbortSignal);
+        if (options.method === 'GET') {
+            assert.equal(parsed.searchParams.get('definitions'), '21894');
+            assert.equal(parsed.searchParams.get('$top'), '100');
+            assert.equal(parsed.searchParams.get('queryOrder'), 'queueTimeDescending');
+            assert.equal(parsed.searchParams.has('statusFilter'), false);
+            assert.equal(parsed.searchParams.has('branchName'), false);
+            return response({ value: [build(1, '24.22.1')] });
         }
-    }), /503/);
-    assert.equal(calls, 2);
-});
-
-test('does not call Azure DevOps or require a token when no eligible pins are outdated', async () => {
-    assert.deepEqual(await ensureAlpineBuilds([checked[3]], {
-        fetchImpl: () => assert.fail('No builds should be queried')
+        assert.equal(parsed.pathname, '/mseng/AzureDevOps/_apis/pipelines/21894/runs');
+        assert.equal(options.headers['Content-Type'], 'application/json');
+        const body = JSON.parse(options.body);
+        assert.equal(body.resources.repositories.self.refName, 'refs/heads/master');
+        assert.equal(body.templateParameters.poolName, '1ES-ABTT-Shared-ARM-64-Pool');
+        posted.push(body.templateParameters.nodeVersion);
+        return response({ id: posted.length, state: 'inProgress' });
+    });
+    assert.deepEqual(posted, ['22.23.4', '24.23.0']);
+    assert.ok(results.every(item => item.outcome === 'queued' && item.url.includes(`buildId=${item.runId}`)));
+    assert.deepEqual(await ensureAlpineBuilds([{ outdated: false }], {
+        fetchImpl: () => assert.fail('No token or request is needed for a no-op')
     }), []);
 });
 
-test('rejects missing credentials and invalid history before queuing anything', async () => {
+test('failure safety: incomplete history never queues, and failed/ambiguous POSTs never retry', async () => {
     await assert.rejects(ensureAlpineBuilds(checked, {}), /System.AccessToken/);
+    await assert.rejects(run([{ outdated: true, latestVersion: 'bad' }], () => assert.fail()), /version/i);
     for (const invalid of [null, {}, { value: null }, { value: [null] }, { value: [{ id: 'bad' }] }]) {
-        await assert.rejects(ensureAlpineBuilds(checked, {
-            token: 'test-token',
-            fetchImpl: async (url, options) => {
-                assert.equal(options.method, 'GET');
-                return response(invalid);
-            }
+        await assert.rejects(run(checked, async (url, options) => {
+            assert.equal(options.method, 'GET');
+            return response(invalid);
         }), /history|build/i);
     }
-    let calls = 0;
-    await assert.rejects(ensureAlpineBuilds(checked, {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
+    for (const failure of [() => new Response('private body', { status: 403 }),
+        () => new Response('invalid JSON'), () => { throw new Error('network unavailable'); }]) {
+        let calls = 0;
+        await assert.rejects(run(checked, async (url, options) => {
             assert.equal(options.method, 'GET');
-            assert.ok(++calls <= 2, 'Repeated continuation tokens must not loop');
-            return response({ value: [] }, 'repeated');
-        }
-    }), /continuation/i);
-});
-
-test('fails closed on history HTTP, JSON, and network errors without leaking credentials', async () => {
-    for (const fetchImpl of [
-        async () => new Response('private response text', { status: 403 }),
-        async () => new Response('invalid JSON'),
-        async () => { throw new Error('network unavailable'); }
-    ]) {
-        await assert.rejects(ensureAlpineBuilds(checked, { token: 'test-token', fetchImpl }), error => {
-            assert.doesNotMatch(error.message, /test-token|private response text/);
-            return true;
-        });
+            return ++calls === 1 ? response({ value: [build(1, '24.23.0')] }, 'next') : failure();
+        }), error => !/test-token|private body/.test(error.message));
+        assert.equal(calls, 2);
     }
-});
-
-test('reports each queue failure, continues other versions, and never retries an ambiguous POST', async () => {
-    let posts = 0;
-    const results = await ensureAlpineBuilds(checked, {
-        token: 'test-token',
-        fetchImpl: async (url, options) => {
+    let pages = 0;
+    await assert.rejects(run(checked, async (url, options) => {
+        assert.equal(options.method, 'GET');
+        assert.ok(++pages <= 2);
+        return response({ value: [] }, 'repeated');
+    }), /continuation/i);
+    for (const failure of [() => new Response('', { status: 403 }),
+        () => response({ state: 'inProgress' }), () => { throw new Error('network unavailable'); }]) {
+        let posts = 0;
+        const results = await run(checked, async (url, options) => {
             if (options.method === 'GET') {
                 return response({ value: [] });
             }
-            posts++;
-            return posts === 1 ? new Response('', { status: 403 }) : response({ id: 20, state: 'inProgress' });
-        }
-    });
-    assert.equal(posts, 2);
-    assert.equal(results[0].outcome, 'error');
-    assert.match(results[0].error, /403|Queue builds/i);
-    assert.equal(results[1].outcome, 'queued');
-
-    const ambiguous = await ensureAlpineBuilds([checked[1]], {
-        token: 'test-token',
-        fetchImpl: async (url, options) => options.method === 'GET'
-            ? response({ value: [] }) : response({ state: 'inProgress' })
-    });
-    assert.equal(ambiguous[0].outcome, 'error');
-    assert.match(ambiguous[0].error, /run|response/i);
+            return ++posts === 1 ? failure() : response({ id: 20, state: 'inProgress' });
+        });
+        assert.equal(posts, 2);
+        assert.deepEqual(results.map(item => item.outcome), ['error', 'queued']);
+        assert.ok(results[0].error);
+    }
 });

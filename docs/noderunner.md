@@ -71,8 +71,8 @@ The [official Node.js lifecycle schedule](https://github.com/nodejs/Release/blob
 determines which bundled versions are currently in Active LTS or Maintenance
 LTS. Both phases are checked. Eligibility is evaluated using the run's UTC
 date, starting on the `lts` date and stopping on the `end` date. End-of-life,
-Current/pre-LTS, and not-yet-released lines are listed as skipped with their
-lifecycle dates; they do not cause security-update failures in this check.
+Current/pre-LTS, and not-yet-released lines are marked as not checked in the
+summary, with lifecycle dates in JSON; they do not cause security-update failures.
 Unknown majors or invalid lifecycle data fail the check as incomplete.
 The release index's historical `lts` labels are not used to decide whether
 a line is still supported. A newly bundled major is included automatically
@@ -143,7 +143,10 @@ Alpine builds. That pipeline builds the binary and opens its normal binary
 update PR; this monitor does not wait for completion, change agent pins, or
 clear the original security failure. Markdown and JSON reports include an
 `alpineBuilds` list of existing/queued runs and any per-version queue errors.
-The Markdown summary uses compact tables; the JSON retains full per-pin data.
+The Markdown summary lists pin status, versions, CVE identifiers, and Alpine
+run outcomes. CVE descriptions, severity, patched ranges, and lifecycle/release
+dates remain in JSON. Console output contains only actionable warnings/errors
+and report-publication commands, rather than repeating the full report.
 
 The YAML maps `System.AccessToken` only to the monitoring step. Its build
 identity needs **View builds** and **Queue builds** on pipeline 21894; no
