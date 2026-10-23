@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineCache
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
+                    (str) => context.OutputExternal(str),
                     connection,
                     domainId, 
                     clientSettings,
@@ -228,7 +228,7 @@ namespace Agent.Plugins.PipelineCache
                     var (dedupManifestClient, _) = await DedupManifestArtifactClientFactory.Instance
                         .CreateDedupManifestClientAsync(
                             context.IsSystemDebugTrue(),
-                            (str) => context.Output(str),
+                            (str) => context.OutputExternal(str),
                             connection,
                             domainId,
                             Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,

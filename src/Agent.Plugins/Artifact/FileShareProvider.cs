@@ -64,7 +64,7 @@ namespace Agent.Plugins
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
             var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
                 context.IsSystemDebugTrue(),
-                (str) => context.Output(str),
+                (str) => context.OutputExternal(str),
                 connection,
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
@@ -116,7 +116,7 @@ namespace Agent.Plugins
         {
             var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
                 context.IsSystemDebugTrue(),
-                (str) => context.Output(str),
+                (str) => context.OutputExternal(str),
                 connection,
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
