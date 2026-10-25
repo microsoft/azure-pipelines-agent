@@ -57,7 +57,7 @@ namespace Agent.Plugins.PipelineArtifact
             {
                 FileShareProvider provider = new FileShareProvider(context, connection, context.CreateArtifactsTracer(), DedupManifestArtifactClientFactory.Instance);
                 await provider.PublishArtifactAsync(targetPath, artifactPath, parallelCount, token);
-                context.Output(StringUtil.Loc("CopyFileComplete", artifactPath));
+                context.OutputExternal(StringUtil.Loc("CopyFileComplete", artifactPath));
             }
         }
 

@@ -275,7 +275,7 @@ namespace Agent.Plugins
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
-                        context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                        context.OutputExternal(StringUtil.Loc("CopyFileToDestination", file, tempPath));
                         FileInfo tempFile = new System.IO.FileInfo(tempPath);
                         using (StreamReader fileReader = GetFileReader(file.FullName))
                         {

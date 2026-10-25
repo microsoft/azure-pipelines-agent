@@ -114,7 +114,7 @@ namespace Agent.Plugins.PipelineArtifact
             IDictionary<string, string> properties = ParseCustomProperties(propertiesStr);
 
             // Upload to VSTS BlobStore, and associate the artifact with the build.
-            context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
+            context.OutputExternal(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, properties, token);
             context.Output(StringUtil.Loc("UploadArtifactFinished"));
@@ -217,7 +217,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
 
             // Download from VSTS BlobStore
-            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
+            context.OutputExternal(StringUtil.Loc("DownloadArtifactTo", targetPath));
             PipelineArtifactServer server = new PipelineArtifactServer(tracer);
             await server.DownloadAsync(context, projectId, buildId, artifactName, targetPath, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
