@@ -280,6 +280,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("summaryfile", summaryFile);
                     command.Properties.Add("additionalcodecoveragefiles", summaryFile);
                     publishCCCommand.ProcessCommand(_ec.Object, command);
+                    _ec.Verify(x => x.TranslateToHostPath(summaryFile, VsoPathTranslationSource.CodeCoveragePublishSummaryFile), Times.Once);
+                    _ec.Verify(x => x.TranslateToHostPath(null, VsoPathTranslationSource.CodeCoveragePublishReportDirectory), Times.Once);
+                    _ec.Verify(x => x.TranslateToHostPath(summaryFile, VsoPathTranslationSource.CodeCoveragePublishAdditionalFiles), Times.Once);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -314,6 +317,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
                     command.Properties.Add("reportdirectory", reportDirectory);
                     command.Properties.Add("additionalcodecoveragefiles", summaryFile);
                     publishCCCommand.ProcessCommand(_ec.Object, command);
+                    _ec.Verify(x => x.TranslateToHostPath(summaryFile, VsoPathTranslationSource.CodeCoveragePublishSummaryFile), Times.Once);
+                    _ec.Verify(x => x.TranslateToHostPath(reportDirectory, VsoPathTranslationSource.CodeCoveragePublishReportDirectory), Times.Once);
+                    _ec.Verify(x => x.TranslateToHostPath(summaryFile, VsoPathTranslationSource.CodeCoveragePublishAdditionalFiles), Times.Once);
                     Assert.Equal(0, _warnings.Count);
                     Assert.Equal(0, _errors.Count);
                     _mockCodeCoveragePublisher.Verify(x => x.PublishCodeCoverageSummaryAsync(It.IsAny<IAsyncCommandContext>(), It.IsAny<IEnumerable<CodeCoverageStatistics>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()));
@@ -369,7 +375,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
             _ec.Setup(x => x.Restrictions).Returns(new List<TaskRestrictions>());
             _ec.Setup(x => x.Endpoints).Returns(new List<ServiceEndpoint> { new ServiceEndpoint { Url = new Uri("http://dummyurl"), Name = WellKnownServiceEndpointNames.SystemVssConnection, Authorization = endpointAuthorization } });
             _ec.Setup(x => x.Variables).Returns(_variables);
-            _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>())).Returns((string x) => x);
+            _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>(), It.IsAny<VsoPathTranslationSource>()))
+                .Returns((string path, VsoPathTranslationSource source) => path);
             var asyncCommands = new List<IAsyncCommandContext>();
             _ec.Setup(x => x.AsyncCommands).Returns(asyncCommands);
             _ec.Setup(x => x.GetHostContext()).Returns(_hc);

@@ -238,6 +238,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("AGENT_USE_NODE24_WITH_HANDLER_DATA"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob WarnOnNode20Task = new Knob(
+            nameof(WarnOnNode20Task),
+            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            new PipelineFeatureSource("WarnOnNode20Task"),
+            new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob FetchByCommitForFullClone = new Knob(
             nameof(FetchByCommitForFullClone),
             "If true, allow fetch by commit when doing a full clone (depth=0).",
@@ -392,6 +400,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("http_proxy"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public const string EnableProxyVariableCaseAliasesVariableName = "AGENT_ENABLE_PROXY_VARIABLE_CASE_ALIASES";
+
+        public static readonly Knob EnableProxyVariableCaseAliases = new Knob(
+            nameof(EnableProxyVariableCaseAliases),
+            "If true, exports uppercase and lowercase aliases for proxy variables on non-Windows systems",
+            new RuntimeKnobSource(EnableProxyVariableCaseAliasesVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ProxyPassword = new SecretKnob(
             nameof(ProxyPassword),
             "Proxy password if one exists",
@@ -540,6 +556,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new EnvironmentKnobSource("SEND_PIPELINE_CACHE_TO_BLOBSTORE_DOMAIN"),
             new BuiltInDefaultKnobSource(string.Empty));
+
+        public static readonly Knob EnableArtifactNameValidation = new Knob(
+            nameof(EnableArtifactNameValidation),
+            "Enable strict pipeline artifact name validation.",
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
             nameof(EnableIncompatibleBuildArtifactsPathResolution),
@@ -858,6 +881,12 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_RESOURCE_UTILIZATION_WARNINGS"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob CaseInsensitiveArtifactMatchingFixEnabled = new Knob(
+            nameof(CaseInsensitiveArtifactMatchingFixEnabled),
+            "Enables artifact matching that follows destination filesystem case behavior on Windows and macOS.",
+            new PipelineFeatureSource(nameof(CaseInsensitiveArtifactMatchingFixEnabled)),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob Rosetta2Warning = new Knob(
             nameof(Rosetta2Warning),
             "Log warning when X64 Agent is used on a Apple Silicon device.",
@@ -989,10 +1018,18 @@ namespace Agent.Sdk.Knob
         // Security
         public static readonly Knob EnforceContainerVsoPathValidation = new Knob(
             nameof(EnforceContainerVsoPathValidation),
-            "If true, VSO commands (artifact.upload, build.uploadlog, task.addattachment, etc.) running inside a container job are restricted to referencing files within the agent work directory only. This prevents container-to-host path traversal via ##vso commands.",
+            "If true, file inputs to upload and publish VSO commands from container steps are restricted to the agent work directory. Diagnostic source paths from task.logissue and task.issue are not subject to this file-input validation.",
             new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
             new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnablePluginExternalOutputFiltering = new Knob(
+            nameof(EnablePluginExternalOutputFiltering),
+            "Filters VSO logging commands from external output emitted by agent plugin tasks.",
+            new PipelineFeatureSource("EnablePluginExternalOutputFiltering"),
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

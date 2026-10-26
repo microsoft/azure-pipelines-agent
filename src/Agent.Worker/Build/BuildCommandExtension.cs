@@ -38,7 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             var data = command.Data;
             // Translate file path back from container path
-            data = context.TranslateToHostPath(data);
+            data = context.TranslateToHostPath(data, source: VsoPathTranslationSource.BuildUploadLog);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 context.QueueAttachFile(CoreAttachmentType.Log, "CustomToolLog", data);
@@ -63,7 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
 
             var data = command.Data;
             // Translate file path back from container path
-            data = context.TranslateToHostPath(data);
+            data = context.TranslateToHostPath(data, source: VsoPathTranslationSource.BuildUploadSummary);
             if (!string.IsNullOrEmpty(data) && File.Exists(data))
             {
                 var fileName = Path.GetFileName(data);

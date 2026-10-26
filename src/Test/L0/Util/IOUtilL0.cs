@@ -14,6 +14,74 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
     public sealed class IOUtilL0
     {
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(true, false, false, false)]
+        [InlineData(false, true, false, true)]
+        public void IsFileSystemCaseSensitiveUsesStaticWindowsAndLinuxSemantics(
+            bool runningOnWindows,
+            bool runningOnLinux,
+            bool runningOnMacOS,
+            bool expectedCaseSensitive)
+        {
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                "unused",
+                runningOnWindows,
+                runningOnLinux,
+                runningOnMacOS,
+                (_, _) => throw new InvalidOperationException("Unexpected pathconf call."));
+
+            Assert.Equal(expectedCaseSensitive, isCaseSensitive);
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(0, 0)]
+        [InlineData(1, 1)]
+        [InlineData(-1, -1)]
+        public void IsFileSystemCaseSensitiveUsesMacVolumeCapability(
+            long pathConfigurationResult,
+            int expectedCaseSensitive)
+        {
+            const string path = "/Volumes/Build/download";
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                path,
+                runningOnWindows: false,
+                runningOnLinux: false,
+                runningOnMacOS: true,
+                (actualPath, name) =>
+                {
+                    Assert.Equal(path, actualPath);
+                    Assert.Equal(11, name);
+                    return pathConfigurationResult;
+                });
+
+            bool? expected = expectedCaseSensitive switch
+            {
+                0 => false,
+                1 => true,
+                _ => null,
+            };
+            Assert.Equal(expected, isCaseSensitive);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsFileSystemCaseSensitiveIsIndeterminateOnUnsupportedPlatforms()
+        {
+            bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
+                "unused",
+                runningOnWindows: false,
+                runningOnLinux: false,
+                runningOnMacOS: false,
+                (_, _) => throw new InvalidOperationException("Unexpected pathconf call."));
+
+            Assert.Null(isCaseSensitive);
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
