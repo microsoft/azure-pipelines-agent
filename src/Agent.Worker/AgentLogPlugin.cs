@@ -41,6 +41,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {"TestResultLogPlugin",  new PluginInfo("Agent.Plugins.Log.TestResultParser.Plugin.TestResultLogPlugin, Agent.Plugins", "Test Result Parser plugin")},
             {"TestFilePublisherPlugin",  new PluginInfo("Agent.Plugins.Log.TestFilePublisher.TestFilePublisherLogPlugin, Agent.Plugins", "Test File Publisher plugin")}
         };
+        
+        private List<PluginInfo> enabledPlugins = new List<PluginInfo>();
 
         private class PluginInfo
         {
@@ -58,8 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             Trace.Entering();
             ArgUtil.NotNull(context, nameof(context));
-
-            List<PluginInfo> enabledPlugins = new List<PluginInfo>();
+            
             if (context.Variables.GetBoolean("agent.disablelogplugin") ?? false)
             {
                 // all log plugs are disabled
@@ -165,9 +166,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 Trace.Info("Send serialized context through STDIN");
                 _redirectedStdin.Enqueue(JsonUtility.ToString(pluginContext));
 
-                foreach (var plugin in _logPlugins)
+                foreach (var plugin in enabledPlugins)
                 {
-                    context.Output($"Plugin: '{plugin.Value.FriendlyName}' is running in background.");
+                    context.Output($"Plugin: '{plugin.FriendlyName}' is running in background.");
                 }
             }
 
@@ -187,9 +188,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 // print out outputs from plugin host and wait for plugin finish
                 Trace.Info("Waiting for plugin host exit");
-                foreach (var plugin in _logPlugins)
+                foreach (var plugin in enabledPlugins)
                 {
-                    context.Debug($"Waiting for log plugin '{plugin.Value.FriendlyName}' to finish.");
+                    context.Debug($"Waiting for log plugin '{plugin.FriendlyName}' to finish.");
                 }
 
                 while (!_pluginHostProcess.IsCompleted)
