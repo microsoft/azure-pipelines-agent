@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Agent.Sdk;
 using Microsoft.Identity.Client;
-using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
 using Xunit;
 

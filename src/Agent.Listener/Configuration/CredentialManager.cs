@@ -24,6 +24,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
         public static readonly Dictionary<string, Type> CredentialTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             { Constants.Configuration.AAD, typeof(AadDeviceCodeAccessToken)},
+            { Constants.Configuration.AADInteractive, typeof(AadInteractiveAccessToken)},
+            { Constants.Configuration.AzureCLI, typeof(AzureCliAccessToken)},
             { Constants.Configuration.PAT, typeof(PersonalAccessToken)},
             { Constants.Configuration.Alternate, typeof(AlternateCredential)},
             { Constants.Configuration.Negotiate, typeof(NegotiateCredential)},
