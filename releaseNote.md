@@ -92,8 +92,8 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alternate Agent Downloads
 
-Alternate packages below do not include Node 6 & 10 and are only suitable for users who do not use Node 6 & 10 dependent tasks.
-See [notes](docs/node6.md) on Node version support for more details.
+Alternate packages below do not include Node 6, 10, or 16 and are only suitable for users who do not use tasks that depend on these Node versions.
+See [agent package notes](docs/agentpakcages.md) on Node version support for more details.
 
 |             | Package | SHA-256 |
 | ----------- | ------- | ------- |

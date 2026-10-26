@@ -400,6 +400,14 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("http_proxy"),
             new BuiltInDefaultKnobSource(string.Empty));
 
+        public const string EnableProxyVariableCaseAliasesVariableName = "AGENT_ENABLE_PROXY_VARIABLE_CASE_ALIASES";
+
+        public static readonly Knob EnableProxyVariableCaseAliases = new Knob(
+            nameof(EnableProxyVariableCaseAliases),
+            "If true, exports uppercase and lowercase aliases for proxy variables on non-Windows systems",
+            new RuntimeKnobSource(EnableProxyVariableCaseAliasesVariableName),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob ProxyPassword = new SecretKnob(
             nameof(ProxyPassword),
             "Proxy password if one exists",
@@ -1014,6 +1022,14 @@ namespace Agent.Sdk.Knob
             new PipelineFeatureSource("EnforceContainerVsoPathValidation"),
             new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
             new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_VSO_PATH_VALIDATION"),
+            new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnablePluginExternalOutputFiltering = new Knob(
+            nameof(EnablePluginExternalOutputFiltering),
+            "Filters VSO logging commands from external output emitted by agent plugin tasks.",
+            new PipelineFeatureSource("EnablePluginExternalOutputFiltering"),
+            new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
+            new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

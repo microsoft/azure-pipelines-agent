@@ -45,6 +45,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private static readonly object _cpuInfoLock = new object();
         private static readonly object _diskInfoLock = new object();
         private static readonly object _memoryInfoLock = new object();
+
+        // A running monitor follows _context into later steps, so a second one would only duplicate it
+        private int _diskMonitorRunning;
+        private int _memoryMonitorRunning;
+
+        // IExecutionContext.AddIssue is not thread-safe
+        private readonly object _warningLock = new object();
         #endregion
 
         #region MetricStructs
@@ -472,6 +479,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task RunDiskSpaceUtilizationMonitorAsync()
         {
+            if (Interlocked.CompareExchange(ref _diskMonitorRunning, 1, 0) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await MonitorDiskSpaceUtilizationAsync();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _diskMonitorRunning, 0);
+            }
+        }
+
+        private async Task MonitorDiskSpaceUtilizationAsync()
+        {
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 try
@@ -483,10 +507,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (freeDiskSpacePercentage <= AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD)
                     {
-                        _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold",
-                            _diskInfo.VolumeRoot,
-                            AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD,
-                            $"{usedDiskSpacePercentage:0.00}"));
+                        lock (_warningLock)
+                        {
+                            _context.Warning(StringUtil.Loc("ResourceMonitorFreeDiskSpaceIsLowerThanThreshold",
+                                _diskInfo.VolumeRoot,
+                                AVAILABLE_DISK_SPACE_PERCENTAGE_THRESHOLD,
+                                $"{usedDiskSpacePercentage:0.00}"));
+                        }
 
                         break;
                     }
@@ -505,6 +532,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
         public async Task RunMemoryUtilizationMonitorAsync()
         {
+            if (Interlocked.CompareExchange(ref _memoryMonitorRunning, 1, 0) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await MonitorMemoryUtilizationAsync();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _memoryMonitorRunning, 0);
+            }
+        }
+
+        private async Task MonitorMemoryUtilizationAsync()
+        {
             while (!_context.CancellationToken.IsCancellationRequested)
             {
                 using var timeoutTokenSource = new CancellationTokenSource();
@@ -522,9 +566,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (100.0 - usedMemoryPercentage <= AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD)
                     {
-                        _context.Warning(StringUtil.Loc("ResourceMonitorMemorySpaceIsLowerThanThreshold",
-                            AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD,
-                            $"{usedMemoryPercentage:0.00}"));
+                        lock (_warningLock)
+                        {
+                            _context.Warning(StringUtil.Loc("ResourceMonitorMemorySpaceIsLowerThanThreshold",
+                                AVAILABLE_MEMORY_PERCENTAGE_THRESHOLD,
+                                $"{usedMemoryPercentage:0.00}"));
+                        }
 
                         break;
                     }
