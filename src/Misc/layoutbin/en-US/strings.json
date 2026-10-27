@@ -26,6 +26,7 @@
   "AgentRunningBehindProxy": "Agent is running behind proxy server: '{0}'",
   "AgentVersion": "Current agent version: '{0}'",
   "AgentWithSameNameAlreadyExistInPool": "Pool {0} already contains an agent with name {1}.",
+  "AgentWorkerStartupFailed": "The agent failed during job startup before the job was dispatched to the worker. Stage: {0}. Job ID: {1}. Request ID: {2}. Exception: {3}",
   "AllowContainerUserRunDocker": "Allow user '{0}' run any docker command without SUDO.",
   "AlreadyConfiguredError": "Cannot configure the agent because it is already configured. To reconfigure the agent, run 'config.cmd remove' or './config.sh remove' first.",
   "ApkAddShadowFailed": "The user ID is outside the range of the 'adduser' command. The alternative command 'useradd' cannot be used because the 'shadow' package is not preinstalled and the attempt to install this package failed. Check network availability or use a docker image with the 'shadow' package preinstalled.",
