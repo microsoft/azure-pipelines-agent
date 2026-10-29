@@ -135,9 +135,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
+            var pwshData = new PwshHandlerData() { Platforms = new string[] { "windows", "linux", "osx" } };
+            var pwshOnlyExecutionData = new ExecutionData();
+            pwshOnlyExecutionData.Pwsh = pwshData;
             var mixedExecutionData = new ExecutionData();
             mixedExecutionData.PowerShell3 = powerShell3Data;
             mixedExecutionData.Node = nodeData;
+            var mixedPwshExecutionData = new ExecutionData();
+            mixedPwshExecutionData.Pwsh = pwshData;
+            mixedPwshExecutionData.Node = nodeData;
 
 
             foreach (var test in new GetHandlerTest[] {
@@ -148,9 +154,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 new GetHandlerTest() { Name="PowerShell3 Only on Windows", Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows },
                 new GetHandlerTest() { Name="PowerShell3 Only on Linux",   Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Linux },
                 new GetHandlerTest() { Name="PowerShell3 Only on OSX",     Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.OSX },
+                new GetHandlerTest() { Name="Pwsh Only on Windows",        Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Windows },
+                new GetHandlerTest() { Name="Pwsh Only on Linux",          Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Linux },
+                new GetHandlerTest() { Name="Pwsh Only on OSX",            Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.OSX },
                 new GetHandlerTest() { Name="Mixed on Windows",            Input=mixedExecutionData,    Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows },
                 new GetHandlerTest() { Name="Mixed on Linux",              Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.Linux },
                 new GetHandlerTest() { Name="Mixed on OSX",                Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.OSX },
+                new GetHandlerTest() { Name="Mixed Pwsh on Windows",       Input=mixedPwshExecutionData, Expected=pwshData,       HostOS=PlatformUtil.OS.Windows },
+                new GetHandlerTest() { Name="Mixed Pwsh on Linux",         Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.Linux },
+                new GetHandlerTest() { Name="Mixed Pwsh on OSX",           Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.OSX },
             })
             {
                 using (TestHostContext hc = CreateTestContext(test.Name))
@@ -171,9 +183,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
+            var pwshData = new PwshHandlerData() { Platforms = new string[] { "windows", "linux", "osx" } };
+            var pwshOnlyExecutionData = new ExecutionData();
+            pwshOnlyExecutionData.Pwsh = pwshData;
             var mixedExecutionData = new ExecutionData();
             mixedExecutionData.Node = nodeData;
             mixedExecutionData.PowerShell3 = powerShell3Data;
+            var mixedPwshExecutionData = new ExecutionData();
+            mixedPwshExecutionData.Node = nodeData;
+            mixedPwshExecutionData.Pwsh = pwshData;
 
             ContainerInfo containerInfo = new ContainerInfo() { };
 
@@ -185,9 +203,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 new GetHandlerTest() { Name="PowerShell3 Only on Windows", Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on Linux",   Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on OSX",     Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on Windows",        Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on Linux",          Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on OSX",            Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on Windows",            Input=mixedExecutionData,    Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on Linux",              Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on OSX",                Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on Windows",       Input=mixedPwshExecutionData, Expected=pwshData,       HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on Linux",         Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on OSX",           Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
             })
             {
                 using (TestHostContext hc = CreateTestContext(test.Name))
@@ -208,9 +232,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             var powerShell3Data = new PowerShell3HandlerData() { Platforms = new string[] { "windows" } };
             var ps3OnlyExecutionData = new ExecutionData();
             ps3OnlyExecutionData.PowerShell3 = powerShell3Data;
+            var pwshData = new PwshHandlerData() { Platforms = new string[] { "windows", "linux", "osx" } };
+            var pwshOnlyExecutionData = new ExecutionData();
+            pwshOnlyExecutionData.Pwsh = pwshData;
             var mixedExecutionData = new ExecutionData();
             mixedExecutionData.Node = nodeData;
             mixedExecutionData.PowerShell3 = powerShell3Data;
+            var mixedPwshExecutionData = new ExecutionData();
+            mixedPwshExecutionData.Node = nodeData;
+            mixedPwshExecutionData.Pwsh = pwshData;
 
             ContainerInfo containerInfo = new ContainerInfo() { };
 
@@ -222,9 +252,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 new GetHandlerTest() { Name="PowerShell3 Only on Windows", Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on Linux",   Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="PowerShell3 Only on OSX",     Input=ps3OnlyExecutionData,  Expected=powerShell3Data, HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on Windows",        Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on Linux",          Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Pwsh Only on OSX",            Input=pwshOnlyExecutionData, Expected=pwshData,        HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on Windows",            Input=mixedExecutionData,    Expected=powerShell3Data, HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on Linux",              Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
                 new GetHandlerTest() { Name="Mixed on OSX",                Input=mixedExecutionData,    Expected=nodeData,        HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on Windows",       Input=mixedPwshExecutionData, Expected=pwshData,       HostOS=PlatformUtil.OS.Windows, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on Linux",         Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.Linux, StepTarget=containerInfo },
+                new GetHandlerTest() { Name="Mixed Pwsh on OSX",           Input=mixedPwshExecutionData, Expected=nodeData,       HostOS=PlatformUtil.OS.OSX, StepTarget=containerInfo },
             })
             {
                 var variables = new Dictionary<string, VariableValue>();
