@@ -494,10 +494,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (outputStrings.Count == 1 && !string.IsNullOrEmpty(outputStrings.First()))
                 {
                     string remoteFetchUrl = outputStrings.First();
-                    if (Uri.IsWellFormedUriString(remoteFetchUrl, UriKind.Absolute))
+                    if (Uri.TryCreate(remoteFetchUrl, UriKind.Absolute, out Uri parsedFetchUrl))
                     {
                         context.Debug($"Get remote origin fetch url from git config: {remoteFetchUrl}");
-                        fetchUrl = new Uri(remoteFetchUrl);
+                        fetchUrl = parsedFetchUrl;
                     }
                     else
                     {

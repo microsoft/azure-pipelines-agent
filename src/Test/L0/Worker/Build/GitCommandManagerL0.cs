@@ -1,15 +1,67 @@
 ﻿using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Build;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Moq;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build;
 
 public class TestGitCommandManagerL0
 {
+    [Theory]
+    [InlineData("https://example.com/project/_git/repo", 0, true)]
+    [InlineData("https://user@dev.azure.com/org/Fen%C3%AAtre%20-%20Project/_git/repo", 0, true)]
+    [InlineData("https://dev.azure.com/org/Fen%C3%AAtre%20-%20Project/_git/repo", 0, true)]
+    [InlineData("relative/path", 0, false)]
+    [InlineData("https://[invalid", 0, false)]
+    [InlineData("", 0, false)]
+    [InlineData("https://example.com/one\nhttps://example.com/two", 0, false)]
+    [InlineData("https://example.com/project/_git/repo", 1, false)]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Worker")]
+    public async Task GitGetFetchUrlParsesAbsoluteOrigins(string output, int exitCode, bool expectedValid)
+    {
+        using var hostContext = new TestHostContext(this);
+        var context = new Mock<IExecutionContext>();
+        context.Setup(x => x.Variables)
+            .Returns(new Variables(hostContext, new Dictionary<string, VariableValue>(), out _));
+        var processInvoker = new Mock<IProcessInvoker>();
+        processInvoker.Setup(x => x.ExecuteAsync(
+            It.IsAny<string>(), It.IsAny<string>(), "config --get remote.origin.url",
+            It.IsAny<IDictionary<string, string>>(), false, It.IsAny<Encoding>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                foreach (string line in output.Split('\n'))
+                {
+                    processInvoker.Raise(x => x.OutputDataReceived += null, processInvoker.Object, new ProcessDataReceivedEventArgs(line));
+                }
+            })
+            .ReturnsAsync(exitCode);
+        hostContext.EnqueueInstance(processInvoker.Object);
+        var manager = new GitCommandManager();
+        manager.Initialize(hostContext);
+
+        var actual = await manager.GitGetFetchUrl(context.Object, "repositoryPath");
+
+        if (expectedValid)
+        {
+            Assert.Equal(new Uri(output, UriKind.Absolute), actual);
+        }
+        else
+        {
+            Assert.Null(actual);
+        }
+    }
+
     [Fact]
     [Trait("Level", "L0")]
     [Trait("Category", "Worker")]
