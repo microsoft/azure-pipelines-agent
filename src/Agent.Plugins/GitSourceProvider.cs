@@ -579,6 +579,11 @@ namespace Agent.Plugins.Repository
                 gitLfsUrlWithCred = gitLfsUrl.Uri;
             }
 
+            // Auth config for the git commands that run against an existing workspace before fetch: reset, and the
+            // sparse-checkout set or disable. Empty unless that workspace is a partial clone, the only case where
+            // those commands can reach the remote.
+            string preSyncAuthArgs = string.Empty;
+
             // Check the current contents of the root folder to see if there is already a repo
             // If there is a repo, see if it matches the one we are expecting to be there based on the remote fetch url
             // if the repo is not what we expect, remove the folder
@@ -653,6 +658,8 @@ namespace Agent.Plugins.Repository
                     executionContext.Output($"Detected an Auto Managed VHD at {targetPath}. Setting clean to false, fetchDepth to 0, and ignoring fetchFilter.");
                 }
 
+                preSyncAuthArgs = await ComposePreSyncAuthArgs(executionContext, gitCommandManager, targetPath, repositoryUrl, selfManageGitCreds, gitSupportAuthHeader, username, password, useBearerAuthType);
+
                 // When repo.clean is selected for a git repo, execute git clean -ffdx and git reset --hard HEAD on the current repo.
                 // This will help us save the time to reclone the entire repo.
                 // If any git commands exit with non-zero return code or any exception happened during git.exe invoke, fall back to delete the repo folder.
@@ -673,7 +680,7 @@ namespace Agent.Plugins.Repository
                     // git reset --hard HEAD
                     if (softCleanSucceed)
                     {
-                        int exitCode_reset = await gitCommandManager.GitReset(executionContext, targetPath);
+                        int exitCode_reset = await gitCommandManager.GitReset(executionContext, targetPath, preSyncAuthArgs);
                         if (exitCode_reset != 0)
                         {
                             executionContext.Debug($"'git reset --hard HEAD' failed with exit code {exitCode_reset}\nFor futher investigation, manually run 'git reset --hard HEAD' on repo root: {targetPath} after each build.");
@@ -746,7 +753,7 @@ namespace Agent.Plugins.Repository
                     gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: true);
 
                     // Set up sparse checkout
-                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken);
+                    int exitCode_sparseCheckout = await gitCommandManager.GitSparseCheckout(executionContext, targetPath, sparseCheckoutDirectories, sparseCheckoutPatterns, cancellationToken, preSyncAuthArgs);
                     if (exitCode_sparseCheckout != 0)
                     {
                         throw new InvalidOperationException($"Git sparse checkout failed with exit code: {exitCode_sparseCheckout}");
@@ -758,7 +765,7 @@ namespace Agent.Plugins.Repository
                     if (gitCommandManager.EnsureGitVersion(_minGitVersionSupportSparseCheckout, throwOnNotMatch: false))
                     {
                         // Disable sparse checkout in case it was enabled in a previous checkout
-                        int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken);
+                        int exitCode_sparseCheckoutDisable = await gitCommandManager.GitSparseCheckoutDisable(executionContext, targetPath, cancellationToken, preSyncAuthArgs);
 
                         if (exitCode_sparseCheckoutDisable != 0)
                         {
@@ -782,34 +789,7 @@ namespace Agent.Plugins.Repository
 
             await SetGitFeatureFlagsConfiguration(executionContext, gitCommandManager, targetPath);
 
-            // always remove any possible left extraheader setting from git config.
-            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
-            {
-                executionContext.Debug($"Remove http.{repositoryUrl.AbsoluteUri}.extraheader setting from git config.");
-                await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader", string.Empty);
-            }
-
-            var existingExtraheaders = new List<string>();
-            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.extraheader", existingExtraheaders))
-            {
-                executionContext.Debug("Remove http.extraheader setting from git config.");
-                foreach (var configValue in existingExtraheaders)
-                {
-                    await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.extraheader", configValue);
-                }
-            }
-
-            if (await gitCommandManager.GitConfigRegexExist(executionContext, targetPath, ".*extraheader"))
-            {
-                executionContext.Warning($"Git config still contains extraheader keys. It may cause errors.  To remove the credential, execute \"git config --unset-all key-name\" from the repository root");
-            }
-
-            // always remove any possible left proxy setting from git config, the proxy setting may contains credential
-            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.proxy"))
-            {
-                executionContext.Debug("Remove any proxy setting from git config.");
-                await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.proxy", string.Empty);
-            }
+            await RemoveLeftoverCredentialConfig(executionContext, gitCommandManager, targetPath, repositoryUrl);
 
             var additionalFetchFilterOptions = ParseFetchFilterOptions(executionContext, fetchFilter);
             var additionalFetchArgs = new List<string>();
@@ -1687,6 +1667,81 @@ namespace Agent.Plugins.Repository
                 // Default to false on detection failure to avoid breaking builds
                 executionContext.Debug($"Failed to detect partial clone state: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Returns the auth config to pass to the commands that run against an existing workspace before fetch, or
+        /// an empty string when they need none. On a partial clone, `git reset --hard`, `git sparse-checkout set` and
+        /// `git sparse-checkout disable` can each need a blob that was never downloaded, and git then fetches it from
+        /// the promisor remote; without the header that fetch is unauthenticated and the checkout fails with
+        /// "could not read Password". Gated by the same knob that adds the header to `git checkout` for the same case.
+        /// </summary>
+        private async Task<string> ComposePreSyncAuthArgs(
+            AgentTaskPluginExecutionContext executionContext,
+            GitCliManager gitCommandManager,
+            string targetPath,
+            Uri repositoryUrl,
+            bool selfManageGitCreds,
+            bool gitSupportAuthHeader,
+            string username,
+            string password,
+            bool useBearerAuthType)
+        {
+            if (selfManageGitCreds || !gitSupportAuthHeader)
+            {
+                return string.Empty;
+            }
+
+            if (!AgentKnobs.AddForceCredentialsToGitCheckoutEnhanced.GetValue(executionContext).AsBoolean())
+            {
+                return string.Empty;
+            }
+
+            if (!await IsPartialCloneRepository(executionContext, gitCommandManager, targetPath))
+            {
+                return string.Empty;
+            }
+
+            // http.extraheader is multi-valued, so a header persisted by an earlier job would be sent alongside this
+            // one. Removing it here rather than only before fetch keeps the request to a single Authorization header.
+            await RemoveLeftoverCredentialConfig(executionContext, gitCommandManager, targetPath, repositoryUrl);
+
+            executionContext.Debug("Adding credentials to pre-sync git commands for an existing partial clone");
+            return ComposeGitArgs(executionContext, gitCommandManager, "http.extraheader", username, password, useBearerAuthType);
+        }
+
+        /// <summary>
+        /// Removes credential-bearing settings a previous job may have left in the repository's git config: the
+        /// extraheader written for persistCredentials, and a proxy URL that can embed a password.
+        /// </summary>
+        private async Task RemoveLeftoverCredentialConfig(AgentTaskPluginExecutionContext executionContext, GitCliManager gitCommandManager, string targetPath, Uri repositoryUrl)
+        {
+            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader"))
+            {
+                executionContext.Debug($"Remove http.{repositoryUrl.AbsoluteUri}.extraheader setting from git config.");
+                await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.{repositoryUrl.AbsoluteUri}.extraheader", string.Empty);
+            }
+
+            var existingExtraheaders = new List<string>();
+            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.extraheader", existingExtraheaders))
+            {
+                executionContext.Debug("Remove http.extraheader setting from git config.");
+                foreach (var configValue in existingExtraheaders)
+                {
+                    await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.extraheader", configValue);
+                }
+            }
+
+            if (await gitCommandManager.GitConfigRegexExist(executionContext, targetPath, ".*extraheader"))
+            {
+                executionContext.Warning($"Git config still contains extraheader keys. It may cause errors.  To remove the credential, execute \"git config --unset-all key-name\" from the repository root");
+            }
+
+            if (await gitCommandManager.GitConfigExist(executionContext, targetPath, $"http.proxy"))
+            {
+                executionContext.Debug("Remove any proxy setting from git config.");
+                await RemoveGitConfig(executionContext, gitCommandManager, targetPath, $"http.proxy", string.Empty);
             }
         }
 
