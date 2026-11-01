@@ -269,7 +269,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                     }
 
-                    //Publish inital telemetry data
+                    //Publish initial telemetry data
                     var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
 
                     try
