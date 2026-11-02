@@ -11,4 +11,8 @@ To accommodate this, we have 2 flavors of packages:
 | Packages             | Node versions    | Description                |
 |----------------------|------------------|----------------------------|
 | `vsts-agent-*`       | 6, 10, 16, 20, 24 | Includes all Node versions that can be used as task execution handler |
-| `pipelines-agents-*` | 16, 20, 24       | Includes only recent Node versions. The goal for these packages is to not include any end-of-life version of Node. |
+| `pipelines-agent-*`  | 20, 24           | Excludes Node 6, 10, and 16. Node 20 is included for backward compatibility; use Node 24 for tasks. |
+
+Tasks that depend on Node 6, 10, or 16 require the `vsts-agent-*` package or a separately installed legacy runner.
+Node 6, 10, 16, and 20 are deprecated. Task maintainers should migrate to Node 24.
+See [Node task runners](noderunner.md) for migration and legacy compatibility guidance.

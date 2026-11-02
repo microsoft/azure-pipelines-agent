@@ -327,7 +327,7 @@ namespace Agent.Plugins.BuildArtifacts
             downloadParameters.AppendArtifactNameToTargetPath =
                 AgentKnobs.EnableIncompatibleBuildArtifactsPathResolution.GetValue(context).AsBoolean();
 
-            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
+            context.OutputExternal(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOption, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
@@ -346,7 +346,7 @@ namespace Agent.Plugins.BuildArtifacts
         private void CleanDirectory(AgentTaskPluginExecutionContext context, string directoryPath, CancellationToken cancellationToken)
         {
             FileAttributes dirAttributes;
-            context.Output(StringUtil.Loc("CleaningDestinationFolder", directoryPath));
+            context.OutputExternal(StringUtil.Loc("CleaningDestinationFolder", directoryPath));
 
             try
             {

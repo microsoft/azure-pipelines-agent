@@ -78,7 +78,7 @@ namespace Agent.Plugins.PipelineArtifact
             }
             else
             {
-                context.Output($"Artifact name input: {artifactName}");
+                context.OutputExternal($"Artifact name input: {artifactName}");
             }
             string targetPath = context.GetInput(TargetPath, required: true);
             string artifactType = context.GetInput(ArtifactEventProperties.ArtifactType, required: false);
@@ -145,7 +145,7 @@ namespace Agent.Plugins.PipelineArtifact
                 }
 
                 // Upload to VSTS BlobStore, and associate the artifact with the build.
-                context.Output(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
+                context.OutputExternal(StringUtil.Loc("UploadingPipelineArtifact", fullPath, buildId));
                 PipelineArtifactServer server = new PipelineArtifactServer(tracer);
                 await server.UploadAsync(context, projectId, buildId, artifactName, fullPath, properties, token);
                 context.Output(StringUtil.Loc("UploadArtifactFinished"));
@@ -356,7 +356,7 @@ namespace Agent.Plugins.PipelineArtifact
                 downloadOptions = DownloadOptions.SingleDownload;
             }
 
-            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
+            context.OutputExternal(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsync(context, downloadParameters, downloadOptions, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }

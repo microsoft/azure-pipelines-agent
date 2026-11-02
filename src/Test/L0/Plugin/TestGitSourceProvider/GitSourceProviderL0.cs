@@ -113,6 +113,34 @@ public sealed class TestPluginGitSourceProviderL0
         Assert.Contains("dev.azure.com/test/_git/myrepo", tc.TaskVariables.GetValueOrDefault("repoUrlWithCred").Value);
     }
 
+    [Fact]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Plugin")]
+    public async Task PostJobCleanup_RemovesCredentialFromExternalGitRemote()
+    {
+        using TestHostContext hc = new(this);
+        MockAgentTaskPluginExecutionContext tc = new(hc.GetTrace());
+        string repositoryPath = Path.Combine(getWorkFolder(hc), "1", "testrepo");
+        const string repositoryUrl = "https://example.invalid/repo.git";
+
+        tc.TaskVariables["cleanupcreds"] = "true";
+        tc.TaskVariables["repoUrlWithCred"] = "https://user:secret@example.invalid/repo.git";
+
+        var repository = new Pipelines.RepositoryResource
+        {
+            Alias = "testrepo",
+            Type = Pipelines.RepositoryTypes.ExternalGit,
+            Url = new Uri(repositoryUrl)
+        };
+        repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, repositoryPath);
+
+        var provider = new MockCleanupGitSourceProvider();
+        await provider.PostJobCleanupAsync(tc, repository);
+
+        Assert.Contains($"remote set-url origin {repositoryUrl}", provider.CliManager.ExecutedCommands);
+        Assert.Contains($"remote set-url --push origin {repositoryUrl}", provider.CliManager.ExecutedCommands);
+    }
+
     private Pipelines.RepositoryResource GetRepository(TestHostContext hostContext, String alias, String relativePath)
     {
         var workFolder = hostContext.GetDirectory(WellKnownDirectory.Work);

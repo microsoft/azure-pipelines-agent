@@ -44,7 +44,7 @@ namespace Agent.Plugins
             CancellationToken cancellationToken)
         {
             // Get the client settings, if any.
-            var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose: false, (str) => context.Output(str));
+            var tracer = DedupManifestArtifactClientFactory.CreateArtifactsTracer(verbose: false, (str) => context.OutputExternal(str));
             VssConnection connection = context.VssConnection;
             var clientSettings = await BlobstoreClientSettings.GetClientSettingsAsync(
                 connection,
@@ -59,7 +59,7 @@ namespace Agent.Plugins
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
+                    (str) => context.OutputExternal(str),
                     connection,
                     domainId,
                     clientSettings,

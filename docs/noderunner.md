@@ -1,17 +1,42 @@
-# Node 6 support
+# Node task runners
 
-Agent tasks can be implemented in PowerShell or Node. The agent currently ships with multiple versions of Node that tasks can target: 6, 10, 16, 20 & 24.
+Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner for Node-based tasks.
 
-Since Node 6 has long passed out of the upstream maintenance window, and all officially supported tasks are migrated from Node 6 to Node 10, Node 6 soon will be removed from the agent package. 
-It's also highly recommended to third-party task maintainers migrate tasks to Node 10 or Node 16.
+## Node runner support
 
-However, to support backward compatibility with the Node 6 tasks we provide self-service methods to install the designated Node runner manually.
+| Node version | Status |
+|--------------|--------|
+| 6, 10, 16, 20 | Deprecated; end-of-life upstream. Migrate tasks to Node 24. |
+| 24 | Recommended task runner. |
+
+Deprecated runners may remain in some agent packages for backward compatibility. Their presence does not imply ongoing upstream security support.
+See [Agent packages and Node versions](agentpakcages.md) for the runtimes included in each package.
+
+For the Node runner deprecation and removal schedule, see [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops).
+
+## Migrate tasks to Node 24
+
+Task maintainers should update task dependencies for Node 24 compatibility, declare the `Node24` execution handler in `task.json`, and test the task on Node 24:
+
+```json
+{
+  "execution": {
+    "Node24": {
+      "target": "index.js"
+    }
+  }
+}
+```
+
+Use an up-to-date agent on a platform that supports Node 24. Handler selection also depends on the agent's Node 24 rollout settings.
+Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
+Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
+
+The installation instructions below are for legacy compatibility only. Installing a deprecated runner does not restore upstream support and is not a substitute for migrating tasks to Node 24.
 
 ## Install Node 6 runner manually
 
-To support the execution of Node 6 tasks agent should be provided with the latest Node 6 version - `6.17.1.0`.
-
-Despite that Node 6 is officially reached the End-of-Life, please, notice that it still can have maintenance updates, so it is required for the agent to get the latest binaries. You can check the currently existing Node versions [here](https://nodejs.org/dist/).
+For legacy Node 6 tasks, the runner must be present in the agent's `externals/node` directory. Node 6 is deprecated and no longer receives upstream security updates.
 
 Please use the following steps to manually install the required runner:
 
@@ -47,9 +72,9 @@ Linux / macOS:
 
 ## Install Node runner via NodeTaskRunnerInstaller
 
-You can also use the Azure DevOps task [NodeTaskRunnerInstaller](https://github.com/microsoft/azure-pipelines-tasks/tree/master/Tasks/NodeTaskRunnerInstallerV0) to install the required runner version via Azure DevOps CI.
+For legacy tasks that cannot yet be migrated, you can use the Azure DevOps task [NodeTaskRunnerInstaller](https://github.com/microsoft/azure-pipelines-tasks/tree/master/Tasks/NodeTaskRunnerInstallerV0) to install a legacy runner via Azure DevOps CI.
 
-Use the following pipeline task sample to install the latest version of Node 6 runner:
+The following example installs the deprecated Node 6 runner for legacy task compatibility only:
 
 ```yaml
   - task: NodeTaskRunnerInstaller@0

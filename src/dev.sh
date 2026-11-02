@@ -47,8 +47,8 @@ function get_net_version() {
         net8.0-sdk=8.0.418
         net8.0-runtime=8.0.24
 
-        net10.0-sdk=10.0.112
-        net10.0-runtime=10.0.12
+        net10.0-sdk=10.0.114
+        net10.0-runtime=10.0.14
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
