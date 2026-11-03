@@ -212,7 +212,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             Assert.Equal("This is standard console output for xunit.", runData.Results[0].AttachmentData.ConsoleLog);
             Assert.Equal("Owner", runData.Results[0].RunBy.DisplayName);
             Assert.Equal("Completed", runData.Results[0].State);
-            Assert.Equal("1042.2319", runData.Results[0].DurationInMs.ToString());
+            Assert.Equal("1042.2319", runData.Results[0].DurationInMs.ToString(new NumberFormatInfo() { NumberDecimalSeparator = "." }));
             Assert.Equal("ClassLibrary2.DLL", runData.Results[0].AutomatedTestStorage);
             Assert.Equal("Passed", runData.Results[1].Outcome);
             Assert.Equal("0", runData.Results[1].Priority.ToString());
