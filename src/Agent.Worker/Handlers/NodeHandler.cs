@@ -37,19 +37,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public class NodeHandlerHelper : INodeHandlerHelper
     {
-        internal static readonly TimeSpan DefaultNodeProbeTimeout = TimeSpan.FromSeconds(30);
-        private readonly TimeSpan _nodeProbeTimeout;
-
-        public NodeHandlerHelper()
-            : this(DefaultNodeProbeTimeout)
-        {
-        }
-
-        internal NodeHandlerHelper(TimeSpan nodeProbeTimeout)
-        {
-            _nodeProbeTimeout = nodeProbeTimeout;
-        }
-
         public virtual bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => File.Exists(GetNodeFolderPath(nodeFolderName, hostContext));
 
         public string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext) => Path.Combine(
@@ -78,35 +65,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             const int NodeNotExecutableExitCode = 216;
             try
             {
-                CancellationToken executionCancellationToken = ExecutionContext?.CancellationToken ?? CancellationToken.None;
-                executionCancellationToken.ThrowIfCancellationRequested();
+                using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ExecutionContext?.CancellationToken ?? CancellationToken.None);
+                probeCts.CancelAfter(TimeSpan.FromSeconds(30));
 
-                using (var timeoutTokenSource = new CancellationTokenSource(_nodeProbeTimeout))
-                using (var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(executionCancellationToken, timeoutTokenSource.Token))
-                {
-                    var processInvoker = HostContext.CreateService<IProcessInvoker>();
-                    var exitCodeTask = processInvoker.ExecuteAsync(
-                                        workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                                        fileName: nodePath,
-                                        arguments: "-v",
-                                        environment: null,
-                                        requireExitCodeZero: false,
-                                        outputEncoding: null,
-                                        cancellationToken: linkedTokenSource.Token);
-                    _ = exitCodeTask.ContinueWith(
-                        t => _ = t.Exception,
-                        CancellationToken.None,
-                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                        TaskScheduler.Default);
-                    exitCodeTask.Wait(linkedTokenSource.Token);
-                    int exitCode = exitCodeTask.GetAwaiter().GetResult();
-                    return exitCode != NodeNotExecutableExitCode;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                ExecutionContext.Debug($"Node executable test timed out or was canceled for: {nodeFolder}");
-                return false;
+                var processInvoker = HostContext.CreateService<IProcessInvoker>();
+                var exitCodeTask = processInvoker.ExecuteAsync(
+                                    workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                                    fileName: nodePath,
+                                    arguments: "-v",
+                                    environment: null,
+                                    requireExitCodeZero: false,
+                                    outputEncoding: null,
+                                    cancellationToken: probeCts.Token);
+                int exitCode = exitCodeTask.GetAwaiter().GetResult();
+                return exitCode != NodeNotExecutableExitCode;
             }
             catch (Exception ex)
             {
@@ -731,30 +703,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             };
 
-            CancellationToken executionCancellationToken = context?.CancellationToken ?? CancellationToken.None;
-            using (var timeoutTokenSource = new CancellationTokenSource(NodeHandlerHelper.DefaultNodeProbeTimeout))
-            using (var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(executionCancellationToken, timeoutTokenSource.Token))
+            using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(context?.CancellationToken ?? CancellationToken.None);
+            probeCts.CancelAfter(TimeSpan.FromSeconds(30));
+
+            var exitCode = await processInvoker.ExecuteAsync(
+                            workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
+                            fileName: command,
+                            arguments: arg,
+                            environment: null,
+                            requireExitCodeZero: requireZeroExitCode,
+                            outputEncoding: null,
+                            cancellationToken: probeCts.Token);
+
+            if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
             {
-                var exitCode = await processInvoker.ExecuteAsync(
-                                workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
-                                fileName: command,
-                                arguments: arg,
-                                environment: null,
-                                requireExitCodeZero: requireZeroExitCode,
-                                outputEncoding: null,
-                                cancellationToken: linkedTokenSource.Token);
-
-                if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
+                if (showOutputOnFailureOnly)
                 {
-                    if (showOutputOnFailureOnly)
-                    {
-                        context.Command(commandLog);
-                    }
+                    context.Command(commandLog);
+                }
 
-                    foreach (var outputLine in outputs)
-                    {
-                        context.Output(outputLine);
-                    }
+                foreach (var outputLine in outputs)
+                {
+                    context.Output(outputLine);
                 }
             }
 

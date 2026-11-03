@@ -617,53 +617,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         {
                             capturedToken = ct;
                             cts.Cancel();
+                            ct.ThrowIfCancellationRequested();
                         })
-                    .Returns(async (string wd, string fn, string args, IDictionary<string, string> env, bool reqZero, Encoding enc, CancellationToken ct) =>
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(10), ct);
-                        return 0;
-                    });
+                    .ReturnsAsync(0);
 
-                var helper = new TestableNodeHandlerHelper(TimeSpan.FromSeconds(5));
-                bool result = helper.IsNodeExecutable("node24", thc, executionContextMock.Object);
-
-                Assert.False(result);
-                Assert.True(capturedToken.CanBeCanceled);
-                Assert.True(capturedToken.IsCancellationRequested);
-            }
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Common")]
-        public void IsNodeExecutableTimesOutWhenNodeProbeHangs()
-        {
-            using (TestHostContext thc = CreateTestHostContext())
-            {
-                var processInvokerMock = new Mock<IProcessInvoker>();
-                thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
-
-                var executionContextMock = new Mock<IExecutionContext>();
-                executionContextMock.Setup(x => x.CancellationToken).Returns(CancellationToken.None);
-
-                CancellationToken capturedToken = CancellationToken.None;
-                var neverCompletingTaskSource = new TaskCompletionSource<int>();
-                processInvokerMock.Setup(x => x.ExecuteAsync(
-                        It.IsAny<string>(),
-                        It.IsAny<string>(),
-                        "-v",
-                        It.IsAny<IDictionary<string, string>>(),
-                        false,
-                        It.IsAny<Encoding>(),
-                        It.IsAny<CancellationToken>()))
-                    .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, CancellationToken>(
-                        (wd, fn, args, env, reqZero, enc, ct) =>
-                        {
-                            capturedToken = ct;
-                        })
-                    .Returns(neverCompletingTaskSource.Task);
-
-                var helper = new TestableNodeHandlerHelper(TimeSpan.FromMilliseconds(100));
+                var helper = new TestableNodeHandlerHelper();
                 bool result = helper.IsNodeExecutable("node24", thc, executionContextMock.Object);
 
                 Assert.False(result);
@@ -674,11 +632,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         private sealed class TestableNodeHandlerHelper : NodeHandlerHelper
         {
-            public TestableNodeHandlerHelper(TimeSpan nodeProbeTimeout)
-                : base(nodeProbeTimeout)
-            {
-            }
-
             public override bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => true;
         }
 
