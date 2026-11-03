@@ -625,7 +625,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 bool result = helper.IsNodeExecutable("node24", thc, executionContextMock.Object);
 
                 Assert.False(result);
-                Assert.True(capturedToken.CanBeCanceled);
+                Assert.Equal(cts.Token, capturedToken);
                 Assert.True(capturedToken.IsCancellationRequested);
             }
         }

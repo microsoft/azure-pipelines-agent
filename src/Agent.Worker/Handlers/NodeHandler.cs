@@ -65,9 +65,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             const int NodeNotExecutableExitCode = 216;
             try
             {
-                using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(ExecutionContext?.CancellationToken ?? CancellationToken.None);
-                probeCts.CancelAfter(TimeSpan.FromSeconds(30));
-
                 var processInvoker = HostContext.CreateService<IProcessInvoker>();
                 var exitCodeTask = processInvoker.ExecuteAsync(
                                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
@@ -76,7 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                     environment: null,
                                     requireExitCodeZero: false,
                                     outputEncoding: null,
-                                    cancellationToken: probeCts.Token);
+                                    cancellationToken: ExecutionContext.CancellationToken);
                 int exitCode = exitCodeTask.GetAwaiter().GetResult();
                 return exitCode != NodeNotExecutableExitCode;
             }
@@ -703,9 +700,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 }
             };
 
-            using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(context?.CancellationToken ?? CancellationToken.None);
-            probeCts.CancelAfter(TimeSpan.FromSeconds(30));
-
             var exitCode = await processInvoker.ExecuteAsync(
                             workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                             fileName: command,
@@ -713,7 +707,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             environment: null,
                             requireExitCodeZero: requireZeroExitCode,
                             outputEncoding: null,
-                            cancellationToken: probeCts.Token);
+                            cancellationToken: context.CancellationToken);
 
             if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
             {
