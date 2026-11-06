@@ -589,6 +589,52 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void IsNodeExecutableRespectsExecutionContextCancellationToken()
+        {
+            using (TestHostContext thc = CreateTestHostContext())
+            using (var cts = new CancellationTokenSource())
+            {
+                var processInvokerMock = new Mock<IProcessInvoker>();
+                thc.EnqueueInstance<IProcessInvoker>(processInvokerMock.Object);
+
+                var executionContextMock = new Mock<IExecutionContext>();
+                executionContextMock.Setup(x => x.CancellationToken).Returns(cts.Token);
+
+                CancellationToken capturedToken = CancellationToken.None;
+                processInvokerMock.Setup(x => x.ExecuteAsync(
+                        It.IsAny<string>(),
+                        It.IsAny<string>(),
+                        "-v",
+                        It.IsAny<IDictionary<string, string>>(),
+                        false,
+                        It.IsAny<Encoding>(),
+                        It.IsAny<CancellationToken>()))
+                    .Callback<string, string, string, IDictionary<string, string>, bool, Encoding, CancellationToken>(
+                        (wd, fn, args, env, reqZero, enc, ct) =>
+                        {
+                            capturedToken = ct;
+                            cts.Cancel();
+                            ct.ThrowIfCancellationRequested();
+                        })
+                    .ReturnsAsync(0);
+
+                var helper = new TestableNodeHandlerHelper();
+                bool result = helper.IsNodeExecutable("node24", thc, executionContextMock.Object);
+
+                Assert.False(result);
+                Assert.Equal(cts.Token, capturedToken);
+                Assert.True(capturedToken.IsCancellationRequested);
+            }
+        }
+
+        private sealed class TestableNodeHandlerHelper : NodeHandlerHelper
+        {
+            public override bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => true;
+        }
+
         private TestHostContext CreateTestHostContext([CallerMemberName] string testName = "")
         {
             return new TestHostContext(this, testName);
