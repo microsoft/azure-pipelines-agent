@@ -123,7 +123,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                     _term.WriteLine(StringUtil.Loc("TeeEula", eulaFile));
                     _term.WriteLine();
 
-                    // Prompt to acccept the TEE EULA.
+                    // Prompt to accept the TEE EULA.
                     agentSettings.AcceptTeeEula = command.GetAcceptTeeEula();
                     break;
                 case PlatformUtil.OS.Windows:
@@ -330,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
 
             UpdateCredentialData(agent, agentSettings, credProvider.CredentialData, isHostedServer);
 
-            // Testing agent connection, detect any protential connection issue, like local clock skew that cause OAuth token expired.
+            // Testing agent connection, detect any potential connection issue, like local clock skew that cause OAuth token expired.
             _term.WriteLine(StringUtil.Loc("TestAgentConnection"));
             var credMgr = HostContext.GetService<ICredentialManager>();
             VssCredentials credential = credMgr.LoadCredentials();
@@ -806,7 +806,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
                 agent.Authorization.AuthorizationUrl != null)
             {
                 // We use authorizationUrl as the oauth endpoint url by default.
-                // For TFS, we need make sure the Schema/Host/Port component of the oauth endpoint url also match configuration url. (Incase of customer's agent configure URL and TFS server public URL are different)
+                // For TFS, we need make sure the Schema/Host/Port component of the oauth endpoint url also match configuration url. (In case of customer's agent configure URL and TFS server public URL are different)
                 // Which means, we will keep use the original authorizationUrl in the VssOAuthJwtBearerClientCredential (authorizationUrl is the audience),
                 // But might have different Url in VssOAuthCredential (connection url)
                 // We can't do this for VSTS, since its SPS/TFS urls are different.
@@ -1135,7 +1135,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             catch (VssUnauthorizedException)
             {
                 // In case if GetConnectionData returned some auth problem need to check
-                // maybe connect will be successfull with CollectionName
+                // maybe connect will be successful with CollectionName
                 // (as example PAT was generated for url/CollectionName)
                 if (!agentProvider.IsCollectionPossible) throw;
             }

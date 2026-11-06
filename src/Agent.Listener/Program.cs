@@ -141,7 +141,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 var command = new CommandSettings(context, args, new SystemEnvironment());
                 trace.Info("Command line arguments parsed successfully - ready for command execution");
 
-                // Print any Parse Errros
+                // Print any Parse Errors
                 if (command.ParseErrors?.Any() == true)
                 {
                     List<string> errorStr = new List<string>();

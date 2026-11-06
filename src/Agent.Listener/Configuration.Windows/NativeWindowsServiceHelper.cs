@@ -931,7 +931,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             Trace.Info(StringUtil.Format("Trying to add userName {0} to the group {1}", accountName, groupName));
             AddMemberToLocalGroup(accountName, groupName);
 
-            // grant permssion for folders
+            // grant permission for folders
             foreach (var folder in folders)
             {
                 if (Directory.Exists(folder))

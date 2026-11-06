@@ -830,7 +830,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 config.IgnoreUnknownArguments = ignoreErrors;
             }))
             {
-                // Parse Arugments
+                // Parse Arguments
                 // the parsing library does not allow a mix of verbs and no-verbs per parse (https://github.com/commandlineparser/commandline/issues/174)
                 args = AddDefaultVerbIfNecessary(args);
 
