@@ -9,7 +9,10 @@ using System;
 using Moq;
 using Agent.Plugins.Repository;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
@@ -26,6 +29,131 @@ public sealed class TestPluginGitSourceProviderL0
         new object[] { true },
         new object[] { false },
     };
+
+    public static IEnumerable<object[]> FetchByCommitData
+    {
+        get
+        {
+            const string commit = "0123456789012345678901234567890123456789";
+            var scenarios = new[]
+            {
+                // Depth, full-clone knob, server support, disabled knob, version, fetch count, initial commit ref.
+                new object[] { 1, false, true, false, commit, 1, true },
+                new object[] { 0, true, true, false, commit, 1, true },
+                new object[] { 0, false, true, false, commit, 2, false },
+                new object[] { 1, false, true, true, commit, 1, false },
+                new object[] { 1, false, false, false, commit, 1, false },
+                new object[] { 1, false, true, false, null, 1, false },
+                new object[] { 1, false, true, false, string.Empty, 1, false },
+            };
+
+            foreach (string branch in new[] { "refs/heads/main", "refs/pull/123/merge" })
+            {
+                foreach (object[] scenario in scenarios)
+                {
+                    yield return new object[] { branch }.Concat(scenario).ToArray();
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [Trait("Level", "L0")]
+    [Trait("Category", "Plugin")]
+    [MemberData(nameof(FetchByCommitData))]
+    public async Task GetSourceAsync_FetchesCommitOnlyWhenNeeded(
+        string branch, int fetchDepth, bool fetchByCommitForFullClone, bool supportsFetchByCommit,
+        bool disableFetchByCommit, string sourceVersion, int expectedFetchCount, bool expectedCommitRef)
+    {
+        using TestHostContext hc = new(this);
+        var tc = new MockAgentTaskPluginExecutionContext(hc.GetTrace());
+        var target = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            var repository = GetRepository(hc, "myrepo", "myrepo");
+            repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, target);
+            repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Ref, branch);
+            repository.Version = sourceVersion;
+            tc.Repositories.Add(repository);
+            tc.Endpoints.Add(new ServiceEndpoint
+            {
+                Name = WellKnownServiceEndpointNames.SystemVssConnection,
+                Url = new Uri("https://dev.azure.com/test/")
+            });
+            tc.Inputs[Pipelines.PipelineConstants.CheckoutTaskInputs.FetchDepth] = fetchDepth.ToString();
+            tc.Variables.Add("VSTS.FetchByCommitForFullClone", fetchByCommitForFullClone.ToString());
+            tc.Variables.Add("VSTS.DisableFetchByCommit", disableFetchByCommit.ToString());
+            tc.Variables.Add("system.selfmanagegitcreds", "true");
+
+            var git = new FetchGitCliManager();
+            var provider = new FetchGitSourceProvider(git, supportsFetchByCommit);
+            await provider.GetSourceAsync(tc, repository, CancellationToken.None);
+
+            var fetches = git.GitCommandCallsOptions
+                .Where(call => call.StartsWith($"{target},fetch,", StringComparison.Ordinal))
+                .Select(call => call.Split(',')[2].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .ToList();
+            Assert.Equal(expectedFetchCount, fetches.Count);
+
+            bool isPullRequest = branch.StartsWith("refs/pull/", StringComparison.Ordinal);
+            string remoteBranch = isPullRequest ? "refs/remotes/pull/123/merge" : "refs/remotes/origin/main";
+            string commitRef = $"refs/remotes/origin/{sourceVersion}";
+            string[] expectedRefSpecs = expectedCommitRef
+                ? new[] { $"+{sourceVersion}:{commitRef}" }
+                : isPullRequest
+                    ? new[] { "+refs/heads/*:refs/remotes/origin/*", $"+{branch}:{remoteBranch}" }
+                    : Array.Empty<string>();
+            Assert.Equal(expectedRefSpecs, fetches[0].Where(arg => arg.StartsWith("+")));
+            if (expectedFetchCount == 2)
+            {
+                Assert.Equal(new[] { $"+{sourceVersion}" }, fetches[1].Where(arg => arg.StartsWith("+")));
+            }
+
+            foreach (var fetch in fetches)
+            {
+                Assert.Contains("origin", fetch);
+                Assert.Equal(fetchDepth > 0, fetch.Contains($"--depth={fetchDepth}"));
+            }
+
+            string expectedCheckout = expectedCommitRef ? commitRef
+                : isPullRequest || string.IsNullOrEmpty(sourceVersion) ? remoteBranch : sourceVersion;
+            string checkout = Assert.Single(git.GitCommandCallsOptions
+                .Where(call => call.StartsWith($"{target},checkout,", StringComparison.Ordinal)));
+            Assert.Equal($"--progress --force {expectedCheckout}", checkout.Split(',')[2]);
+        }
+        finally
+        {
+            if (Directory.Exists(target))
+            {
+                Directory.Delete(target, true);
+            }
+        }
+    }
+
+    private sealed class FetchGitCliManager : MockGitCliManager
+    {
+        public override async Task LoadGitExecutionInfo(AgentTaskPluginExecutionContext context, bool useBuiltInGit)
+        {
+            gitPath = "git";
+            gitVersion = await GitVersion(context);
+        }
+    }
+
+    private sealed class FetchGitSourceProvider : MockGitSoureProvider
+    {
+        private readonly GitCliManager git;
+        private readonly bool supportsFetchByCommit;
+
+        public FetchGitSourceProvider(GitCliManager git, bool supportsFetchByCommit)
+        {
+            this.git = git;
+            this.supportsFetchByCommit = supportsFetchByCommit;
+        }
+
+        protected override GitCliManager GetCliManager(Dictionary<string, string> gitEnv = null) => git;
+
+        public override bool GitSupportsFetchingCommitBySha1Hash(GitCliManager gitCommandManager) => supportsFetchByCommit;
+    }
 
     [Theory]
     [Trait("Level", "L0")]
