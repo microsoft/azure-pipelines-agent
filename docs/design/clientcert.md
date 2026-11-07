@@ -117,7 +117,11 @@ Ex:
  - TEE (tf on linux) expect read CA from `Java Certificate Store`.  
  - PowerShell expect read CA from `Windows Certificate Manager`.  
  - Node.js expect a `ca` parameter on `tls.options`.  
- - Node.js (version >= 7.3) also expect an environment vairble to point to the CA file `NODE_EXTRA_CA_CERTS`, however the agent current use Node.js version 6.x which mean we can't use that envirinment variable.  
+ - Node.js (version >= 7.3) also expect an environment vairble to point to the CA file `NODE_EXTRA_CA_CERTS`.
+ - Set the variable in the Pipeline:
+    variables:
+      - name: NODE_OPTIONS
+        value: --use-openssl-ca
 
 At this point, I would sugguest when you have a self-signed CA cert, please make sure the tools or technologies you used within your Build/Release works with your self-signed CA cert first, then try to configure the agent.  
 In this way, even you get an error within your build/release job, you might have better idea of where is the error coming from.  
