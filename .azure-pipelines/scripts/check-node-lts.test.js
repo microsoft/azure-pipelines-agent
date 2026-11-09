@@ -125,14 +125,17 @@ async function runMonitor(t, options) {
     await fs.writeFile(externalsPath, options.source ?? source);
     const logs = [];
     const posts = [];
+    let alpineRequests = 0;
     const feeds = {
-        'https://nodejs.org/dist/index.json': releases,
+        'https://nodejs.org/dist/index.json': options.releases ?? releases,
         'https://raw.githubusercontent.com/nodejs/security-wg/main/vuln/core/index.json': options.advisories ?? { 1: advisory },
         'https://raw.githubusercontent.com/nodejs/Release/main/schedule.json': schedule
     };
     const exitCode = await monitor({
         externalsPath, outputDirectory: directory, now: new Date(`${asOf}T12:00:00Z`),
-        triggerAlpineBuilds: true, accessToken: options.token === null ? undefined : 'test-token',
+        triggerAlpineBuilds: true, alpineBuildToken: options.token === null ? undefined : 'alpine-test-token',
+        includeNonSecurityUpdates: options.includeNonSecurityUpdates,
+        accessToken: 'job-token-must-not-be-used',
         log: message => logs.push(message),
         fetchImpl: async (url, request) => {
             if (Object.hasOwn(feeds, String(url))) {
@@ -140,6 +143,8 @@ async function runMonitor(t, options) {
                 return new Response(JSON.stringify(feeds[String(url)]), { status: options.sourceError ? 503 : 200 });
             }
             assert.equal(new URL(url).origin, 'https://dev.azure.com');
+            assert.equal(request.headers.Authorization, 'Bearer alpine-test-token', 'Only the Alpine token may authenticate build requests');
+            alpineRequests++;
             if (request.method === 'GET') {
                 return new Response(JSON.stringify({ value: options.history ?? [] }), { status: options.historyError ? 403 : 200 });
             }
@@ -149,7 +154,7 @@ async function runMonitor(t, options) {
         }
     });
     return {
-        exitCode, posts, logs,
+        exitCode, posts, logs, alpineRequests,
         report: JSON.parse(await fs.readFile(path.join(directory, 'node-lts-report.json'), 'utf8')),
         markdown: await fs.readFile(path.join(directory, 'node-lts-report.md'), 'utf8')
     };
@@ -157,24 +162,38 @@ async function runMonitor(t, options) {
 
 test('end-to-end: compact summaries, full JSON, exit codes, and preserved security/build failures', async t => {
     const cases = [
-        { name: 'security and CVEs', code: 1, posts: ['22.23.4', '24.23.0'] },
-        { name: 'security index lag', advisories: { 1: { ...advisory, patched: '>=0.0.0' } }, code: 1, posts: ['22.23.4', '24.23.0'] },
-        { name: 'nonsecurity update', source: pin('24.22.1'), code: 0, posts: ['24.23.0'] },
+        { name: 'security and CVEs', code: 1, posts: ['22.23.4', '24.22.1'] },
+        { name: 'security index lag', advisories: { 1: { ...advisory, patched: '>=0.0.0' } }, code: 1, posts: ['22.23.4', '24.22.1'] },
+        { name: 'nonsecurity update', source: pin('24.22.1'), token: null, code: 0, posts: [] },
+        { name: 'nonsecurity patch update', source: pin('24.22.1'), token: null, code: 0, posts: [], releases: [
+            { version: 'v24.22.1', date: asOf, security: true },
+            { version: 'v24.22.2', date: asOf, security: false }
+        ] },
+        { name: 'mixed security and nonsecurity updates', source: pin('22.21.0') + '\n' + pin('24.22.1'),
+            code: 1, posts: ['22.23.4'] },
+        { name: 'nonsecurity opt-in', source: pin('24.22.1'), includeNonSecurityUpdates: true,
+            code: 0, posts: ['24.23.0'] },
+        { name: 'security with opt-in', includeNonSecurityUpdates: true, code: 1, posts: ['22.23.4', '24.23.0'] },
+        { name: 'current pin with opt-in', source: pin('24.23.0'), includeNonSecurityUpdates: true,
+            token: null, code: 0, posts: [] },
+        { name: 'no LTS pins with opt-in', source: pin('20.20.2'), includeNonSecurityUpdates: true,
+            token: null, code: 0, posts: [] },
         { name: 'current pin', source: pin('24.23.0'), code: 0, posts: [] },
         { name: 'no LTS pins', source: pin('20.20.2'), token: null, code: 0, posts: [] },
-        { name: 'CVE without security update', source: pin('24.23.0'), advisories: { 1: { ...advisory, patched: '' } }, code: 1, posts: [] },
+        { name: 'CVE without security update', source: pin('24.22.1'), token: null,
+            advisories: { 1: { ...advisory, patched: '' } }, code: 1, posts: [] },
         { name: 'missing token', token: null, code: 2, posts: [] },
         { name: 'source failure', sourceError: true, code: 2, posts: [] },
         { name: 'history failure', historyError: true, code: 2, posts: [] },
         { name: 'existing builds', code: 1, posts: [], history: [
             { id: 8, templateParameters: { nodeVersion: '22.23.4' }, status: 'inProgress', result: null },
-            { id: 9, templateParameters: { nodeVersion: '24.23.0' }, status: 'completed', result: 'succeeded' }
+            { id: 9, templateParameters: { nodeVersion: '24.22.1' }, status: 'completed', result: 'succeeded' }
         ] },
         { name: 'existing failed builds', code: 1, posts: [], history: [
             { id: 10, templateParameters: { nodeVersion: '22.23.4' }, status: 'completed', result: 'failed' },
-            { id: 11, templateParameters: { nodeVersion: '24.23.0' }, status: 'completed', result: 'canceled' }
+            { id: 11, templateParameters: { nodeVersion: '24.22.1' }, status: 'completed', result: 'canceled' }
         ] },
-        { name: 'partial queue failure', code: 2, posts: ['22.23.4', '24.23.0'], queue: body =>
+        { name: 'partial queue failure', code: 2, posts: ['22.23.4', '24.22.1'], queue: body =>
             body.templateParameters.nodeVersion === '22.23.4' ? new Response('{"id":15,"state":"inProgress"}')
                 : Promise.reject(new Error('Queue | unavailable\n403')) }
     ];
@@ -185,7 +204,10 @@ test('end-to-end: compact summaries, full JSON, exit codes, and preserved securi
         assert.ok(result.logs.includes('##vso[task.setvariable variable=NodeCveReportReady]true'));
         assert.ok(result.logs.some(line => line.startsWith('##vso[task.uploadsummary]')));
         assert.deepEqual(Object.keys(result.report.sources).sort(), ['advisories', 'releases', 'schedule']);
+        assert.doesNotMatch(JSON.stringify(result.report) + result.markdown + result.logs.join('\n'),
+            /alpine-test-token|job-token-must-not-be-used/, scenario.name);
         assert.match(result.markdown, /Agent Node CVE monitoring/);
+        assert.match(result.markdown, /nonsecurity releases require opt-in/);
         for (const build of result.report.alpineBuilds || []) {
             if (build.outcome !== 'error') {
                 assert.ok(result.logs.some(line => line.includes(`Node ${build.nodeVersion}`) &&
@@ -193,7 +215,15 @@ test('end-to-end: compact summaries, full JSON, exit codes, and preserved securi
             }
         }
         if (result.report.alpineBuilds?.length === 0) {
-            assert.ok(result.logs.some(line => line.startsWith('Alpine-NodeJs-Build skipped:')), scenario.name);
+            assert.equal(result.alpineRequests, 0, scenario.name);
+            assert.ok(result.logs.includes(scenario.includeNonSecurityUpdates
+                ? 'Alpine-NodeJs-Build skipped: no outdated bundled LTS versions require a build.'
+                : 'Alpine-NodeJs-Build skipped: no bundled LTS versions require a security update.'), scenario.name);
+        }
+        if (scenario.name.startsWith('nonsecurity')) {
+            assert.ok(result.logs.some(line => line.includes('type=warning') && line.includes('NODE24_VERSION')), scenario.name);
+            assert.equal(result.report.checked[0].securityUpdateRequired, false, scenario.name);
+            assert.equal(result.report.checked[0].outdated, true, scenario.name);
         }
         if (scenario.code === 2) {
             assert.ok(result.logs.some(line => line.includes('type=error')), scenario.name);
