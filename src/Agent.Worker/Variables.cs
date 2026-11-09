@@ -53,6 +53,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public delegate string TranslationMethod(string val);
         public TranslationMethod StringTranslator = DefaultStringTranslator;
 
+        // Helper method to detect shell metacharacters that cause expansion issues on Linux bash
+        private static bool ContainsShellMetacharacters(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+            
+            // Check for bash shell expansion patterns that cause issues on Linux agents only
+            return value.Contains("$$") ||           // Process ID expansion: $$ -> PID
+                   value.Contains("$RANDOM") ||      // Random number: $RANDOM -> random number
+                   value.Contains("$USER") ||        // Username: $USER -> current user
+                   value.Contains("$HOME") ||        // Home directory: $HOME -> /home/user
+                   value.Contains("$PWD") ||         // Current directory: $PWD -> current path
+                   System.Text.RegularExpressions.Regex.IsMatch(value, @"\$[a-zA-Z_]") || // Any $VAR pattern like $s, $w, etc.
+                   value.Contains('`');              // Command substitution: `command`
+        }
+        
+        // Helper method to make values shell-safe by escaping metacharacters for Linux bash
+        private static string MakeShellSafe(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+                
+            // Escape ALL dollar signs to prevent any bash shell expansion on Linux
+            // This is the safest approach - bash won't try to expand \$ at all
+            return value.Replace("$", @"\$")                       // Escape all $ characters
+                        .Replace("`", @"\`");                      // Escape backticks
+        }
+
         public static string DefaultStringTranslator(string val)
         {
             return val;
@@ -100,7 +128,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 if (!string.IsNullOrWhiteSpace(variable.Key))
                 {
-                    variables.Add(new Variable(variable.Key, variable.Value.Value, variable.Value.IsSecret, variable.Value.IsReadOnly, preserveCase: false));
+                    string processedValue = variable.Value.Value;
+                    
+                    // SHELL EXPANSION FIX: Automatically escape shell metacharacters on Linux only
+                    // Windows PowerShell/CMD doesn't have this vulnerability, so only apply on Linux
+                    if (PlatformUtil.RunningOnLinux && !string.IsNullOrEmpty(processedValue) && ContainsShellMetacharacters(processedValue))
+                    {
+                        string originalValue = processedValue;
+                        processedValue = MakeShellSafe(processedValue);
+                        _trace.Info($"SHELL EXPANSION: Variable '{variable.Key}' contains shell metacharacters, escaped from '{originalValue}' to '{processedValue}' (Linux only)");
+                        
+                        // For secrets, add both original and escaped versions to masker
+                        if (variable.Value.IsSecret)
+                        {
+                            _secretMasker.AddValue(originalValue, $"Variables_Constructor_Original_{variable.Key}");
+                            _secretMasker.AddValue(processedValue, $"Variables_Constructor_Escaped_{variable.Key}");
+                        }
+                    }
+                    
+                    variables.Add(new Variable(variable.Key, processedValue, variable.Value.IsSecret, variable.Value.IsReadOnly, preserveCase: false));
                 }
             }
 
