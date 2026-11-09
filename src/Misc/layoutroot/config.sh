@@ -24,21 +24,44 @@ if [[ "$(uname)" == "Linux" ]]; then
         exit 1
     fi
 
-    ldd ./bin/libcoreclr.so | grep -E "not found|No such"
+    # Check if .NET runtime files exist before checking dependencies
+    if [ ! -f ./bin/libcoreclr.so ]; then
+        echo "Error: .NET runtime files are missing from ./bin/"
+        echo "The agent installation appears to be incomplete or corrupted."
+        echo "Please ensure the agent package was extracted correctly and all files are present."
+        exit 1
+    fi
+
+    if [ ! -f ./bin/libSystem.Security.Cryptography.Native.OpenSsl.so ]; then
+        echo "Error: .NET runtime files are missing from ./bin/"
+        echo "The agent installation appears to be incomplete or corrupted."
+        echo "Please ensure the agent package was extracted correctly and all files are present."
+        exit 1
+    fi
+
+    if [ ! -f ./bin/libSystem.IO.Compression.Native.so ]; then
+        echo "Error: .NET runtime files are missing from ./bin/"
+        echo "The agent installation appears to be incomplete or corrupted."
+        echo "Please ensure the agent package was extracted correctly and all files are present."
+        exit 1
+    fi
+
+    # Check for missing dependencies
+    ldd ./bin/libcoreclr.so | grep "not found"
     if [ $? -eq 0 ]; then
-        echo "Dependencies is missing for .NET Core 6.0"
+        echo "Dependencies are missing for .NET Core 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
-    ldd ./bin/libSystem.Security.Cryptography.Native.OpenSsl.so | grep -E "not found|No such"
+    ldd ./bin/libSystem.Security.Cryptography.Native.OpenSsl.so | grep "not found"
     if [ $? -eq 0 ]; then
         echo "Dependencies missing for .NET 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
         exit 1
     fi
 
-    ldd ./bin/libSystem.IO.Compression.Native.so | grep -E "not found|No such"
+    ldd ./bin/libSystem.IO.Compression.Native.so | grep "not found"
     if [ $? -eq 0 ]; then
         echo "Dependencies missing for .NET 6.0"
         echo "Execute ./bin/installdependencies.sh to install any missing dependencies."
