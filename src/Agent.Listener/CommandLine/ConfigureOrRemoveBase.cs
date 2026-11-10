@@ -31,5 +31,8 @@ namespace Agent.Listener.CommandLine
 
         [Option(Constants.Agent.CommandLine.Args.ClientSecret)]
         public string ClientSecret { get; set; }
+
+        [Option(Constants.Agent.CommandLine.Args.FederatedTokenFile)]
+        public string FederatedTokenFile { get; set; }
     }
 }

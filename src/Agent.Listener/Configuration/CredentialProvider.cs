@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -345,11 +346,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNullOrEmpty(clientId, nameof(clientId));
             trace.Info(StringUtil.Format("client id retrieved: {0} chars", clientId.Length));
 
-            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientSecret, out string clientSecret);
-            ArgUtil.NotNullOrEmpty(clientSecret, nameof(clientSecret));
-            trace.Info(StringUtil.Format("client secret retrieved: {0} chars", clientSecret.Length));
+            CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.FederatedTokenFile, out string federatedTokenFile);
 
-            var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            TokenCredential credential;
+            if (!string.IsNullOrEmpty(federatedTokenFile))
+            {
+                // OIDC / workload-identity federation: exchange a federated token
+                // (e.g. a projected Kubernetes service account token) for a
+                // Microsoft Entra ID access token, instead of using a client secret.
+                // The file is re-read on every acquisition so a token that is
+                // rotated on disk is picked up without restarting the agent.
+                trace.Info(StringUtil.Format("federated token file provided: {0}", federatedTokenFile));
+                credential = new ClientAssertionCredential(
+                    tenantId,
+                    clientId,
+                    (CancellationToken cancellationToken) =>
+                    {
+                        var assertion = File.ReadAllText(federatedTokenFile).Trim();
+                        return Task.FromResult(assertion);
+                    });
+            }
+            else
+            {
+                CredentialData.Data.TryGetValue(Constants.Agent.CommandLine.Args.ClientSecret, out string clientSecret);
+                ArgUtil.NotNullOrEmpty(clientSecret, nameof(clientSecret));
+                trace.Info(StringUtil.Format("client secret retrieved: {0} chars", clientSecret.Length));
+
+                credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            }
 
             var tokenRequestContext = new TokenRequestContext(VssAadSettings.DefaultScopes);
             var accessToken = credential.GetTokenAsync(tokenRequestContext, CancellationToken.None).GetAwaiter().GetResult();
@@ -370,7 +394,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Configuration
             ArgUtil.NotNull(command, nameof(command));
             CredentialData.Data[Constants.Agent.CommandLine.Args.ClientId] = command.GetClientId();
             CredentialData.Data[Constants.Agent.CommandLine.Args.TenantId] = command.GetTenantId();
-            CredentialData.Data[Constants.Agent.CommandLine.Args.ClientSecret] = command.GetClientSecret();
+
+            // Prefer OIDC / workload-identity federation when a federated token file
+            // is supplied; otherwise fall back to the classic client-secret flow.
+            string federatedTokenFile = command.GetFederatedTokenFile();
+            if (!string.IsNullOrEmpty(federatedTokenFile))
+            {
+                CredentialData.Data[Constants.Agent.CommandLine.Args.FederatedTokenFile] = federatedTokenFile;
+            }
+            else
+            {
+                CredentialData.Data[Constants.Agent.CommandLine.Args.ClientSecret] = command.GetClientSecret();
+            }
         }
     }
 }
