@@ -13,7 +13,7 @@ async function request(url, token, fetchImpl, method = 'GET', body) {
     });
     if (!response.ok) {
         throw new Error(`Alpine-NodeJs-Build ${method} request failed: HTTP ${response.status}. ` +
-            'The monitoring build identity needs View builds and Queue builds permissions on pipeline 21894.');
+            "Check the Alpine service connection identity's access and pipeline 21894 configuration.");
     }
     return { data: await response.json(), continuation: response.headers.get('x-ms-continuationtoken') };
 }
@@ -68,13 +68,15 @@ function runDetails(run, queued = false) {
     };
 }
 
-async function ensureAlpineBuilds(checked, { token, fetchImpl = fetch }) {
-    const versions = [...new Set(checked.filter(pin => pin.outdated).map(pin => pin.latestVersion))];
+async function ensureAlpineBuilds(checked, { token, fetchImpl = fetch, includeNonSecurityUpdates = false }) {
+    const versions = [...new Set(checked
+        .filter(pin => includeNonSecurityUpdates ? pin.outdated : pin.securityUpdateRequired)
+        .map(pin => includeNonSecurityUpdates ? pin.latestVersion : pin.latestSecurityVersion))];
     if (versions.length === 0) {
         return [];
     }
     if (typeof token !== 'string' || !token.trim()) {
-        throw new Error('System.AccessToken is required to check and queue Alpine-NodeJs-Build runs.');
+        throw new Error('ALPINE_BUILDS_ACCESS_TOKEN is required to check and queue Alpine-NodeJs-Build runs.');
     }
     if (versions.some(version => !semver.valid(version) || semver.prerelease(version))) {
         throw new Error('Invalid target Node version for Alpine-NodeJs-Build.');
