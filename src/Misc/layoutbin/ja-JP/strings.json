@@ -268,6 +268,7 @@
   "DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup": "DeploymentGroup {0} には、{1} という名前のコンピューターが既に含まれています。",
   "DeploymentPoolName": "配置プール名",
   "DeploymentPoolNotFound": "配置プールが見つかりません: '{0}'",
+  "DeprecatedNodeRunner": "タスク '{0}' のバージョン {1} ({2}@{1}) は、有効期間の終了となるノードのバージョン ({3}) に依存しています。タスクの更新されたバージョンについては、拡張機能の所有者にお問い合わせください。タスクの保守管理者は、Node のアップグレード ガイダンスを確認する必要があります: https://aka.ms/node-runner-guidance",
   "DeprecatedRunner": "タスク '{0}' は、有効期限が切れたタスク ランナーに依存しており、今後削除される予定です。作成者は Node のアップグレード ガイダンスを確認する必要があります: https://aka.ms/node-runner-guidance。",
   "DeprecationMessage": "タスク '{0}' バージョン {1} ({2}@{1}) は非推奨です。",
   "DeprecationMessageHelpUrl": "このタスクの詳細については、{0} を参照してください。",

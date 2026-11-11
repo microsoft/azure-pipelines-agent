@@ -762,6 +762,13 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
             new BuiltInDefaultKnobSource("false"));
 
+        public static readonly Knob CheckIfTaskNodeRunnerIsDeprecated246 = new Knob(
+            nameof(CheckIfTaskNodeRunnerIsDeprecated246),
+            "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
+            new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED_246"),
+            new PipelineFeatureSource("CheckIfTaskNodeRunnerIsDeprecated246"),
+            new BuiltInDefaultKnobSource("false"));
+
         public static readonly Knob UseNode20ToStartContainer = new Knob(
             nameof(UseNode20ToStartContainer),
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",

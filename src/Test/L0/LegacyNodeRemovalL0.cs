@@ -13,7 +13,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData("UseNode10")]
         [InlineData("DisableNode6Tasks")]
         [InlineData("DisableNode6DeprecationWarning")]
-        [InlineData("CheckIfTaskNodeRunnerIsDeprecated246")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         public void LegacyNodeKnobsAreRemoved(string name)
@@ -31,6 +30,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         public void VersionIndependentNodeKnobsRemain(string name)
         {
             Assert.NotNull(typeof(AgentKnobs).GetField(name, BindingFlags.Public | BindingFlags.Static));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void TaskNodeRunnerDeprecationKnobRemains()
+        {
+            Assert.NotNull(typeof(AgentKnobs).GetField("CheckIfTaskNodeRunnerIsDeprecated246", BindingFlags.Public | BindingFlags.Static));
         }
     }
 }

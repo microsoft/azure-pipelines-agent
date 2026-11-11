@@ -75,6 +75,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 executionContext.Debug("There is no required tasks need to download.");
                 return;
             }
+
+            HashSet<Guid> exceptionList = GetTaskExceptionSet();
             foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
                 executionContext.SetCorrelationTask(task.Id.ToString());
@@ -89,6 +91,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 if (AgentKnobs.CheckForTaskDeprecation.GetValue(executionContext).AsBoolean())
                 {
                     CheckForTaskDeprecation(executionContext, task);
+                }
+
+                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated246.GetValue(executionContext).AsBoolean() &&
+                    !exceptionList.Contains(task.Id))
+                {
+                    CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
                 }
 
                 executionContext.ClearCorrelationTask();
@@ -361,6 +369,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     executionContext.Warning(tailoredDeprecationMessage.ToString());
                 }
             }
+        }
+
+        private void CheckIfTaskNodeRunnerIsDeprecated(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
+        {
+            string[] deprecatedNodeRunners = { "Node", "Node10", "Node16" };
+            string[] approvedNodeRunners = { "Node20_1", "Node24" };
+            string[] executionSteps = { "prejobexecution", "execution", "postjobexecution" };
+
+            JObject taskJson = GetTaskJson(task);
+            var taskRunners = new HashSet<string>();
+
+            foreach (var step in executionSteps)
+            {
+                var runners = taskJson.GetValueOrDefault(step);
+                if (runners is not JObject runnerObject)
+                {
+                    continue;
+                }
+
+                var runnerNames = runnerObject.Properties().Select(property => property.Name);
+                if (runnerNames.Intersect(approvedNodeRunners).Any())
+                {
+                    continue;
+                }
+
+                taskRunners.UnionWith(runnerNames);
+            }
+
+            List<string> taskNodeRunners = new();
+            foreach (string runner in deprecatedNodeRunners)
+            {
+                if (taskRunners.Contains(runner))
+                {
+                    taskNodeRunners.Add(runner == "Node" ? "6" : runner[4..]);
+                }
+            }
+
+            if (taskNodeRunners.Count > 0)
+            {
+                string friendlyName = taskJson["friendlyName"].Value<string>();
+                int majorVersion = new Version(task.Version).Major;
+                executionContext.Warning(StringUtil.Loc("DeprecatedNodeRunner", friendlyName, majorVersion, task.Name, taskNodeRunners.Last()));
+            }
+        }
+
+        private HashSet<Guid> GetTaskExceptionSet()
+        {
+            string exceptionListFile = HostContext.GetConfigFile(WellKnownConfigFile.TaskExceptionList);
+            var exceptionList = new List<Guid>();
+
+            if (File.Exists(exceptionListFile))
+            {
+                try
+                {
+                    exceptionList = IOUtil.LoadObject<List<Guid>>(exceptionListFile);
+                }
+                catch (Exception ex)
+                {
+                    Trace.Info($"Unable to deserialize exception list {ex}");
+                }
+            }
+
+            return exceptionList.ToHashSet();
         }
 
         private JObject GetTaskJson(Pipelines.TaskStepDefinitionReference task)

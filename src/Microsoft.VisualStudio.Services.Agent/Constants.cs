@@ -41,7 +41,8 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
-        SetupInfo
+        SetupInfo,
+        TaskExceptionList
     }
 
     public static class WellKnownTasks

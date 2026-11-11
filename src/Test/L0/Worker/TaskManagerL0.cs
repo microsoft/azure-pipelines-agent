@@ -699,6 +699,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task WarnsWhenTaskOnlyUsesDeprecatedNodeRunner()
+        {
+            try
+            {
+                using (var tokenSource = new CancellationTokenSource())
+                using (var hc = Setup(tokenSource))
+                {
+                    Issue warning = null;
+                    _ec
+                        .Setup(x => x.AddIssue(It.IsAny<Issue>()))
+                        .Callback((Issue issue) => warning = issue);
+                    _ec
+                        .Setup(x => x.GetVariableValueOrDefault("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED_246"))
+                        .Returns("true");
+
+                    var task = new Pipelines.TaskStep()
+                    {
+                        Reference = new Pipelines.TaskStepDefinitionReference()
+                        {
+                            Name = "SomeTask",
+                            Version = "1.2.3",
+                            Id = Guid.NewGuid()
+                        }
+                    };
+
+                    string sourceFolder = Path.Combine(_workFolder, Guid.NewGuid().ToString());
+                    Directory.CreateDirectory(sourceFolder);
+                    File.WriteAllText(
+                        Path.Combine(sourceFolder, Constants.Path.TaskJsonFile),
+                        "{\"friendlyName\":\"Some task\",\"execution\":{\"Node16\":{}}}");
+                    string zipPath = Path.Combine(_workFolder, "node-task.zip");
+                    ZipFile.CreateFromDirectory(sourceFolder, zipPath);
+
+                    using (var stream = new FileStream(zipPath, FileMode.Open, FileAccess.Read))
+                    {
+                        _taskServer
+                            .Setup(x => x.GetTaskContentZipAsync(task.Reference.Id, It.IsAny<TaskVersion>(), It.IsAny<CancellationToken>()))
+                            .Returns(Task.FromResult<Stream>(stream));
+
+                        await _taskManager.DownloadAsync(_ec.Object, new[] { task });
+                    }
+
+                    _ec.Verify(x => x.AddIssue(It.IsAny<Issue>()), Times.Once);
+                    Assert.NotNull(warning);
+                    Assert.Equal(IssueType.Warning, warning.Type);
+                }
+            }
+            finally
+            {
+                Teardown();
+            }
+        }
+
         private void CreateTask(string jsonContent, out Pipelines.TaskStep instance, out string directory)
         {
             const string TaskName = "SomeTask";

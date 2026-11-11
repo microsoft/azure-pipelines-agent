@@ -280,7 +280,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var variables = new Dictionary<string, VariableValue>
                 {
                     { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" },
-                    { "AGENT_USE_NODE20_1", "true" }
+                    { "AGENT_USE_NODE20_1", "true" },
+                    { "AGENT_WARN_ON_NODE20_TASK", "true" }
                 };
                 var executionContext = CreateExecutionContext(thc, variables);
                 var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
@@ -291,6 +292,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible));
 
                 Assert.NotNull(exception.Message);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task Orchestrator_EolPolicyUpgradesNode20Task_UsesOnlyEolUpgradeWarning()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" },
+                    { "AGENT_WARN_ON_NODE20_TASK", "true" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper
+                    .Setup(x => x.IsNodeExecutable(
+                        It.Is<string>(folder => folder == NodeVersionHelper.GetFolderName(NodeVersion.Node24)),
+                        It.IsAny<IHostContext>(),
+                        It.IsAny<IExecutionContext>()))
+                    .Returns(true);
+
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                var result = await orchestrator.SelectNodeVersionForHostAsync(context);
+
+                Assert.Equal(NodeVersion.Node24, result.NodeVersion);
+                Assert.Contains("NodeEOLUpgradeWarning", result.Warning);
+                Assert.DoesNotContain("Node20TaskRetirementWarning", result.Warning);
             }
         }
 
@@ -350,6 +383,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Equal(expectWarning, !string.IsNullOrEmpty(result.Warning));
+                if (expectWarning)
+                {
+                    Assert.Contains("Node20TaskRetirementWarning", result.Warning);
+                }
             }
         }
 
