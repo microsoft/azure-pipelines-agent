@@ -404,7 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             catch (Exception ex)
             {
-                ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Strategy-based node selection failed: {ex.Message}");
                 ExecutionContext.Debug($"Stack trace: {ex}");
                 throw;
             }
@@ -491,7 +491,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             {
                                 ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, next available version will be used. See http://aka.ms/azdo-node-runner");
                                 Trace.Info($"Found {firstExistedNodeFolder} installed");
-                                WarnIfEolNodeRunner(firstExistedNodeFolder);
+                                if (firstExistedNodeFolder == NodeHandler.Node20_1Folder)
+                                {
+                                    WarnIfEolNodeRunner(firstExistedNodeFolder);
+                                }
                                 return nodeHandlerHelper.GetNodeFolderPath(firstExistedNodeFolder, HostContext);
                             }
                             break;

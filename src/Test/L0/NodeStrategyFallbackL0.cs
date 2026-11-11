@@ -547,6 +547,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var exception = Assert.Throws<NotSupportedException>(() => handler.GetNodeLocation(false, false, false));
 
                 Assert.Contains("Node24", exception.Message);
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never());
                 executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
                     i.Type == IssueType.Warning && (i.Message.Contains("Node20TaskRetirementWarning") ||
                         i.Message.Contains("NodeEOLRetirementWarning") || i.Message.Contains("NodeEOLUpgradeWarning")))),
@@ -592,6 +593,40 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     warnOnNode20 ? Times.Once() : Times.Never());
                 executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
                     i.Type == IssueType.Warning && i.Message.Contains("NodeEOLRetirementWarning"))), Times.Never());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyExplicitUpgradeToNode16_DoesNotAddRetirementWarnings()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_USE_NODE", "UPGRADE" },
+                    { "VSTSAGENT_ENABLE_NODE_WARNINGS", "true" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node16Folder, It.IsAny<IHostContext>()))
+                    .Returns(true);
+                helper.Setup(x => x.GetFilteredPossibleNodeFolders("node10", It.IsAny<string[]>()))
+                    .Returns(new[] { NodeHandler.Node16Folder, NodeHandler.Node20_1Folder, NodeHandler.Node24Folder });
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node10HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Contains("node16", handler.GetNodeLocation(false, false, false));
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
+                    i.Type == IssueType.Warning && (i.Message.Contains("NodeEOLRetirementWarning") ||
+                        i.Message.Contains("DeprecatedRunner")))), Times.Never());
             }
         }
 
