@@ -38,7 +38,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (glibcInfo.Node24HasGlibcError)
             {
-                executionContext.Debug(StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
+                executionContext.Debug(AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean()
+                    ? StringUtil.Loc("NodeEOLFallbackBlocked", "Node20")
+                    : StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
                 return null;
             }
 
@@ -101,8 +103,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             }
 
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
             
-            if (!useNode24ToStartContainer)
+            if (!useNode24ToStartContainer && !enforceEolPolicy)
             {
                 executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=false, cannot handle container");
                 return null;

@@ -369,9 +369,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
-            bool taskUsesEOLNodeHandler = Data is NodeHandlerData or Node10HandlerData or Node16HandlerData;
-            bool enforceEOLPolicy = taskUsesEOLNodeHandler &&
-                AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            bool enforceEOLPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
             
             if (useStrategyPattern || enforceEOLPolicy)
             {
@@ -462,12 +460,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
 
-            if ((nodeFolder == NodeFolder || nodeFolder == Node10Folder || nodeFolder == Node16Folder) &&
-                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
-            {
-                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
-            }
-
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
             {
                 string[] filteredPossibleNodeFolders = nodeHandlerHelper.GetFilteredPossibleNodeFolders(nodeFolder, possibleNodeFolders);
@@ -504,6 +496,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
+
+            bool isEolNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
+                nodeFolder == Node16Folder;
+            string taskName = Task?.Name?.ToString() ??
+                ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
+                "Unknown Task";
+            if (isEolNodeRunner)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
+            }
+
+            if (isEolNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", taskName));
+            }
+
             if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
             {
                 try

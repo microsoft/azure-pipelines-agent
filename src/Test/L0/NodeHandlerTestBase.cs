@@ -120,6 +120,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                                 Assert.Contains(CapturedWarnings, w => w.Contains(scenario.StrategyExpectedWarning));
                             }
                         }
+
+                        if (scenario.ExpectedWarning != null)
+                        {
+                            Assert.Contains(CapturedWarnings, w => w.Contains(scenario.ExpectedWarning));
+                        }
                     }
                     catch (Exception ex) when (expectations.ExpectedErrorType != null)
                     {

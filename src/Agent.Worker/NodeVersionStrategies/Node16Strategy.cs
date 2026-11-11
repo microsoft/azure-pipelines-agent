@@ -52,7 +52,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 {
                     NodePath = null,
                     NodeVersion = NodeVersion.Node16,
-                    Reason = "Selected for Node16 task handler"
+                    Reason = "Selected for Node16 task handler",
+                    Warning = StringUtil.Loc(
+                        "NodeEOLRetirementWarning",
+                        executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                 };
             }
 
@@ -60,7 +63,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
-                Reason = "Fallback to manually installed Node16"
+                Reason = "Fallback to manually installed Node16",
+                Warning = StringUtil.Loc(
+                    "NodeEOLRetirementWarning",
+                    executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
             };
         }
 
@@ -74,7 +80,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
-                throw new NotSupportedException("No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks.");
+                throw new NotSupportedException("No compatible Node.js version available for container execution. Node16 is blocked by EOL policy. Please update your pipeline to use Node24 tasks.");
             }
 
             // Only use Node16 if the binary actually exists on disk
@@ -92,7 +98,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
-                Reason = "Fallback to manually installed Node16 for container execution"
+                Reason = "Fallback to manually installed Node16 for container execution",
+                Warning = StringUtil.Loc(
+                    "NodeEOLRetirementWarning",
+                    executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
             };
         }
     }

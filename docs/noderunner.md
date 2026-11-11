@@ -6,7 +6,7 @@ Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner 
 
 | Node version | Status |
 |--------------|--------|
-| 20 | Deprecated; included for backward compatibility. Migrate tasks to Node 24. |
+| 20 | End-of-life; migrate tasks to Node 24. |
 | 24 | Recommended task runner. |
 
 Only Node 20 and Node 24 are bundled, subject to platform availability. Older runners are not bundled or automatically downloaded.
@@ -31,6 +31,8 @@ Task maintainers should update task dependencies for Node 24 compatibility, decl
 Use an up-to-date agent on a platform that supports Node 24. Handler selection also depends on the agent's Node 24 rollout settings.
 Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
+
+Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent fails instead of falling back to Node 20 or an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
 
 ## Manual runner installation paths
 

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
@@ -269,6 +270,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_BlocksNode20_WhenEOLPolicyEnabled()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var variables = new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" },
+                    { "AGENT_USE_NODE20_1", "true" }
+                };
+                var executionContext = CreateExecutionContext(thc, variables);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var strategy = new Node20Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                var exception = Assert.Throws<NotSupportedException>(() =>
+                    strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible));
+
+                Assert.NotNull(exception.Message);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Orchestrator_ContainerSelection_RejectsCrossPlatformNode_WhenEOLPolicyEnabled()
+        {
+            if (!PlatformUtil.RunningOnWindows && !PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext
+                {
+                    HandlerData = new Node16HandlerData(),
+                    Container = new ContainerInfo { ImageOS = PlatformUtil.OS.Linux }
+                };
+
+                var exception = Assert.Throws<NotSupportedException>(() =>
+                    orchestrator.SelectNodeVersionForContainer(context, new Mock<IDockerCommandManager>().Object));
+
+                Assert.Contains("Node24", exception.Message);
+            }
+        }
+
         [Theory]
         [InlineData("DistributedTask.Agent.WarnOnNode20Task", "false", false)]
         [InlineData("DistributedTask.Agent.WarnOnNode20Task", "true", true)]
@@ -358,7 +415,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 var result = await orchestrator.SelectNodeVersionForHostAsync(context);
                 Assert.Equal(NodeVersion.Node10, result.NodeVersion);
-                Assert.Equal(enabled, !string.IsNullOrEmpty(result.Warning));
+                Assert.Contains("NodeEOLRetirementWarning", result.Warning);
+                Assert.Equal(enabled, result.Warning.Contains("DeprecatedRunner"));
             }
         }
 
