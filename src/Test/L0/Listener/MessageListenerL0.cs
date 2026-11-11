@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Microsoft.VisualStudio.Services.Common;
 using Moq;
 using System;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -98,6 +99,84 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                         _settings.PoolId,
                         It.Is<TaskAgentSession>(y => y != null),
                         tokenSource.Token), Times.Once());
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task CreateSessionPreservesConfiguredAgentCloudRequestIdAcrossRetriesAndRecreation(bool hasAllocationId)
+        {
+            using (TestHostContext tc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                Guid? allocationId = hasAllocationId ? Guid.NewGuid() : (Guid?)null;
+                _settings.AgentCloudRequestId = allocationId;
+                var sentAllocationIds = new List<Guid?>();
+                _capabilitiesManager
+                    .Setup(x => x.GetCapabilitiesAsync(_settings, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new Dictionary<string, string>());
+                _credMgr.Setup(x => x.LoadCredentials()).Returns(new VssCredentials());
+                _agentServer
+                    .Setup(x => x.CreateAgentSessionAsync(
+                        _settings.PoolId,
+                        It.IsAny<TaskAgentSession>(),
+                        tokenSource.Token))
+                    .Callback<int, TaskAgentSession, CancellationToken>((poolId, session, token) =>
+                    {
+                        sentAllocationIds.Add(session.AgentCloudRequestId);
+                        Assert.Equal(_settings.AgentId, session.Agent.Id);
+                    })
+                    .Returns(() => sentAllocationIds.Count == 1
+                        ? Task.FromException<TaskAgentSession>(new HttpRequestException("Temporary connection failure"))
+                        : Task.FromResult(new TaskAgentSession()));
+
+                var listener = new MessageListener();
+                listener.Initialize(tc);
+
+                Assert.True(await listener.CreateSessionAsync(tokenSource.Token));
+                Assert.True(await listener.CreateSessionAsync(tokenSource.Token));
+                Assert.Equal(3, sentAllocationIds.Count);
+                Assert.All(sentAllocationIds, sentAllocationId => Assert.Equal(allocationId, sentAllocationId));
+                _agentServer.Verify(x => x.CreateAgentSessionAsync(
+                    _settings.PoolId,
+                    It.IsAny<TaskAgentSession>(),
+                    tokenSource.Token), Times.Exactly(3));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task CreateSessionDoesNotRetryRejectedCloudAllocation()
+        {
+            using (TestHostContext tc = CreateTestContext())
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                _settings.AgentCloudRequestId = Guid.NewGuid();
+                _capabilitiesManager
+                    .Setup(x => x.GetCapabilitiesAsync(_settings, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new Dictionary<string, string>());
+                _credMgr.Setup(x => x.LoadCredentials()).Returns(new VssCredentials());
+                var rejection = new TaskAgentAccessTokenExpiredException("Cloud allocation is no longer active");
+                _agentServer
+                    .Setup(x => x.CreateAgentSessionAsync(
+                        _settings.PoolId,
+                        It.IsAny<TaskAgentSession>(),
+                        tokenSource.Token))
+                    .ThrowsAsync(rejection);
+
+                var listener = new MessageListener();
+                listener.Initialize(tc);
+
+                Assert.Same(rejection, await Assert.ThrowsAsync<TaskAgentAccessTokenExpiredException>(
+                    () => listener.CreateSessionAsync(tokenSource.Token)));
+                _agentServer.Verify(x => x.CreateAgentSessionAsync(
+                    _settings.PoolId,
+                    It.Is<TaskAgentSession>(session => session.AgentCloudRequestId == _settings.AgentCloudRequestId),
+                    tokenSource.Token), Times.Once());
             }
         }
 

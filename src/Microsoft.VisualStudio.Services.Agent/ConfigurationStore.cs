@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.VisualStudio.Services.Agent.Util;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -40,6 +41,12 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         [DataMember(EmitDefaultValue = false)]
         public string AgentCloudId { get; set; }
+
+        /// <summary>
+        /// The original cloud allocation request ID supplied by the pool provider, not the reusable numeric agent ID.
+        /// </summary>
+        [DataMember(EmitDefaultValue = false)]
+        public Guid? AgentCloudRequestId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
         public string AgentName { get; set; }
