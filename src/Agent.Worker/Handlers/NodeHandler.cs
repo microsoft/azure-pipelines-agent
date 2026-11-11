@@ -529,9 +529,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             string taskName = Task?.Name?.ToString() ??
                 ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
                 "Unknown Task";
-            if (isLegacyNodeRunner || nodeFolder == Node20_1Folder)
+            if (isLegacyNodeRunner)
             {
                 ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
+            }
+            else if (nodeFolder == Node20_1Folder && AgentKnobs.WarnOnNode20Task.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("Node20TaskRetirementWarning", taskName));
             }
 
             if (isLegacyNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())

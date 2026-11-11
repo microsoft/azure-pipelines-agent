@@ -34,7 +34,7 @@ Pipeline users should update to a task version that supports Node 24, or ask the
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
 
 Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent fails instead of falling back to Node 20 or an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
-Selecting Node 20 emits the default end-of-life retirement warning.
+With the EOL policy disabled, set `AGENT_WARN_ON_NODE20_TASK=true` to emit a Node 20 retirement warning when Node 20 is selected. This warning is disabled by default.
 
 ## Manual runner installation paths
 

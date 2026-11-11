@@ -326,11 +326,6 @@ function cmd_package() {
 
     heading "Packaging ${agent_pkg_name}"
 
-    if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
-        # A layout reused after a vsts-agent build can still contain Node 20.
-        rm -rf "${LAYOUT_DIR:?}/externals/node20_1"
-    fi
-
     rm -Rf "${LAYOUT_DIR:?}/_diag"
 
     mkdir -p "$PACKAGE_DIR"
@@ -341,14 +336,34 @@ function cmd_package() {
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${PACKAGE_DIR}"
-        tar -czf "${tar_name}" -C "${LAYOUT_DIR}" .
+        local tar_excludes=()
+        if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
+            tar_excludes+=(--exclude='./externals/node20_1')
+        fi
+        tar -czf "${tar_name}" "${tar_excludes[@]}" -C "${LAYOUT_DIR}" .
     elif [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
         zip_name="${agent_pkg_name}.zip"
         echo "Convert ${LAYOUT_DIR} to Windows style path"
         window_path=${LAYOUT_DIR:1}
         window_path=${window_path:0:1}:${window_path:1}
         echo "Creating $zip_name in ${window_path}"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "Add-Type -Assembly \"System.IO.Compression.FileSystem\"; [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "
+            \$ErrorActionPreference = 'Stop'
+            Add-Type -Assembly 'System.IO.Compression.FileSystem'
+            [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")
+            if (\$env:PACKAGE_TYPE -eq 'pipelines-agent') {
+                \$archive = [System.IO.Compression.ZipFile]::Open(\"${zip_name}\", [System.IO.Compression.ZipArchiveMode]::Update)
+                try {
+                    foreach (\$entry in @(\$archive.Entries)) {
+                        if (\$entry.FullName.Replace([char]92, [char]47).StartsWith('externals/node20_1/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                            \$entry.Delete()
+                        }
+                    }
+                } finally {
+                    \$archive.Dispose()
+                }
+            }
+        "
     fi
 
     popd >/dev/null
