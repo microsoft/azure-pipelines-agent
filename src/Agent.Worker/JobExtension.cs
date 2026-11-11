@@ -328,19 +328,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (context.Containers.Count > 0 || context.SidecarContainers.Count > 0)
                     {
-                        // Get container provider - uses enhanced version if feature flag is enabled
-                        IContainerOperationProvider containerProvider;
-                        if (AgentKnobs.EnableEnhancedContainerDiagnostics.GetValue(context).AsBoolean())
-                        {
-                            // Create and initialize enhanced provider manually since it's not registered with ServiceLocator
-                            var enhancedProvider = new ContainerOperationProviderEnhanced();
-                            enhancedProvider.Initialize(HostContext);
-                            containerProvider = enhancedProvider;
-                        }
-                        else
-                        {
-                            containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        }
+                        IContainerOperationProvider containerProvider = HostContext.GetService<IContainerOperationProvider>();
                         
                         var containers = new List<ContainerInfo>();
                         containers.AddRange(context.Containers);

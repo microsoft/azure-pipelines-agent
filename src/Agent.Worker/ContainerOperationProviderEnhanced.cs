@@ -31,6 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public class ContainerOperationProviderEnhanced : AgentService, IContainerOperationProvider
     {
         private const string _nodeJsPathLabel = "com.azure.dev.pipelines.agent.handler.node.path";
+        private const string ContainerOperationProviderFeature = "ContainerOperationProvider";
         private const string c_tenantId = "tenantid";
         private const string c_clientId = "servicePrincipalId";
         private const string c_activeDirectoryServiceEndpointResourceId = "activeDirectoryServiceEndpointResourceId";
@@ -168,7 +169,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             using (Trace.EnteringWithDuration())
             {
-                var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
                 CancellationToken cancellationToken = executionContext.CancellationToken;
                 executionContext.Debug("Retrieving AAD token using MSI authentication");
 
@@ -198,7 +199,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgumentNullException.ThrowIfNull(executionContext);
                 ArgumentNullException.ThrowIfNull(registryEndpoint);
 
-                var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
                 CancellationToken cancellationToken = executionContext.CancellationToken;
                 executionContext.Debug("Retrieving AAD token using Workload Identity Federation");
 
@@ -288,7 +289,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             using (Trace.EnteringWithDuration())
             {
-                var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
                 CancellationToken cancellationToken = executionContext.CancellationToken;
                 Uri url = new Uri(registryServer + "/oauth2/exchange");
                 executionContext.Debug("Converting AAD token to ACR refresh token");
@@ -380,7 +381,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var registryEndpoint = executionContext.Endpoints.FirstOrDefault(x => x.Type == "dockerregistry" && x.Id == container.ContainerRegistryEndpoint);
                     ArgUtil.NotNull(registryEndpoint, nameof(registryEndpoint));
 
-                    var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                    var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
                     trace.Info($"Registry endpoint ID: {registryEndpoint.Id}");
                     trace.Info($"Registry endpoint name: {registryEndpoint.Name ?? "not specified"}");
                     trace.Info($"Registry endpoint URL: {registryEndpoint.Url?.ToString() ?? "not specified"}");
@@ -496,7 +497,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 try
                 {
-                    var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                    var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
 
                     if (!container.SkipContainerImagePull)
                     {
@@ -590,7 +591,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 ArgUtil.NotNull(container, nameof(container));
                 ArgUtil.NotNullOrEmpty(container.ContainerImage, nameof(container.ContainerImage));
 
-                var trace = HostContext.GetTrace(nameof(ContainerOperationProvider));
+                var trace = HostContext.GetTrace(ContainerOperationProviderFeature);
 
                 Trace.Info($"Container name: {container.ContainerName}");
                 Trace.Info($"Container image: {container.ContainerImage}");
@@ -1548,7 +1549,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void PublishTelemetry(
             IExecutionContext executionContext,
             object telemetryData,
-            string feature = nameof(ContainerOperationProvider))
+            string feature = ContainerOperationProviderFeature)
         {
             var cmd = new Command("telemetry", "publish")
             {
