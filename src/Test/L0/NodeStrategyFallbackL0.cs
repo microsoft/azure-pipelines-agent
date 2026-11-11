@@ -422,12 +422,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
-        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "false", false)]
-        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "true", true)]
-        [InlineData("AGENT_WARN_ON_NODE20_TASK", "true", true)]
+        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "false")]
+        [InlineData("DistributedTask.Agent.WarnOnNode20Task", "true")]
+        [InlineData("AGENT_WARN_ON_NODE20_TASK", "false")]
+        [InlineData("AGENT_WARN_ON_NODE20_TASK", "true")]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void Node20Strategy_GatesNode20TaskWarning(string knobName, string knobValue, bool expectWarning)
+        public void Node20Strategy_EmitsOneRetirementWarningRegardlessOfOptionalKnob(string knobName, string knobValue)
         {
             ClearEolKnob();
             using (TestHostContext thc = new TestHostContext(this))
@@ -444,15 +445,36 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
 
                 Assert.NotNull(result);
-                Assert.Contains("NodeEOLRetirementWarning", result.Warning);
-                Assert.Equal(expectWarning, result.Warning.Contains("Node20TaskRetirementWarning"));
+                Assert.Equal(StringUtil.Loc("NodeEOLRetirementWarning", "Unknown Task"), result.Warning);
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void Node20Strategy_DoesNotWarnForRedirectedNode16Task()
+        public void Node20Strategy_Node24Fallback_PreservesGlibcAndRetirementWarnings()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var strategy = new Node20Strategy(CreateNodeHandlerHelper(nodeFolderExists: true).Object);
+                var context = new TaskContext { HandlerData = new Node24HandlerData() };
+
+                var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
+
+                Assert.NotNull(result);
+                Assert.Equal(NodeVersion.Node20, result.NodeVersion);
+                Assert.Equal(
+                    StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20") +
+                        Environment.NewLine + StringUtil.Loc("NodeEOLRetirementWarning", "Unknown Task"),
+                    result.Warning);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_EmitsDefaultWarningForRedirectedNode16Task()
         {
             ClearEolKnob();
             using (TestHostContext thc = new TestHostContext(this))

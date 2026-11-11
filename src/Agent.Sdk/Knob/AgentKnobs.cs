@@ -233,7 +233,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob WarnOnNode20Task = new Knob(
             nameof(WarnOnNode20Task),
-            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            "Retained for compatibility; selecting Node 20 always emits an end-of-life retirement warning.",
             new PipelineFeatureSource("WarnOnNode20Task"),
             new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
             new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
