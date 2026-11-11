@@ -17,6 +17,6 @@ Legacy runners are not bundled or automatically downloaded. Tasks that still req
 Node 20 is end-of-life. With the EOL policy disabled, `AGENT_WARN_ON_NODE20_TASK=true` enables a retirement warning when Node 20 is selected. Task maintainers should migrate to Node 24.
 See [Node task runners](noderunner.md) for migration and manual compatibility paths.
 
-Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run all Node task handlers on Node 24. If Node 24 is unavailable or incompatible, selection fails without falling back to Node 20. With the policy disabled, tasks are not automatically upgraded to Node 24: tasks that require a missing runner fail unless that runner is installed manually.
+Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to select Node 24 for agent-managed Node task runners. If Node 24 is unavailable or incompatible, selection fails without falling back to Node 20. An explicitly configured custom Node path can override this policy. With the policy disabled, tasks are not automatically upgraded to Node 24. A missing or incompatible runner may fall back to a manually installed older runner, such as Node 16 for a Node 20 task; if no compatible runner is available, the task fails.
 
 Node 24 is not bundled for Windows x86 or Linux ARM32. The `pipelines-agent` package on these platforms has no bundled Node task runner; migrate to an operating system and architecture supported by Node 24.

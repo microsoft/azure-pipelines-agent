@@ -186,7 +186,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     # Node 24 is not available for win-x86, so we exclude it for this runtime
     if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
         INCLUDE_NODE24=false
-        echo "INFO: Node 24 is not available for win-x86. Tasks requiring Node 24 will fail."
+        echo "INFO: Node 24 is not available for win-x86. Task execution depends on the available runners and EOL policy."
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
