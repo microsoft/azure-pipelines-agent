@@ -37,7 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
 
     // This implementation of IJobDispatcher is not thread safe.
     // It is base on the fact that the current design of agent is dequeue
-    // and process one message from message queue everytime.
+    // and process one message from message queue every time.
     // In addition, it only execute one job every time,
     // and server will not send another job while this one is still running.
     public sealed class JobDispatcher : AgentService, IJobDispatcher
@@ -253,9 +253,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     return;
                 }
 
-                // base on the current design, server will only send one job for a given agent everytime.
+                // base on the current design, server will only send one job for a given agent every time.
                 // if the agent received a new job request while a previous job request is still running, this typically indicate two situations
-                // 1. an agent bug cause server and agent mismatch on the state of the job request, ex. agent not renew jobrequest properly but think it still own the job reqest, however server already abandon the jobrequest.
+                // 1. an agent bug cause server and agent mismatch on the state of the job request, ex. agent not renew jobrequest properly but think it still own the job request, however server already abandon the jobrequest.
                 // 2. a server bug or design change that allow server send more than one job request to an given agent that haven't finish previous job request.
                 Trace.Info(StringUtil.Format("Concurrent job detected - checking server job status [JobId:{0}, RequestId:{1}, PoolId:{2}]",
                     jobDispatch.JobId, jobDispatch.RequestId, _poolId));
@@ -474,7 +474,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             }
 
                             // Start the process channel.
-                            // It's OK if StartServer bubbles an execption after the worker process has already started.
+                            // It's OK if StartServer bubbles an exception after the worker process has already started.
                             // The worker will shutdown after 30 seconds if it hasn't received the job message.
                             startupStage = "StartWorker";
                             Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
