@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
 using Xunit;
@@ -118,6 +119,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.CheckGlibcCompatibilityAsync(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(GlibcCompatibilityInfo.Compatible);
             return glibcMock;
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ContainerSelection_WithoutNode20_UsesNode24OrFails()
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                var context = new TaskContext
+                {
+                    HandlerData = new Node24HandlerData(),
+                    Container = new ContainerInfo
+                    {
+                        ContainerId = "test-container",
+                        ImageOS = PlatformUtil.HostOS
+                    }
+                };
+                var docker = new Mock<IDockerCommandManager>();
+                docker.Setup(x => x.DockerExec(
+                    It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        Assert.Contains("node24", command);
+                        output.Add("v24.0.0");
+                        return 0;
+                    });
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+
+                Assert.Equal(NodeVersion.Node24, orchestrator.SelectNodeVersionForContainer(context, docker.Object).NodeVersion);
+
+                docker.Setup(x => x.DockerExec(
+                    It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<List<string>>())).ReturnsAsync(127);
+                Assert.Throws<NotSupportedException>(() => orchestrator.SelectNodeVersionForContainer(context, docker.Object));
+            }
         }
 
         [Fact]

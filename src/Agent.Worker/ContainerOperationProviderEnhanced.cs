@@ -668,6 +668,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
                 bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
                 bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
+                bool node20Available = Directory.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder));
+                useNode24ToStartContainer |= !node20Available;
                 bool useAgentNode = false;
 
                 string labelContainerStartupUsingNode24 = "container-startup-using-node-24";
@@ -679,7 +681,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     return container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}"));
                 }
 
-                string nodeContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
+                string nodeContainerPath = containerNodePath(node20Available ? NodeHandler.Node20_1Folder : NodeHandler.Node24Folder);
                 string node20ContainerPath = containerNodePath(NodeHandler.Node20_1Folder);
                 string node24ContainerPath = containerNodePath(NodeHandler.Node24Folder);
 
@@ -739,7 +741,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             trace.Info($"Node paths - Default: {nodeContainerPath}, Node20: {node20ContainerPath}, Node24: {node24ContainerPath}");
                             string sleepCommand;
 
-                            if (useNode24ToStartContainer)
+                            if (!node20Available)
+                            {
+                                executionContext.Debug("[ContainerSetup] Node20 is not bundled; using Node24 without fallback");
+                                sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                            }
+                            else if (useNode24ToStartContainer)
                             {
                                 executionContext.Debug("[ContainerSetup] Using Node24 with Node20 fallback");
                                 sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)} || echo '{labelContainerStartupFailed}'";
@@ -827,8 +834,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         catch (Exception ex)
                         {
                             executionContext.Error($"Failed to determine node path with orchestrator: {ex.Message}");
-                            container.ResultNodePath = !string.IsNullOrEmpty(container.CustomNodePath) ? container.CustomNodePath : nodeContainerPath;
-                            executionContext.Warning($"Using fallback node path: {container.ResultNodePath}");
+                            throw new NotSupportedException($"Container Node.js runtime selection failed: {ex.Message}", ex);
                         }
                     }
                     else if (useAgentNode && (useNode20ToStartContainer || useNode24ToStartContainer))
@@ -874,15 +880,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     {
                                         attemptedNodeVersions.Add("Node 24");
                                     }
-                                    attemptedNodeVersions.Add("Node 20");
+                                    if (node20Available)
+                                    {
+                                        attemptedNodeVersions.Add("Node 20");
+                                    }
 
                                     executionContext.Error(
                                         $"Container startup failed: none of the agent's bundled Node.js runtimes ({string.Join(", ", attemptedNodeVersions)}) could execute inside container image '{container.ContainerImage}'. " +
                                         "This usually means the container's OS / C library is incompatible with the agent's Node.js binaries " +
                                         "(for example, a musl-based image such as Alpine when the agent ships glibc Node.js, or vice versa), or the image is missing libraries that Node.js depends on. " +
                                         $"Use a container image compatible with the agent, or have the image declare its own Node.js path via the '{_nodeJsPathLabel}' image label.");
-                                    containerStartupCompleted = true;
-                                    break;
+                                    throw new NotSupportedException("No compatible bundled Node.js runtime could start the container.");
                                 }
                             }
 
@@ -902,7 +910,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not NotSupportedException)
                 {
                     // pull container log is best effort.
                     Trace.Error("Catch exception when check container log and container status.");
@@ -1504,7 +1512,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             bool useNode24 = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useNode20 = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             
-            if (useNode24)
+            if (useNode24 || !Directory.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder)))
             {
                 return new Node24HandlerData();
             }
@@ -1537,11 +1545,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var result = orchestrator.SelectNodeVersionForContainer(taskContext, _dockerManger);
             
             container.ResultNodePath = result.NodePath;
-            
-            if (!string.IsNullOrEmpty(result.Warning))
-            {
-                executionContext.Warning(result.Warning);
-            }
             
             executionContext.Output($"Container node selection: {result.NodeVersion} - {result.Reason}");
         }

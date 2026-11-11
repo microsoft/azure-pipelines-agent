@@ -106,13 +106,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool useNode24ToStartContainer = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
             
-            if (!useNode24ToStartContainer && !enforceEolPolicy)
+            bool node20Available = _nodeHandlerHelper.IsNodeFolderExist(
+                NodeVersionHelper.GetFolderName(NodeVersion.Node20), executionContext.GetHostContext());
+
+            if (!useNode24ToStartContainer && !enforceEolPolicy && node20Available)
             {
                 executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=false, cannot handle container");
                 return null;
             }
 
-            executionContext.Debug("[Node24Strategy] UseNode24ToStartContainer=true, checking Node24 availability in container");
+            executionContext.Debug("[Node24Strategy] Checking Node24 for container startup (requested or Node20 is not bundled)");
 
             try
             {
@@ -122,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     {
                         NodePath = null,
                         NodeVersion = NodeVersion.Node24,
-                        Reason = "Node24 available in container via UseNode24ToStartContainer knob",
+                        Reason = "Node24 available in container (requested or Node20 is not bundled)",
                         Warning = null
                     };
                 }

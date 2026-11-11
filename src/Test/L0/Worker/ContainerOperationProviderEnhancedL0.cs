@@ -4,6 +4,7 @@
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -20,6 +21,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         // =============================================
         // Legacy path tests (UseEnhancedNodeSelection = false)
         // =============================================
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_WithoutNode20_UsesNode24OrFails(bool enhanced, bool node24Fails)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                Assert.False(System.IO.Directory.Exists(System.IO.Path.Combine(hc.GetDirectory(WellKnownDirectory.Externals), "node20_1")));
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        if (command.Contains("--version"))
+                        {
+                            Assert.Contains("node24", command);
+                            output.Add("v24.0.0");
+                            return node24Fails ? 127 : 0;
+                        }
+                        return 0;
+                    });
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { "container-startup-using-node-24" });
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetHostContext()).Returns(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                hc.SetSingleton<IGlibcCompatibilityInfoProvider>(new Mock<IGlibcCompatibilityInfoProvider>().Object);
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                if (node24Fails)
+                {
+                    await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    return;
+                }
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                Assert.Contains("node24", container.ResultNodePath);
+                if (!enhanced)
+                {
+                    Assert.Contains("node24", container.ContainerCommand);
+                    Assert.DoesNotContain("node20_1", container.ContainerCommand);
+                }
+            }
+        }
 
         [Fact]
         [Trait("Level", "L0")]

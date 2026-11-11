@@ -115,6 +115,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
+            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
+            {
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
+            }
+
+            if (!_nodeHandlerHelper.IsNodeFolderExist(NodeVersionHelper.GetFolderName(NodeVersion.Node20), executionContext.GetHostContext()))
+            {
+                executionContext.Debug("[Node20Strategy] Node20 is not bundled, skipping container startup");
+                return null;
+            }
+
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();        
             if (!useNode20ToStartContainer)
             {
