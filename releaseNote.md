@@ -88,7 +88,8 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alternate Agent Downloads
 
-Both package flavors include only Node 20 and Node 24 runners, subject to platform availability.
+The `pipelines-agent` package now includes only Node 24; `vsts-agent` continues to include Node 20 and Node 24, subject to platform availability.
+`AGENT_RESTRICT_EOL_NODE_VERSIONS=true` runs all Node task handlers on Node 24 and fails if that runtime cannot run. With the policy disabled, legacy handlers require their matching runner; they are not automatically upgraded to Node 24.
 See [agent package notes](docs/agentpakcages.md) on Node version support for more details.
 
 |             | Package | SHA-256 |

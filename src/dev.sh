@@ -27,6 +27,7 @@ DOTNET_ERROR_PREFIX="##vso[task.logissue type=error]"
 DOTNET_WARNING_PREFIX="##vso[task.logissue type=warning]"
 
 PACKAGE_TYPE=${PACKAGE_TYPE:-agent} # agent or pipelines-agent
+export PACKAGE_TYPE
 
 pushd "$SCRIPT_DIR"
 
@@ -324,6 +325,11 @@ function cmd_package() {
     # END TEMPORARY
 
     heading "Packaging ${agent_pkg_name}"
+
+    if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
+        # A layout reused after a vsts-agent build can still contain Node 20.
+        rm -rf "${LAYOUT_DIR:?}/externals/node20_1"
+    fi
 
     rm -Rf "${LAYOUT_DIR:?}/_diag"
 

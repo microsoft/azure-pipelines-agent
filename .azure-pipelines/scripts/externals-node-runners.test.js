@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 const { readPinnedVersions } = require('./check-node-lts');
@@ -14,34 +15,71 @@ test('external runtime pins contain only the bundled Node versions', () => {
     assert.deepEqual(readPinnedVersions(source).map(pin => pin.major).sort((a, b) => a - b), [20, 24]);
 });
 
-for (const runtime of ['win-x64', 'win-x86', 'win-arm64', 'linux-x64', 'linux-arm',
-    'linux-arm64', 'linux-musl-x64', 'linux-musl-arm64', 'osx-x64', 'osx-arm64']) {
-    test(`external acquisition includes only supported runners on ${runtime}`, () => {
-        // Keep the real platform branches, replacing only filesystem/network operations.
-        const start = source.indexOf('function acquireExternalTool() {');
-        const end = source.indexOf('echo "PACKAGE RUNTIME:');
-        assert.ok(start >= 0 && end > start);
-        const instrumented = (source.slice(0, start) +
-            'function acquireExternalTool() { printf "TOOL:%s\\n" "$2"; }\n\n' +
-            source.slice(end))
-            .replace(/get_abs_path\(\) \{[\s\S]*?\n\}/,
-                'get_abs_path() { printf "%s\\n" "$1"; }');
-        const result = spawnSync(bash, ['-s', '--', runtime], {
-            input: 'function rm() { :; }\nfunction cp() { :; }\n' + instrumented,
-            encoding: 'utf8',
-            timeout: 30000,
-            env: { ...process.env, INCLUDE_NODE20: 'true', INCLUDE_NODE24: 'true' }
-        });
-        assert.ifError(result.error);
-        assert.equal(result.status, 0, result.stderr);
-        const runners = result.stdout.split(/\r?\n/)
-            .filter(line => /^TOOL:node/.test(line))
-            .map(line => line.slice(5).split('/')[0]);
-        const expected = ['win-x86', 'linux-arm'].includes(runtime)
-            ? ['node20_1']
-            : ['node20_1', 'node24'];
-        assert.deepEqual([...new Set(runners)].sort(), expected, result.stdout);
+for (const packageType of ['agent', 'pipelines-agent']) {
+    test(`${packageType} archive handles a reused layout containing Node20`, () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-package-'));
+        try {
+            for (const folder of ['bin', 'externals/node20_1/bin', 'externals/node24/bin']) {
+                fs.mkdirSync(path.join(root, 'layout', folder), { recursive: true });
+            }
+            fs.writeFileSync(path.join(root, 'layout/bin/Agent.Listener'), '#!/bin/sh\necho 1.0.0\n', { mode: 0o755 });
+            fs.writeFileSync(path.join(root, 'layout/externals/node20_1/bin/node'), 'node20');
+            fs.writeFileSync(path.join(root, 'layout/externals/node24/bin/node'), 'node24');
+            const devSource = fs.readFileSync(path.resolve(__dirname, '../../src/dev.sh'), 'utf8');
+            const start = devSource.indexOf('function cmd_package() {');
+            const end = devSource.indexOf('function cmd_hash() {', start);
+            assert.ok(start >= 0 && end > start);
+            const result = spawnSync(bash, ['-s', '--', root], {
+                input: 'ROOT="$1"\n' +
+                    (process.platform === 'win32' ? 'ROOT="$(cygpath -u "$ROOT")"\n' : '') +
+                    'LAYOUT_DIR="$ROOT/layout"\nPACKAGE_DIR="$ROOT/package"\n' +
+                    'AGENT_VERSION=1.0.0\nRUNTIME_ID=linux-x64\nCURRENT_PLATFORM=linux\n' +
+                    'function heading() { :; }\n' + devSource.slice(start, end) +
+                    '\ncmd_package\ntar -tf "$PACKAGE_DIR"/*.tar.gz\n',
+                encoding: 'utf8',
+                timeout: 30000,
+                env: { ...process.env, PACKAGE_TYPE: packageType }
+            });
+            assert.ifError(result.error);
+            assert.equal(result.status, 0, result.stderr);
+            assert.match(result.stdout, /\.\/externals\/node24\/bin\/node/);
+            if (packageType === 'agent') {
+                assert.match(result.stdout, /\.\/externals\/node20_1\/bin\/node/);
+            } else {
+                assert.doesNotMatch(result.stdout, /node20_1/);
+            }
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
     });
+    for (const runtime of ['win-x64', 'win-x86', 'win-arm64', 'linux-x64', 'linux-arm',
+        'linux-arm64', 'linux-musl-x64', 'linux-musl-arm64', 'osx-x64', 'osx-arm64']) {
+        test(`${packageType} external acquisition includes only supported runners on ${runtime}`, () => {
+            // Keep the real platform branches, replacing only filesystem/network operations.
+            const start = source.indexOf('function acquireExternalTool() {');
+            const end = source.indexOf('echo "PACKAGE RUNTIME:');
+            assert.ok(start >= 0 && end > start);
+            const instrumented = (source.slice(0, start) +
+                'function acquireExternalTool() { printf "TOOL:%s\\n" "$2"; }\n\n' +
+                source.slice(end))
+                .replace(/get_abs_path\(\) \{[\s\S]*?\n\}/,
+                    'get_abs_path() { printf "%s\\n" "$1"; }');
+            const result = spawnSync(bash, ['-s', '--', runtime], {
+                input: 'function rm() { :; }\nfunction cp() { :; }\n' + instrumented,
+                encoding: 'utf8',
+                timeout: 30000,
+                env: { ...process.env, PACKAGE_TYPE: packageType, INCLUDE_NODE20: 'true', INCLUDE_NODE24: 'true' }
+            });
+            assert.ifError(result.error);
+            assert.equal(result.status, 0, result.stderr);
+            const runners = result.stdout.split(/\r?\n/)
+                .filter(line => /^TOOL:node/.test(line))
+                .map(line => line.slice(5).split('/')[0]);
+            const expected = packageType === 'agent' ? ['node20_1'] : [];
+            if (!['win-x86', 'linux-arm'].includes(runtime)) expected.push('node24');
+            assert.deepEqual([...new Set(runners)].sort(), expected, result.stdout);
+        });
+    }
 }
 
 const serviceSource = fs.readFileSync(path.resolve(__dirname, '../../src/Misc/layoutbin/runsvc.sh'), 'utf8');

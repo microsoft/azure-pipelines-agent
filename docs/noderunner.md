@@ -6,10 +6,10 @@ Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner 
 
 | Node version | Status |
 |--------------|--------|
-| 20 | End-of-life; migrate tasks to Node 24. |
+| 20 | End-of-life; included only in `vsts-agent` for backward compatibility. Migrate tasks to Node 24. |
 | 24 | Recommended task runner. |
 
-Only Node 20 and Node 24 are bundled, subject to platform availability. Older runners are not bundled or automatically downloaded.
+The `pipelines-agent` package bundles only Node 24; `vsts-agent` bundles Node 20 and Node 24, subject to platform availability. Missing legacy runners are not automatically downloaded.
 See [Agent packages and Node versions](agentpakcages.md) for the runtimes included in each package.
 
 For the Node runner deprecation and removal schedule, see [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops).
@@ -43,6 +43,7 @@ The agent uses the following executable paths for legacy runners, relative to th
 | Node 6 | `externals\node\bin\node.exe` | `externals/node/bin/node` |
 | Node 10 | `externals\node10\bin\node.exe` | `externals/node10/bin/node` |
 | Node 16 | `externals\node16\bin\node.exe` | `externals/node16/bin/node` |
+| Node 20 | `externals\node20_1\bin\node.exe` | `externals/node20_1/bin/node` |
 
 Use the matching Node major version for each folder. Installing a runner makes it available for task-handler selection; it does not force the agent to select it. These runners are end-of-life, and installing them does not restore upstream support.
 
