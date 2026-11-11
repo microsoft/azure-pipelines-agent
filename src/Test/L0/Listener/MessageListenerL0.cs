@@ -107,13 +107,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [InlineData(true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Agent")]
-        public async Task CreateSessionPreservesConfiguredAgentCloudRequestIdAcrossRetriesAndRecreation(bool hasAllocationId)
+        public async Task CreateSessionPreservesConfiguredRequestIdAcrossRetriesAndRecreation(bool hasAllocationId)
         {
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
                 Guid? allocationId = hasAllocationId ? Guid.NewGuid() : (Guid?)null;
-                _settings.AgentCloudRequestId = allocationId;
+                _settings.RequestId = allocationId;
                 var sentAllocationIds = new List<Guid?>();
                 _capabilitiesManager
                     .Setup(x => x.GetCapabilitiesAsync(_settings, It.IsAny<CancellationToken>()))
@@ -126,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                         tokenSource.Token))
                     .Callback<int, TaskAgentSession, CancellationToken>((poolId, session, token) =>
                     {
-                        sentAllocationIds.Add(session.AgentCloudRequestId);
+                        sentAllocationIds.Add(session.RequestId);
                         Assert.Equal(_settings.AgentId, session.Agent.Id);
                     })
                     .Returns(() => sentAllocationIds.Count == 1
@@ -155,7 +155,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             using (TestHostContext tc = CreateTestContext())
             using (var tokenSource = new CancellationTokenSource())
             {
-                _settings.AgentCloudRequestId = Guid.NewGuid();
+                _settings.RequestId = Guid.NewGuid();
                 _capabilitiesManager
                     .Setup(x => x.GetCapabilitiesAsync(_settings, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(new Dictionary<string, string>());
@@ -175,7 +175,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     () => listener.CreateSessionAsync(tokenSource.Token)));
                 _agentServer.Verify(x => x.CreateAgentSessionAsync(
                     _settings.PoolId,
-                    It.Is<TaskAgentSession>(session => session.AgentCloudRequestId == _settings.AgentCloudRequestId),
+                    It.Is<TaskAgentSession>(session => session.RequestId == _settings.RequestId),
                     tokenSource.Token), Times.Once());
             }
         }

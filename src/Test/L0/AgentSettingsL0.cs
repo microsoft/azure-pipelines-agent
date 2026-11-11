@@ -17,22 +17,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "ConfigurationManagement")]
         public void PreservesProviderAllocationIdAcrossSettingsSerialization(string allocationId)
         {
-            string allocationSetting = allocationId == null ? string.Empty : $", \"AgentCloudRequestId\": \"{allocationId}\"";
+            string allocationSetting = allocationId == null ? string.Empty : $", \"RequestId\": \"{allocationId}\"";
             string providerSettings = "{\"AgentId\": 17, \"PoolId\": 42" + allocationSetting + "}";
             var settings = StringUtil.ConvertFromJson<AgentSettings>(providerSettings);
             Guid? expectedAllocationId = allocationId == null ? (Guid?)null : Guid.Parse(allocationId);
 
-            Assert.Equal(expectedAllocationId, settings.AgentCloudRequestId);
+            Assert.Equal(expectedAllocationId, settings.RequestId);
 
             string savedSettings = StringUtil.ConvertToJson(settings);
             var reloadedSettings = StringUtil.ConvertFromJson<AgentSettings>(savedSettings);
 
-            Assert.Equal(expectedAllocationId, reloadedSettings.AgentCloudRequestId);
+            Assert.Equal(expectedAllocationId, reloadedSettings.RequestId);
             Assert.Equal(17, reloadedSettings.AgentId);
             Assert.Equal(42, reloadedSettings.PoolId);
             if (allocationId == null)
             {
-                Assert.DoesNotContain(nameof(AgentSettings.AgentCloudRequestId), savedSettings, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(nameof(AgentSettings.RequestId), savedSettings, StringComparison.OrdinalIgnoreCase);
             }
         }
     }

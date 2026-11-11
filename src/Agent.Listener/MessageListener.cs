@@ -130,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             string sessionName = $"{Environment.MachineName ?? "AGENT"}";
             var taskAgentSession = new TaskAgentSession(sessionName, agent, systemCapabilities)
             {
-                AgentCloudRequestId = _settings.AgentCloudRequestId
+                RequestId = _settings.RequestId
             };
 
             string errorMessage = string.Empty;

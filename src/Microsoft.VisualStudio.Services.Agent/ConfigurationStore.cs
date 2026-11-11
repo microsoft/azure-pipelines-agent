@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         /// The original cloud allocation request ID supplied by the pool provider, not the reusable numeric agent ID.
         /// </summary>
         [DataMember(EmitDefaultValue = false)]
-        public Guid? AgentCloudRequestId { get; set; }
+        public Guid? RequestId { get; set; }
 
         [DataMember(EmitDefaultValue = false)]
         public string AgentName { get; set; }
