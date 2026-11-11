@@ -435,12 +435,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                         ".setup_info");
                     break;
 
-                case WellKnownConfigFile.TaskExceptionList:
-                    path = Path.Combine(
-                        GetDirectory(WellKnownDirectory.Bin),
-                        "tasks-exception-list.json");
-                    break;
-
                 default:
                     throw new NotSupportedException($"Unexpected well known config file: '{configFile}'");
             }

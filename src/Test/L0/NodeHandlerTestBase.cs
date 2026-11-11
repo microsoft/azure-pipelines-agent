@@ -84,14 +84,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     try{
                         string actualLocation;
 
+                        ConfigureNodeHandlerHelper(scenario);
+
                         if (scenario.InContainer)
                         {
                             actualLocation = TestActualContainerNodeSelection(thc, scenario, knobs);
                         }
                         else
                         {
-                            ConfigureNodeHandlerHelper(scenario);
-
                             NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
                             nodeHandler.Initialize(thc);
 
@@ -476,7 +476,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         protected void ResetEnvironment()
         { 
             // Core Node.js strategy knobs
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);

@@ -6,13 +6,13 @@ As new Node versions are released, [tasks](https://github.com/microsoft/azure-pi
 
 As Node versions exit out of the upstream maintenance window, some Pipelines tasks still depend on it. Azure DevOps updates supported tasks to a supported Node version. Third party tasks may still need older Node versions to run.
 
-To accommodate this, we have 2 flavors of packages:
+Both package flavors include the same Node runners, subject to platform availability:
 
 | Packages             | Node versions    | Description                |
 |----------------------|------------------|----------------------------|
-| `vsts-agent-*`       | 6, 10, 16, 20, 24 | Includes all Node versions that can be used as task execution handler |
-| `pipelines-agent-*`  | 20, 24           | Excludes Node 6, 10, and 16. Node 20 is included for backward compatibility; use Node 24 for tasks. |
+| `vsts-agent-*`       | 20, 24           | Node 20 is included for backward compatibility; use Node 24 for tasks. |
+| `pipelines-agent-*`  | 20, 24           | Same Node runners as the `vsts-agent-*` package. |
 
-Tasks that depend on Node 6, 10, or 16 require the `vsts-agent-*` package or a separately installed legacy runner.
-Node 6, 10, 16, and 20 are deprecated. Task maintainers should migrate to Node 24.
-See [Node task runners](noderunner.md) for migration and legacy compatibility guidance.
+Legacy runners are not bundled or automatically downloaded. Tasks that still require an older runner can use a manually installed runner at the expected agent path.
+Node 20 is deprecated. Task maintainers should migrate to Node 24.
+See [Node task runners](noderunner.md) for migration and manual compatibility paths.

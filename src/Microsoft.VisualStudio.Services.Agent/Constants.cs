@@ -41,8 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         ProxyBypass,
         Autologon,
         Options,
-        SetupInfo,
-        TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
+        SetupInfo
     }
 
     public static class WellKnownTasks

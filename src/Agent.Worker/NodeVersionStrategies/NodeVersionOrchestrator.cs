@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -103,7 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
-            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. Update the task to use Node20 or Node24, or install the required runner manually.");
         }
 
         /// <summary>
@@ -191,6 +192,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            if ((selection.NodeVersion == NodeVersion.Node6 ||
+                 selection.NodeVersion == NodeVersion.Node10 ||
+                 selection.NodeVersion == NodeVersion.Node16) &&
+                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                selection.Warning = StringUtil.Loc("DeprecatedRunner",
+                    ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task");
+            }
+
             if (selection.NodeVersion == NodeVersion.Custom)
             {
                 return selection;

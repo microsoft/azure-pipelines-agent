@@ -27,10 +27,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(executionContext).AsBoolean();
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
             var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
 
             if (!_nodeHandlerHelper.IsNodeExecutable(node24Folder, hostContext, executionContext))
             {
@@ -56,14 +54,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            if (eolPolicyEnabled)
+            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
                 return new NodeRunnerInfo
                 {
-                    NodePath = null,
                     NodeVersion = NodeVersion.Node24,
                     Reason = "Upgraded from end-of-life Node version due to EOL policy",
-                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName) : null
+                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion
+                        ? StringUtil.Loc("NodeEOLUpgradeWarning", executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
+                        : null
                 };
             }
 

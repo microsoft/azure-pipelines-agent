@@ -193,13 +193,6 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource(QuietCheckoutEnvVarName),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob UseNode10 = new Knob(
-            nameof(UseNode10),
-            "Forces the agent to use Node 10 handler for all Node-based tasks",
-            new RuntimeKnobSource("AGENT_USE_NODE10"),
-            new EnvironmentKnobSource("AGENT_USE_NODE10"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob UseNode20_1 = new Knob(
             nameof(UseNode20_1),
             "Forces the agent to use Node 20 handler for all Node-based tasks",
@@ -596,24 +589,9 @@ namespace Agent.Sdk.Knob
             new EnvironmentKnobSource("DISABLE_OVERRIDE_TFVC_BUILD_DIRECTORY"),
             new BuiltInDefaultKnobSource("false"));
 
-        /// <remarks>We need to remove this knob - once Node 6 handler is dropped</remarks>
-        public static readonly Knob DisableNode6DeprecationWarning = new Knob(
-            nameof(DisableNode6DeprecationWarning),
-            "Disables Node 6 deprecation warnings.",
-            new RuntimeKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
-            new EnvironmentKnobSource("DISABLE_NODE6_DEPRECATION_WARNING"),
-            new BuiltInDefaultKnobSource("true"));
-
-        public static readonly Knob DisableNode6Tasks = new Knob(
-            nameof(DisableNode6Tasks),
-            "Disables Node 6 tasks and Node 6 runner.",
-            new RuntimeKnobSource("AGENT_DISABLE_NODE6_TASKS"),
-            new EnvironmentKnobSource("AGENT_DISABLE_NODE6_TASKS"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
             nameof(EnableEOLNodeVersionPolicy),
-            "When enabled, tasks that specify end-of-life Node.js versions (6, 10, 16) will run using a supported Node.js version available on the agent (Node 20.1 or Node 24), ignoring the  EOL Node.js version(s) in respective task. An error is thrown if no supported version is available.",
+            "When enabled, tasks that specify end-of-life Node.js versions will run using a supported Node.js version available on the agent. An error is thrown if no supported version is available.",
             new RuntimeKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));
@@ -652,7 +630,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob AgentDeprecatedNodeWarnings = new Knob(
             nameof(AgentDeprecatedNodeWarnings),
-            "If true shows warning on depricated node (6) tasks",
+            "If true, shows warnings for tasks using deprecated Node runners.",
             new RuntimeKnobSource(VstsAgentNodeWarningsVariableName),
             new EnvironmentKnobSource(VstsAgentNodeWarningsVariableName),
             new BuiltInDefaultKnobSource("false"));
@@ -784,13 +762,6 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_CHECK_FOR_TASK_DEPRECATION"),
             new BuiltInDefaultKnobSource("false"));
 
-        public static readonly Knob CheckIfTaskNodeRunnerIsDeprecated246 = new Knob(
-            nameof(CheckIfTaskNodeRunnerIsDeprecated246),
-            "If true, the agent will check in the 'Initialize job' step each task used in the job if this task has node handlers, and all of them are deprecated.",
-            new RuntimeKnobSource("AZP_AGENT_CHECK_IF_TASK_NODE_RUNNER_IS_DEPRECATED_246"),
-            new PipelineFeatureSource("CheckIfTaskNodeRunnerIsDeprecated246"),
-            new BuiltInDefaultKnobSource("false"));
-
         public static readonly Knob UseNode20ToStartContainer = new Knob(
             nameof(UseNode20ToStartContainer),
             "If true, the agent will use Node 20 to start docker container when executing container job and the container platform is the same as the host platform.",
@@ -801,7 +772,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob UseNode24ToStartContainer = new Knob(
             nameof(UseNode24ToStartContainer),
-            "If true, try to start container job using Node24, then fallback to Node20, then Node16.",
+            "If true, try to start container job using Node24, then fallback to Node20.",
             new PipelineFeatureSource("UseNode24ToStartContainer"),
             new RuntimeKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),
             new EnvironmentKnobSource("AZP_AGENT_USE_NODE24_TO_START_CONTAINER"),

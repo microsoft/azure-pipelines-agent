@@ -35,8 +35,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         {
             ResetNodeKnobs();
 
-            var agentUseNode10 = Environment.GetEnvironmentVariable("AGENT_USE_NODE10");
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -48,20 +46,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 nodeHandler.ExecutionContext = CreateTestExecutionContext(thc);
                 nodeHandler.Data = new NodeHandlerData();
 
-                string nodeVersion = "node"; // version 6
-                if (PlatformUtil.RunningOnAlpine)
-                {
-                    nodeVersion = "node10"; // version 6 does not exist on Alpine
-                }
-
                 string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    nodeVersion,
+                    "node",
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
             }
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", agentUseNode10);
         }
 
         [Theory]
@@ -284,12 +275,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNewNodeForNodeHandlerEnvVarSet()
+        public void UseNode20OverrideFromEnvironment()
         {
+            ResetNodeKnobs();
+            var original = Environment.GetEnvironmentVariable("AGENT_USE_NODE20_1");
+            Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", "true");
             try
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE10", "true");
-
                 using (TestHostContext thc = CreateTestHostContext())
                 {
                     thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -303,7 +295,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                     string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                        "node10",
+                        "node20_1",
                         "bin",
                         $"node{IOUtil.ExeExtension}");
                     Assert.Equal(expectedLocation, actualLocation);
@@ -311,15 +303,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
             finally
             {
-                Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
+                Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", original);
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNewNodeForNodeHandlerHostContextVarSet()
+        public void UseNode20OverrideFromHostContext()
         {
+            ResetNodeKnobs();
             using (TestHostContext thc = CreateTestHostContext())
             {
                 thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
@@ -327,7 +320,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 var variables = new Dictionary<string, VariableValue>();
 
-                variables.Add("AGENT_USE_NODE10", new VariableValue("true"));
+                variables.Add("AGENT_USE_NODE20_1", new VariableValue("true"));
 
                 NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -337,7 +330,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                 string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                    "node10",
+                    "node20_1",
                     "bin",
                     $"node{IOUtil.ExeExtension}");
                 Assert.Equal(expectedLocation, actualLocation);
@@ -347,7 +340,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void UseNewNodeForNewNodeHandlerHostContextVarUnset()
+        public void DisabledNode20OverrideUsesManualRunner()
         {
             ResetNodeKnobs();
 
@@ -359,7 +352,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var variables = new Dictionary<string, VariableValue>();
 
                 // Explicitly set variable feature flag to false
-                variables.Add("AGENT_USE_NODE10", new VariableValue("false"));
+                variables.Add("AGENT_USE_NODE20_1", new VariableValue("false"));
 
                 NodeHandler nodeHandler = new NodeHandler(nodeHandlerHalper.Object);
 
@@ -671,7 +664,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
         private void ResetNodeKnobs()
         {
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);

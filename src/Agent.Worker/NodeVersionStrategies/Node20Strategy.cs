@@ -29,7 +29,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
             string node20TaskWarning =
@@ -42,7 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // so the orchestrator falls through to the next strategy (and ultimately its clean
             // terminal error) instead of returning a non-existent node path that would fail
             // later at process launch. This guard is placed before the knob-driven returns so
-            // that even a global override / EOL upgrade cannot select a missing Node20.
+            // that even a global override cannot select a missing Node20.
             var hostContext = executionContext.GetHostContext();
             string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
             if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
@@ -68,11 +67,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            if (eolPolicyEnabled)
+            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
                 return new NodeRunnerInfo
                 {
-                    NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Upgraded from end-of-life Node version due to EOL policy",
                     Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion

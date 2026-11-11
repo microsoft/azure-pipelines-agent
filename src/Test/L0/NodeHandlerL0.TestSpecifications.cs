@@ -34,7 +34,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 {
                     ["AGENT_USE_NODE24"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true",
-                    ["AGENT_USE_NODE10"] = "true"
                 },
                 customNodePath: "/opt/my-node/bin/node",
                 inContainer: false,
@@ -121,21 +120,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node6_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node6 handler with EOL policy: legacy allows Node6, strategy-based upgrades to Node24",
+                description: "Node6 handler with EOL policy upgrades to Node24",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                legacyExpectedNode: "node",
+                legacyExpectedNode: "node24",
                 strategyExpectedNode: "node24",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
-            ),
-
-            new TestScenario(
-                name: "Node6_WithGlobalUseNode10Knob",
-                description: "Node6 handler with global Node10 knob: legacy uses Node10, strategy-based ignores deprecated knob and uses Node6",
-                handlerData: typeof(NodeHandlerData),
-                knobs: new() { ["AGENT_USE_NODE10"] = "true" },
-                legacyExpectedNode: "node10",
-                strategyExpectedNode: "node"
             ),
 
             new TestScenario(
@@ -167,24 +157,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node6_PriorityTest_UseNode20OverridesUseNode10",
-                description: "Node20 global knob takes priority over Node10 global knob with Node6 handler",
-                handlerData: typeof(NodeHandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE10"] = "true",
-                    ["AGENT_USE_NODE20_1"] = "true"
-                },
-                expectedNode: "node20_1"
-            ),
-
-            new TestScenario(
                 name: "Node6_MultipleKnobs_GlobalWins",
                 description: "Global Node24 knob takes highest priority when multiple knobs are set with Node6 handler",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
@@ -197,7 +174,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "false",
                     ["AGENT_USE_NODE20_1"] = "false",
                     ["AGENT_USE_NODE24"] = "false"
                 },
@@ -206,25 +182,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node6_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node6 handler with EOL policy and Node24 glibc error: legacy allows Node6, strategy-based falls back to Node20",
+                description: "Node6 handler with EOL policy and Node24 glibc error falls back to Node20",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node",
+                legacyExpectedNode: "node20_1",
                 strategyExpectedNode: "node20_1",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
                 name: "Node6_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
-                description: "Node6 handler with EOL policy and both newer versions having glibc errors: legacy allows Node6, strategy-based throws error",
+                description: "Node6 handler with EOL policy and both newer versions having glibc errors throws",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 node20GlibcError: true,
-                legacyExpectedNode: "node",
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "No compatible Node.js version available for host execution. Handler type: NodeHandlerData.",
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: NodeHandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: NodeHandlerData. Update the task to use Node20 or Node24, or install the required runner manually."
             ),
 
             // ========================================================================================
@@ -249,20 +226,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node10_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node10 handler with EOL policy: legacy allows Node10, strategy-based upgrades to Node24",
+                description: "Node10 handler with EOL policy upgrades to Node24",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                legacyExpectedNode: "node10",
+                legacyExpectedNode: "node24",
                 strategyExpectedNode: "node24",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
-            ),
-
-            new TestScenario(
-                name: "Node10_WithGlobalUseNode10Knob",
-                description: "Global Node10 knob reinforces Node10 handler data",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new() { ["AGENT_USE_NODE10"] = "true" },
-                expectedNode: "node10"
             ),
 
             new TestScenario(
@@ -294,24 +263,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node10_PriorityTest_UseNode20OverridesUseNode10",
-                description: "Node20 global knob takes priority over Node10 global knob with Node10 handler",
-                handlerData: typeof(Node10HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE10"] = "true",
-                    ["AGENT_USE_NODE20_1"] = "true"
-                },
-                expectedNode: "node20_1"
-            ),
-
-            new TestScenario(
                 name: "Node10_MultipleKnobs_GlobalWins",
                 description: "Global Node24 knob takes highest priority when multiple knobs are set with Node10 handler",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
@@ -324,7 +280,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "false",
                     ["AGENT_USE_NODE20_1"] = "false",
                     ["AGENT_USE_NODE24"] = "false"
                 },
@@ -333,25 +288,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node10_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node10 handler with EOL policy and Node24 glibc error: legacy allows Node10, strategy-based falls back to Node20",
+                description: "Node10 handler with EOL policy and Node24 glibc error falls back to Node20",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node10",
+                legacyExpectedNode: "node20_1",
                 strategyExpectedNode: "node20_1",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
                 name: "Node10_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
-                description: "Node10 handler with EOL policy and both newer versions having glibc errors: legacy allows Node10, strategy-based throws error",
+                description: "Node10 handler with EOL policy and both newer versions having glibc errors throws",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 node20GlibcError: true,
-                legacyExpectedNode: "node10",
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node10HandlerData.",
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node10HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node10HandlerData. Update the task to use Node20 or Node24, or install the required runner manually."
             ),
 
             // ========================================================================================
@@ -376,47 +332,48 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node16_Node16Missing_FailsFast",
-                description: "Node16 handler fails fast when Node16 binary is absent (pipelines-agent package): strategy exhausts the chain and throws NodeVersionNotAvailable; legacy surfaces MissingNodePath",
+                description: "Node16 handler fails fast when the manually installed binary is absent",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
                 node16Available: false,
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false",
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. Update the task to use Node20 or Node24, or install the required runner manually.",
                 legacyExpectedErrorType: typeof(FileNotFoundException),
                 legacyExpectedError: "MissingNodePath"
             ),
 
             new TestScenario(
                 name: "Node16_EOLPolicyEnabled_UpgradesToNode24",
-                description: "Node16 handler with EOL policy: legacy allows Node16, strategy-based upgrades to Node24",
+                description: "Node16 handler with EOL policy upgrades to Node24",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
-                legacyExpectedNode: "node16",
+                legacyExpectedNode: "node24",
                 strategyExpectedNode: "node24",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
                 name: "Node16_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node16 handler with EOL policy and Node24 glibc error: legacy allows Node16, strategy-based falls back to Node20",
+                description: "Node16 handler with EOL policy and Node24 glibc error falls back to Node20",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node16",
+                legacyExpectedNode: "node20_1",
                 strategyExpectedNode: "node20_1",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
             new TestScenario(
                 name: "Node16_EOLPolicy_BothNode24AndNode20GlibcErrors_ThrowsError",
-                description: "Node16 handler with EOL policy and both newer versions having glibc errors: legacy allows Node16, strategy-based throws error",
+                description: "Node16 handler with EOL policy and both newer versions having glibc errors throws",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
                 node20GlibcError: true,
-                legacyExpectedNode: "node16",
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData.",
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node16HandlerData. Update the task to use Node20 or Node24, or install the required runner manually."
             ),
             
             // ========================================================================================
@@ -458,21 +415,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node20_WithUseNode10Knob",
-                description: "Node20 handler ignores deprecated Node10 knob in strategy-based approach",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() { ["AGENT_USE_NODE10"] = "true" },
-                legacyExpectedNode: "node10",
-                strategyExpectedNode: "node20_1"
-            ),
-
-            new TestScenario(
                 name: "Node20_MultipleKnobs_GlobalWins",
                 description: "Global Node24 knob takes highest priority when multiple knobs are set with Node20 handler",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "true",
                     ["AGENT_USE_NODE20_1"] = "true",
                     ["AGENT_USE_NODE24"] = "true"
                 },
@@ -488,19 +435,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 node24GlibcError: true,
                 legacyExpectedNode: "node16",
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node20_1HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
-            ),
-
-            new TestScenario(
-                name: "Node20_PriorityTest_UseNode20OverridesUseNode10",
-                description: "Node20 global knob takes priority over Node10 global knob",
-                handlerData: typeof(Node20_1HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE10"] = "true",
-                    ["AGENT_USE_NODE20_1"] = "true"
-                },
-                expectedNode: "node20_1"
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node20_1HandlerData. Update the task to use Node20 or Node24, or install the required runner manually."
             ),
 
             new TestScenario(
@@ -525,7 +460,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
-                    ["AGENT_USE_NODE10"] = "false",
                     ["AGENT_USE_NODE20_1"] = "false",
                     ["AGENT_USE_NODE24"] = "false"
                 },
@@ -561,18 +495,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 expectedNode: "node24"
             ),
             
-            new TestScenario(
-                name: "Node24_WithUseNode10Knob",
-                description: "Node24 handler ignores deprecated Node10 knob in strategy-based approach",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE24_WITH_HANDLER_DATA"] = "true",
-                    ["AGENT_USE_NODE10"] = "true"
-                },
-                legacyExpectedNode: "node10",
-                strategyExpectedNode: "node24"
-            ),
             
             new TestScenario(
                 name: "Node24_WithUseNode20Knob",
@@ -619,7 +541,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 node20GlibcError: true,
                 legacyExpectedNode: "node16",
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node24HandlerData. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false"
+                strategyExpectedError: "No compatible Node.js version available for host execution. Handler type: Node24HandlerData. Update the task to use Node20 or Node24, or install the required runner manually."
             ),
             
             new TestScenario(
@@ -647,19 +569,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // GROUP 7: EDGE CASES AND ERROR SCENARIOS
             // ========================================================================================
             
-            new TestScenario(
-                name: "Node16_EOLPolicy_WithUseNode10Knob_UpgradesToNode24",
-                description: "Node16 handler with deprecated Node10 knob upgrades to Node24 when EOL policy is enabled (strategy-based) or uses Node10 (legacy)",
-                handlerData: typeof(Node16HandlerData),
-                knobs: new() 
-                { 
-                    ["AGENT_USE_NODE10"] = "true",
-                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true"
-                },
-                legacyExpectedNode: "node10",
-                strategyExpectedNode: "node24",
-                strategyExpectedWarning: "NodeEOLUpgradeWarning"
-            ),
 
             // ========================================================================================
             // GROUP 8: CONTAINER SCENARIOS
@@ -737,6 +646,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 expectedNode: "node24",
                 inContainer: true
+            ),
+
+            new TestScenario(
+                name: "Container_NoBundledRunnerSelectedAndNoManualRunner_Fails",
+                description: "Container selection fails when both bundled runners are disabled and no manual runner is installed",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new()
+                {
+                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "false",
+                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
+                },
+                node16Available: false,
+                inContainer: true,
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No Node.js version could be selected for container execution"
             ),
 
             new TestScenario(
