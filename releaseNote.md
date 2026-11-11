@@ -90,6 +90,7 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 The `pipelines-agent` package now includes only Node 24; `vsts-agent` continues to include Node 20 and Node 24, subject to platform availability.
 `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` runs all Node task handlers on Node 24 and fails if that runtime cannot run. With the policy disabled, legacy handlers require their matching runner; they are not automatically upgraded to Node 24.
+Selecting Node 20 emits the default end-of-life retirement warning. Container startup uses Node 24 when the bundled Node 20 runner is absent.
 See [agent package notes](docs/agentpakcages.md) on Node version support for more details.
 
 |             | Package | SHA-256 |

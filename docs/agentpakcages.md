@@ -14,7 +14,7 @@ The package flavors bundle different Node runners, subject to platform availabil
 | `pipelines-agent-*`  | 24               | Only the supported Node runner is bundled. |
 
 Legacy runners are not bundled or automatically downloaded. Tasks that still require an older runner can use a manually installed runner at the expected agent path.
-Node 20 is deprecated. Task maintainers should migrate to Node 24.
+Node 20 is end-of-life. Selecting it emits a retirement warning. Task maintainers should migrate to Node 24.
 See [Node task runners](noderunner.md) for migration and manual compatibility paths.
 
 Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run all Node task handlers on Node 24. If Node 24 is unavailable or incompatible, selection fails without falling back to Node 20. With the policy disabled, tasks are not automatically upgraded to Node 24: tasks that require a missing runner fail unless that runner is installed manually.

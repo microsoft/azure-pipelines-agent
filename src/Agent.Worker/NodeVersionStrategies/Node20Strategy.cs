@@ -32,11 +32,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
-            string node20TaskWarning =
-                AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean() &&
-                context.HandlerData is Node20_1HandlerData
-                    ? StringUtil.Loc("Node20TaskRetirementWarning", taskName)
-                    : null;
+            string node20TaskWarning = StringUtil.Loc("NodeEOLRetirementWarning", taskName);
+            if (AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean() &&
+                context.HandlerData is Node20_1HandlerData)
+            {
+                node20TaskWarning += Environment.NewLine + StringUtil.Loc("Node20TaskRetirementWarning", taskName);
+            }
 
             // Only use Node20 if the binary actually exists on disk. When absent, return null
             // so the orchestrator falls through to the next strategy (and ultimately its clean
@@ -103,7 +104,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodePath = null,
                 NodeVersion = NodeVersion.Node20,
                 Reason = "Fallback to Node20",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20") +
+                    Environment.NewLine + node20TaskWarning
             };
         }
 
@@ -144,7 +146,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                         NodePath = null,
                         NodeVersion = NodeVersion.Node20,
                         Reason = "Node20 available in container via UseNode20ToStartContainer knob",
-                        Warning = null
+                        Warning = StringUtil.Loc("NodeEOLRetirementWarning",
+                            executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                     };
                 }
                 else

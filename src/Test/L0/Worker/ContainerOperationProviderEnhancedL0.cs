@@ -24,6 +24,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
         [Theory]
         [InlineData(false, false)]
+        [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(true, true)]
         [Trait("Level", "L0")]
@@ -53,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return 0;
                     });
                 docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
-                    .ReturnsAsync(new List<string> { "container-startup-using-node-24" });
+                    .ReturnsAsync(new List<string> { node24Fails ? "container-startup-failed" : "container-startup-using-node-24" });
                 var executionContext = CreateExecutionContextMock(hc, enhanced);
                 executionContext.Setup(x => x.GetHostContext()).Returns(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
@@ -73,6 +74,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 {
                     await Assert.ThrowsAsync<System.NotSupportedException>(() =>
                         provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Once);
                     return;
                 }
 

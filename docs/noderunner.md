@@ -10,6 +10,7 @@ Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner 
 | 24 | Recommended task runner. |
 
 The `pipelines-agent` package bundles only Node 24; `vsts-agent` bundles Node 20 and Node 24, subject to platform availability. Missing legacy runners are not automatically downloaded.
+Container startup uses Node 24 when the agent's Node 20 runner is absent; the container image must support that runtime or provide its own Node.js through the `com.azure.dev.pipelines.agent.handler.node.path` image label.
 See [Agent packages and Node versions](agentpakcages.md) for the runtimes included in each package.
 
 For the Node runner deprecation and removal schedule, see [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops).
@@ -32,7 +33,8 @@ Use an up-to-date agent on a platform that supports Node 24. Handler selection a
 Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
 
-Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent falls back to Node 20, and fails if Node 20 is also unavailable; it never falls back to an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
+Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent fails instead of falling back to Node 20 or an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
+Selecting Node 20 emits the default end-of-life retirement warning, in addition to the existing optional Node 20 task warning when enabled.
 
 ## Manual runner installation paths
 
