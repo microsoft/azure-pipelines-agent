@@ -99,6 +99,44 @@ for (const packageType of ['agent', 'pipelines-agent']) {
     }
 }
 
+for (const runtime of ['win-x86', 'linux-arm']) {
+    for (const packageType of ['agent', 'pipelines-agent']) {
+        test(`${packageType} package ${packageType === 'agent' ? 'is' : 'is not'} produced for ${runtime} (no Node24 build)`, () => {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-package-'));
+            try {
+                fs.mkdirSync(path.join(root, 'layout', 'bin'), { recursive: true });
+                fs.writeFileSync(path.join(root, 'layout/bin/Agent.Listener'), '#!/bin/sh\necho 1.0.0\n', { mode: 0o755 });
+                const devSource = fs.readFileSync(path.resolve(__dirname, '../../src/dev.sh'), 'utf8');
+                const start = devSource.indexOf('function cmd_package() {');
+                const end = devSource.indexOf('function cmd_hash() {', start);
+                const result = spawnSync(bash, ['-s', '--', root], {
+                    input: 'set -eo pipefail\nROOT="$1"\n' +
+                        (process.platform === 'win32' ? 'ROOT="$(cygpath -am "$ROOT")"\nROOT="/${ROOT:0:1}${ROOT:2}"\n' : '') +
+                        'LAYOUT_DIR="$ROOT/layout"\nPACKAGE_DIR="$ROOT/package"\n' +
+                        `AGENT_VERSION=1.0.0\nRUNTIME_ID=${runtime}\nCURRENT_PLATFORM=linux\n` +
+                        'function heading() { :; }\nfunction failed() { echo "$1" >&2; exit 1; }\n' +
+                        devSource.slice(start, end) + '\ncmd_package\n',
+                    encoding: 'utf8',
+                    timeout: 30000,
+                    env: { ...process.env, PACKAGE_TYPE: packageType }
+                });
+                assert.ifError(result.error);
+                const packages = fs.existsSync(path.join(root, 'package')) ? fs.readdirSync(path.join(root, 'package')) : [];
+                if (packageType === 'agent') {
+                    assert.equal(result.status, 0, result.stderr);
+                    assert.deepEqual(packages, [`vsts-agent-${runtime}-1.0.0.tar.gz`]);
+                } else {
+                    assert.notEqual(result.status, 0, result.stdout);
+                    assert.match(result.stderr, new RegExp(`pipelines-agent package is not supported for ${runtime}.*Node 24`));
+                    assert.deepEqual(packages, []);
+                }
+            } finally {
+                fs.rmSync(root, { recursive: true, force: true });
+            }
+        });
+    }
+}
+
 const serviceSource = fs.readFileSync(path.resolve(__dirname, '../../src/Misc/layoutbin/runsvc.sh'), 'utf8');
 for (const scenario of [
     { node24: 0, node20: 0, runner: 'node24' },

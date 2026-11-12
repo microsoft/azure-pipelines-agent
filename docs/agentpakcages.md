@@ -19,4 +19,4 @@ See [Node task runners](noderunner.md) for migration and manual compatibility pa
 
 Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to select Node 24 for agent-managed Node task runners. If Node 24 is unavailable or incompatible, selection fails without falling back to Node 20. An explicitly configured custom Node path can override this policy. With the policy disabled, tasks are not automatically upgraded to Node 24. Without an explicit override, a Node 20 task fails if its runner is missing or incompatible. Manually installed Node 6, 10, and 16 runners remain available to tasks authored for those handlers.
 
-Node 24 is not bundled for Windows x86 or Linux ARM32. The `pipelines-agent` package on these platforms has no bundled Node task runner; migrate to an operating system and architecture supported by Node 24.
+Node 24 has no official build for Windows x86 or Linux ARM32, so no `pipelines-agent` package is produced for these platforms. The `vsts-agent` package remains available for them; migrate to an operating system and architecture supported by Node 24.

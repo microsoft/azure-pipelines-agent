@@ -9,7 +9,7 @@ Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner 
 | 20 | End-of-life; included only in `vsts-agent` for backward compatibility. Migrate tasks to Node 24. |
 | 24 | Recommended task runner. |
 
-The `pipelines-agent` package bundles only Node 24; `vsts-agent` bundles Node 20 and Node 24, subject to platform availability. Missing legacy runners are not automatically downloaded.
+The `pipelines-agent` package bundles only Node 24 and is not produced for Windows x86 or Linux ARM32, where Node 24 has no official build; `vsts-agent` bundles Node 20 and Node 24, subject to platform availability. Missing legacy runners are not automatically downloaded.
 Container startup uses Node 24 when the agent's Node 20 runner is absent; the container image must support that runtime or provide its own Node.js through the `com.azure.dev.pipelines.agent.handler.node.path` image label.
 See [Agent packages and Node versions](agentpakcages.md) for the runtimes included in each package.
 

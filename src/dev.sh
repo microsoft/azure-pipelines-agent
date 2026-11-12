@@ -311,6 +311,10 @@ function cmd_package() {
     agent_ver="$AGENT_VERSION" || failed "version"
 
     if [[ ("$PACKAGE_TYPE" == "pipelines-agent") ]]; then
+        # pipelines-agent bundles only Node 24, which has no official build for these runtimes.
+        if [[ "$RUNTIME_ID" == "win-x86" || "$RUNTIME_ID" == "linux-arm" ]]; then
+            failed "pipelines-agent package is not supported for ${RUNTIME_ID} because Node 24 is not available for this platform"
+        fi
         agent_pkg_name="pipelines-agent-${RUNTIME_ID}-${agent_ver}"
     else
         agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
