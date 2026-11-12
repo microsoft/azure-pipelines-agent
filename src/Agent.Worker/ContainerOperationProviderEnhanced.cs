@@ -737,6 +737,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                         else if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
                         {
+                            if (restrictEolNodeVersions)
+                            {
+                                throw new NotSupportedException(NodeVersionStrategies.NodeVersionOrchestrator.CrossPlatformEolError);
+                            }
+
                             trace.Info("Platform requires container to provide Node.js, using 'node' command");
                             // require container to have node if running on macOS, or if running on Windows and attempting to run Linux container
                             executionContext.Debug($"[ContainerSetup] Legacy path: Platform requirement - using container node. MacOS: {PlatformUtil.RunningOnMacOS}, Windows+LinuxContainer: {PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux}");
@@ -1516,7 +1521,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             
             // Special platform requirement: macOS or Windows with Linux containers must use container's own node
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            if ((PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux)) &&
+                !AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
                 container.CustomNodePath = "node";
                 return new CustomNodeHandlerData();

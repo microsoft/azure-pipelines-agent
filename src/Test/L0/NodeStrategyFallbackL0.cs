@@ -344,11 +344,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public async Task Orchestrator_EolPolicyUpgradesNode20Task_UsesOnlyEolUpgradeWarning(bool warnOnNode20)
+        public async Task Orchestrator_EolPolicyUpgradesNode20Task_UsesOnlyEolUpgradeWarning(bool warnOnNode20, bool useNode24Globally)
         {
             using (TestHostContext thc = new TestHostContext(this))
             {
@@ -356,7 +358,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
                 {
                     { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" },
-                    { "AGENT_WARN_ON_NODE20_TASK", warnOnNode20.ToString() }
+                    { "AGENT_WARN_ON_NODE20_TASK", warnOnNode20.ToString() },
+                    { "AGENT_USE_NODE20_1", "true" },
+                    { "AGENT_USE_NODE24", useNode24Globally.ToString() }
                 });
                 var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
                 helper

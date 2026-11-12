@@ -221,6 +221,54 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_CrossPlatformWithEolPolicy_OnlyUsesExplicitCustomNode(bool enhanced, bool hasCustomNode)
+        {
+            if (!PlatformUtil.RunningOnWindows && !PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var docker = CreateDockerManagerMock(hasCustomNode ? NodePathFromLabel : NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "node:16" })
+                {
+                    ImageOS = PlatformUtil.OS.Linux
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                if (!hasCustomNode)
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Node24", exception.Message);
+                    Assert.Contains("com.azure.dev.pipelines.agent.handler.node.path", exception.Message);
+                    return;
+                }
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal(NodePathFromLabel, container.CustomNodePath);
+                Assert.Equal(NodePathFromLabel, container.ResultNodePath);
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]

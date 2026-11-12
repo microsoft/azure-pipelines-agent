@@ -17,6 +17,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class NodeVersionOrchestrator
     {
+        internal const string CrossPlatformEolError = "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS. Cross-platform container execution cannot use the agent's bundled Node24. Specify a custom Node path with the 'com.azure.dev.pipelines.agent.handler.node.path' image label.";
+
         private readonly List<INodeVersionStrategy> _strategies;
         private readonly IExecutionContext ExecutionContext;
         private readonly IHostContext HostContext;
@@ -132,8 +134,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            if ((PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux)) &&
+                string.IsNullOrWhiteSpace(context.Container.CustomNodePath))
             {
+                if (enforceEolPolicy)
+                {
+                    throw new NotSupportedException(CrossPlatformEolError);
+                }
+
                 ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
                 ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
                 
