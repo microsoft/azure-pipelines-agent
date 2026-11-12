@@ -167,6 +167,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
 
+                if (enforceEolPolicy && strategy is not CustomNodeStrategy && strategy is not Node24Strategy)
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; EOL policy requires Node24");
+                    continue;
+                }
+
                 if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
                 {
                     ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; Node20 tasks must not fall back to a legacy runner");
@@ -210,7 +216,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
             }
 
-            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute in the container."
+                : "No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
         }
 
         private static bool IsLegacyStrategy(INodeVersionStrategy strategy)

@@ -462,7 +462,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 }
                 else
                 {
-                    Assert.Throws<NotSupportedException>(() => orchestrator.SelectNodeVersionForContainer(context, docker.Object));
+                    var exception = Assert.Throws<NotSupportedException>(
+                        () => orchestrator.SelectNodeVersionForContainer(context, docker.Object));
+                    Assert.Contains("Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS", exception.Message);
                 }
 
                 docker.Verify(x => x.DockerExec(
