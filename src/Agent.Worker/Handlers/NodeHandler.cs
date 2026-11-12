@@ -434,7 +434,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
-            else if (taskHasNode20_1Data)
+            else if (taskHasNode20_1Data && !useNode24)
             {
                 Trace.Info($"Task.json has node20_1 handler data: {taskHasNode20_1Data} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
