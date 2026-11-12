@@ -629,7 +629,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, hc)).Returns(false);
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                dockerManager.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { "container-startup-using-node-24" });
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
@@ -638,7 +642,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
-                var provider = new ContainerOperationProviderEnhanced();
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
                 provider.Initialize(hc);
 
                 // Act - Call main container code with mocked Docker operations
