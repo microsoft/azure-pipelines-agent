@@ -591,7 +591,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         public ExecutionData PreJobExecution { get; set; }
         public ExecutionData Execution { get; set; }
         public ExecutionData PostJobExecution { get; set; }
-        public TaskRestrictions Restrictions { get; set; }
+        public DefinitionRestrictionsData Restrictions { get; set; }
+    }
+
+    public sealed class DefinitionRestrictionsData
+    {
+        public TaskCommandRestrictions Commands { get; set; }
+        public TaskVariableRestrictions SettableVariables { get; set; }
+
+        /// <summary>
+        /// Optional pipeline feature flag that acts as a kill switch for these restrictions.
+        /// When absent or empty, restrictions are applied unconditionally (existing behavior).
+        /// When set and the flag is enabled (On/true), restrictions are bypassed.
+        /// This lets task authors deploy restrictions that are active by default, with
+        /// an emergency opt-out via Config Change — no task redeploy needed.
+        /// </summary>
+        public string DisableFeatureFlag { get; set; }
     }
 
     public sealed class DefinitionVersion

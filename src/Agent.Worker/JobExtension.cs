@@ -372,7 +372,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         var restrictions = new List<TaskRestrictions>();
                         if (taskDefinition.Data.Restrictions != null)
                         {
-                            restrictions.Add(new TaskDefinitionRestrictions(taskDefinition.Data));
+                            var definitionRestrictions = new TaskDefinitionRestrictions(taskDefinition.Data);
+                            var killSwitch = definitionRestrictions.DisableFeatureFlag;
+                            if (!string.IsNullOrEmpty(killSwitch) && IsFeatureFlagEnabled(jobContext, killSwitch))
+                            {
+                                Trace.Info($"Task '{task.DisplayName}' restrictions bypassed: kill switch '{killSwitch}' is enabled.");
+                            }
+                            else
+                            {
+                                restrictions.Add(definitionRestrictions);
+                            }
                         }
                         if (string.Equals(WellKnownStepTargetStrings.Restricted, task.Target?.Commands, StringComparison.OrdinalIgnoreCase))
                         {
@@ -922,6 +931,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 Trace.Warning($"Unable to publish telemetry data. Exception: {ex}");
             }
+        }
+
+        /// <summary>
+        /// Checks whether a pipeline feature flag is enabled.
+        /// </summary>
+        private bool IsFeatureFlagEnabled(IExecutionContext context, string featureFlagName)
+        {
+            // Pipeline features are available as variables with dots replaced by underscores
+            // and prefixed with DISTRIBUTEDTASK_ when sent as env vars, but the Variables
+            // collection stores them by their original dotted name.
+            var value = context.Variables.Get(featureFlagName);
+            if (!string.IsNullOrEmpty(value))
+            {
+                return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
     }
 
