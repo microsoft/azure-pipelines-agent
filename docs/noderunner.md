@@ -32,7 +32,7 @@ Use an up-to-date agent on a platform that supports Node 24. Handler selection a
 Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
 
-Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent fails instead of falling back to Node 20 or an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
+Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent falls back to Node 20, and fails if Node 20 is also unavailable; it never falls back to an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
 
 ## Manual runner installation paths
 
