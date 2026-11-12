@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 var nodeHelper = new Mock<INodeHandlerHelper>();
                 nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(false);
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node16", hc)).Returns(true);
                 var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
                 docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(),
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
@@ -77,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
                         provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
                     Assert.Contains(enhanced ? "Container Node.js runtime selection failed" : "Container startup failed", exception.Message);
+                    Assert.Contains(enhanced ? "Node24" : "Node 24", exception.Message);
                     executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
                     return;
                 }
