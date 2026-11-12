@@ -22,7 +22,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         protected const string NodePathFromLabel = "/usr/bin/node";
         protected const string NodePathFromLabelEmpty = "";
         protected const string DefaultNodeCommand = "node";
-        protected const string NodeFromAgentExternal = "externals/node";
+        protected const string NodeFromAgentExternal = "externals/node20_1";
 
         protected Mock<IDockerCommandManager> CreateDockerManagerMock(string inspectResult)
         {

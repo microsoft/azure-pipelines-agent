@@ -92,7 +92,7 @@ namespace Agent.Sdk
         public string CurrentGroupId { get; set; }
         public bool IsJobContainer { get; set; }
         public bool MapDockerSocket { get; set; }
-        public bool NeedsNode16Redirect { get; set; }
+        public bool Node20HasGlibcError { get; set; }
         public bool NeedsNode20Redirect { get; set; }
         public PlatformUtil.OS ImageOS
         {

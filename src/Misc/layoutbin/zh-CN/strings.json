@@ -268,7 +268,6 @@
   "DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup": "DeploymentGroup {0} 已包含名为 {1} 的计算机。",
   "DeploymentPoolName": "部署池名称",
   "DeploymentPoolNotFound": "未找到部署池: \"{0}\"",
-  "DeprecatedNode6": "此任务使用节点 6 执行处理程序，它将于 2022 年 3 月 31 日移除。如果你是该任务的开发人员，请查看向节点 10 处理程序迁移的指南–https://aka.ms/migrateTaskNode10 (如果要禁用节点 6 弃用警告，请查看此页)。如果你是用户，请随时与此任务的所有者联系以继续迁移。",
   "DeprecatedNodeRunner": "任务“{0}”'版本 {1} ({2}@{1})依赖于生命周期已结束的 Node 版本({3})。请与扩展所有者联系以获取任务的更新版本。任务维护人员应查看 Node 升级指南: https://aka.ms/node-runner-guidance",
   "DeprecatedRunner": "任务“{0}”依赖于生命周期结束且将来将被删除的任务运行程序。作者应查看节点升级指南: https://aka.ms/node-runner-guidance。",
   "DeprecationMessage": "任务“{0}”版本 {1} ({2}@{1})已弃用。",

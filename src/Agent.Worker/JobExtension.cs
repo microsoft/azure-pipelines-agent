@@ -172,13 +172,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     var taskManager = HostContext.GetService<ITaskManager>();
                     await taskManager.DownloadAsync(context, message.Steps);
 
-                    if (!AgentKnobs.DisableNode6Tasks.GetValue(context).AsBoolean() && !PlatformUtil.RunningOnAlpine)
-                    {
-                        Trace.Info("Downloading Node 6 runner.");
-                        var nodeUtil = new NodeJsUtil(HostContext);
-                        await nodeUtil.DownloadNodeRunnerAsync(context, register.Token);
-                    }
-
                     // Parse all Task conditions.
                     Trace.Info("Parsing all task's condition inputs.");
                     var expression = HostContext.GetService<IExpressionManager>();
@@ -335,19 +328,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (context.Containers.Count > 0 || context.SidecarContainers.Count > 0)
                     {
-                        // Get container provider - uses enhanced version if feature flag is enabled
-                        IContainerOperationProvider containerProvider;
-                        if (AgentKnobs.EnableEnhancedContainerDiagnostics.GetValue(context).AsBoolean())
-                        {
-                            // Create and initialize enhanced provider manually since it's not registered with ServiceLocator
-                            var enhancedProvider = new ContainerOperationProviderEnhanced();
-                            enhancedProvider.Initialize(HostContext);
-                            containerProvider = enhancedProvider;
-                        }
-                        else
-                        {
-                            containerProvider = HostContext.GetService<IContainerOperationProvider>();
-                        }
+                        IContainerOperationProvider containerProvider = HostContext.GetService<IContainerOperationProvider>();
                         
                         var containers = new List<ContainerInfo>();
                         containers.AddRange(context.Containers);

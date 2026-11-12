@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Container;
 using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
@@ -17,10 +18,10 @@ using Agent.Sdk;
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
     /// <summary>
-    /// Tests that the Node10 and Node6 strategies fail fast (return null so the
+    /// Tests that legacy strategies fail fast (return null so the
     /// orchestrator surfaces its clean terminal error) when the corresponding
-    /// node binary is not present on disk — e.g. on the pipelines-agent package,
-    /// which does not ship node6/node10. This mirrors the on-disk guard already
+    /// node binary is not present on disk. Neither package bundles legacy runners.
+    /// This mirrors the on-disk guard already
     /// present in Node24Strategy/Node16Strategy and avoids returning a
     /// non-existent node path that would otherwise fail later at process launch.
     /// </summary>
@@ -117,6 +118,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 .Setup(x => x.CheckGlibcCompatibilityAsync(It.IsAny<IExecutionContext>()))
                 .ReturnsAsync(GlibcCompatibilityInfo.Compatible);
             return glibcMock;
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node16Strategy_ReturnsNull_WhenNode16BinaryAbsent()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                var strategy = new Node16Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node16HandlerData() };
+
+                Assert.Null(strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node16Strategy_ReturnsNode16_WhenManuallyInstalled()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var strategy = new Node16Strategy(helper.Object);
+                var context = new TaskContext { HandlerData = new Node16HandlerData() };
+
+                Assert.Equal(NodeVersion.Node16,
+                    strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible).NodeVersion);
+            }
         }
 
         [Fact]
@@ -260,6 +294,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Equal(expectWarning, !string.IsNullOrEmpty(result.Warning));
+                if (expectWarning)
+                {
+                    Assert.Contains("Node20TaskRetirementWarning", result.Warning);
+                }
             }
         }
 
@@ -285,6 +323,114 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Null(result.Warning);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task Orchestrator_HostSelection_FailsFast_WhenNode16TaskAndNoNodeAvailable()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext { HandlerData = new Node16HandlerData() };
+
+                await Assert.ThrowsAsync<NotSupportedException>(() => orchestrator.SelectNodeVersionForHostAsync(context));
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task Orchestrator_HostSelection_DoesNotFallbackFromNode20TaskToNode16(bool node20Exists, bool node20HasGlibcError)
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var glibcProvider = CreateGlibcProvider();
+                glibcProvider
+                    .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>(), It.IsAny<IExecutionContext>()))
+                    .ReturnsAsync(GlibcCompatibilityInfo.Create(
+                        node24HasGlibcError: false,
+                        node20HasGlibcError: node20HasGlibcError));
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcProvider.Object);
+
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: node20Exists);
+                helper
+                    .Setup(x => x.IsNodeFolderExist(NodeVersionHelper.GetFolderName(NodeVersion.Node16), It.IsAny<IHostContext>()))
+                    .Returns(true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                await Assert.ThrowsAsync<NotSupportedException>(
+                    () => orchestrator.SelectNodeVersionForHostAsync(context));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Orchestrator_ContainerSelection_DoesNotFallbackFromNode20TaskToNode16()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext
+                {
+                    HandlerData = new Node20_1HandlerData(),
+                    Container = new ContainerInfo
+                    {
+                        ContainerId = "test_container",
+                        ImageOS = PlatformUtil.HostOS
+                    }
+                };
+
+                var dockerManager = new Mock<IDockerCommandManager>();
+                if (PlatformUtil.RunningOnMacOS)
+                {
+                    var result = orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object);
+                    Assert.Equal(NodeVersion.ContainerDefaultNode, result.NodeVersion);
+                    Assert.Equal("node", result.NodePath);
+                }
+                else
+                {
+                    Assert.Throws<NotSupportedException>(
+                        () => orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object));
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task Orchestrator_DeprecatedRunnerWarning_UsesSharedKnob(bool enabled)
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "VSTSAGENT_ENABLE_NODE_WARNINGS", enabled.ToString() }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext { HandlerData = new Node10HandlerData() };
+
+                var result = await orchestrator.SelectNodeVersionForHostAsync(context);
+                Assert.Equal(NodeVersion.Node10, result.NodeVersion);
+                Assert.Contains("NodeEOLRetirementWarning", result.Warning);
+                Assert.Equal(enabled, result.Warning.Contains("DeprecatedRunner"));
             }
         }
 

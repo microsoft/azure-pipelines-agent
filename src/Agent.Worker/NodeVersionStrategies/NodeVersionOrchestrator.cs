@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -63,6 +64,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             foreach (var strategy in _strategies)
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking strategy: {strategy.GetType().Name}");
+
+                if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; Node20 tasks must not fall back to a legacy runner");
+                    continue;
+                }
 
                 try
                 {
@@ -148,6 +155,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
 
+                if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; Node20 tasks must not fall back to a legacy runner");
+                    continue;
+                }
+
                 try
                 {
                     var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager);
@@ -177,7 +190,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 catch (NotSupportedException ex)
                 {
                     ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
-                    ExecutionContext.Error($"Container node version selection failed: {ex.Message}");
                     throw;
                 }
                 catch (Exception ex)
@@ -189,8 +201,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
         }
 
+        private static bool IsLegacyStrategy(INodeVersionStrategy strategy)
+        {
+            return strategy is Node16Strategy || strategy is Node10Strategy || strategy is Node6Strategy;
+        }
+
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            bool isDeprecatedNodeVersion =
+                selection.NodeVersion == NodeVersion.Node6 ||
+                selection.NodeVersion == NodeVersion.Node10 ||
+                selection.NodeVersion == NodeVersion.Node16;
+            if (isDeprecatedNodeVersion && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                string deprecatedWarning = StringUtil.Loc("DeprecatedRunner",
+                    ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task");
+                selection.Warning = string.IsNullOrEmpty(selection.Warning)
+                    ? deprecatedWarning
+                    : $"{selection.Warning}{Environment.NewLine}{deprecatedWarning}";
+            }
+
             if (selection.NodeVersion == NodeVersion.Custom)
             {
                 return selection;

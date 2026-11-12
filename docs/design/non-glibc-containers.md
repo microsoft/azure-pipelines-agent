@@ -8,13 +8,12 @@ bash, sudo, which, and groupadd.
 
 ## Bring your own Node.js
 You are responsible for adding a Node LTS binary to your container.
-As of November 2018, we expect that to be Node 10 LTS.
-You can start from the `node:10-alpine` image.
+Use Node 24, for example the `node:24-alpine` image.
 
 ## Tell the agent about Node.js
 The agent will read a container label "com.azure.dev.pipelines.handler.node.path".
 If it exists, it must be the path to the Node.js binary.
-For example, in an image based on `node:10-alpine`, add this line to your Dockerfile:
+For example, in an image based on `node:24-alpine`, add this line to your Dockerfile:
 ```
 LABEL "com.azure.dev.pipelines.agent.handler.node.path"="/usr/local/bin/node"
 ```
@@ -32,7 +31,7 @@ If you depend on any in-box or Marketplace tasks, you'll also need to supply the
 ## Full example of a Dockerfile
 
 ```
-FROM node:10-alpine
+FROM node:24-alpine
 
 RUN apk add --no-cache --virtual .pipeline-deps readline linux-pam \
   && apk add bash sudo shadow \

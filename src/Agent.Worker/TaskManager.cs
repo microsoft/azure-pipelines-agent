@@ -77,7 +77,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
 
             HashSet<Guid> exceptionList = GetTaskExceptionSet();
-
             foreach (var task in uniqueTasks.Select(x => x.Reference))
             {
                 executionContext.SetCorrelationTask(task.Id.ToString());
@@ -94,13 +93,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     CheckForTaskDeprecation(executionContext, task);
                 }
 
-                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated246.GetValue(executionContext).AsBoolean())
+                if (AgentKnobs.CheckIfTaskNodeRunnerIsDeprecated246.GetValue(executionContext).AsBoolean() &&
+                    !exceptionList.Contains(task.Id))
                 {
-                    if (!exceptionList.Contains(task.Id))
-                    {
-                        CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
-                    }
+                    CheckIfTaskNodeRunnerIsDeprecated(executionContext, task);
                 }
+
                 executionContext.ClearCorrelationTask();
             }
         }
@@ -376,50 +374,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private void CheckIfTaskNodeRunnerIsDeprecated(IExecutionContext executionContext, Pipelines.TaskStepDefinitionReference task)
         {
             string[] deprecatedNodeRunners = { "Node", "Node10", "Node16" };
-            string[] approvedNodeRunners = { "Node20_1", "Node24" }; // Node runners which are not considered as deprecated
+            string[] approvedNodeRunners = { "Node20_1", "Node24" };
             string[] executionSteps = { "prejobexecution", "execution", "postjobexecution" };
 
             JObject taskJson = GetTaskJson(task);
-
             var taskRunners = new HashSet<string>();
 
             foreach (var step in executionSteps)
             {
                 var runners = taskJson.GetValueOrDefault(step);
-                if (runners == null || runners is not JObject)
+                if (runners is not JObject runnerObject)
                 {
                     continue;
                 }
 
-                var runnerNames = ((JObject)runners).Properties().Select(p => p.Name);
-
+                var runnerNames = runnerObject.Properties().Select(property => property.Name);
                 if (runnerNames.Intersect(approvedNodeRunners).Any())
                 {
-                    continue; // Agent never uses deprecated Node runners if there are approved Node runners
+                    continue;
                 }
 
-                taskRunners.Add(runnerNames);
+                taskRunners.UnionWith(runnerNames);
             }
 
-            List<string> taskNodeRunners = new(); // If we are here and task has Node runners, all of them are deprecated
-
+            List<string> taskNodeRunners = new();
             foreach (string runner in deprecatedNodeRunners)
             {
                 if (taskRunners.Contains(runner))
                 {
-                    switch (runner)
-                    {
-                        case "Node":
-                            taskNodeRunners.Add("6"); // Just "Node" is Node version 6
-                            break;
-                        default:
-                            taskNodeRunners.Add(runner[4..]); // Postfix after "Node"
-                            break;
-                    }
+                    taskNodeRunners.Add(runner == "Node" ? "6" : runner[4..]);
                 }
             }
 
-            if (taskNodeRunners.Count > 0) // Tasks may have only PowerShell runners and don't have Node runners at all
+            if (taskNodeRunners.Count > 0)
             {
                 string friendlyName = taskJson["friendlyName"].Value<string>();
                 int majorVersion = new Version(task.Version).Major;
@@ -427,10 +414,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        /// <summary> 
-        /// This method provides a set of in-the-box pipeline tasks for which we don't want to display Node deprecation warnings. 
-        /// </summary>
-        /// <returns> Set of tasks ID </returns>
         private HashSet<Guid> GetTaskExceptionSet()
         {
             string exceptionListFile = HostContext.GetConfigFile(WellKnownConfigFile.TaskExceptionList);
@@ -445,7 +428,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 catch (Exception ex)
                 {
                     Trace.Info($"Unable to deserialize exception list {ex}");
-                    exceptionList = new List<Guid>();
                 }
             }
 

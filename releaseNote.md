@@ -74,16 +74,12 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alpine x64
 
-***Note:*** Node 6 does not exist for Alpine.
-
 ``` bash
 ~/$ mkdir myagent && cd myagent
 ~/myagent$ tar xzf ~/Downloads/vsts-agent-linux-musl-x64-<AGENT_VERSION>.tar.gz
 ```
 
 ## Alpine ARM64
-
-***Note:*** Node 6 does not exist for Alpine.
 
 ``` bash
 ~/$ mkdir myagent && cd myagent
@@ -92,7 +88,7 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 ## Alternate Agent Downloads
 
-Alternate packages below do not include Node 6, 10, or 16 and are only suitable for users who do not use tasks that depend on these Node versions.
+Both package flavors include only Node 20 and Node 24 runners, subject to platform availability.
 See [agent package notes](docs/agentpakcages.md) on Node version support for more details.
 
 |             | Package | SHA-256 |
