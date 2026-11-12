@@ -119,42 +119,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             executionContext.Debug("[Node24Strategy] Checking Node24 for container startup (requested or Node20 is not bundled)");
 
-            bool node24Required = enforceEolPolicy || !node20Available;
-            string node24RequiredMessage = "Node24 is required for container execution when the EOL policy is enabled or Node20 is unavailable, but it cannot run in the container. Use a compatible image or specify a custom Node path with the 'com.azure.dev.pipelines.agent.handler.node.path' image label.";
-            bool node24Available;
             try
             {
-                node24Available = NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node24, "Node24Strategy");
+                if (NodeContainerTestHelper.CanExecuteNodeInContainer(context, executionContext, dockerManager, NodeVersion.Node24, "Node24Strategy"))
+                {
+                    return new NodeRunnerInfo
+                    {
+                        NodePath = null,
+                        NodeVersion = NodeVersion.Node24,
+                        Reason = "Node24 available in container (requested or Node20 is not bundled)",
+                        Warning = null
+                    };
+                }
+                else
+                {
+                    executionContext.Debug("[Node24Strategy] Node24 test failed in container, returning null for fallback");
+                    return null;
+                }
             }
             catch (Exception ex)
             {
-                if (node24Required)
-                {
-                    throw new NotSupportedException(node24RequiredMessage, ex);
-                }
-
                 executionContext.Warning($"[Node24Strategy] Failed to test Node24 in container: {ex.Message}");
                 return null;
             }
-
-            if (node24Available)
-            {
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node24,
-                    Reason = "Node24 available in container (requested or Node20 is not bundled)",
-                    Warning = null
-                };
-            }
-
-            if (node24Required)
-            {
-                throw new NotSupportedException(node24RequiredMessage);
-            }
-
-            executionContext.Debug("[Node24Strategy] Node24 test failed in container, returning null for fallback");
-            return null;
         }
     }
 }

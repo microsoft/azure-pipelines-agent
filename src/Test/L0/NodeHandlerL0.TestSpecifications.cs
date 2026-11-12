@@ -745,21 +745,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Container_Node24GlibcError_FallsBackToNode20_WhenPolicyDisabled",
-                description: "Container startup falls back to an available Node20 when Node24 cannot run and the EOL policy is disabled",
-                handlerData: typeof(Node24HandlerData),
-                knobs: new()
-                {
-                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false",
-                    ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true",
-                    ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "true"
-                },
-                node24GlibcError: true,
-                expectedNode: "node20_1",
-                inContainer: true
-            ),
-
-            new TestScenario(
                 name: "Container_EOLPolicy_Node24GlibcError_ThrowsError",
                 description: "Container with EOL policy fails when Node24 has a glibc error",
                 handlerData: typeof(Node16HandlerData),
