@@ -321,7 +321,9 @@ namespace Agent.Plugins.Repository
         }
 
         // git sparse-checkout
-        public async Task<int> GitSparseCheckout(AgentTaskPluginExecutionContext context, string repositoryPath, string directories, string patterns, CancellationToken cancellationToken)
+        // additionalCommandLine carries auth config (-c / --config-env) for a partial clone, where changing the
+        // sparse set can lazily fetch missing blobs from the promisor remote.
+        public async Task<int> GitSparseCheckout(AgentTaskPluginExecutionContext context, string repositoryPath, string directories, string patterns, CancellationToken cancellationToken, string additionalCommandLine = null)
         {
             context.Debug($"Sparse checkout");
 
@@ -334,7 +336,7 @@ namespace Agent.Plugins.Repository
                 { "Patterns", useConeMode ? directories : patterns }
             });
 
-            int exitCode_sparseCheckoutInit = await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout init", options, cancellationToken);
+            int exitCode_sparseCheckoutInit = await ExecuteGitCommandWithOptionalArgsAsync(context, repositoryPath, "sparse-checkout init", options, additionalCommandLine, cancellationToken);
 
             if (exitCode_sparseCheckoutInit != 0)
             {
@@ -342,16 +344,18 @@ namespace Agent.Plugins.Repository
             }
             else
             {
-                return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout set", useConeMode ? directories : patterns, cancellationToken);
+                return await ExecuteGitCommandWithOptionalArgsAsync(context, repositoryPath, "sparse-checkout set", useConeMode ? directories : patterns, additionalCommandLine, cancellationToken);
             }
         }
 
         // git sparse-checkout disable
-        public async Task<int> GitSparseCheckoutDisable(AgentTaskPluginExecutionContext context, string repositoryPath, CancellationToken cancellationToken)
+        // additionalCommandLine carries auth config for a partial clone, where expanding the working tree to the
+        // full checkout fetches every blob the sparse set excluded.
+        public async Task<int> GitSparseCheckoutDisable(AgentTaskPluginExecutionContext context, string repositoryPath, CancellationToken cancellationToken, string additionalCommandLine = null)
         {
             context.Debug($"Sparse checkout disable");
 
-            return await ExecuteGitCommandAsync(context, repositoryPath, "sparse-checkout disable", string.Empty, cancellationToken);
+            return await ExecuteGitCommandWithOptionalArgsAsync(context, repositoryPath, "sparse-checkout disable", string.Empty, additionalCommandLine, cancellationToken);
         }
 
         // git checkout -f --progress <commitId/branch>
@@ -393,10 +397,12 @@ namespace Agent.Plugins.Repository
         }
 
         // git reset --hard HEAD
-        public async Task<int> GitReset(AgentTaskPluginExecutionContext context, string repositoryPath)
+        // additionalCommandLine carries auth config for a partial clone, where restoring a tracked file can need
+        // a blob that was never fetched.
+        public async Task<int> GitReset(AgentTaskPluginExecutionContext context, string repositoryPath, string additionalCommandLine = null)
         {
             context.Debug($"Undo any changes to tracked files in the working tree for repository at {repositoryPath}.");
-            return await ExecuteGitCommandAsync(context, repositoryPath, "reset", "--hard HEAD");
+            return await ExecuteGitCommandWithOptionalArgsAsync(context, repositoryPath, "reset", "--hard HEAD", additionalCommandLine, CancellationToken.None);
         }
 
         // get remote set-url <origin> <url>
@@ -804,6 +810,15 @@ namespace Agent.Plugins.Repository
                     outputEncoding: _encoding,
                     cancellationToken: default(CancellationToken));
             }
+        }
+
+        // ExecuteGitCommandWithOptionalArgsAsync uses the plain overload when there is nothing to add, so a caller
+        // passing no additional command line takes the same path as a command that never accepts one.
+        private Task<int> ExecuteGitCommandWithOptionalArgsAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, string additionalCommandLine, CancellationToken cancellationToken)
+        {
+            return string.IsNullOrEmpty(additionalCommandLine)
+                ? ExecuteGitCommandAsync(context, repoRoot, command, options, cancellationToken)
+                : ExecuteGitCommandAsync(context, repoRoot, command, options, additionalCommandLine, cancellationToken);
         }
 
         protected virtual async Task<int> ExecuteGitCommandAsync(AgentTaskPluginExecutionContext context, string repoRoot, string command, string options, string additionalCommandLine, CancellationToken cancellationToken)
