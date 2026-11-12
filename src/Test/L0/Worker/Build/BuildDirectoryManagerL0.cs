@@ -118,6 +118,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void PreservesSourcesDirectoryWhenCleanIsSourcesAndAutoManagedVhdIsDetected()
+        {
+            // Arrange.
+            using (TestHostContext hc = Setup(cleanOption: BuildCleanOption.Source))
+            {
+                SetupEnvironmentVariables(allowWorkDirectory: "false");
+
+                string sourcesDirectory = Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory);
+                string sourceFile = Path.Combine(sourcesDirectory, "some subdirectory", "some source file");
+                Directory.CreateDirectory(Path.GetDirectoryName(sourceFile));
+                File.WriteAllText(path: sourceFile, contents: "some source contents");
+                File.WriteAllText(Path.Combine(_workFolder, ".autoManagedVhd"), string.Empty);
+
+                // Act.
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
+
+                // Assert.
+                Assert.True(File.Exists(sourceFile));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void RecreatesArtifactsAndTestResultsDirectory()
         {
             // Arrange.
@@ -171,6 +195,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Build
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory)));
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory)));
                 Assert.True(Directory.Exists(Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.TestResultsDirectory)));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void PreservesSourcesAndRecreatesBinariesWhenCleanIsAllAndAutoManagedVhdIsDetected()
+        {
+            // Arrange.
+            using (TestHostContext hc = Setup(cleanOption: BuildCleanOption.All))
+            {
+                SetupEnvironmentVariables(allowWorkDirectory: "false");
+
+                string sourcesDirectory = Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.SourcesDirectory);
+                string sourceFile = Path.Combine(sourcesDirectory, "some subdirectory", "some source file");
+                Directory.CreateDirectory(Path.GetDirectoryName(sourceFile));
+                File.WriteAllText(path: sourceFile, contents: "some source contents");
+
+                string binariesDirectory = Path.Combine(_workFolder, _newConfig.BuildDirectory, Constants.Build.Path.BinariesDirectory);
+                string binaryFile = Path.Combine(binariesDirectory, "some subdirectory", "some binary file");
+                Directory.CreateDirectory(Path.GetDirectoryName(binaryFile));
+                File.WriteAllText(path: binaryFile, contents: "some binary contents");
+                File.WriteAllText(Path.Combine(_workFolder, ".autoManagedVhd"), string.Empty);
+
+                // Act.
+                _buildDirectoryManager.PrepareDirectory(_ec.Object, _repositories, _workspaceOptions);
+
+                // Assert.
+                Assert.True(File.Exists(sourceFile));
+                Assert.True(Directory.Exists(binariesDirectory));
+                Assert.Equal(0, Directory.GetFileSystemEntries(binariesDirectory).Length);
             }
         }
 
