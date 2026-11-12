@@ -128,7 +128,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                 OSDescription = RuntimeInformation.OSDescription,
             };
             string sessionName = $"{Environment.MachineName ?? "AGENT"}";
-            var taskAgentSession = new TaskAgentSession(sessionName, agent, systemCapabilities);
+            var taskAgentSession = new TaskAgentSession(sessionName, agent, systemCapabilities)
+            {
+                RequestId = _settings.RequestId
+            };
 
             string errorMessage = string.Empty;
             bool encounteringError = false;
