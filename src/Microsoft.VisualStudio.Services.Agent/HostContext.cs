@@ -450,6 +450,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                         ".setup_info");
                     break;
 
+                // We need to remove this config file - once Node 6 handler is dropped
                 case WellKnownConfigFile.TaskExceptionList:
                     path = Path.Combine(
                         GetDirectory(WellKnownDirectory.Bin),

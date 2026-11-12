@@ -42,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         Autologon,
         Options,
         SetupInfo,
-        TaskExceptionList
+        TaskExceptionList // We need to remove this config file - once Node 6 handler is dropped
     }
 
     public static class WellKnownTasks
