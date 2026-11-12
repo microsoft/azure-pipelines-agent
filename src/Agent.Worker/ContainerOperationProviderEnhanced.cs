@@ -881,6 +881,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
                                 else if (logLine.Contains(labelContainerStartupUsingNode20))
                                 {
+                                    if (restrictEolNodeVersions || !node20Available)
+                                    {
+                                        throw new NotSupportedException($"Container startup reported using Node 20 for image '{container.ContainerImage}', but Node 20 is unavailable or disallowed and the agent requires Node 24.");
+                                    }
+
                                     if (useNode24ToStartContainer)
                                     {
                                         executionContext.Warning($"The agent's Node 24 runtime could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 20 runtime instead.");

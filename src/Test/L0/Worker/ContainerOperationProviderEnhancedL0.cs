@@ -189,6 +189,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         }
 
         [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyRejectsNode20StartupMarker(bool restrictEol, bool node20Available)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(node20Available);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { "container-startup-using-node-20" });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS"))
+                    .Returns(restrictEol ? "true" : "false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                    provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+
+                Assert.Contains("Node 20", exception.Message);
+                Assert.Contains("Node 24", exception.Message);
+                Assert.DoesNotContain("node20_1", container.ContainerCommand);
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
+            }
+        }
+
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         [Trait("Level", "L0")]
