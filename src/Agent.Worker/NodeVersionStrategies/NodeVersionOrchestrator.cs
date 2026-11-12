@@ -17,6 +17,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class NodeVersionOrchestrator
     {
+        internal const string CrossPlatformEolError = "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS. Cross-platform container execution cannot use the agent's bundled Node24. Specify a custom Node path with the 'com.azure.dev.pipelines.agent.handler.node.path' image label.";
+
         private readonly List<INodeVersionStrategy> _strategies;
         private readonly IExecutionContext ExecutionContext;
         private readonly IHostContext HostContext;
@@ -110,7 +112,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
-            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute."
+                : $"No compatible Node.js version available for host execution. Handler type: {handlerType}. Update the task to use Node24, enable AGENT_RESTRICT_EOL_NODE_VERSIONS, or install the required runner manually.");
         }
 
         /// <summary>
@@ -132,8 +137,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            if ((PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux)) &&
+                string.IsNullOrWhiteSpace(context.Container.CustomNodePath))
             {
+                if (enforceEolPolicy)
+                {
+                    throw new NotSupportedException(CrossPlatformEolError);
+                }
+
                 ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
                 ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
                 
@@ -154,6 +166,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             foreach (var strategy in GetContainerCapableStrategies())
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
+
+                if (enforceEolPolicy && strategy is not CustomNodeStrategy && strategy is not Node24Strategy)
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; EOL policy requires Node24");
+                    continue;
+                }
 
                 if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
                 {
@@ -198,7 +216,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
             }
 
-            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute in the container."
+                : "No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
         }
 
         private static bool IsLegacyStrategy(INodeVersionStrategy strategy)

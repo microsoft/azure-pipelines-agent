@@ -28,7 +28,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         /// The highest Node version considered end-of-life.
         /// Tasks with EffectiveMaxVersion at or below this threshold get an EOL upgrade warning.
         /// </summary>
-        public const int MaxEOLNodeVersion = 16;
+        public const int MaxEOLNodeVersion = 20;
 
         /// <summary>
         /// Gets the folder name for the specified NodeVersion.

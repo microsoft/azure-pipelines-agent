@@ -182,14 +182,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node6_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node6 handler with EOL policy falls back to Node20 when Node24 cannot run",
+                name: "Node6_EOLPolicy_Node24GlibcError_ThrowsError",
+                description: "Node6 handler with EOL policy fails when Node24 cannot run",
                 handlerData: typeof(NodeHandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node20_1",
-                strategyExpectedNode: "node20_1",
-                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "Node24",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "Node24"
             ),
 
             new TestScenario(
@@ -304,14 +305,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node10_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node10 handler with EOL policy falls back to Node20 when Node24 cannot run",
+                name: "Node10_EOLPolicy_Node24GlibcError_ThrowsError",
+                description: "Node10 handler with EOL policy fails when Node24 cannot run",
                 handlerData: typeof(Node10HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node20_1",
-                strategyExpectedNode: "node20_1",
-                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "Node24",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "Node24"
             ),
 
             new TestScenario(
@@ -355,7 +357,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false" },
                 node16Available: false,
                 expectedErrorType: typeof(NotSupportedException),
-                strategyExpectedError: "Node20 or Node24",
+                strategyExpectedError: "Update the task to use Node24",
                 legacyExpectedErrorType: typeof(FileNotFoundException),
                 legacyExpectedError: "MissingNodePath"
             ),
@@ -386,14 +388,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Node16_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Node16 handler with EOL policy falls back to Node20 when Node24 cannot run",
+                name: "Node16_EOLPolicy_Node24GlibcError_ThrowsError",
+                description: "Node16 handler with EOL policy fails when Node24 cannot run",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 node24GlibcError: true,
-                legacyExpectedNode: "node20_1",
-                strategyExpectedNode: "node20_1",
-                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "Node24",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "Node24"
             ),
 
             new TestScenario(
@@ -429,6 +432,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
+                name: "Node20_EOLPolicyEnabled_UpgradesToNode24",
+                description: "Node20 handler with EOL policy upgrades to Node24",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
+                legacyExpectedNode: "node24",
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+            ),
+
+            new TestScenario(
+                name: "Node20_GlibcError_EOLPolicy_UpgradesToNode24",
+                description: "Node20 with glibc error and EOL policy upgrades to Node24",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
+                node20GlibcError: true,
+                legacyExpectedNode: "node24",
+                strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+            ),
+
+            new TestScenario(
                 name: "Node20_WithGlobalUseNode24Knob",
                 description: "Global Node24 knob overrides Node20 handler data",
                 handlerData: typeof(Node20_1HandlerData),
@@ -446,6 +470,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AGENT_USE_NODE24"] = "true"
                 },
                 expectedNode: "node24"
+            ),
+
+            new TestScenario(
+                name: "Node20_GlibcError_Node24GlibcError_EOLPolicy_ThrowsError",
+                description: "Node20 and Node24 with glibc error and EOL policy enabled throws error",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
+                node20GlibcError: true,
+                node24GlibcError: true,
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                legacyExpectedError: "Node24",
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "Node24"
             ),
 
             new TestScenario(
@@ -661,6 +698,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
+                name: "Container_EOLPolicy_UsesNode24WithoutContainerKnob",
+                description: "Container EOL policy selects Node24 without requiring the container startup knob",
+                handlerData: typeof(Node20_1HandlerData),
+                knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
+                expectedNode: "node24",
+                inContainer: true
+            ),
+
+            new TestScenario(
                 name: "Container_NoBundledRunnerSelectedAndNoManualRunner_Fails",
                 description: "Container selection fails when both bundled runners are disabled and no manual runner is installed",
                 handlerData: typeof(Node20_1HandlerData),
@@ -699,8 +745,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Container_EOLPolicy_Node24GlibcError_FallsBackToNode20",
-                description: "Container with EOL policy falls back to Node20 when Node24 has a glibc error",
+                name: "Container_EOLPolicy_Node24GlibcError_ThrowsError",
+                description: "Container with EOL policy fails when Node24 has a glibc error",
                 handlerData: typeof(Node16HandlerData),
                 knobs: new() { 
                     ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true", 
@@ -709,7 +755,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 },
                 node24GlibcError: true,
                 inContainer: true,
-                expectedNode: "node20_1"
+                expectedErrorType: typeof(NotSupportedException)
             ),
 
             new TestScenario(
@@ -728,8 +774,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Container_Node24Enabled_GlibcError_EOLPolicy_FallsBackToNode20",
-                description: "Container with Node24 enabled falls back to Node20 when Node24 has a glibc error",
+                name: "Container_Node24Enabled_GlibcError_EOLPolicy_ThrowsError",
+                description: "Container with Node24 enabled but has glibc error fails rather than falling back to Node20",
                 handlerData: typeof(Node24HandlerData),
                 knobs: new() 
                 { 
@@ -738,7 +784,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AZP_AGENT_USE_NODE20_TO_START_CONTAINER"] = "true"
                 },
                 node24GlibcError: true,
-                expectedNode: "node20_1",
+                expectedErrorType: typeof(NotSupportedException),
                 inContainer: true
             ),
 

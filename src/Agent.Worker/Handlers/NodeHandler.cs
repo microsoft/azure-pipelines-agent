@@ -404,7 +404,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             catch (Exception ex)
             {
-                ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Strategy-based node selection failed: {ex.Message}");
                 ExecutionContext.Debug($"Stack trace: {ex}");
                 throw;
             }
@@ -480,6 +480,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             {
                                 ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, latest LTS version {NodeHandler.nodeLTS} will be used. See http://aka.ms/azdo-node-runner");
                                 Trace.Info($"Found LTS version of node installed");
+                                WarnIfEolNodeRunner(NodeHandler.nodeLTS);
                                 return nodeHandlerHelper.GetNodeFolderPath(NodeHandler.nodeLTS, HostContext);
                             }
                             break;
@@ -490,6 +491,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             {
                                 ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, next available version will be used. See http://aka.ms/azdo-node-runner");
                                 Trace.Info($"Found {firstExistedNodeFolder} installed");
+                                if (firstExistedNodeFolder == NodeHandler.Node20_1Folder)
+                                {
+                                    WarnIfEolNodeRunner(firstExistedNodeFolder);
+                                }
                                 return nodeHandlerHelper.GetNodeFolderPath(firstExistedNodeFolder, HostContext);
                             }
                             break;
@@ -502,20 +507,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
 
-            bool isEolNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
-                nodeFolder == Node16Folder;
-            string taskName = Task?.Name?.ToString() ??
-                ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
-                "Unknown Task";
-            if (isEolNodeRunner)
-            {
-                ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
-            }
-
-            if (isEolNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
-            {
-                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", taskName));
-            }
+            WarnIfEolNodeRunner(nodeFolder);
 
             if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
             {
@@ -531,6 +523,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
+        }
+
+        private void WarnIfEolNodeRunner(string nodeFolder)
+        {
+            bool isLegacyNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
+                nodeFolder == Node16Folder;
+            string taskName = Task?.Name?.ToString() ??
+                ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
+                "Unknown Task";
+            if (isLegacyNodeRunner)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
+            }
+            else if (nodeFolder == Node20_1Folder && AgentKnobs.WarnOnNode20Task.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("Node20TaskRetirementWarning", taskName));
+            }
+
+            if (isLegacyNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", taskName));
+            }
         }
 
         private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notExecutable = false)
