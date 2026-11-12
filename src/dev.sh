@@ -32,6 +32,7 @@ if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
     export INCLUDE_NODE10="false"
     export INCLUDE_NODE16="false"
 fi
+export PACKAGE_TYPE
 
 pushd "$SCRIPT_DIR"
 
@@ -315,6 +316,10 @@ function cmd_package() {
     agent_ver="$AGENT_VERSION" || failed "version"
 
     if [[ ("$PACKAGE_TYPE" == "pipelines-agent") ]]; then
+        # pipelines-agent bundles only Node 24, which has no official build for these runtimes.
+        if [[ "$RUNTIME_ID" == "win-x86" || "$RUNTIME_ID" == "linux-arm" ]]; then
+            failed "pipelines-agent package is not supported for ${RUNTIME_ID} because Node 24 is not available for this platform"
+        fi
         agent_pkg_name="pipelines-agent-${RUNTIME_ID}-${agent_ver}"
     else
         agent_pkg_name="vsts-agent-${RUNTIME_ID}-${agent_ver}"
@@ -340,14 +345,34 @@ function cmd_package() {
     if [[ ("$CURRENT_PLATFORM" == "linux") || ("$CURRENT_PLATFORM" == "darwin") ]]; then
         tar_name="${agent_pkg_name}.tar.gz"
         echo "Creating $tar_name in ${PACKAGE_DIR}"
-        tar -czf "${tar_name}" -C "${LAYOUT_DIR}" .
+        local tar_excludes=()
+        if [[ "$PACKAGE_TYPE" == "pipelines-agent" ]]; then
+            tar_excludes+=(--exclude='./externals/node20_1')
+        fi
+        tar -czf "${tar_name}" "${tar_excludes[@]}" -C "${LAYOUT_DIR}" .
     elif [[ ("$CURRENT_PLATFORM" == "windows") ]]; then
         zip_name="${agent_pkg_name}.zip"
         echo "Convert ${LAYOUT_DIR} to Windows style path"
         window_path=${LAYOUT_DIR:1}
         window_path=${window_path:0:1}:${window_path:1}
         echo "Creating $zip_name in ${window_path}"
-        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "Add-Type -Assembly \"System.IO.Compression.FileSystem\"; [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")"
+        powershell -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "
+            \$ErrorActionPreference = 'Stop'
+            Add-Type -Assembly 'System.IO.Compression.FileSystem'
+            [System.IO.Compression.ZipFile]::CreateFromDirectory(\"${window_path}\", \"${zip_name}\")
+            if (\$env:PACKAGE_TYPE -eq 'pipelines-agent') {
+                \$archive = [System.IO.Compression.ZipFile]::Open(\"${zip_name}\", [System.IO.Compression.ZipArchiveMode]::Update)
+                try {
+                    foreach (\$entry in @(\$archive.Entries)) {
+                        if (\$entry.FullName.Replace([char]92, [char]47).StartsWith('externals/node20_1/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                            \$entry.Delete()
+                        }
+                    }
+                } finally {
+                    \$archive.Dispose()
+                }
+            }
+        "
     fi
 
     popd >/dev/null
