@@ -104,10 +104,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
-            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
-            throw new NotSupportedException(enforceEolPolicy
-                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute."
-                : $"No compatible Node.js version available for host execution. Handler type: {handlerType}. Update the task to use Node24, enable AGENT_RESTRICT_EOL_NODE_VERSIONS, or install the required runner manually.");
+            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
         }
 
         /// <summary>
@@ -129,14 +126,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
             if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
             {
-                if (enforceEolPolicy)
-                {
-                    throw new NotSupportedException("Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS. Cross-platform container execution cannot use the agent's bundled Node24.");
-                }
-
                 ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
                 ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
                 

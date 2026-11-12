@@ -38,9 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (glibcInfo.Node24HasGlibcError)
             {
-                executionContext.Debug(AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean()
-                    ? StringUtil.Loc("NodeEOLFallbackBlocked", "Node20")
-                    : StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
+                executionContext.Debug(StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
                 return null;
             }
 

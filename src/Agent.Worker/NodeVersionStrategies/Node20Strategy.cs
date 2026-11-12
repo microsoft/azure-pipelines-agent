@@ -29,6 +29,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
+            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
 
             string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
             string node20TaskWarning =
@@ -41,7 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // so the orchestrator falls through to the next strategy (and ultimately its clean
             // terminal error) instead of returning a non-existent node path that would fail
             // later at process launch. This guard is placed before the knob-driven returns so
-            // that even a global override cannot select a missing Node20.
+            // that even a global override / EOL upgrade cannot select a missing Node20.
             var hostContext = executionContext.GetHostContext();
             string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
             if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
@@ -56,11 +57,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
-            {
-                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
-            }
-
             if (useNode20Globally)
             {
                 return new NodeRunnerInfo
@@ -69,6 +65,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected via global AGENT_USE_NODE20_1 override",
                     Warning = node20TaskWarning
+                };
+            }
+
+            if (eolPolicyEnabled)
+            {
+                return new NodeRunnerInfo
+                {
+                    NodePath = null,
+                    NodeVersion = NodeVersion.Node20,
+                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
+                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion
+                        ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
+                        : node20TaskWarning
                 };
             }
 
@@ -104,11 +113,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 executionContext.Debug("[Node20Strategy] CanHandleInContainer called but no container context provided");
                 return null;
-            }
-
-            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
-            {
-                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
             }
 
             bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();        
