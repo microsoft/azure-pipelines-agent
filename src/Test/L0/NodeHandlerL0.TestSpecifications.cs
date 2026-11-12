@@ -237,6 +237,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
+                name: "Node10_EOLPolicyEnabled_GlobalNode24Override_EmitsUpgradeWarning",
+                description: "Node10 handler with EOL policy emits the upgrade warning when Node24 is globally selected",
+                handlerData: typeof(Node10HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true",
+                    ["AGENT_USE_NODE24"] = "true"
+                },
+                legacyExpectedNode: "node24",
+                strategyExpectedNode: "node24",
+                expectedWarning: "NodeEOLUpgradeWarning",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+            ),
+
+            new TestScenario(
                 name: "Node10_WithGlobalUseNode20Knob",
                 description: "Global Node20 knob overrides Node10 handler data",
                 handlerData: typeof(Node10HandlerData),
@@ -352,6 +367,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 knobs: new() { ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true" },
                 legacyExpectedNode: "node24",
                 strategyExpectedNode: "node24",
+                strategyExpectedWarning: "NodeEOLUpgradeWarning"
+            ),
+
+            new TestScenario(
+                name: "Node16_EOLPolicyEnabled_GlobalNode24Override_EmitsUpgradeWarning",
+                description: "Node16 handler with EOL policy emits the upgrade warning when Node24 is globally selected",
+                handlerData: typeof(Node16HandlerData),
+                knobs: new()
+                {
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "true",
+                    ["AGENT_USE_NODE24"] = "true"
+                },
+                legacyExpectedNode: "node24",
+                strategyExpectedNode: "node24",
+                expectedWarning: "NodeEOLUpgradeWarning",
                 strategyExpectedWarning: "NodeEOLUpgradeWarning"
             ),
 
@@ -683,8 +713,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             ),
 
             new TestScenario(
-                name: "Container_Node20Preferred_GlibcError_FallsBackToNode16",
-                description: "Container with Node20 preferred but has glibc error: falls back to Node16 when EOL policy disabled",
+                name: "Container_Node20Preferred_GlibcError_FailsWithoutLegacyFallback",
+                description: "Container Node20 task fails instead of falling back to Node16 when Node20 has a glibc error",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { 
                     ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = "false",
@@ -692,8 +722,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     ["AZP_AGENT_USE_NODE24_TO_START_CONTAINER"] = "false"
                 },
                 node20GlibcError: true,
-                expectedNode: "node16",
-                inContainer: true
+                inContainer: true,
+                expectedErrorType: typeof(NotSupportedException),
+                strategyExpectedError: "No Node.js version could be selected for container execution"
             ),
 
             new TestScenario(

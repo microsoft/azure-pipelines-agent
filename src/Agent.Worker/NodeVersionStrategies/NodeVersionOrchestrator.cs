@@ -65,6 +65,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking strategy: {strategy.GetType().Name}");
 
+                if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; Node20 tasks must not fall back to a legacy runner");
+                    continue;
+                }
+
                 try
                 {
                     var selectionResult = strategy.CanHandle(context, ExecutionContext, glibcInfo);
@@ -149,6 +155,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
 
+                if (context.HandlerData is Node20_1HandlerData && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; Node20 tasks must not fall back to a legacy runner");
+                    continue;
+                }
+
                 try
                 {
                     var selectionResult = strategy.CanHandleInContainer(context, ExecutionContext, dockerManager);
@@ -187,6 +199,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             }
 
             throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+        }
+
+        private static bool IsLegacyStrategy(INodeVersionStrategy strategy)
+        {
+            return strategy is Node16Strategy || strategy is Node10Strategy || strategy is Node6Strategy;
         }
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)

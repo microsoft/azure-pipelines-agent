@@ -27,6 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         {
             bool useNode24Globally = AgentKnobs.UseNode24.GetValue(executionContext).AsBoolean();
             bool useNode24WithHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(executionContext).AsBoolean();
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
             var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
 
@@ -50,11 +51,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node24,
                     Reason = "Selected via global AGENT_USE_NODE24 override",
-                    Warning = null
+                    Warning = enforceEolPolicy && context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion
+                        ? StringUtil.Loc("NodeEOLUpgradeWarning", executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
+                        : null
                 };
             }
 
-            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
+            if (enforceEolPolicy)
             {
                 return new NodeRunnerInfo
                 {

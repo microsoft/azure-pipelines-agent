@@ -344,6 +344,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task Orchestrator_HostSelection_DoesNotFallbackFromNode20TaskToNode16(bool node20Exists, bool node20HasGlibcError)
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                var glibcProvider = CreateGlibcProvider();
+                glibcProvider
+                    .Setup(x => x.GetGlibcCompatibilityAsync(It.IsAny<TaskContext>(), It.IsAny<IExecutionContext>()))
+                    .ReturnsAsync(GlibcCompatibilityInfo.Create(
+                        node24HasGlibcError: false,
+                        node20HasGlibcError: node20HasGlibcError));
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(glibcProvider.Object);
+
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: node20Exists);
+                helper
+                    .Setup(x => x.IsNodeFolderExist(NodeVersionHelper.GetFolderName(NodeVersion.Node16), It.IsAny<IHostContext>()))
+                    .Returns(true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext { HandlerData = new Node20_1HandlerData() };
+
+                await Assert.ThrowsAsync<NotSupportedException>(
+                    () => orchestrator.SelectNodeVersionForHostAsync(context));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Orchestrator_ContainerSelection_DoesNotFallbackFromNode20TaskToNode16()
+        {
+            using (TestHostContext thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc);
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+                var context = new TaskContext
+                {
+                    HandlerData = new Node20_1HandlerData(),
+                    Container = new ContainerInfo
+                    {
+                        ContainerId = "test_container",
+                        ImageOS = PlatformUtil.HostOS
+                    }
+                };
+
+                Assert.Throws<NotSupportedException>(
+                    () => orchestrator.SelectNodeVersionForContainer(context, new Mock<IDockerCommandManager>().Object));
+            }
+        }
+
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [Trait("Level", "L0")]
