@@ -112,7 +112,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
-            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute."
+                : $"No compatible Node.js version available for host execution. Handler type: {handlerType}. Update the task to use Node24, enable AGENT_RESTRICT_EOL_NODE_VERSIONS, or install the required runner manually.");
         }
 
         /// <summary>
