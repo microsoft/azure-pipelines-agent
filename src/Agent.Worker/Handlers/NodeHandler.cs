@@ -349,6 +349,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                     if (node20ResultsInGlibCError || node20NotAvailable)
                     {
+                        if (Data is Node20_1HandlerData)
+                        {
+                            throw new NotSupportedException("No compatible Node.js runtime is available for this Node20 task. Ensure Node20 is installed and compatible, or select Node24.");
+                        }
+
                         if (nodeHandlerHelper.IsNodeFolderExist(Node16Folder, HostContext))
                         {
                             fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";

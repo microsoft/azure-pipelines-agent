@@ -369,6 +369,44 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             }
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public void Node20TaskDoesNotFallbackToNode16InLegacySelection(bool node20Available, bool node20ResultsInGlibCError)
+        {
+            ResetNodeKnobs();
+
+            using (TestHostContext thc = CreateTestHostContext())
+            {
+                thc.SetSingleton(new WorkerCommandManager() as IWorkerCommandManager);
+                thc.SetSingleton(new ExtensionManager() as IExtensionManager);
+
+                var variables = new Dictionary<string, VariableValue>
+                {
+                    ["AGENT_USE_ENHANCED_NODE_SELECTION"] = new VariableValue("false"),
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = new VariableValue("false")
+                };
+                var helper = GetMockedNodeHandlerHelper();
+                helper
+                    .Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                    .Returns(node20Available);
+                helper
+                    .Setup(x => x.IsNodeFolderExist(NodeHandler.Node16Folder, It.IsAny<IHostContext>()))
+                    .Returns(true);
+
+                var nodeHandler = new NodeHandler(helper.Object);
+                nodeHandler.Initialize(thc);
+                nodeHandler.ExecutionContext = CreateTestExecutionContext(thc, variables);
+                nodeHandler.Data = new Node20_1HandlerData();
+
+                NotSupportedException exception = Assert.Throws<NotSupportedException>(
+                    () => nodeHandler.GetNodeLocation(node20ResultsInGlibCError, node24ResultsInGlibCError: false, inContainer: false));
+                Assert.Contains("Node20 task", exception.Message);
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
