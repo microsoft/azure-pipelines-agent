@@ -494,10 +494,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 if (outputStrings.Count == 1 && !string.IsNullOrEmpty(outputStrings.First()))
                 {
                     string remoteFetchUrl = outputStrings.First();
-                    if (Uri.IsWellFormedUriString(remoteFetchUrl, UriKind.Absolute))
+                    // Allow escaped paths rejected by the well-formed check only if parsing preserves the URL.
+                    if (Uri.TryCreate(remoteFetchUrl, UriKind.Absolute, out Uri parsedFetchUrl) &&
+                        (Uri.IsWellFormedUriString(remoteFetchUrl, UriKind.Absolute) ||
+                         string.Equals(remoteFetchUrl, parsedFetchUrl.AbsoluteUri, StringComparison.Ordinal)))
                     {
                         context.Debug($"Get remote origin fetch url from git config: {remoteFetchUrl}");
-                        fetchUrl = new Uri(remoteFetchUrl);
+                        fetchUrl = parsedFetchUrl;
                     }
                     else
                     {
