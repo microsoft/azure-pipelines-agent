@@ -630,6 +630,72 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode20Task_ExplicitUpgrade_UsesCompatibleNode24(bool node20Available, bool node20GlibcError)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_USE_NODE", "UPGRADE" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                    .Returns(node20Available);
+                helper.Setup(x => x.IsNodeExecutable(NodeHandler.Node24Folder, It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                    .Returns(true);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node20_1HandlerData()
+                };
+                handler.Initialize(thc);
+
+                var actual = handler.GetNodeLocation(node20GlibcError, false, false);
+
+                Assert.Equal(Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals), "node24", "bin", $"node{IOUtil.ExeExtension}"), actual);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode20Task_ExplicitUpgradeWithoutCompatibleNode24_DoesNotUseNode16(bool node24Executable, bool node24GlibcError)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_USE_NODE", "UPGRADE" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                    .Returns(false);
+                helper.Setup(x => x.IsNodeExecutable(NodeHandler.Node24Folder, It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                    .Returns(node24Executable);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node20_1HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Throws<NotSupportedException>(() => handler.GetNodeLocation(false, node24GlibcError, false));
+            }
+        }
+
+        [Theory]
         [InlineData("LTS", false)]
         [InlineData("LTS", true)]
         [InlineData("UPGRADE", false)]

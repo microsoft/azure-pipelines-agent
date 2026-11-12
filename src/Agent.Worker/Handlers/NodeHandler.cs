@@ -417,6 +417,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         if (Data is Node20_1HandlerData)
                         {
+                            if (string.Equals(AgentKnobs.UseNode.GetValue(ExecutionContext).AsString(), "UPGRADE", StringComparison.OrdinalIgnoreCase)
+                                && !node24ResultsInGlibCError
+                                && nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, HostContext, ExecutionContext))
+                            {
+                                ExecutionContext.Warning($"Configured runner ({preferredNodeFolder}) is unavailable or incompatible. UseNode=UPGRADE is configured, so '{NodeHandler.Node24Folder}' will be used instead.");
+                                return NodeHandler.Node24Folder;
+                            }
+
                             throw new NotSupportedException(Node20UnavailableError);
                         }
 

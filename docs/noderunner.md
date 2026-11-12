@@ -37,7 +37,7 @@ Installing Node with `NodeTool` changes the version available to pipeline script
 The installation instructions below are for legacy compatibility only. Installing a deprecated runner does not restore upstream support and is not a substitute for migrating tasks to Node 24.
 Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life agent-managed Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent fails instead of falling back to Node 20 or an older runner. An explicitly configured custom Node path can override this policy. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
 On macOS agents and Windows agents running Linux containers, the policy requires the container image to declare a custom Node path because the agent's Node 24 binary cannot run in the container.
-When the policy is disabled, a Node 20 task fails if its runner is missing or incompatible, unless an explicit override is configured. Manually installed Node 6, 10, and 16 runners remain available to tasks authored for those handlers.
+When the policy is disabled, a Node 20 task fails if its runner is missing or incompatible, unless an explicit override is configured. With legacy node selection, `AGENT_USE_NODE=UPGRADE` can use a compatible Node 24 runner instead; it never falls back to Node 16 for a Node 20 task. Manually installed Node 6, 10, and 16 runners remain available to tasks authored for those handlers.
 With the EOL policy disabled, set `AGENT_WARN_ON_NODE20_TASK=true` to emit a Node 20 retirement warning when Node 20 is selected. This warning is disabled by default.
 
 ## Manual runner installation paths
