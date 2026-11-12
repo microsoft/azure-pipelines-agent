@@ -47,8 +47,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node6,
                     Reason = "Selected for Node6 task handler",
-                    Warning = StringUtil.Loc(
-                        "NodeEOLRetirementWarning",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                         executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                 };
             }

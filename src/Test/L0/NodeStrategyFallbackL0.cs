@@ -394,8 +394,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     }
                 };
 
-                Assert.Throws<NotSupportedException>(
-                    () => orchestrator.SelectNodeVersionForContainer(context, new Mock<IDockerCommandManager>().Object));
+                var dockerManager = new Mock<IDockerCommandManager>();
+                if (PlatformUtil.RunningOnMacOS)
+                {
+                    var result = orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object);
+                    Assert.Equal(NodeVersion.ContainerDefaultNode, result.NodeVersion);
+                    Assert.Equal("node", result.NodePath);
+                }
+                else
+                {
+                    Assert.Throws<NotSupportedException>(
+                        () => orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object));
+                }
             }
         }
 

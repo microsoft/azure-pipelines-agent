@@ -214,8 +214,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 selection.NodeVersion == NodeVersion.Node16;
             if (isDeprecatedNodeVersion && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
             {
-                string deprecatedWarning = StringUtil.Loc(
-                    "DeprecatedRunner",
+                string deprecatedWarning = StringUtil.Loc("DeprecatedRunner",
                     ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task");
                 selection.Warning = string.IsNullOrEmpty(selection.Warning)
                     ? deprecatedWarning

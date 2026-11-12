@@ -53,8 +53,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node16,
                     Reason = "Selected for Node16 task handler",
-                    Warning = StringUtil.Loc(
-                        "NodeEOLRetirementWarning",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                         executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                 };
             }
@@ -64,8 +63,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
                 Reason = "Fallback to manually installed Node16",
-                Warning = StringUtil.Loc(
-                    "NodeEOLRetirementWarning",
+                Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                     executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
             };
         }
@@ -99,8 +97,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 NodePath = null,
                 NodeVersion = NodeVersion.Node16,
                 Reason = "Fallback to manually installed Node16 for container execution",
-                Warning = StringUtil.Loc(
-                    "NodeEOLRetirementWarning",
+                Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                     executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
             };
         }

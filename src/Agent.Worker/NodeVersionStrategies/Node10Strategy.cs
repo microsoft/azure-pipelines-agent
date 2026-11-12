@@ -52,8 +52,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node10,
                     Reason = "Selected for Node10 task handler",
-                    Warning = StringUtil.Loc(
-                        "NodeEOLRetirementWarning",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                         executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                 };
             }
@@ -66,8 +65,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node10,
                     Reason = "Selected for Alpine Linux compatibility (Node6 incompatible)",
-                    Warning = StringUtil.Loc(
-                        "NodeEOLRetirementWarning",
+                    Warning = StringUtil.Loc("NodeEOLRetirementWarning",
                         executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task")
                 };
             }
