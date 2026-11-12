@@ -44,6 +44,6 @@ The agent uses the following executable paths for legacy runners, relative to th
 | Node 10 | `externals\node10\bin\node.exe` | `externals/node10/bin/node` |
 | Node 16 | `externals\node16\bin\node.exe` | `externals/node16/bin/node` |
 
-Use the matching Node major version for each folder. Installing a runner makes it available for task-handler selection; it does not force the agent to select it. These runners are end-of-life, and installing them does not restore upstream support.
+Use the matching Node major version for each folder. Installing a runner makes it available for task-handler selection; it does not force the agent to select it or bypass the end-of-life Node restriction policy. These runners are end-of-life, and installing them does not restore upstream support.
 
 Use a binary compatible with the agent's operating system and architecture, and ensure the agent account can execute it. Keep the executable at the exact path above; placing it directly in the runner folder or leaving an archive's top-level directory in place will not work.
