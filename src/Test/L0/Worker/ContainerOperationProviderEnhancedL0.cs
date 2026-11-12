@@ -188,6 +188,39 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_WithDockerLabelAndEolPolicy_PreservesCustomNodePath(bool enhanced)
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(false);
+                var docker = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "node:16" });
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal(NodePathFromLabel, container.CustomNodePath);
+                Assert.Equal(NodePathFromLabel, container.ResultNodePath);
+                Assert.DoesNotContain("node24", container.ContainerCommand);
+                Assert.DoesNotContain("node20_1", container.ContainerCommand);
+            }
+        }
+
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
