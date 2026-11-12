@@ -562,6 +562,74 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
+        [InlineData("AGENT_USE_NODE24", "node24", false, false)]
+        [InlineData("AGENT_USE_NODE24", "node24", true, true)]
+        [InlineData("AGENT_USE_NODE10", "node10", false, false)]
+        [InlineData("AGENT_USE_NODE10", "node10", true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode20Task_GlobalOverride_BypassesMissingOrIncompatibleNode20(string knob, string expectedFolder, bool node20Available, bool node20GlibcError)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { knob, "true" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                    .Returns(node20Available);
+                helper.Setup(x => x.IsNodeExecutable(NodeHandler.Node24Folder, It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                    .Returns(true);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node20_1HandlerData()
+                };
+                handler.Initialize(thc);
+
+                var actual = handler.GetNodeLocation(node20GlibcError, false, false);
+
+                Assert.Equal(Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals), expectedFolder, "bin", $"node{IOUtil.ExeExtension}"), actual);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode20Task_UnavailableGlobalNode24_DoesNotFallbackToNode16(bool node20Available, bool node20GlibcError)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_USE_NODE24", "true" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                    .Returns(node20Available);
+                helper.Setup(x => x.IsNodeExecutable(NodeHandler.Node24Folder, It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
+                    .Returns(false);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node20_1HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Throws<NotSupportedException>(() => handler.GetNodeLocation(node20GlibcError, false, false));
+            }
+        }
+
+        [Theory]
         [InlineData("LTS", false)]
         [InlineData("LTS", true)]
         [InlineData("UPGRADE", false)]

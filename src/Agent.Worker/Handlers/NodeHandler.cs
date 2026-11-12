@@ -90,6 +90,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private readonly INodeHandlerHelper nodeHandlerHelper;
         private readonly Lazy<NodeVersionOrchestrator> nodeVersionOrchestrator;
         private const string Node10Folder = "node10";
+        private const string Node20UnavailableError = "No compatible Node.js runtime is available for this Node20 task. Ensure Node20 is installed and compatible, or select Node24.";
         internal const string NodeFolder = "node";
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
@@ -380,6 +381,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
+                            if (Data is Node20_1HandlerData)
+                            {
+                                throw new NotSupportedException(Node20UnavailableError);
+                            }
+
                             // Only fall back to Node16 if it actually exists (e.g., vsts-agent or installed via task)
                             if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
                             {
@@ -411,7 +417,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     {
                         if (Data is Node20_1HandlerData)
                         {
-                            throw new NotSupportedException("No compatible Node.js runtime is available for this Node20 task. Ensure Node20 is installed and compatible, or select Node24.");
+                            throw new NotSupportedException(Node20UnavailableError);
                         }
 
                         // Only fall back to Node16 if it actually exists on disk
@@ -499,7 +505,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (taskHasNode20_1Data)
             {
                 Trace.Info($"Task.json has node20_1 handler data: {taskHasNode20_1Data} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+                if (!useNode24 && !useNode20_1 && !useNode10)
+                {
+                    nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+                }
             }
             else if (taskHasNode16Data)
             {
