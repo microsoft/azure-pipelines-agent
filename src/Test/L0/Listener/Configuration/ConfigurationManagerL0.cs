@@ -38,6 +38,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
         private Mock<IWindowsServiceControlManager> _windowsServiceControlManager;
         private Mock<ILinuxServiceControlManager> _linuxServiceControlManager;
+        private Mock<IFreeBSDServiceControlManager> _freebsdServiceControlManager;
         private Mock<IMacOSServiceControlManager> _macServiceControlManager;
 
         private Mock<IRSAKeyManager> _rsaKeyManager;
@@ -77,6 +78,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             _windowsServiceControlManager = new Mock<IWindowsServiceControlManager>();
             _linuxServiceControlManager = new Mock<ILinuxServiceControlManager>();
+            _freebsdServiceControlManager = new Mock<IFreeBSDServiceControlManager>();
             _macServiceControlManager = new Mock<IMacOSServiceControlManager>();
             _capabilitiesManager = new CapabilitiesManager();
             _featureFlagProvider = new Mock<IFeatureFlagProvider>();
@@ -118,6 +120,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             _credMgr.Setup(x => x.GetCredentialProvider(It.IsAny<string>())).Returns(new TestAgentCredential());
 
             _linuxServiceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
+            _freebsdServiceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
             _macServiceControlManager.Setup(x => x.GenerateScripts(It.IsAny<AgentSettings>()));
 
             var expectedPools = new List<TaskAgentPool>() { new TaskAgentPool(_expectedPoolName) { Id = _expectedPoolId } };
@@ -153,6 +156,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
 
             tc.SetSingleton<IWindowsServiceControlManager>(_windowsServiceControlManager.Object);
             tc.SetSingleton<ILinuxServiceControlManager>(_linuxServiceControlManager.Object);
+            tc.SetSingleton<IFreeBSDServiceControlManager>(_freebsdServiceControlManager.Object);
             tc.SetSingleton<IMacOSServiceControlManager>(_macServiceControlManager.Object);
 
             tc.SetSingleton<IRSAKeyManager>(_rsaKeyManager.Object);

@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
                 path,
                 runningOnWindows: false,
-                runningOnLinux: false,
+                runningOnUnix: false,
                 runningOnMacOS: true,
                 (actualPath, name) =>
                 {
@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             bool? isCaseSensitive = IOUtil.IsFileSystemCaseSensitive(
                 "unused",
                 runningOnWindows: false,
-                runningOnLinux: false,
+                runningOnUnix: false,
                 runningOnMacOS: false,
                 (_, _) => throw new InvalidOperationException("Unexpected pathconf call."));
 
@@ -486,6 +486,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task DeleteDirectory_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -538,6 +539,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task DeleteDirectory_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -961,6 +963,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task DeleteFile_DeletesWithRetry_IOException()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -990,6 +993,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public async Task DeleteFile_DeletesWithRetry_CancellationRequested()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -1022,6 +1026,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void GetRelativePathWindows()
         {
             using (TestHostContext hc = new TestHostContext(this))
@@ -1133,6 +1138,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
         [Trait("Category", "Common")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void ResolvePathWindows()
         {
             using (TestHostContext hc = new TestHostContext(this))

@@ -34,7 +34,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         public static StringComparison FilePathStringComparison
         {
             get =>
-                PlatformUtil.RunningOnLinux
+                (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD)
                 ? StringComparison.Ordinal
                 : StringComparison.OrdinalIgnoreCase;
         }
@@ -46,7 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
             return IsFileSystemCaseSensitive(
                 path,
                 PlatformUtil.RunningOnWindows,
-                PlatformUtil.RunningOnLinux,
+                PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD,
                 PlatformUtil.RunningOnMacOS,
                 PathConf);
         }
@@ -54,7 +54,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
         internal static bool? IsFileSystemCaseSensitive(
             string path,
             bool runningOnWindows,
-            bool runningOnLinux,
+            bool runningOnUnix,
             bool runningOnMacOS,
             Func<string, int, long> getPathConfiguration)
         {
@@ -66,7 +66,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 return false;
             }
 
-            if (runningOnLinux)
+            if (runningOnUnix)
             {
                 return true;
             }

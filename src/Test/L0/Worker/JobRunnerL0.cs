@@ -462,6 +462,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         [Trait("SkipOn", "darwin")]
         public async Task ServerOMDirectoryVariableSetCorrectlyOnWindows()
         {

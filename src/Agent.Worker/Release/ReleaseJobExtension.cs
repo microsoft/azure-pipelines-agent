@@ -215,7 +215,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Release
 
             executionContext.Output(StringUtil.Loc("RMDownloadingArtifact"));
 
-            bool isTeeUsed = PlatformUtil.RunningOnLinux && agentArtifactDefinitions.Any(x =>
+            bool isTeeUsed = (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD) && agentArtifactDefinitions.Any(x =>
                 x.ArtifactType == AgentArtifactType.Tfvc);
             if (isTeeUsed)
             {

@@ -139,12 +139,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
-        /// Determines if the current platform is Linux. Virtual for testing override.
+        /// Determines if the current platform is Linux or FreeBSD. Virtual for testing override.
         /// </summary>
-        /// <returns>True if running on Linux, false otherwise</returns>
+        /// <returns>True if running on Linux or FreeBSD, false otherwise</returns>
         protected virtual bool IsLinuxPlatform()
         {
-            return PlatformUtil.HostOS == PlatformUtil.OS.Linux;
+            return PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnFreeBSD;
         }
 
         private async Task<List<string>> ExecuteCommandAsync(IExecutionContext context, string command, string arg, bool requireZeroExitCode, bool showOutputOnFailureOnly)

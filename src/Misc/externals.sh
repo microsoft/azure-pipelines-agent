@@ -181,6 +181,18 @@ function acquireExternalTool() {
     fi
 }
 
+function linkExternalTool() {
+    local source_file=$1 # E.g. /usr/local/bin/node
+    local target_dir="$LAYOUT_DIR/externals/$2" # E.g. $LAYOUT_DIR/externals/node/bin
+    local target_name=$3 # E.g. node
+    if [ -d "$target_dir" ]; then
+        rm -rf "$target_dir" || checkRC 'rm'
+    fi
+
+    mkdir -p "$target_dir" || checkRC 'mkdir'
+    ln -s "$source_file" "$target_dir/$target_name" || checkRC 'ln'
+}
+
 echo "PACKAGE RUNTIME: $PACKAGERUNTIME"
 
 if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
@@ -316,6 +328,25 @@ else
             acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
         fi
         acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE24_VERSION}-${ARCH}.tar.gz" node24/bin fix_nested_dir false node_alpine_arm64
+    elif [[ "$PACKAGERUNTIME" == "freebsd-x64" ]]; then
+        LOCALBASE=$(sysctl -n user.localbase)
+
+        # Create a link to node only for FreeBSD.
+        if [[ "$INCLUDE_NODE6" == "true" ]]; then
+            linkExternalTool "${LOCALBASE}/bin/node" node/bin node
+        fi
+        if [[ "$INCLUDE_NODE10" == "true" ]]; then
+            linkExternalTool "${LOCALBASE}/bin/node" node10/bin node
+        fi
+        if [[ "$INCLUDE_NODE16" == "true" ]]; then
+            linkExternalTool "${LOCALBASE}/bin/node" node16/bin node
+        fi
+        if [[ "$INCLUDE_NODE20" == "true" ]]; then
+            linkExternalTool "${LOCALBASE}/bin/node" node20_1/bin node
+        fi
+        if [[ "$INCLUDE_NODE24" == "true" ]]; then
+            linkExternalTool "${LOCALBASE}/bin/node" node24/bin node
+        fi
     else
         case $PACKAGERUNTIME in
             "linux-musl-x64") ARCH="linux-x64-musl";;

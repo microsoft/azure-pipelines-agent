@@ -516,6 +516,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void FormatMountVolumeArg_BindMount_DriveRootSource_DoublesTrailingBackslash()
         {
             Assert.Equal(
@@ -528,6 +529,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void FormatMountVolumeArg_BindMount_DriveRootTarget_DoublesTrailingBackslash()
         {
             Assert.Equal(
@@ -540,6 +542,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void FormatMountVolumeArg_BindMount_MultipleTrailingBackslashes_AreAllDoubled()
         {
             Assert.Equal(
@@ -552,6 +555,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         public void FormatMountVolumeArg_AnonymousVolume_TrailingBackslashTarget_IsDoubled()
         {
             Assert.Equal(
@@ -597,6 +601,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.Container
         [Trait("Category", "Worker")]
         [Trait("SkipOn", "darwin")]
         [Trait("SkipOn", "linux")]
+        [Trait("SkipOn", "freebsd")]
         [InlineData("D:\\a\\_work", "C:\\__w", "-v \"D:\\a\\_work\":\"C:\\__w\"")]
         [InlineData("D:\\a\\_work\\_tasks", "C:\\__w\\_tasks", "-v \"D:\\a\\_work\\_tasks\":\"C:\\__w\\_tasks\"")]
         [InlineData("F:\\", "C:\\__w", "-v \"F:\\\\\":\"C:\\__w\"")]
