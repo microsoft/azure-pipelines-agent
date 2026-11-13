@@ -54,8 +54,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
             }
 
-            string node20TaskWarning = GetNode20TaskWarning(executionContext);
-
             if (useNode20Globally)
             {
                 return new NodeRunnerInfo
@@ -63,7 +61,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected via global AGENT_USE_NODE20_1 override",
-                    Warning = node20TaskWarning
+                    Warning = GetNode20SelectionWarning(context, executionContext,
+                        StringUtil.Loc("Node20SelectedByUseNode20Override", GetTaskName(executionContext)))
                 };
             }
 
@@ -80,22 +79,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodePath = null,
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected for Node20 task handler",
-                    Warning = node20TaskWarning
+                    Warning = GetNode20TaskWarning(context, executionContext)
                 };
             }
 
-            string fallbackWarning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20");
-            if (node20TaskWarning != null)
-            {
-                fallbackWarning += Environment.NewLine + node20TaskWarning;
-            }
-
+            // The glibc fallback warning already explains why Node20 was selected.
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node20,
                 Reason = "Fallback to Node20",
-                Warning = fallbackWarning
+                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
             };
         }
 
@@ -136,7 +130,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                         NodePath = null,
                         NodeVersion = NodeVersion.Node20,
                         Reason = "Node20 available in container via UseNode20ToStartContainer knob",
-                        Warning = GetNode20TaskWarning(executionContext)
+                        Warning = GetNode20SelectionWarning(context, executionContext,
+                            StringUtil.Loc("Node20SelectedToStartContainer", GetTaskName(executionContext)))
                     };
                 }
                 else
@@ -152,15 +147,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             }
         }
 
-        private static string GetNode20TaskWarning(IExecutionContext executionContext)
+        // Tasks written for Node20 get the opt-in retirement warning; any other task explains why Node20 was selected.
+        private static string GetNode20SelectionWarning(TaskContext context, IExecutionContext executionContext, string selectionReasonWarning)
         {
-            if (!AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean())
+            return context.HandlerData is Node20_1HandlerData
+                ? GetNode20TaskWarning(context, executionContext)
+                : selectionReasonWarning;
+        }
+
+        private static string GetNode20TaskWarning(TaskContext context, IExecutionContext executionContext)
+        {
+            if (context.HandlerData is not Node20_1HandlerData ||
+                !AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean())
             {
                 return null;
             }
 
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
-            return StringUtil.Loc("Node20TaskRetirementWarning", taskName);
+            return StringUtil.Loc("Node20TaskRetirementWarning", GetTaskName(executionContext));
+        }
+
+        private static string GetTaskName(IExecutionContext executionContext)
+        {
+            return executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
         }
     }
 }

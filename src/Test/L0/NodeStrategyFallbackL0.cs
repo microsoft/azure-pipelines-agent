@@ -702,7 +702,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData("UPGRADE", true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void LegacyExplicitUpgradeToNode20_RespectsRetirementWarningFlag(string upgrade, bool warnOnNode20)
+        public void LegacyExplicitUpgradeToNode20_WarnsWhyNode20WasSelected(string upgrade, bool warnOnNode20)
         {
             using (var thc = new TestHostContext(this))
             {
@@ -729,10 +729,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.Contains("node20_1", handler.GetNodeLocation(false, false, false));
                 executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
-                    i.Type == IssueType.Warning && i.Message.Contains("Node20TaskRetirementWarning"))),
-                    warnOnNode20 ? Times.Once() : Times.Never());
+                    i.Type == IssueType.Warning && i.Message.Contains("Node20SelectedByUseNodeKnob"))), Times.Once());
                 executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
-                    i.Type == IssueType.Warning && i.Message.Contains("NodeEOLRetirementWarning"))), Times.Never());
+                    i.Type == IssueType.Warning && (i.Message.Contains("Node20TaskRetirementWarning") ||
+                        i.Message.Contains("NodeEOLRetirementWarning")))), Times.Never());
             }
         }
 
@@ -856,17 +856,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Equal(NodeVersion.Node20, result.NodeVersion);
-                Assert.Equal(
-                    StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20") +
-                        (warnOnNode20 ? Environment.NewLine + StringUtil.Loc("Node20TaskRetirementWarning", "Unknown Task") : ""),
-                    result.Warning);
+                Assert.Equal(StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"), result.Warning);
             }
         }
 
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void Node20Strategy_EmitsNode20WarningForRedirectedNode16TaskWhenEnabled()
+        public void Node20Strategy_RedirectedNode16Task_WarnsWhyNode20WasSelected()
         {
             ClearEolKnob();
             using (TestHostContext thc = new TestHostContext(this))
@@ -884,7 +881,171 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var result = strategy.CanHandle(context, executionContext.Object, GlibcCompatibilityInfo.Compatible);
 
                 Assert.NotNull(result);
-                Assert.Equal(StringUtil.Loc("Node20TaskRetirementWarning", "Unknown Task"), result.Warning);
+                Assert.Equal(StringUtil.Loc("Node20SelectedByUseNode20Override", "Unknown Task"), result.Warning);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_ContainerSelectionForNonNode20Task_WarnsWhyNode20WasSelected()
+        {
+            ClearEolKnob();
+            using (var thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AZP_AGENT_USE_NODE20_TO_START_CONTAINER", "true" }
+                });
+                var strategy = new Node20Strategy(CreateNodeHandlerHelper(nodeFolderExists: true).Object);
+                var context = new TaskContext
+                {
+                    HandlerData = new Node16HandlerData(),
+                    Container = new ContainerInfo { ContainerId = "test-container", ImageOS = PlatformUtil.HostOS }
+                };
+                var docker = new Mock<IDockerCommandManager>();
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string _, List<string> output) =>
+                    {
+                        output.Add("v20.0.0");
+                        return 0;
+                    });
+
+                var result = strategy.CanHandleInContainer(context, executionContext.Object, docker.Object);
+
+                Assert.NotNull(result);
+                Assert.Equal(StringUtil.Loc("Node20SelectedToStartContainer", "Unknown Task"), result.Warning);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_NeverSelectsNode20WhenMissing(bool useNode20Override)
+        {
+            ClearEolKnob();
+            using (var thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_NODE20_1", useNode20Override.ToString() }
+                });
+                var strategy = new Node20Strategy(CreateNodeHandlerHelper(nodeFolderExists: false).Object);
+
+                Assert.Null(strategy.CanHandle(new TaskContext { HandlerData = new Node20_1HandlerData() },
+                    executionContext.Object, GlibcCompatibilityInfo.Compatible));
+                Assert.Null(strategy.CanHandle(new TaskContext { HandlerData = new Node24HandlerData() },
+                    executionContext.Object, GlibcCompatibilityInfo.Create(true, false)));
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void Node20Strategy_EolPolicyDoesNotUpgradeOlderTaskToNode20()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "true" }
+                });
+                var strategy = new Node20Strategy(CreateNodeHandlerHelper(nodeFolderExists: true).Object);
+
+                Assert.Throws<NotSupportedException>(() => strategy.CanHandle(
+                    new TaskContext { HandlerData = new Node16HandlerData() },
+                    executionContext.Object, GlibcCompatibilityInfo.Compatible));
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode20Task_WarnsOnlyWhenRetirementWarningFlagEnabled(bool warnOnNode20)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "false" },
+                    { "AGENT_WARN_ON_NODE20_TASK", warnOnNode20.ToString() }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node20_1HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Contains("node20_1", handler.GetNodeLocation(false, false, false));
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
+                    i.Type == IssueType.Warning && i.Message.Contains("Node20TaskRetirementWarning"))),
+                    warnOnNode20 ? Times.Once() : Times.Never());
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
+                    i.Type == IssueType.Warning && i.Message.Contains("Node20Selected"))), Times.Never());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode16Task_UseNode20Override_WarnsWhyNode20WasSelected()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "false" },
+                    { "AGENT_USE_NODE20_1", "true" }
+                });
+                var handler = new NodeHandler(CreateNodeHandlerHelper(nodeFolderExists: true).Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node16HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Contains("node20_1", handler.GetNodeLocation(false, false, false));
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
+                    i.Type == IssueType.Warning && i.Message.Contains("Node20SelectedByUseNode20Override"))), Times.Once());
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode24Task_WithoutNode24Node20OrNode16_Fails()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "false" }
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: false);
+                var handler = new NodeHandler(helper.Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node24HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.ThrowsAny<Exception>(() => handler.GetNodeLocation(false, false, false));
             }
         }
 

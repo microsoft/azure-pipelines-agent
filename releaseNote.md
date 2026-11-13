@@ -94,7 +94,7 @@ C:\myagent> Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO
 
 Alternate packages below include only Node 24 and are only suitable for users who do not use tasks that depend on Node 6, 10, 16, or 20. The `vsts-agent` package continues to include Node 6, 10, 16, 20, and 24, subject to platform availability. Because Node 24 has no official Windows x86 or Linux ARM32 build, `pipelines-agent` is not published for those platforms.
 `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` selects Node 24 for agent-managed task runners and fails if that runtime cannot run; an explicitly configured custom Node path can override the policy. With the policy disabled, tasks are not automatically upgraded to Node 24; a Node 20 task fails if its runner is missing or incompatible, unless an explicit override is configured.
-With the EOL policy disabled, `AGENT_WARN_ON_NODE20_TASK=true` enables a Node 20 retirement warning when Node 20 is selected. Container startup uses Node 24 when the bundled Node 20 runner is absent.
+With the EOL policy disabled, `AGENT_WARN_ON_NODE20_TASK=true` enables a Node 20 retirement warning for tasks authored for the Node 20 handler. Tasks not authored for Node 20 that run on Node 20 always get a warning explaining why Node 20 was selected. Node 20 is never selected when its runner is absent, and the EOL policy never upgrades older tasks to Node 20. Container startup uses Node 24 when the bundled Node 20 runner is absent.
 See [agent package notes](docs/agentpackages.md) on Node version support for more details.
 
 |             | Package | SHA-256 |
