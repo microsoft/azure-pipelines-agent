@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         Dictionary<string, string> JobSettings { get; }
 
         PlanFeatures Features { get; }
+        bool ProtectReadOnlyVariableNames { get; }
         Variables Variables { get; }
         Variables TaskVariables { get; }
         HashSet<string> OutputVariables { get; }
@@ -72,6 +73,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         // timeline record update methods
         void Start(string currentOperation = null);
         TaskResult Complete(TaskResult? result = null, string currentOperation = null, string resultCode = null);
+        string GetVariableStorageName(string name, bool isOutput = false);
         void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false);
         void SetTimeout(TimeSpan? timeout);
         void AddIssue(Issue issue);
@@ -192,6 +194,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         public PlanFeatures Features { get; private set; }
+        public bool ProtectReadOnlyVariableNames { get; private set; }
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -260,6 +263,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             var child = new ExecutionContext();
             child.Initialize(HostContext);
             child.Features = Features;
+            child.ProtectReadOnlyVariableNames = ProtectReadOnlyVariableNames;
             child.Variables = Variables;
             child.Endpoints = Endpoints;
             child.Repositories = Repositories;
@@ -395,6 +399,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             return Result.Value;
         }
 
+        public string GetVariableStorageName(string name, bool isOutput = false)
+        {
+            ArgUtil.NotNullOrEmpty(name, nameof(name));
+
+            if (isOutput || OutputVariables.Contains(name))
+            {
+                ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
+                return $"{_record.RefName}.{name}";
+            }
+
+            return name;
+        }
+
         public void SetVariable(string name, string value, bool isSecret = false, bool isOutput = false, bool isFilePath = false, bool isReadOnly = false, bool preserveCase = false)
         {
             ArgUtil.NotNullOrEmpty(name, nameof(name));
@@ -409,7 +426,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 _jobServerQueue.QueueTimelineRecordUpdate(_mainTimelineId, _record);
 
                 ArgUtil.NotNullOrEmpty(_record.RefName, nameof(_record.RefName));
-                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly), preserveCase: preserveCase);
+                Variables.Set($"{_record.RefName}.{name}", value, secret: isSecret, readOnly: (isOutput || isReadOnly || (ProtectReadOnlyVariableNames && OutputVariables.Contains(name))), preserveCase: preserveCase);
             }
             else
             {
@@ -584,6 +601,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             List<string> warnings;
             Variables = new Variables(HostContext, message.Variables, out warnings);
             Variables.StringTranslator = TranslatePathForStepTarget;
+            ProtectReadOnlyVariableNames = AgentKnobs.ProtectReadOnlyVariableNames.GetValue(this).AsBoolean();
 
             if (Variables.GetBoolean("agent.useWorkspaceId") == true)
             {
