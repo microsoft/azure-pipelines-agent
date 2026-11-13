@@ -841,7 +841,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData(true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void Node20Strategy_Node24Fallback_PreservesGlibcWarning(bool warnOnNode20)
+        public void Node20Strategy_Node24Fallback_WarnsWhyNode20WasSelected(bool warnOnNode20)
         {
             using (var thc = new TestHostContext(this))
             {
@@ -856,7 +856,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                 Assert.NotNull(result);
                 Assert.Equal(NodeVersion.Node20, result.NodeVersion);
-                Assert.Equal(StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"), result.Warning);
+                Assert.Equal(StringUtil.Loc("Node20SelectedAsFallback", "Unknown Task", "agent"), result.Warning);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void LegacyNode24Task_FallbackToNode20_WarnsWhyNode20WasSelected()
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IWorkerCommandManager>(new WorkerCommandManager());
+                thc.SetSingleton<IExtensionManager>(new ExtensionManager());
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    { "AGENT_USE_ENHANCED_NODE_SELECTION", "false" },
+                    { "AGENT_RESTRICT_EOL_NODE_VERSIONS", "false" },
+                    { "AGENT_USE_NODE24_WITH_HANDLER_DATA", "true" }
+                });
+                var handler = new NodeHandler(CreateNodeHandlerHelper(nodeFolderExists: true).Object)
+                {
+                    ExecutionContext = executionContext.Object,
+                    Data = new Node24HandlerData()
+                };
+                handler.Initialize(thc);
+
+                Assert.Contains("node20_1", handler.GetNodeLocation(false, true, false));
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i =>
+                    i.Type == IssueType.Warning && i.Message.Contains("Node20SelectedAsFallback"))), Times.Once());
             }
         }
 

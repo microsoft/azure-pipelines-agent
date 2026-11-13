@@ -618,7 +618,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
 
-            WarnIfEolNodeRunner(nodeFolder, node20SelectionReason);
+            WarnIfEolNodeRunner(nodeFolder, node20SelectionReason, inContainer);
 
             if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
             {
@@ -636,7 +636,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
         }
 
-        private void WarnIfEolNodeRunner(string nodeFolder, Node20SelectionReason selectionReason)
+        private void WarnIfEolNodeRunner(string nodeFolder, Node20SelectionReason selectionReason, bool inContainer = false)
         {
             bool isLegacyNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
                 nodeFolder == Node16Folder;
@@ -649,7 +649,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else if (nodeFolder == Node20_1Folder)
             {
-                WarnNode20Selected(taskName, selectionReason);
+                WarnNode20Selected(taskName, selectionReason, inContainer);
             }
 
             if (isLegacyNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
@@ -659,8 +659,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         }
 
         // Tasks written for Node20 get the opt-in retirement warning (matching master); any other task
-        // that lands on Node20 is told why. Fallbacks already emit NodeFallbackWarning.
-        private void WarnNode20Selected(string taskName, Node20SelectionReason selectionReason)
+        // that lands on Node20, including through a fallback, is told why.
+        private void WarnNode20Selected(string taskName, Node20SelectionReason selectionReason, bool inContainer)
         {
             if (Data is Node20_1HandlerData)
             {
@@ -681,6 +681,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     break;
                 case Node20SelectionReason.UseNodeKnob:
                     ExecutionContext.Warning(StringUtil.Loc("Node20SelectedByUseNodeKnob", taskName));
+                    break;
+                case Node20SelectionReason.Fallback:
+                    ExecutionContext.Warning(StringUtil.Loc("Node20SelectedAsFallback", taskName, inContainer ? "container" : "agent"));
                     break;
             }
         }

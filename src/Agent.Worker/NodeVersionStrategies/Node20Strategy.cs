@@ -83,13 +83,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            // The glibc fallback warning already explains why Node20 was selected.
+            // Node24 could not run on this agent, so Node20 is used as the fallback runtime.
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node20,
                 Reason = "Fallback to Node20",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
+                Warning = StringUtil.Loc("Node20SelectedAsFallback", GetTaskName(executionContext), "agent")
             };
         }
 

@@ -448,6 +448,7 @@
   "NetworkServiceNotFound": "네트워크 서비스 계정을 찾을 수 없습니다",
   "NoArtifactsFound": "버전 '{0}'에서 사용할 수 있는 아티팩트가 없습니다.",
   "Node20SelectedAsDefault": "Task {0} is not written for Node.js 20 but is running on Node.js 20 because Node.js 20 is the agent's default runtime for this handler. Node.js 20 is no longer supported; update the task to Node.js 24. Learn More https://aka.ms/node-runner-guidance",
+  "Node20SelectedAsFallback": "Task {0} is not written for Node.js 20 but is running on Node.js 20 because Node.js 24 cannot run on this {1}. Node.js 20 is no longer supported; update the task to Node.js 24. Learn More https://aka.ms/node-runner-guidance",
   "Node20SelectedByUseNode20Override": "Task {0} is not written for Node.js 20 but is running on Node.js 20 because the AGENT_USE_NODE20_1 override is enabled. Node.js 20 is no longer supported; update the task to Node.js 24. Learn More https://aka.ms/node-runner-guidance",
   "Node20SelectedByUseNodeKnob": "Task {0} is not written for Node.js 20 but is running on Node.js 20 because the UseNode knob selected it. Node.js 20 is no longer supported; update the task to Node.js 24. Learn More https://aka.ms/node-runner-guidance",
   "Node20SelectedToStartContainer": "Task {0} is not written for Node.js 20 but is running on Node.js 20 because the agent uses Node.js 20 to start the container. Node.js 20 is no longer supported; update the task to Node.js 24. Learn More https://aka.ms/node-runner-guidance",
