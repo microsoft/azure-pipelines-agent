@@ -187,7 +187,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                             environment: null,
                             requireExitCodeZero: requireZeroExitCode,
                             outputEncoding: null,
-                            cancellationToken: System.Threading.CancellationToken.None);
+                            cancellationToken: context.CancellationToken);
 
             if (!showOutputOnFailureOnly || exitCode != 0)
             {
