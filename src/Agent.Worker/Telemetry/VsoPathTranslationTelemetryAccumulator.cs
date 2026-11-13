@@ -19,9 +19,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         private readonly object _lock = new object();
         private int _totalCalls;
         private int _translatedCount;
+        private int _blockedCount;
         private bool? _validationEnabled;
         private readonly HashSet<string> _stepTargetTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<(string Before, string After, VsoPathTranslationSource Source)> _pathSamples =
+            new HashSet<(string, string, VsoPathTranslationSource)>();
+        private readonly HashSet<(string Original, string Resolved, VsoPathTranslationSource Source)> _blockedSamples =
             new HashSet<(string, string, VsoPathTranslationSource)>();
 
         public bool HasData
@@ -42,6 +45,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
         public bool ValidationEnabled
         {
             get { lock (_lock) { return _validationEnabled ?? false; } }
+        }
+
+        /// <summary>Count of paths actually blocked by ValidateContainerPath (i.e. it threw).</summary>
+        public int BlockedCount
+        {
+            get { lock (_lock) { return _blockedCount; } }
         }
 
         public void Record(
@@ -67,6 +76,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
             }
         }
 
+        /// <summary>Records a path that was actually blocked (ValidateContainerPath threw), for BLOCKED-only telemetry.</summary>
+        public void RecordBlocked(string originalPath, string resolvedPath, VsoPathTranslationSource source)
+        {
+            lock (_lock)
+            {
+                _blockedCount++;
+                if (_blockedSamples.Count < MaxPathSamples)
+                    _blockedSamples.Add((originalPath ?? string.Empty, resolvedPath ?? string.Empty, source));
+            }
+        }
+
         public Dictionary<string, object> ToTelemetryProperties(string definitionId, string buildId)
         {
             lock (_lock)
@@ -75,6 +95,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                 {
                     { "TotalCalls",        _totalCalls },
                     { "TranslatedCount",   _translatedCount },
+                    { "BlockedCount",      _blockedCount },
                     { "ValidationEnabled", _validationEnabled ?? false },
                     { "StepTargetTypes",   string.Join(",", _stepTargetTypes) },
                     { "DefinitionId",      definitionId ?? string.Empty },
@@ -85,6 +106,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Telemetry
                             Before = p.Before,
                             After = p.After,
                             TranslationSource = p.Source.ToString()
+                        }).ToList() },
+                    { "BlockedSamples",    _blockedSamples.Select(b => new
+                        {
+                            Original = b.Original,
+                            Resolved = b.Resolved,
+                            TranslationSource = b.Source.ToString()
                         }).ToList() }
                 };
             }

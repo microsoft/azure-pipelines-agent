@@ -84,7 +84,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Translates a logging-command path using its source-specific policy.
         /// </summary>
         string TranslateToHostPath(string path, VsoPathTranslationSource source);
-        string ValidateContainerPath(string originalPath, string resolvedPath);
+        string ValidateContainerPath(string originalPath, string resolvedPath, ContainerInfo container = null, VsoPathTranslationSource? source = null);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -926,8 +926,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 return path;
             }
 
+            bool enforcePathValidation = AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean();
+
+            // Keep ContainerInfo's own flag in sync (it dispatches unconditionally).
+            // TODO: remove once EnforceContainerVsoPathValidation is fully rolled out.
+            if (stepTarget is ContainerInfo containerTargetForFlag)
+            {
+                containerTargetForFlag.EnforceVsoPathValidation = enforcePathValidation;
+            }
+
             // Preserve the existing translation behavior when the feature is disabled.
-            if (!AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            if (!enforcePathValidation)
             {
                 var legacyResolved = stepTarget.TranslateToHostPath(path);
                 PublishVsoPathTranslationTelemetry(path, legacyResolved, stepTarget, validationEnabled: false, source: source);
@@ -939,14 +948,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"TranslateToHostPath: path='{path}' resolved='{resolved}' target={stepTarget.GetType().Name}");
 
-            if (validateContainerPath && stepTarget is ContainerInfo)
+            if (validateContainerPath && stepTarget is ContainerInfo containerTarget)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
-                resolved = ValidateContainerPath(path, resolved);
+                resolved = ValidateContainerPath(path, resolved, containerTarget, source);
                 Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
             }
 
             return resolved;
+        }
+
+        private void RecordVsoPathValidationBlocked(string originalPath, string resolvedPath, VsoPathTranslationSource source)
+        {
+            // Use the job-level context, same resolution as PublishVsoPathTranslationTelemetry,
+            // so BLOCKED paths land in the same per-job event (already carries DefinitionId/BuildId
+            // for org/pipeline lookup).
+            var jobContext = (_parentExecutionContext as ExecutionContext) ?? this;
+            jobContext._vsoPathTelemetry.RecordBlocked(originalPath, resolvedPath, source);
         }
 
         private void PublishVsoPathTranslationTelemetry(
@@ -973,7 +991,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         {
             if (!_vsoPathTelemetry.HasData) return;
 
-            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
+            Trace.Info($"VsoPathTranslation: flushing telemetry — TotalCalls={_vsoPathTelemetry.TotalCalls} TranslatedCount={_vsoPathTelemetry.TranslatedCount} BlockedCount={_vsoPathTelemetry.BlockedCount} ValidationEnabled={_vsoPathTelemetry.ValidationEnabled}");
 
             PublishTelemetry(
                 _vsoPathTelemetry.ToTelemetryProperties(
@@ -983,7 +1001,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IsAgentTelemetry: true);
         }
 
-        public string ValidateContainerPath(string originalPath, string resolvedPath)
+        public string ValidateContainerPath(string originalPath, string resolvedPath, ContainerInfo container = null, VsoPathTranslationSource? source = null)
         {
             if (string.IsNullOrEmpty(resolvedPath))
             {
@@ -1001,24 +1019,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             Trace.Info($"ValidateContainerPath: canonical — fullResolved='{fullResolved}' fullWork='{fullWork}'");
 
-            // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
-            // Allow exact match or anything strictly inside work dir.
-            bool underWork =
-                fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
-                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+            // Root-aware: a Work dir that is itself a drive/volume root still matches.
+            bool underWork = ContainerPathUtil.IsUnderOrEqual(fullResolved, fullWork, IOUtil.FilePathStringComparison);
 
-            if (!underWork)
+            // Also allow any agent-mounted volume — Docker already granted access to it.
+            bool underMountedVolume = !underWork && TryFindMatchingMountVolume(fullResolved, container);
+
+            if (!underWork && !underMountedVolume)
             {
-                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}'");
+                Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' canonical='{fullResolved}' is outside work='{fullWork}' and outside all mounted volumes.");
+                if (source.HasValue)
+                {
+                    RecordVsoPathValidationBlocked(originalPath, fullResolved, source.Value);
+                }
                 throw new InvalidOperationException(
-                    $"Container jobs may only reference files within the work directory. " +
+                    $"Container jobs may only reference files within the work directory or an explicitly mounted volume. " +
                     $"The path '{originalPath}' resolves to '{fullResolved}', " +
-                    $"which is outside the allowed directory '{workDir}'.");
+                    $"which is outside the allowed directory '{workDir}' and outside all container mount volumes.");
             }
 
-            Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
             // Return canonical path so the sink opens exactly what was validated.
             return fullResolved;
+        }
+
+        /// <summary>
+        /// Checks whether <paramref name="fullResolved"/> is under one of the container's bind
+        /// mounts. Resolved live each call (not cached) — a mount swapped mid-job for a symlink
+        /// can still evade this, a known TOCTOU gap deferred to a follow-up PR.
+        /// </summary>
+        private bool TryFindMatchingMountVolume(string fullResolved, ContainerInfo container)
+        {
+            if (container?.MountVolumes == null)
+            {
+                return false;
+            }
+
+            foreach (var volume in container.MountVolumes)
+            {
+                if (volume == null || !volume.IsBindMount)
+                {
+                    continue;
+                }
+
+                string canonicalSource = ResolveAllLinks(volume.SourceVolumePath);
+
+                if (ContainerPathUtil.IsUnderOrEqual(fullResolved, canonicalSource, IOUtil.FilePathStringComparison))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1028,67 +1079,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private string ResolveAllLinks(string path)
         {
-            // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
-            // without lexically resolving ".." before symlinks are followed.
-            if (!Path.IsPathRooted(path))
-            {
-                string abs = Path.Combine(Directory.GetCurrentDirectory(), path);
-                Trace.Info($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
-                path = abs;
-            }
-
-            string root = Path.GetPathRoot(path) ?? string.Empty;
-            string relative = path.Substring(root.Length);
-            string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-            // Use root as-is — Path.Combine handles trailing separators correctly on all platforms.
-            // ("/" on Linux, "C:\" on Windows — both work with Path.Combine without trimming.)
-            string current = root;
-
-            foreach (string segment in segments)
-            {
-                if (string.IsNullOrEmpty(segment) || segment == ".") continue;
-
-                if (segment == "..")
-                {
-                    // Move up after symlink resolution — not lexically before.
-                    string parent = Path.GetDirectoryName(current);
-                    if (parent != null)
-                    {
-                        Trace.Info($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
-                        current = parent;
-                    }
-                    continue;
-                }
-
-                current = Path.Combine(current, segment);
-
-                if (!Directory.Exists(current) && !File.Exists(current))
-                {
-                    Trace.Info($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
-                    continue;
-                }
-
-                try
-                {
-                    FileSystemInfo linkTarget = Directory.Exists(current)
-                        ? Directory.ResolveLinkTarget(current, returnFinalTarget: true)
-                        : File.ResolveLinkTarget(current, returnFinalTarget: true);
-
-                    if (linkTarget != null)
-                    {
-                        Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
-                }
-            }
-
-            Trace.Info($"ResolveAllLinks: result '{current}'");
-            return current;
+            return ContainerPathUtil.ResolveAllLinks(path, message => Trace.Info(message));
         }
 
         public string TranslatePathForStepTarget(string val)

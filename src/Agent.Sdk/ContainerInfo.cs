@@ -19,6 +19,7 @@ namespace Agent.Sdk
         private List<string> _readOnlyVolumes;
         private Dictionary<string, string> _environmentVariables;
         private Dictionary<string, string> _pathMappings;
+        private Dictionary<string, string> _userPathMappings;
         private PlatformUtil.OS _imageOS;
 
         public PlatformUtil.OS ExecutionOS => _imageOS;
@@ -29,10 +30,12 @@ namespace Agent.Sdk
             if (PlatformUtil.RunningOnWindows)
             {
                 _pathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                _userPathMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             }
             else
             {
                 _pathMappings = new Dictionary<string, string>();
+                _userPathMappings = new Dictionary<string, string>();
             }
         }
 
@@ -56,6 +59,7 @@ namespace Agent.Sdk
             this.MapDockerSocket = container.Properties.Get<bool>("mapDockerSocket", mapDockerSocketDefault);
             this._imageOS = PlatformUtil.HostOS;
             _pathMappings = new Dictionary<string, string>(PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            _userPathMappings = new Dictionary<string, string>(PlatformUtil.RunningOnWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             this._readOnlyVolumes = container.ReadOnlyMounts != null ? new List<string>(container.ReadOnlyMounts) : new List<string>();
 
             if (container.Ports?.Count > 0)
@@ -208,7 +212,37 @@ namespace Agent.Sdk
             }
         }
 
+        /// <summary>
+        /// User-authored bind mounts, separate from <see cref="PathMappings"/> (System). Longest match wins; User wins ties.
+        /// </summary>
+        public Dictionary<string, string> UserPathMappings
+        {
+            get
+            {
+                if (_userPathMappings == null)
+                {
+                    _userPathMappings = new Dictionary<string, string>();
+                }
+
+                return _userPathMappings;
+            }
+        }
+
+        // Set from EnforceContainerVsoPathValidation. Flag-off jobs use the legacy first-match logic.
+        // TODO: remove this flag and the *Legacy methods once the flag is fully rolled out.
+        public bool EnforceVsoPathValidation { get; set; }
+
         public string TranslateToContainerPath(string path)
+        {
+            return EnforceVsoPathValidation
+                ? TranslateToContainerPathLongestMatch(path)
+                : TranslateToContainerPathLegacy(path);
+        }
+
+        // Pre-redesign first-match logic, kept for flag-off. Bug (fixed in the longest-match
+        // version below): nested mounts can match the shallower/shadowing entry first depending
+        // on dictionary-insertion order.
+        private string TranslateToContainerPathLegacy(string path)
         {
             if (!string.IsNullOrEmpty(path))
             {
@@ -233,7 +267,83 @@ namespace Agent.Sdk
             return path;
         }
 
+        private string TranslateToContainerPathLongestMatch(string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+
+                bool hasUserMatch = TryFindLongestMatchBySource(_userPathMappings, path, comparison, out string userKey, out string userValue);
+                bool hasSystemMatch = TryFindLongestMatchBySource(_pathMappings, path, comparison, out string systemKey, out string systemValue);
+
+                // Longest (most specific) source wins regardless of tier; User wins only on a tie.
+                if (hasUserMatch && (!hasSystemMatch || userKey.Length >= systemKey.Length))
+                {
+                    return string.Equals(path, userKey, comparison)
+                        ? userValue
+                        : userValue + path.Remove(0, userKey.Length);
+                }
+
+                if (hasSystemMatch)
+                {
+                    return string.Equals(path, systemKey, comparison)
+                        ? systemValue
+                        : systemValue + path.Remove(0, systemKey.Length);
+                }
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Finds the longest-matching host-source key for <paramref name="path"/>. Shared by the
+        /// User and System tiers in TranslateToContainerPathLongestMatch.
+        /// </summary>
+        private static bool TryFindLongestMatchBySource(
+            IDictionary<string, string> mappings,
+            string path,
+            StringComparison comparison,
+            out string bestKey,
+            out string bestValue)
+        {
+            bestKey = null;
+            bestValue = null;
+            int bestLength = -1;
+
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            foreach (var mapping in mappings)
+            {
+                bool isMatch = string.Equals(path, mapping.Key, comparison) ||
+                    path.StartsWith(mapping.Key + Path.DirectorySeparatorChar, comparison) ||
+                    path.StartsWith(mapping.Key + Path.AltDirectorySeparatorChar, comparison);
+
+                if (isMatch && mapping.Key.Length > bestLength)
+                {
+                    bestKey = mapping.Key;
+                    bestValue = mapping.Value;
+                    bestLength = mapping.Key.Length;
+                }
+            }
+
+            return bestKey != null;
+        }
+
         public string TranslateToHostPath(string path)
+        {
+            return EnforceVsoPathValidation
+                ? TranslateToHostPathLongestMatch(path)
+                : TranslateToHostPathLegacy(path);
+        }
+
+        // Original (pre-redesign) first-match implementation. Kept as-is so flag-off behavior is
+        // unchanged.
+        private string TranslateToHostPathLegacy(string path)
         {
             if (!string.IsNullOrEmpty(path))
             {
@@ -289,6 +399,109 @@ namespace Agent.Sdk
             // No mapping matched — return path unchanged for non-path values
             // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
             return path;
+        }
+
+        private string TranslateToHostPathLongestMatch(string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                var comparison = PlatformUtil.RunningOnWindows
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+
+                bool hasUserMatch = TryFindLongestMatchByTarget(_userPathMappings, path, comparison, out string userKey, out string userValue);
+                bool hasSystemMatch = TryFindLongestMatchByTarget(_pathMappings, path, comparison, out string systemKey, out string systemValue);
+
+                // Longest (most specific) target wins regardless of tier; User wins only on a tie.
+                if (hasUserMatch && (!hasSystemMatch || userValue.Length >= systemValue.Length))
+                {
+                    return NormalizeAndValidateHostPath(path, userKey, userValue, comparison);
+                }
+
+                if (hasSystemMatch)
+                {
+                    return NormalizeAndValidateHostPath(path, systemKey, systemValue, comparison);
+                }
+            }
+
+            // No mapping matched — return path unchanged for non-path values
+            // (e.g., "True", "0", JWT tokens passed by TaskRunner and AgentPluginManager)
+            return path;
+        }
+
+        /// <summary>
+        /// Finds the longest-matching container-target value for <paramref name="path"/>. Shared by
+        /// the User and System tiers in TranslateToHostPathLongestMatch.
+        /// </summary>
+        private static bool TryFindLongestMatchByTarget(
+            IDictionary<string, string> mappings,
+            string path,
+            StringComparison comparison,
+            out string bestKey,
+            out string bestValue)
+        {
+            bestKey = null;
+            bestValue = null;
+            int bestLength = -1;
+
+            if (mappings == null)
+            {
+                return false;
+            }
+
+            foreach (var mapping in mappings)
+            {
+                bool isMatch = string.Equals(path, mapping.Value, comparison) ||
+                    path.StartsWith(mapping.Value + Path.DirectorySeparatorChar, comparison) ||
+                    path.StartsWith(mapping.Value + Path.AltDirectorySeparatorChar, comparison);
+
+                if (isMatch && mapping.Value.Length > bestLength)
+                {
+                    bestKey = mapping.Key;
+                    bestValue = mapping.Value;
+                    bestLength = mapping.Value.Length;
+                }
+            }
+
+            return bestKey != null;
+        }
+
+        /// <summary>
+        /// Converts the container-side path back to the matched host source, normalizes it, and
+        /// enforces that the result stays within the mapped directory (containment check).
+        /// </summary>
+        private static string NormalizeAndValidateHostPath(string path, string hostKey, string containerValue, StringComparison comparison)
+        {
+            string retval = string.Equals(path, containerValue, comparison)
+                ? hostKey
+                : hostKey + path.Remove(0, containerValue.Length);
+
+            if (PlatformUtil.RunningOnWindows)
+            {
+                retval = retval.Replace("/", "\\");
+            }
+            else
+            {
+                retval = retval.Replace("\\", "/");
+            }
+
+            // Normalize the path and ensure it stays within the mapped directory
+            string normalized = Path.GetFullPath(retval);
+
+            string allowedRoot = Path.GetFullPath(hostKey);
+            if (!allowedRoot.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                allowedRoot += Path.DirectorySeparatorChar;
+            }
+
+            if (!normalized.Equals(Path.GetFullPath(hostKey), comparison) &&
+                !normalized.StartsWith(allowedRoot, comparison))
+            {
+                throw new InvalidOperationException(
+                    $"The path '{path}' is not within the allowed directory.");
+            }
+
+            return normalized;
         }
 
 
