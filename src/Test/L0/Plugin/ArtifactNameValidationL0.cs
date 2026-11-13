@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Plugins;
+using Agent.Plugins.BuildArtifacts;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
@@ -277,6 +278,143 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
             Assert.Equal(localizationBefore, StringUtil.Loc("MissingNodePath"));
         }
 
+        [Theory]
+        [InlineData("current", null)]
+        [InlineData("specific", "false")]
+        [InlineData("current", "true")]
+        [InlineData("specific", "true")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadBuildArtifactsAllUsesFlagForBothBuildTypes(string buildType, string flag)
+        {
+            bool enabled = flag == null ? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable(KnobVariable)) : flag == "true";
+            var context = DownloadBuildContext("specific", flag, buildType: buildType);
+            if (enabled)
+            {
+                artifacts = new List<BuildArtifact>
+                {
+                    Artifact("../outside", "Container"), Artifact("..", "PipelineArtifact"),
+                    Artifact("", "FilePath"), new BuildArtifact { Name = null }
+                };
+            }
+
+            await new DownloadBuildArtifactTaskV1_0_0().RunAsync(context, CancellationToken.None);
+
+            Assert.True(Directory.Exists(target));
+            Assert.Empty(Directory.GetFileSystemEntries(target));
+            Assert.Equal(enabled ? 4 : 0, Errors().Count);
+            Assert.Equal(enabled ? 4 : 0, FailureCommands());
+            Assert.Equal("", context.Variables["DownloadPipelineArtifactResourceTypes"].Value);
+            Assert.Empty(Warnings());
+            client.Verify(x => x.GetArtifactsAsync(It.IsAny<Guid>(), 1, null, It.IsAny<CancellationToken>()),
+                buildType == "current" ? Times.Once() : Times.Never());
+            client.Verify(x => x.GetArtifactsAsync(It.IsAny<string>(), 1, null, It.IsAny<CancellationToken>()),
+                buildType == "specific" ? Times.Once() : Times.Never());
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadBuildArtifactsAllReportsInvalidNamesAndStillDownloadsValidOnes()
+        {
+            await using var server = new ContainerServer();
+            using var fixture = new ArtifactNameValidationL0(server.Address);
+            var context = fixture.DownloadBuildContext("specific", "true");
+            context.Variables["DISABLE_BUILD_ARTIFACTS_TO_BLOB"] = "true";
+            fixture.artifacts = new List<BuildArtifact>
+            {
+                Artifact("../outside", "Container"), Artifact("", "PipelineArtifact"),
+                Artifact("..", "FilePath"), new BuildArtifact { Name = null },
+                Artifact("release-1.2", "Container"), Artifact(".build", "Container")
+            };
+            server.BeforeDownload = () =>
+            {
+                Assert.Equal(4, fixture.Errors().Count);
+                Assert.Equal(4, fixture.FailureCommands());
+            };
+
+            await new DownloadBuildArtifactTaskV1_0_0().RunAsync(context, CancellationToken.None);
+
+            Assert.Equal(4, fixture.Errors().Count);
+            Assert.Equal(4, fixture.FailureCommands());
+            Assert.Equal(2, server.Downloads);
+            Assert.Equal("inert data", File.ReadAllText(Path.Combine(fixture.target, "release-1.2", "marker.txt")));
+            Assert.Equal("inert data", File.ReadAllText(Path.Combine(fixture.target, ".build", "marker.txt")));
+            Assert.Equal(2, Directory.GetDirectories(fixture.target).Length);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadBuildArtifactsAllDoesNotValidateArtifactNameInput()
+        {
+            artifacts = new List<BuildArtifact>();
+            var context = DownloadBuildContext("specific", "true", "../outside");
+
+            await new DownloadBuildArtifactTaskV1_0_0().RunAsync(context, CancellationToken.None);
+
+            Assert.True(Directory.Exists(target));
+            Assert.Empty(Errors());
+            Assert.Empty(Warnings());
+            client.Verify(x => x.GetArtifactsAsync(It.IsAny<Guid>(), 1, null, It.IsAny<CancellationToken>()), Times.Once());
+            client.Verify(x => x.GetArtifactAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never());
+        }
+
+        [Theory]
+        [InlineData("current", "..")]
+        [InlineData("current", " . . ")]
+        [InlineData("current", "")]
+        [InlineData("current", null)]
+        [InlineData("specific", "../outside")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadBuildArtifactsSingleRejectsInvalidNamesBeforeAnyServiceCall(string buildType, string name)
+        {
+            var context = DownloadBuildContext("single", "true", name, buildType);
+            if (buildType == "specific")
+            {
+                context.Inputs["project"] = "ProjectName";
+            }
+
+            var error = await Assert.ThrowsAsync<ArgumentException>(() =>
+                new DownloadBuildArtifactTaskV1_0_0().RunAsync(context, CancellationToken.None));
+
+            Assert.Equal(StringUtil.Loc(StrictError, name), error.Message);
+            Assert.Empty(Errors());
+            Assert.Empty(Warnings());
+            Assert.False(Directory.Exists(target));
+            client.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData("current", "false", "..")]
+        [InlineData("specific", "false", " . . ")]
+        [InlineData("current", "false", "../outside")]
+        [InlineData("current", "true", "drop")]
+        [InlineData("specific", "true", "release-1.2")]
+        [InlineData("current", "true", ".build")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadBuildArtifactsSingleReachesServiceForNamesAcceptedByActiveRules(string buildType, string flag, string name)
+        {
+            var context = DownloadBuildContext("single", flag, name, buildType);
+            client.Setup(x => x.GetArtifactAsync(It.IsAny<Guid>(), 1, name, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Artifact(name, "Unsupported"));
+            client.Setup(x => x.GetArtifactAsync(It.IsAny<string>(), 1, name, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Artifact(name, "Unsupported"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                new DownloadBuildArtifactTaskV1_0_0().RunAsync(context, CancellationToken.None));
+
+            client.Verify(x => x.GetArtifactAsync(It.IsAny<Guid>(), 1, name, null, It.IsAny<CancellationToken>()),
+                buildType == "current" ? Times.Once() : Times.Never());
+            client.Verify(x => x.GetArtifactAsync(It.IsAny<string>(), 1, name, null, It.IsAny<CancellationToken>()),
+                buildType == "specific" ? Times.Once() : Times.Never());
+            Assert.True(Directory.Exists(target));
+            Assert.Empty(Errors());
+            Assert.Empty(Warnings());
+        }
+
         internal async Task VerifyDownloadContinuationAsync(bool mixed, Action<string> processOutput)
         {
             await using var server = new ContainerServer();
@@ -345,6 +483,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
             context.Inputs["artifactName"] = name;
             context.Variables["system.hostType"] = "Build";
             context.Variables["system.jobIdentifier"] = "Build.Job";
+            return context;
+        }
+
+        private AgentTaskPluginExecutionContext DownloadBuildContext(string downloadType, string flag, string artifactName = null, string buildType = "current")
+        {
+            var context = Context(flag);
+            context.Inputs["buildType"] = buildType;
+            context.Inputs["downloadType"] = downloadType;
+            context.Inputs["downloadPath"] = target;
+            context.Inputs["artifactName"] = artifactName;
+            context.Inputs["buildVersionToDownload"] = "specific";
+            context.Inputs["buildId"] = "1";
+            context.Variables["Agent.TempDirectory"] = Path.Combine(target, "temp");
             return context;
         }
 

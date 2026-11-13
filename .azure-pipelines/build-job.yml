@@ -212,7 +212,11 @@ jobs:
     - script: ${{ variables.devCommand }} testl0 $(targetFramework) Debug ${{ parameters.os }}-${{ parameters.arch }}
       workingDirectory: src
       displayName: Unit tests
-      timeoutInMinutes: 5
+      # Includes a Debug rebuild, which can exceed five minutes on Intel macOS.
+      ${{ if and(eq(parameters.os, 'osx'), eq(parameters.arch, 'x64')) }}:
+        timeoutInMinutes: 10
+      ${{ else }}:
+        timeoutInMinutes: 5
 
   # Run l1 tests
   - ${{ if parameters.functionalTests }}:

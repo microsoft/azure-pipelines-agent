@@ -55,6 +55,18 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         public static class MicrosoftExtensionTaskIds
         {
+            // microsoft/azure-pipelines-extensions
+            public static readonly Guid AnsibleTask = new Guid("6f650d20-9c5d-4cce-ad66-e68742ceadf5");
+            public static readonly Guid DownloadArtifactsBitbucketTask = new Guid("a4cd16be-6028-4077-8015-34f008f55477");
+            public static readonly Guid DownloadArtifactsTfsGitTask = new Guid("bf7b17db-eb58-4014-ab2b-e4bf9d3b28f1");
+            public static readonly Guid DownloadExternalBuildArtifactsTask = new Guid("b099689b-039e-4450-8658-c72e3895dd3f");
+            public static readonly Guid IisWebAppDeployTask = new Guid("50acc50f-7d15-470b-83c1-578b3f3eeba2");
+            public static readonly Guid IisWebAppMgmtTask = new Guid("0f5cd14f-3c01-4d5c-8f7a-eb96c5738dcc");
+            public static readonly Guid SqlDacpacDeployTask = new Guid("063c7649-4934-49e8-9eac-37121fe7e350");
+            public static readonly Guid CreateAndQueryChangeRequestTask = new Guid("539e1e16-0680-4f8e-85d0-95b6fde76e8c");
+            public static readonly Guid UpdateServiceNowChangeRequestTask = new Guid("37ac13ca-aead-4e19-a5ac-e5366051fc1c");
+            public static readonly Guid DownloadTeamCityArtifactsTask = new Guid("15ecb9f3-c0f7-42cf-9ce3-c6dded17de81");
+
             public static readonly Guid GooglePlayIncreaseRolloutTask = new Guid("f8c97cf9-4e17-4244-b0fb-f540cea78153");
             public static readonly Guid GooglePlayPromoteTask = new Guid("4dae1f76-29d3-482f-97d5-e3189a8347c2");
             public static readonly Guid GooglePlayReleaseTask = new Guid("8cf7cac0-620b-11e5-b4cf-8565e60f4d27");
@@ -83,6 +95,16 @@ namespace Microsoft.VisualStudio.Services.Agent
         public static List<Guid> RequiredForTelemetry = new()
         {
             PluginTaskIds.CheckoutTask,
+            MicrosoftExtensionTaskIds.AnsibleTask,
+            MicrosoftExtensionTaskIds.DownloadArtifactsBitbucketTask,
+            MicrosoftExtensionTaskIds.DownloadArtifactsTfsGitTask,
+            MicrosoftExtensionTaskIds.DownloadExternalBuildArtifactsTask,
+            MicrosoftExtensionTaskIds.IisWebAppDeployTask,
+            MicrosoftExtensionTaskIds.IisWebAppMgmtTask,
+            MicrosoftExtensionTaskIds.SqlDacpacDeployTask,
+            MicrosoftExtensionTaskIds.CreateAndQueryChangeRequestTask,
+            MicrosoftExtensionTaskIds.UpdateServiceNowChangeRequestTask,
+            MicrosoftExtensionTaskIds.DownloadTeamCityArtifactsTask,
             MicrosoftExtensionTaskIds.GooglePlayIncreaseRolloutTask,
             MicrosoftExtensionTaskIds.GooglePlayPromoteTask,
             MicrosoftExtensionTaskIds.GooglePlayReleaseTask,

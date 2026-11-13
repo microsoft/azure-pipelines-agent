@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Agent.Sdk;
 using Agent.Sdk.Knob;
 using Agent.Plugins;
+using Agent.Plugins.PipelineArtifact;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
@@ -108,6 +109,17 @@ namespace Agent.Plugins.BuildArtifacts
             string extractedTarsTempPath = Path.Combine(context.Variables.GetValueOrDefault("Agent.TempDirectory")?.Value, extractedTarsTempDir);
 
             targetPath = Path.IsPathFullyQualified(targetPath) ? targetPath : Path.GetFullPath(Path.Combine(defaultWorkingDirectory, targetPath));
+
+            var downloadOption = downloadType == "single" ? DownloadOptions.SingleDownload : DownloadOptions.MultiDownload;
+
+            // Only a single download uses the artifactName input; downloading all artifacts uses the names returned by the service.
+            bool useStrictValidation = AgentKnobs.EnableArtifactNameValidation.GetValue(context).AsBoolean();
+            if (useStrictValidation &&
+                downloadOption == DownloadOptions.SingleDownload &&
+                !PipelineArtifactPathHelper.IsValidArtifactName(artifactName, useStrictValidation: true))
+            {
+                throw new ArgumentException(StringUtil.Loc("ArtifactNameIsNotValidWithStrictValidation", artifactName));
+            }
 
             // Empty input field "Matching pattern" must be recognised as default value '**'
             itemPattern = string.IsNullOrEmpty(itemPattern) ? "**" : itemPattern;
@@ -315,7 +327,6 @@ namespace Agent.Plugins.BuildArtifacts
             }
 
             downloadParameters.CustomMinimatchOptions = CreateMinimatchOptions(context, fullPath);
-            var downloadOption = downloadType == "single" ? DownloadOptions.SingleDownload : DownloadOptions.MultiDownload;
 
             // Build artifacts always includes the artifact in the path name
             downloadParameters.IncludeArtifactNameInPath = true;
@@ -327,7 +338,10 @@ namespace Agent.Plugins.BuildArtifacts
             downloadParameters.AppendArtifactNameToTargetPath =
                 AgentKnobs.EnableIncompatibleBuildArtifactsPathResolution.GetValue(context).AsBoolean();
 
-            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
+            downloadParameters.SkipInvalidArtifactNames = downloadOption == DownloadOptions.MultiDownload &&
+                useStrictValidation;
+
+            context.OutputExternal(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOption, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
@@ -346,7 +360,7 @@ namespace Agent.Plugins.BuildArtifacts
         private void CleanDirectory(AgentTaskPluginExecutionContext context, string directoryPath, CancellationToken cancellationToken)
         {
             FileAttributes dirAttributes;
-            context.Output(StringUtil.Loc("CleaningDestinationFolder", directoryPath));
+            context.OutputExternal(StringUtil.Loc("CleaningDestinationFolder", directoryPath));
 
             try
             {

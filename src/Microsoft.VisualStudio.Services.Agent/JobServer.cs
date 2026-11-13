@@ -26,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent
     public interface IJobServer : IAgentService
     {
         Task ConnectAsync(VssConnection jobConnection);
+        Task ConnectAsync(VssConnection jobConnection, CancellationToken cancellationToken);
 
         // logging and console
         Task<TaskLog> AppendLogContentAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream uploadStream, CancellationToken cancellationToken);
@@ -48,7 +49,12 @@ namespace Microsoft.VisualStudio.Services.Agent
         private VssConnection _connection;
         private TaskHttpClient _taskClient;
 
-        public async Task ConnectAsync(VssConnection jobConnection)
+        public Task ConnectAsync(VssConnection jobConnection)
+        {
+            return ConnectAsync(jobConnection, CancellationToken.None);
+        }
+
+        public async Task ConnectAsync(VssConnection jobConnection, CancellationToken cancellationToken)
         {
             ArgUtil.NotNull(jobConnection, nameof(jobConnection));
             _connection = jobConnection;
@@ -57,21 +63,21 @@ namespace Microsoft.VisualStudio.Services.Agent
             {
                 try
                 {
-                    await _connection.ConnectAsync();
+                    await _connection.ConnectAsync(cancellationToken);
                     break;
                 }
-                catch (Exception ex) when (attemptCount > 0)
+                catch (Exception ex) when (attemptCount > 0 && !cancellationToken.IsCancellationRequested)
                 {
                     Trace.Info($"Catch exception during connect. {attemptCount} attemp left.");
                     Trace.Error(ex);
                 }
 
-                await Task.Delay(100);
+                await Task.Delay(100, cancellationToken);
             }
 
             try
             {
-                _taskClient = _connection.GetClient<TaskHttpClient>();
+                _taskClient = await _connection.GetClientAsync<TaskHttpClient>(cancellationToken);
             }
             catch (SocketException e)
             {
