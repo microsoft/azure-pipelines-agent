@@ -47,8 +47,8 @@ function get_net_version() {
         net8.0-sdk=8.0.418
         net8.0-runtime=8.0.24
 
-        net10.0-sdk=10.0.112
-        net10.0-runtime=10.0.12
+        net10.0-sdk=10.0.114
+        net10.0-runtime=10.0.14
     "
 
     echo "$dotnet_versions" | grep -o "$1=[^ ]*" | cut -d '=' -f2
@@ -384,7 +384,12 @@ function cmd_report() {
 
     mkdir -p "$REPORT_DIR"
 
-    LATEST_COVERAGE_FILE=$(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0 | xargs -r -0 ls -1 -t | head -1)
+    LATEST_COVERAGE_FILE=""
+    while IFS= read -r -d '' coverage_file; do
+        if [[ -z "$LATEST_COVERAGE_FILE" || "$coverage_file" -nt "$LATEST_COVERAGE_FILE" ]]; then
+            LATEST_COVERAGE_FILE="$coverage_file"
+        fi
+    done < <(find "${SCRIPT_DIR}/Test/TestResults" -type f -name '*.coverage' -print0)
 
     if [[ ("$LATEST_COVERAGE_FILE" == "") ]]; then
         echo "No coverage file found. Skipping coverage report generation."

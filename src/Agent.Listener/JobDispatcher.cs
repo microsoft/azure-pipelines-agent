@@ -442,98 +442,106 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                     Task<int> workerProcessTask = null;
                     object _outputLock = new object();
                     List<string> workerOutput = new List<string>();
-                    using (var processChannel = HostContext.CreateService<IProcessChannel>())
-                    using (var processInvoker = HostContext.CreateService<IProcessInvoker>())
+                    IProcessChannel processChannel = null;
+                    IProcessInvoker processInvoker = null;
+                    try
                     {
-                        Trace.Info(StringUtil.Format("Initializing worker process communication channel for job: {0}",
-                            message.JobId));
-
-                        var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
-                        var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
-                        var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
-
-                        var environment = new Dictionary<string, string>();
-                        if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
-                        {
-                            environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
-                        }
-
-                        // Ensure worker sees the enhanced logging knob if the listener enabled it
-                        if (enhancedLoggingFlag?.EffectiveState == "On")
-                        {
-                            environment["AZP_USE_ENHANCED_LOGGING"] = "true";
-                            var traceManager = HostContext.GetService<ITraceManager>();
-                            traceManager.SetEnhancedLoggingEnabled(true);
-                        }
-
-                        // Start the process channel.
-                        // It's OK if StartServer bubbles an execption after the worker process has already started.
-                        // The worker will shutdown after 30 seconds if it hasn't received the job message.
-                        Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
-                            message.JobId));
-                        processChannel.StartServer(
-                            // Delegate to start the child process.
-                            startProcess: (string pipeHandleOut, string pipeHandleIn) =>
-                            {
-                                // Validate args.
-                                ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
-                                ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
-
-                                Trace.Info(StringUtil.Format("Setting up worker process output capture [JobId:{0}]", message.JobId));
-                                // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
-                                processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
-                                {
-                                    if (!string.IsNullOrEmpty(stdout.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stdout.Data);
-                                        }
-                                    }
-                                };
-
-                                // Save STDERR from worker, worker will use STDERR on crash.
-                                processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
-                                {
-                                    if (!string.IsNullOrEmpty(stderr.Data))
-                                    {
-                                        lock (_outputLock)
-                                        {
-                                            workerOutput.Add(stderr.Data);
-                                        }
-                                    }
-                                };
-
-
-                                // Start the child process.
-                                HostContext.WritePerfCounter("StartingWorkerProcess");
-                                var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
-                                string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
-                                Trace.Info(StringUtil.Format("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
-                                    workerFileName, pipeHandleOut, pipeHandleIn, message.JobId));
-                                workerProcessTask = processInvoker.ExecuteAsync(
-                                    workingDirectory: assemblyDirectory,
-                                    fileName: workerFileName,
-                                    arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
-                                    environment: environment,
-                                    requireExitCodeZero: false,
-                                    outputEncoding: null,
-                                    killProcessOnCancel: true,
-                                    redirectStandardIn: null,
-                                    inheritConsoleHandler: false,
-                                    keepStandardInOpen: false,
-                                    highPriorityProcess: true,
-                                    continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
-                                    cancellationToken: workerProcessCancelTokenSource.Token);
-                                Trace.Info("Worker process started successfully");
-                            }
-                        );
-
-                        // Send the job request message.
-                        // Kill the worker process if sending the job message times out. The worker
-                        // process may have successfully received the job message.
+                        // Anything that throws from here until the worker has the job must stop the job request renewal,
+                        // otherwise the renewal loop keeps the job request alive forever while nothing runs the job.
+                        string startupStage = "CreateProcessServices";
                         try
                         {
+                            processChannel = HostContext.CreateService<IProcessChannel>();
+                            processInvoker = HostContext.CreateService<IProcessInvoker>();
+                            Trace.Info(StringUtil.Format("Initializing worker process communication channel for job: {0}", message.JobId));
+                            startupStage = "FeatureFlags";
+                            var featureFlagProvider = HostContext.GetService<IFeatureFlagProvider>();
+                            var newMaskerAndRegexesFeatureFlagStatus = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.EnableNewMaskerAndRegexes", Trace);
+                            var enhancedLoggingFlag = await featureFlagProvider.GetFeatureFlagAsync(HostContext, "DistributedTask.Agent.UseEnhancedLogging", Trace);
+
+                            var environment = new Dictionary<string, string>();
+                            if (newMaskerAndRegexesFeatureFlagStatus?.EffectiveState == "On")
+                            {
+                                environment.Add("AZP_ENABLE_NEW_MASKER_AND_REGEXES", "true");
+                            }
+
+                            // Ensure worker sees the enhanced logging knob if the listener enabled it
+                            if (enhancedLoggingFlag?.EffectiveState == "On")
+                            {
+                                environment["AZP_USE_ENHANCED_LOGGING"] = "true";
+                                var traceManager = HostContext.GetService<ITraceManager>();
+                                traceManager.SetEnhancedLoggingEnabled(true);
+                            }
+
+                            // Start the process channel.
+                            // It's OK if StartServer bubbles an execption after the worker process has already started.
+                            // The worker will shutdown after 30 seconds if it hasn't received the job message.
+                            startupStage = "StartWorker";
+                            Trace.Info(StringUtil.Format("Starting process channel server for worker communication [JobId:{0}]",
+                                message.JobId));
+                            processChannel.StartServer(
+                                // Delegate to start the child process.
+                                startProcess: (string pipeHandleOut, string pipeHandleIn) =>
+                                {
+                                    // Validate args.
+                                    ArgUtil.NotNullOrEmpty(pipeHandleOut, nameof(pipeHandleOut));
+                                    ArgUtil.NotNullOrEmpty(pipeHandleIn, nameof(pipeHandleIn));
+
+                                    Trace.Info(StringUtil.Format("Setting up worker process output capture [JobId:{0}]", message.JobId));
+                                    // Save STDOUT from worker, worker will use STDOUT report unhandle exception.
+                                    processInvoker.OutputDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stdout)
+                                    {
+                                        if (!string.IsNullOrEmpty(stdout.Data))
+                                        {
+                                            lock (_outputLock)
+                                            {
+                                                workerOutput.Add(stdout.Data);
+                                            }
+                                        }
+                                    };
+
+                                    // Save STDERR from worker, worker will use STDERR on crash.
+                                    processInvoker.ErrorDataReceived += delegate (object sender, ProcessDataReceivedEventArgs stderr)
+                                    {
+                                        if (!string.IsNullOrEmpty(stderr.Data))
+                                        {
+                                            lock (_outputLock)
+                                            {
+                                                workerOutput.Add(stderr.Data);
+                                            }
+                                        }
+                                    };
+
+
+                                    // Start the child process.
+                                    HostContext.WritePerfCounter("StartingWorkerProcess");
+                                    var assemblyDirectory = HostContext.GetDirectory(WellKnownDirectory.Bin);
+                                    string workerFileName = Path.Combine(assemblyDirectory, _workerProcessName);
+                                    Trace.Info(StringUtil.Format("Creating worker process for job execution [Executable:{0}, Arguments:spawnclient, PipeOut:{1}, PipeIn:{2}, JobId:{3}]",
+                                        workerFileName, pipeHandleOut, pipeHandleIn, message.JobId));
+                                    workerProcessTask = processInvoker.ExecuteAsync(
+                                        workingDirectory: assemblyDirectory,
+                                        fileName: workerFileName,
+                                        arguments: "spawnclient " + pipeHandleOut + " " + pipeHandleIn,
+                                        environment: environment,
+                                        requireExitCodeZero: false,
+                                        outputEncoding: null,
+                                        killProcessOnCancel: true,
+                                        redirectStandardIn: null,
+                                        inheritConsoleHandler: false,
+                                        keepStandardInOpen: false,
+                                        highPriorityProcess: true,
+                                        continueAfterCancelProcessTreeKillAttempt: ProcessInvoker.ContinueAfterCancelProcessTreeKillAttemptDefault,
+                                        cancellationToken: workerProcessCancelTokenSource.Token);
+                                }
+                            );
+                            if (workerProcessTask.IsFaulted)
+                            {
+                                await workerProcessTask;
+                            }
+                            Trace.Info("Worker process started successfully");
+
+                            startupStage = "SendJobRequest";
                             var body = JsonUtility.ToString(message);
                             var numBytes = System.Text.ASCIIEncoding.Unicode.GetByteCount(body) / 1024;
                             string numBytesString = numBytes > 0 ? $"{numBytes} KB" : " < 1 KB";
@@ -551,31 +559,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             stopWatch.Stop();
                             Trace.Info($"Took {stopWatch.ElapsedMilliseconds} ms to send job message to worker");
                         }
-                        catch (OperationCanceledException)
+                        catch (Exception ex)
                         {
-                            // message send been cancelled.
-                            // timeout 30 sec. kill worker.
-                            Trace.Info($"Job request message sending for job {message.JobId} been cancelled after waiting for {_channelTimeout.TotalSeconds} seconds, kill running worker.");
-                            workerProcessCancelTokenSource.Cancel();
+                            // Stop renewal before worker cleanup or diagnostic HTTP requests can fail.
+                            lockRenewalTokenSource.Cancel();
+                            Exception startupException = ex;
                             try
                             {
-                                Trace.Info(StringUtil.Format("Waiting for worker process termination after job message send timeout [JobId:{0}, Timeout:{1}s, Reason:SendMessageCancelled]",
-                                    message.JobId, _channelTimeout.TotalSeconds));
-                                await workerProcessTask;
+                                workerProcessCancelTokenSource.Cancel();
+                                if (workerProcessTask != null)
+                                {
+                                    await workerProcessTask;
+                                }
                             }
                             catch (OperationCanceledException)
                             {
                                 Trace.Info("worker process has been killed.");
                             }
-
-                            Trace.Info($"Stop renew job request for job {message.JobId}.");
-                            // stop renew lock
-                            lockRenewalTokenSource.Cancel();
-                            // renew job request should never blows up.
+                            catch (Exception workerException)
+                            {
+                                // A launch failure may only surface when the pipe send times out.
+                                startupException = workerException;
+                                startupStage = "StartWorker";
+                            }
                             await renewJobRequest;
-
-                            // not finish the job request since the job haven't run on worker at all, we will not going to set a result to server.
-                            return;
+                            await ReportJobStartupFailureAsync(message, startupException, startupStage, workerProcessTask != null, agentCertManager.SkipServerCertificateValidation);
+                            // Leave the request unfinished so the server can abandon it after lease expiry.
+                            if (!ReferenceEquals(ex, startupException))
+                            {
+                                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(startupException).Throw();
+                            }
+                            throw;
                         }
 
                         // we get first jobrequest renew succeed and start the worker process with the job message.
@@ -627,7 +641,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                                     {
                                         detailInfo = string.Join(Environment.NewLine, workerOutput);
                                         Trace.Info($"Return code {returnCode} indicate worker encounter an unhandled exception or app crash, attach worker stdout/stderr to JobRequest result.");
-                                        await LogWorkerProcessUnhandledException(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
+                                        await LogJobErrorAsync(message, detailInfo, agentCertManager.SkipServerCertificateValidation);
 
                                         // Publish worker crash telemetry for Kusto analysis
                                         var telemetryPublisher = HostContext.GetService<IWorkerCrashTelemetryPublisher>();
@@ -796,6 +810,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             await notification.JobCompleted(message.JobId);
                             Trace.Info($"Job dispatcher cleanup completed - Ready for next job after job: {message.JobId}");
                         }
+                    }
+                    finally
+                    {
+                        processInvoker?.Dispose();
+                        processChannel?.Dispose();
                     }
                 }
             }
@@ -1000,7 +1019,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
         }
 
         // Creates a job server connection with proper URL normalization for OnPremises servers
-        private async Task<VssConnection> CreateJobServerConnectionAsync(Pipelines.AgentJobRequestMessage message, bool skipServerCertificateValidation = false)
+        private async Task<VssConnection> CreateJobServerConnectionAsync(Pipelines.AgentJobRequestMessage message, bool skipServerCertificateValidation = false, CancellationToken cancellationToken = default)
         {
             Trace.Info("Creating job server connection");
             
@@ -1040,7 +1059,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
 
             var jobConnection = VssUtil.CreateConnection(jobServerUrl, jobServerCredential, trace: Trace, skipServerCertificateValidation);
-            await jobServer.ConnectAsync(jobConnection);
+            try
+            {
+                if (cancellationToken.CanBeCanceled)
+                {
+                    await jobServer.ConnectAsync(jobConnection, cancellationToken);
+                }
+                else
+                {
+                    await jobServer.ConnectAsync(jobConnection);
+                }
+            }
+            catch
+            {
+                jobConnection.Dispose();
+                throw;
+            }
             Trace.Info($"Job server connection established successfully");
             
             return jobConnection;
@@ -1110,22 +1144,80 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
         }
 
-        // log an error issue to job level timeline record
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
-        private async Task LogWorkerProcessUnhandledException(Pipelines.AgentJobRequestMessage message, string errorMessage, bool skipServerCertificateValidation = false)
+        private async Task ReportJobStartupFailureAsync(Pipelines.AgentJobRequestMessage message, Exception exception, string stage, bool workerProcessTaskCreated, bool skipServerCertificateValidation)
         {
             try
             {
-                using (var jobConnection = await CreateJobServerConnectionAsync(message, skipServerCertificateValidation))
+                // The worker normally registers these secrets, but it may never have started.
+                foreach (var variable in message.Variables.Values.Where(x => x.IsSecret))
+                {
+                    HostContext.SecretMasker.AddValue(variable.Value, "JobStartupFailure");
+                }
+                foreach (var endpoint in message.Resources.Endpoints)
+                {
+                    foreach (var parameter in endpoint.Authorization?.Parameters ?? new Dictionary<string, string>())
+                    {
+                        if (MaskingUtil.IsEndpointAuthorizationParametersSecret(parameter.Key))
+                        {
+                            HostContext.SecretMasker.AddValue(parameter.Value, "JobStartupFailure");
+                        }
+                    }
+                }
+                foreach (var file in message.Resources.SecureFiles)
+                {
+                    HostContext.SecretMasker.AddValue(file.Ticket, "JobStartupFailure");
+                }
+                foreach (var hint in message.MaskHints ?? new List<MaskHint>())
+                {
+                    if (hint.Type == MaskType.Regex)
+                    {
+                        HostContext.SecretMasker.AddValue(hint.Value, "JobStartupFailure");
+                        HostContext.SecretMasker.AddRegex(hint.Value, "JobStartupFailure");
+                    }
+                }
+
+                string error = HostContext.SecretMasker.MaskSecrets(StringUtil.Loc("AgentWorkerStartupFailed",
+                    stage, message.JobId, message.RequestId, exception.ToString()));
+                Trace.Error(error);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                await LogJobErrorAsync(message, error, skipServerCertificateValidation, "AgentStartupFailure", timeout.Token);
+            }
+            catch (Exception reportingException)
+            {
+                Trace.Warning($"Unable to report worker startup failure to the timeline: {reportingException}");
+            }
+
+            await ListenerFailureTelemetry.PublishAsync(HostContext, "WorkerStartupFailure", new Dictionary<string, object>
+            {
+                ["JobId"] = message.JobId.ToString(),
+                ["RequestId"] = message.RequestId,
+                ["PlanId"] = message.Plan.PlanId.ToString(),
+                ["AgentId"] = _agentSetting.AgentId,
+                ["PoolId"] = _poolId,
+                ["Stage"] = stage,
+                ["ExceptionType"] = exception.GetType().FullName,
+                ["ExceptionHResult"] = exception.HResult,
+                ["WorkerProcessTaskCreated"] = workerProcessTaskCreated,
+                ["RenewalStopped"] = true
+            }, Trace);
+        }
+
+        // Log an error issue without completing or changing the state of the job.
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA2000:Dispose objects before losing scope", MessageId = "jobServer")]
+        private async Task LogJobErrorAsync(Pipelines.AgentJobRequestMessage message, string errorMessage, bool skipServerCertificateValidation = false, string issueCategory = null, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using (var jobConnection = await CreateJobServerConnectionAsync(message, skipServerCertificateValidation, cancellationToken))
                 {
                     var jobServer = HostContext.GetService<IJobServer>();
-                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, CancellationToken.None);
+                    var timeline = await jobServer.GetTimelineAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, cancellationToken);
                     ArgUtil.NotNull(timeline, nameof(timeline));
-                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job");
-                    ArgUtil.NotNull(jobRecord, nameof(jobRecord));
-                    jobRecord.ErrorCount++;
-                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Message = errorMessage });
-                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, CancellationToken.None);
+                    TimelineRecord jobRecord = timeline.Records.FirstOrDefault(x => x.Id == message.JobId && x.RecordType == "Job")
+                        ?? new TimelineRecord { Id = message.JobId, RecordType = "Job", Name = message.JobDisplayName };
+                    jobRecord.ErrorCount = (jobRecord.ErrorCount ?? 0) + 1;
+                    jobRecord.Issues.Add(new Issue() { Type = IssueType.Error, Category = issueCategory, Message = HostContext.SecretMasker.MaskSecrets(errorMessage) });
+                    await jobServer.UpdateTimelineRecordsAsync(message.Plan.ScopeIdentifier, message.Plan.PlanType, message.Plan.PlanId, message.Timeline.Id, new TimelineRecord[] { jobRecord }, cancellationToken);
                 }
             }
             catch (SocketException ex)
@@ -1134,7 +1226,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
             }
             catch (Exception ex)
             {
-                Trace.Error("Fail to report unhandled exception from Agent.Worker process");
+                Trace.Error("Failed to report an agent error to the job timeline.");
                 Trace.Error(ex);
             }
         }

@@ -232,7 +232,7 @@ namespace Agent.Plugins.PipelineCache
 
                 if (type == KeySegmentType.String)
                 {
-                    context.Output($" - {formattedSegment} [string]");
+                    context.OutputExternal($" - {formattedSegment} [string]");
                 }
                 else
                 {
@@ -241,17 +241,17 @@ namespace Agent.Plugins.PipelineCache
                     if (type == KeySegmentType.FilePath)
                     {
                         string fileHash = matches.Length > 0 ? matches[0].Hash : null;
-                        context.Output($" - {formattedSegment} [file] {(!string.IsNullOrWhiteSpace(fileHash) ? $"--> {fileHash}" : "(not found)")}");
+                        context.OutputExternal($" - {formattedSegment} [file] {(!string.IsNullOrWhiteSpace(fileHash) ? $"--> {fileHash}" : "(not found)")}");
                     }
                     else if (type == KeySegmentType.FilePattern)
                     {
-                        context.Output($" - {formattedSegment} [file pattern; matches: {matches.Length}]");
+                        context.OutputExternal($" - {formattedSegment} [file pattern; matches: {matches.Length}]");
                         if (matches.Any())
                         {
                             int filePathDisplayLength = Math.Min(matches.Select(mf => mf.DisplayPath.Length).Max(), 70);
                             foreach (var match in matches)
                             {
-                                context.Output($"   - {FormatForDisplay(match.DisplayPath, filePathDisplayLength)} --> {match.Hash}");
+                                context.OutputExternal($"   - {FormatForDisplay(match.DisplayPath, filePathDisplayLength)} --> {match.Hash}");
                             }
                         }
                     }

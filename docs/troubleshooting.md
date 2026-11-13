@@ -28,6 +28,30 @@ If the agent isn't picking up builds, the agent logs are likely the most relevan
 
 Secrets are masked out of the logs.
 
+## Failures before the worker receives a job
+
+If listener setup, worker startup, or sending the initial job message fails, the
+listener stops renewing the job request so the server can abandon it after the
+lease expires. It attempts to add an `AgentStartupFailure` error to the job's
+timeline containing the startup stage, job/request IDs, and masked exception.
+The service may truncate long timeline messages; the complete masked exception
+is retained in the listener diagnostic log.
+This diagnostic does not complete the job or change its result. Timeline
+reporting is limited to 15 seconds; if the service cannot be reached, inspect
+`_diag\Agent_*.log` on the agent machine instead. Worker diagnostic uploads cannot
+run if the worker never starts.
+
+The listener also attempts to publish the `WorkerStartupFailure`
+customer-intelligence event under area `AzurePipelinesAgent`, with a separate
+10-second reporting limit. It includes job/request/plan IDs, agent/pool IDs, agent
+version, startup stage, exception type/HResult, whether a worker process task was
+created, and confirmation that renewal stopped.
+
+Telemetry contains exception types, not exception messages or stack traces.
+Reporting failures are logged locally and do not replace the startup error.
+Feature flag lookup failures are logged locally and fall back to `Off` without
+publishing telemetry; they do not by themselves fail the job.
+
 ## Http Tracing
 
 The agent has built in functionality to trace all http traffic's header into diag log.  
