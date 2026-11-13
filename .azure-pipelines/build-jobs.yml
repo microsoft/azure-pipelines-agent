@@ -86,7 +86,8 @@ jobs:
     packageType: agent
     targetFramework: ${{ parameters.targetFramework }}
 
-- ${{ if parameters.buildAlternatePackage }}:
+# pipelines-agent bundles only Node 24, which has no official win-x86 or linux-arm build.
+- ${{ if and(parameters.buildAlternatePackage, not(and(eq(parameters.os, 'win'), eq(parameters.arch, 'x86'))), not(and(eq(parameters.os, 'linux'), eq(parameters.arch, 'arm')))) }}:
   - template: /.azure-pipelines/build-job.yml@self
     parameters:
       jobName: ${{ parameters.jobName }}_alternate

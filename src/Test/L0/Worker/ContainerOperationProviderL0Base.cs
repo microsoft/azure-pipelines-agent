@@ -4,6 +4,7 @@
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Moq;
@@ -22,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         protected const string NodePathFromLabel = "/usr/bin/node";
         protected const string NodePathFromLabelEmpty = "";
         protected const string DefaultNodeCommand = "node";
-        protected const string NodeFromAgentExternal = "externals/node";
+        protected const string NodeFromAgentExternal = "externals/node24";
 
         protected Mock<IDockerCommandManager> CreateDockerManagerMock(string inspectResult)
         {
@@ -48,6 +49,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     {
                         output.Add("v16.20.2");
                     }
+                    else if (command.Contains("--version"))
+                    {
+                        output.Add(command.Contains("node24") ? "v24.0.0" : "v20.0.0");
+                    }
                     return 0;
                 });
             return dockerManager;
@@ -62,6 +67,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
             executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());
             executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
+            executionContext.Setup(x => x.GetHostContext()).Returns(hc);
+            hc.SetSingleton<IGlibcCompatibilityInfoProvider>(new Mock<IGlibcCompatibilityInfoProvider>().Object);
 
             string knobValue = useNodeVersionStrategy ? "true" : "false";
             executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_USE_ENHANCED_NODE_SELECTION")).Returns(knobValue);

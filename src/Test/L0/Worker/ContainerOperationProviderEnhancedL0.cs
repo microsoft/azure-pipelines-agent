@@ -4,6 +4,8 @@
 using Agent.Sdk;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -20,6 +22,482 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         // =============================================
         // Legacy path tests (UseEnhancedNodeSelection = false)
         // =============================================
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_WithoutNode20_UsesNode24OrFails(bool enhanced, bool node24Fails)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(false);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(),
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        if (command.Contains("--version"))
+                        {
+                            Assert.Contains("node24", command);
+                            output.Add("v24.0.0");
+                            return node24Fails ? 127 : 0;
+                        }
+                        return 0;
+                    });
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { node24Fails ? "container-startup-failed" : "container-startup-using-node-24" });
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetHostContext()).Returns(hc);
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                hc.SetSingleton<IGlibcCompatibilityInfoProvider>(new Mock<IGlibcCompatibilityInfoProvider>().Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                if (node24Fails)
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains(enhanced ? "Container Node.js runtime selection failed" : "Container startup failed", exception.Message);
+                    executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
+                    return;
+                }
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                Assert.Contains("node24", container.ResultNodePath);
+                if (!enhanced)
+                {
+                    Assert.Contains("node24", container.ContainerCommand);
+                    Assert.DoesNotContain("node20_1", container.ContainerCommand);
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_WithEolPolicy_DoesNotFallBackToNode20(bool node24Fails)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(true);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { node24Fails ? "container-startup-failed" : "container-startup-using-node-24" });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                if (node24Fails)
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Node 24", exception.Message);
+                    Assert.DoesNotContain("Node 20", exception.Message);
+                    executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
+                }
+                else
+                {
+                    await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                    Assert.Contains("node24", container.ResultNodePath);
+                }
+
+                Assert.Contains("node24", container.ContainerCommand);
+                Assert.DoesNotContain("node20_1", container.ContainerCommand);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false, false)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, true)]
+        [InlineData(true, true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyAndContainerStopped_Fails(bool enhanced, bool restrictEol, bool node20Available)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(node20Available);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.DockerPS(It.IsAny<IExecutionContext>(), It.Is<string>(options => options.Contains("--filter status=running"))))
+                    .ReturnsAsync(new List<string>());
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS"))
+                    .Returns(restrictEol ? "true" : "false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                    provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+
+                Assert.Contains("Node 24", exception.Message);
+                Assert.Contains("not running", exception.Message);
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false, false)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, true)]
+        [InlineData(true, true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyCannotVerifyRunningState_Fails(bool enhanced, bool restrictEol, bool node20Available)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(node20Available);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.DockerPS(It.IsAny<IExecutionContext>(), It.Is<string>(options => options.Contains("--filter status=running"))))
+                    .ThrowsAsync(new System.InvalidOperationException("Docker status unavailable"));
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS"))
+                    .Returns(restrictEol ? "true" : "false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                    provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+
+                Assert.Contains("Node 24", exception.Message);
+                Assert.Contains("Docker status unavailable", exception.InnerException.Message);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false, false, false)]
+        [InlineData(true, true, false, false)]
+        [InlineData(false, false, false, true)]
+        [InlineData(true, true, false, true)]
+        [InlineData(true, true, true, false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyCannotReadStartupLogs_ProbesNode24(bool restrictEol, bool node20Available, bool cancelled, bool node24Runs)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(node20Available);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                System.Exception logException = cancelled
+                    ? new System.OperationCanceledException("Docker logs unavailable")
+                    : new System.InvalidOperationException("Docker logs unavailable");
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ThrowsAsync(logException);
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.Is<string>(command => command.Contains("--version")), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        Assert.Contains("node24", command);
+                        if (node24Runs)
+                        {
+                            output.Add("v24.0.0");
+                        }
+                        return node24Runs ? 0 : 127;
+                    });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS"))
+                    .Returns(restrictEol ? "true" : "false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                if (cancelled)
+                {
+                    var exception = await Assert.ThrowsAsync<System.OperationCanceledException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Docker logs unavailable", exception.Message);
+                }
+                else if (node24Runs)
+                {
+                    await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                    Assert.Contains("node24", container.ResultNodePath);
+                    executionContext.Verify(x => x.AddIssue(It.Is<Issue>(issue =>
+                        issue.Type == IssueType.Warning && issue.Message.Contains("verified that Node 24"))), Times.Once);
+                }
+                else
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Node 24", exception.Message);
+                    Assert.Contains("Docker logs unavailable", exception.InnerException.Message);
+                }
+                Assert.DoesNotContain("node20_1", container.ResultNodePath);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyMissingStartupMarker_ProbesNode24(bool node24Runs)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(true);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string>());
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.Is<string>(command => command.Contains("--version")), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        Assert.Contains("node24", command);
+                        if (node24Runs)
+                        {
+                            output.Add("v24.0.0");
+                        }
+                        return node24Runs ? 0 : 127;
+                    });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                if (node24Runs)
+                {
+                    await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                    Assert.Contains("node24", container.ResultNodePath);
+                    executionContext.Verify(x => x.AddIssue(It.Is<Issue>(issue =>
+                        issue.Type == IssueType.Warning && issue.Message.Contains("verified that Node 24"))), Times.Once);
+                }
+                else
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Node 24", exception.Message);
+                }
+                Assert.DoesNotContain("node20_1", container.ResultNodePath);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_Node24OnlyRejectsNode20StartupMarker(bool restrictEol, bool node20Available)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(node20Available);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { "container-startup-using-node-20" });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS"))
+                    .Returns(restrictEol ? "true" : "false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                    provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+
+                Assert.Contains("Node 20", exception.Message);
+                Assert.Contains("Node 24", exception.Message);
+                Assert.DoesNotContain("node20_1", container.ContainerCommand);
+                executionContext.Verify(x => x.AddIssue(It.Is<Issue>(i => i.Type == IssueType.Error)), Times.Never);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_WithDockerLabelAndEolPolicy_PreservesCustomNodePath(bool enhanced)
+        {
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(false);
+                var docker = CreateDockerManagerMock(NodePathFromLabel);
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "node:16" });
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal(NodePathFromLabel, container.CustomNodePath);
+                Assert.Equal(NodePathFromLabel, container.ResultNodePath);
+                Assert.DoesNotContain("node24", container.ContainerCommand);
+                Assert.DoesNotContain("node20_1", container.ContainerCommand);
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_CrossPlatformWithEolPolicy_OnlyUsesExplicitCustomNode(bool enhanced, bool hasCustomNode)
+        {
+            if (!PlatformUtil.RunningOnWindows && !PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var docker = CreateDockerManagerMock(hasCustomNode ? NodePathFromLabel : NodePathFromLabelEmpty);
+                var executionContext = CreateExecutionContextMock(hc, enhanced);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("true");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "node:16" })
+                {
+                    ImageOS = PlatformUtil.OS.Linux
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced();
+                provider.Initialize(hc);
+
+                if (!hasCustomNode)
+                {
+                    var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Contains("Node24", exception.Message);
+                    Assert.Contains("com.azure.dev.pipelines.agent.handler.node.path", exception.Message);
+                    return;
+                }
+
+                await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+
+                Assert.Equal(NodePathFromLabel, container.CustomNodePath);
+                Assert.Equal(NodePathFromLabel, container.ResultNodePath);
+            }
+        }
 
         [Fact]
         [Trait("Level", "L0")]
@@ -151,7 +629,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             {
                 System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
                 
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, hc)).Returns(false);
                 var dockerManager = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                dockerManager.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<string> { "container-startup-using-node-24" });
                 var executionContext = CreateExecutionContextMock(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "test", Image = "node:16" });
 
@@ -160,7 +642,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
                 hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
                 
-                var provider = new ContainerOperationProviderEnhanced();
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
                 provider.Initialize(hc);
 
                 // Act - Call main container code with mocked Docker operations

@@ -577,6 +577,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Check if node16 is available on the host (not present in pipelines-agent package)
             bool node16Available = File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+            // Node20 is not bundled in the pipelines-agent package; never start the container with it when absent.
+            bool node20Available = IsNode20Bundled();
+            useNode24ToStartContainer |= !node20Available;
 
 
             if (container.IsJobContainer)
@@ -634,8 +637,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             string node16Segment = node16Available
                                 ? $" || '{node16ContainerPath}' --version && echo '{labelContainerStartupUsingNode16}' && {nodeSetInterval(node16ContainerPath)}"
                                 : "";
-                            executionContext.Debug($"[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24->20{(node16Available ? "->16" : "")})");
-                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)}{node16Segment} || echo '{labelContainerStartupFailed}'";
+                            string node20Segment = node20Available
+                                ? $" || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)}"
+                                : "";
+                            executionContext.Debug($"[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24{(node20Available ? "->20" : "")}{(node16Available ? "->16" : "")})");
+                            sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)}{node20Segment}{node16Segment} || echo '{labelContainerStartupFailed}'";
                         }
                         else if (useNode20ToStartContainer)
                         {
@@ -722,6 +728,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode20))
                             {
+                                if (!node20Available)
+                                {
+                                    throw new NotSupportedException($"Container startup reported using Node 20 for image '{container.ContainerImage}', but Node 20 is not bundled with this agent.");
+                                }
                                 if (useNode24ToStartContainer)
                                 {
                                     executionContext.Warning($"The agent's Node 24 runtime could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 20 runtime instead.");
@@ -736,7 +746,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                             else if (logLine.Contains(labelContainerStartupUsingNode16))
                             {
-                                string triedVersions = useNode24ToStartContainer ? "Node 24 and Node 20" : "Node 20";
+                                string triedVersions = !useNode24ToStartContainer ? "Node 20" : node20Available ? "Node 24 and Node 20" : "Node 24";
                                 executionContext.Warning($"The agent's {triedVersions} runtime(s) could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 16 runtime (end-of-life). Update the pipeline or container image to run on Node 20 or newer.");
                                 containerStartupCompleted = true;
                                 container.ResultNodePath = node16ContainerPath;
@@ -749,7 +759,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 {
                                     attemptedNodeVersions.Add("Node 24");
                                 }
-                                attemptedNodeVersions.Add("Node 20");
+                                if (node20Available)
+                                {
+                                    attemptedNodeVersions.Add("Node 20");
+                                }
                                 if (node16Available)
                                 {
                                     attemptedNodeVersions.Add("Node 16");
@@ -1075,7 +1088,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             }
                         }
                         
-                        if (!useNode20InUnsupportedSystem && (useNode24InUnsupportedSystem || container.NeedsNode20Redirect))
+                        if (IsNode20Bundled() && !useNode20InUnsupportedSystem && (useNode24InUnsupportedSystem || container.NeedsNode20Redirect))
                         {
                             var node20 = container.TranslateToContainerPath(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
 
@@ -1336,6 +1349,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
+        private bool IsNode20Bundled()
+        {
+            return File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node20_1Folder, "bin", $"node{IOUtil.ExeExtension}"));
+        }
+
         /// <summary>
         /// Creates appropriate handler data for container job based on knobs and custom node path.
         /// Used by orchestrator to determine the best node version for the container.
@@ -1359,7 +1377,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             bool useNode24 = AgentKnobs.UseNode24ToStartContainer.GetValue(executionContext).AsBoolean();
             bool useNode20 = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();
             
-            if (useNode24)
+            if (useNode24 || !IsNode20Bundled())
             {
                 return new Node24HandlerData();
             }

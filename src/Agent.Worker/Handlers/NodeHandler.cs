@@ -90,6 +90,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         private readonly INodeHandlerHelper nodeHandlerHelper;
         private readonly Lazy<NodeVersionOrchestrator> nodeVersionOrchestrator;
         private const string Node10Folder = "node10";
+        private const string Node20UnavailableError = "No compatible Node.js runtime is available for this Node20 task. Ensure Node20 is installed and compatible, or select Node24.";
+        private const string Node24NoFallbackError = "No compatible Node.js runtime is available. Node24 cannot run on this agent and no fallback runtime (Node20/Node16) is available.";
+
+        // Why the legacy selection path picked Node20, used to explain the choice to users.
+        private enum Node20SelectionReason
+        {
+            None,
+            Default,
+            UseNode20Override,
+            UseNodeKnob,
+            Fallback
+        }
         internal const string NodeFolder = "node";
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
@@ -123,6 +135,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         // Fallback tracking for telemetry
         private string fallbackReason;
         private bool fallbackOccurred;
+        private Node20SelectionReason node20SelectionReason;
 
         public NodeHandler()
         {
@@ -380,6 +393,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                         if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
                         {
+                            if (Data is Node20_1HandlerData)
+                            {
+                                throw new NotSupportedException(Node20UnavailableError);
+                            }
+
                             // Only fall back to Node16 if it actually exists (e.g., vsts-agent or installed via task)
                             if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
                             {
@@ -388,9 +406,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                 NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
                                 return NodeHandler.Node16Folder;
                             }
+                            // A missing Node20 can never be selected, even as a last-resort fallback.
+                            if (node20NotAvailableForNode24Fallback)
+                            {
+                                throw new NotSupportedException(Node24NoFallbackError);
+                            }
+
                             // Node16 not available either — return Node20 folder and let caller handle the error
                             fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
+                            node20SelectionReason = Node20SelectionReason.Fallback;
                             NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
                             return NodeHandler.Node20_1Folder;
                         }
@@ -398,6 +423,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                         {
                             fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
                             fallbackOccurred = true;
+                            node20SelectionReason = Node20SelectionReason.Fallback;
                             NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
                             return NodeHandler.Node20_1Folder;
                         }
@@ -409,6 +435,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                     bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                     if (node20ResultsInGlibCError || node20NotAvailable)
                     {
+                        if (Data is Node20_1HandlerData)
+                        {
+                            if (string.Equals(AgentKnobs.UseNode.GetValue(ExecutionContext).AsString(), "UPGRADE", StringComparison.OrdinalIgnoreCase)
+                                && !node24ResultsInGlibCError
+                                && nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, HostContext, ExecutionContext))
+                            {
+                                ExecutionContext.Warning($"Configured runner ({preferredNodeFolder}) is unavailable or incompatible. UseNode=UPGRADE is configured, so '{NodeHandler.Node24Folder}' will be used instead.");
+                                return NodeHandler.Node24Folder;
+                            }
+
+                            throw new NotSupportedException(Node20UnavailableError);
+                        }
+
                         // Only fall back to Node16 if it actually exists on disk
                         if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
                         {
@@ -430,10 +469,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
-            
-            if (useStrategyPattern)
+            bool enforceEOLPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+
+            if (useStrategyPattern || enforceEOLPolicy)
             {
-                ExecutionContext.Debug("Using enhanced node selection path for handler node resolution.");
+                ExecutionContext.Debug(enforceEOLPolicy
+                    ? "Using enhanced node selection to enforce the EOL node version policy."
+                    : "Using enhanced node selection path for handler node resolution.");
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
 
@@ -457,7 +499,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             catch (Exception ex)
             {
-                ExecutionContext.Error($"Strategy-based node selection failed: {ex.Message}");
+                ExecutionContext.Debug($"Strategy-based node selection failed: {ex.Message}");
                 ExecutionContext.Debug($"Stack trace: {ex}");
                 throw;
             }
@@ -483,6 +525,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
             //using Node20_1 as default node version
             string nodeFolder = NodeHandler.Node20_1Folder;
+            node20SelectionReason = Node20SelectionReason.Default;
             if (taskHasNode24Data && UseNode24withHandlerData)
             {
                 Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
@@ -491,7 +534,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (taskHasNode20_1Data)
             {
                 Trace.Info($"Task.json has node20_1 handler data: {taskHasNode20_1Data} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+                if (!useNode24 && !useNode20_1 && !useNode10)
+                {
+                    nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+                }
             }
             else if (taskHasNode16Data)
             {
@@ -522,6 +568,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             else if (useNode20_1)
             {
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
+                node20SelectionReason = Node20SelectionReason.UseNode20Override;
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (useNode10)
@@ -529,13 +576,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
                 nodeFolder = NodeHandler.Node10Folder;
             }
-            // Warn for deprecated node versions
-            if ((nodeFolder == NodeHandler.NodeFolder || nodeFolder == NodeHandler.Node10Folder || nodeFolder == NodeHandler.Node16Folder) &&
-                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
-            {
-                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
-            }
-
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
             {
                 string[] filteredPossibleNodeFolders = nodeHandlerHelper.GetFilteredPossibleNodeFolders(nodeFolder, possibleNodeFolders);
@@ -551,6 +591,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             {
                                 ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, latest LTS version {NodeHandler.nodeLTS} will be used. See http://aka.ms/azdo-node-runner");
                                 Trace.Info($"Found LTS version of node installed");
+                                WarnIfEolNodeRunner(NodeHandler.nodeLTS, Node20SelectionReason.UseNodeKnob);
                                 return nodeHandlerHelper.GetNodeFolderPath(NodeHandler.nodeLTS, HostContext);
                             }
                             break;
@@ -561,6 +602,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             {
                                 ExecutionContext.Warning($"Configured runner {nodeFolder} is not available, next available version will be used. See http://aka.ms/azdo-node-runner");
                                 Trace.Info($"Found {firstExistedNodeFolder} installed");
+                                if (firstExistedNodeFolder == NodeHandler.Node20_1Folder)
+                                {
+                                    WarnIfEolNodeRunner(firstExistedNodeFolder, Node20SelectionReason.UseNodeKnob);
+                                }
                                 return nodeHandlerHelper.GetNodeFolderPath(firstExistedNodeFolder, HostContext);
                             }
                             break;
@@ -572,6 +617,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
+
+            WarnIfEolNodeRunner(nodeFolder, node20SelectionReason, inContainer);
+
             if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
             {
                 try
@@ -586,6 +634,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
 
             return nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext);
+        }
+
+        private void WarnIfEolNodeRunner(string nodeFolder, Node20SelectionReason selectionReason, bool inContainer = false)
+        {
+            bool isLegacyNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
+                nodeFolder == Node16Folder;
+            string taskName = Task?.Name?.ToString() ??
+                ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
+                "Unknown Task";
+            if (isLegacyNodeRunner)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
+            }
+            else if (nodeFolder == Node20_1Folder)
+            {
+                WarnNode20Selected(taskName, selectionReason, inContainer);
+            }
+
+            if (isLegacyNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", taskName));
+            }
+        }
+
+        // Tasks written for Node20 get the opt-in retirement warning (matching master); any other task
+        // that lands on Node20, including through a fallback, is told why.
+        private void WarnNode20Selected(string taskName, Node20SelectionReason selectionReason, bool inContainer)
+        {
+            if (Data is Node20_1HandlerData)
+            {
+                if (AgentKnobs.WarnOnNode20Task.GetValue(ExecutionContext).AsBoolean())
+                {
+                    ExecutionContext.Warning(StringUtil.Loc("Node20TaskRetirementWarning", taskName));
+                }
+                return;
+            }
+
+            switch (selectionReason)
+            {
+                case Node20SelectionReason.Default:
+                    ExecutionContext.Warning(StringUtil.Loc("Node20SelectedAsDefault", taskName));
+                    break;
+                case Node20SelectionReason.UseNode20Override:
+                    ExecutionContext.Warning(StringUtil.Loc("Node20SelectedByUseNode20Override", taskName));
+                    break;
+                case Node20SelectionReason.UseNodeKnob:
+                    ExecutionContext.Warning(StringUtil.Loc("Node20SelectedByUseNodeKnob", taskName));
+                    break;
+                case Node20SelectionReason.Fallback:
+                    ExecutionContext.Warning(StringUtil.Loc("Node20SelectedAsFallback", taskName, inContainer ? "container" : "agent"));
+                    break;
+            }
         }
 
         private void NodeFallbackWarning(string fromVersion, string toVersion, bool inContainer, bool notExecutable = false)

@@ -18,12 +18,6 @@
         "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-win-x86-<AGENT_VERSION>.zip"
     },
     {
-        "name": "pipelines-agent-win-x86-<AGENT_VERSION>.zip",
-        "platform": "win-x86",
-        "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip"
-    },
-    {
         "name": "vsts-agent-win-arm64-<AGENT_VERSION>.zip",
         "platform": "win-arm64",
         "version": "<AGENT_VERSION>",
@@ -76,12 +70,6 @@
         "platform": "linux-arm",
         "version": "<AGENT_VERSION>",
         "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/vsts-agent-linux-arm-<AGENT_VERSION>.tar.gz"
-    },
-    {
-        "name": "pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz",
-        "platform": "linux-arm",
-        "version": "<AGENT_VERSION>",
-        "downloadUrl": "https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz"
     },
     {
         "name": "vsts-agent-linux-arm64-<AGENT_VERSION>.tar.gz",
