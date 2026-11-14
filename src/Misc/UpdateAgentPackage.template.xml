@@ -72,11 +72,6 @@
         <AddTaskPackageData packageType="pipelines-agent" platform="linux-x64" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-linux-x64-<AGENT_VERSION>.tar.gz" />
       </StepData>
     </ServicingStep>
-    <ServicingStep name="Add ARM Linux pipelines-agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
-      <StepData>
-        <AddTaskPackageData packageType="pipelines-agent" platform="linux-arm" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-linux-arm-<AGENT_VERSION>.tar.gz" />
-      </StepData>
-    </ServicingStep>
     <ServicingStep name="Add ARM64 Linux pipelines-agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
         <AddTaskPackageData packageType="pipelines-agent" platform="linux-arm64" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-linux-arm64-<AGENT_VERSION>.tar.gz" />
@@ -85,11 +80,6 @@
     <ServicingStep name="Add x64 Windows pipelines-agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
       <StepData>
         <AddTaskPackageData packageType="pipelines-agent" platform="win-x64" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x64-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-win-x64-<AGENT_VERSION>.zip" />
-      </StepData>
-    </ServicingStep>
-    <ServicingStep name="Add x86 Windows pipelines-agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">
-      <StepData>
-        <AddTaskPackageData packageType="pipelines-agent" platform="win-x86" version="<AGENT_VERSION>" hashValue="<HASH_VALUE>" downloadUrl="https://download.agent.dev.azure.com/agent/<AGENT_VERSION>/pipelines-agent-win-x86-<AGENT_VERSION>.zip" infoUrl="https://go.microsoft.com/fwlink/?LinkId=798199" filename="pipelines-agent-win-x86-<AGENT_VERSION>.zip" />
       </StepData>
     </ServicingStep>
     <ServicingStep name="Add ARM64 Windows pipelines-agent package" stepPerformer="DistributedTask" stepType="AddTaskPackage">

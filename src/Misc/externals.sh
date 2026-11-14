@@ -6,6 +6,9 @@ L1_MODE=$4
 
 INCLUDE_NODE20=${INCLUDE_NODE20:-true}
 INCLUDE_NODE24=${INCLUDE_NODE24:-true}
+if [[ "${PACKAGE_TYPE:-agent}" == "pipelines-agent" ]]; then
+    INCLUDE_NODE20=false
+fi
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
@@ -178,12 +181,12 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
         acquireExternalTool "$CONTAINER_URL/azcopy/1/azcopy.zip" azcopy
         acquireExternalTool "$CONTAINER_URL/vstshost/m122_887c6659_binding_redirect_patched/vstshost.zip" vstshost
     fi
-    # Node.js dropped official support for Windows 32-bit (win-x86) starting with Node.js 20
+    # Node.js does not publish official Windows 32-bit (win-x86) builds for Node.js 24
     # See: https://github.com/nodejs/node/blob/main/BUILDING.md#platform-list
-    # Node 24 is not available for win-x86, so we exclude it for this runtime
+    # The pipelines-agent package is not produced for win-x86
     if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
         INCLUDE_NODE24=false
-        echo "INFO: Node 24 is not available for win-x86. Node-based tasks will fall back to Node 20."
+        echo "INFO: Node 24 is not available for win-x86. Task execution depends on the available runners and EOL policy."
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
