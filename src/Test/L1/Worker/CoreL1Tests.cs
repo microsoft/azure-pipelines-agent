@@ -81,9 +81,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // CmdLineV2 runs on powershell on windows
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    // Assert we used Node 20 from debug logs
+                    // Node20 tasks prefer Node24 when it is included in the platform's package.
+                    string expectedNode = System.IO.File.Exists(System.IO.Path.Combine(
+                        _l1HostContext.GetDirectory(WellKnownDirectory.Externals), "node24", "bin", "node"))
+                        ? "node24" : "node20_1";
                     var log = GetTimelineLogLines(steps[1]);
-                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains("node20")).Count());
+                    Assert.Equal(1, log.Where(x => x.Contains("Using node path:") && x.Contains(expectedNode)).Count());
                 }
             }
             finally

@@ -4,35 +4,21 @@ PRECACHE=$2
 LAYOUT_DIR=$3
 L1_MODE=$4
 
-INCLUDE_NODE6=${INCLUDE_NODE6:-true}
-INCLUDE_NODE10=${INCLUDE_NODE10:-true}
-INCLUDE_NODE16=${INCLUDE_NODE16:-true}
 INCLUDE_NODE20=${INCLUDE_NODE20:-true}
 INCLUDE_NODE24=${INCLUDE_NODE24:-true}
 
 CONTAINER_URL=https://vstsagenttools.blob.core.windows.net/tools
 
 NODE_URL=https://nodejs.org/dist
-NODE_UNOFFICIAL_URL=https://unofficial-builds.nodejs.org/download/release
 
 if [[ "$PACKAGERUNTIME" == "linux-musl-x64" ]]; then
     NODE_URL=https://unofficial-builds.nodejs.org/download/release
-    INCLUDE_NODE6=false
-fi
-
-if [[ "$PACKAGERUNTIME" == "win-arm64" ]]; then
-    INCLUDE_NODE6=false
-    INCLUDE_NODE10=false;
 fi
 
 if [[ "$PACKAGERUNTIME" == "linux-arm" ]]; then
     INCLUDE_NODE24=false
 fi
 
-NODE_VERSION="6.17.1"
-NODE10_VERSION="10.24.1"
-NODE16_VERSION="16.20.2"
-NODE16_WIN_ARM64_VERSION="16.9.1"
 NODE20_VERSION="20.20.2"
 NODE24_VERSION="24.22.1"
 MINGIT_VERSION="2.56.0.4"
@@ -197,7 +183,7 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     # Node 24 is not available for win-x86, so we exclude it for this runtime
     if [[ "$PACKAGERUNTIME" == "win-x86" ]]; then
         INCLUDE_NODE24=false
-        echo "INFO: Node 24 is not available for win-x86. Node-based tasks will fall back to Node 20 or Node 16."
+        echo "INFO: Node 24 is not available for win-x86. Node-based tasks will fall back to Node 20."
     fi
 
     acquireExternalTool "$CONTAINER_URL/mingit/${MINGIT_VERSION}/MinGit-${MINGIT_VERSION}-${BIT}-bit.zip" git
@@ -213,18 +199,6 @@ if [[ "$PACKAGERUNTIME" == "win-x"* ]]; then
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
-    if [[ "$INCLUDE_NODE6" == "true" ]]; then
-        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin
-        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.lib" node/bin
-    fi
-    if [[ "$INCLUDE_NODE10" == "true" ]]; then
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin
-    fi
-    if [[ "$INCLUDE_NODE16" == "true" ]]; then
-        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
-        acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
-    fi
     if [[ "$INCLUDE_NODE20" == "true" ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.lib" node20_1/bin
@@ -257,21 +231,6 @@ elif [[ "$PACKAGERUNTIME" == "win-arm64" || "$PACKAGERUNTIME" == "win-arm32" ]];
     acquireExternalTool "$CONTAINER_URL/vswhere/2_8_4/vswhere.zip" vswhere
     acquireExternalTool "https://dist.nuget.org/win-x86-commandline/v4.6.4/nuget.exe" nuget
 
-    if [[ "$INCLUDE_NODE6" == "true" ]]; then
-        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.exe" node/bin # Not available for Windows ARM
-        acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/${PACKAGERUNTIME}/node.lib" node/bin # Not available for Windows ARM
-    fi
-    if [[ "$INCLUDE_NODE10" == "true" ]]; then
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.exe" node10/bin # Not available for Windows ARM
-        acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/${PACKAGERUNTIME}/node.lib" node10/bin # Not available for Windows ARM
-    fi
-
-    # Unofficial distribution of Node contains Node 16 for Windows ARM
-    if [[ "$INCLUDE_NODE16" == "true" ]]; then
-        acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.exe" node16/bin
-        acquireExternalTool "${NODE_UNOFFICIAL_URL}/v${NODE16_WIN_ARM64_VERSION}/${PACKAGERUNTIME}/node.lib" node16/bin
-    fi
-
     # Official distribution of Node contains Node 20 for Windows ARM
     if [[ "$INCLUDE_NODE20" == "true" ]]; then
         acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/${PACKAGERUNTIME}/node.exe" node20_1/bin
@@ -285,19 +244,7 @@ else
     # Download external tools for Linux and OSX.
 
     if [[ "$PACKAGERUNTIME" == "osx-arm64" ]]; then
-        ARCH="darwin-x64"
-        if [[ "$INCLUDE_NODE6" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.gz" node fix_nested_dir
-        fi
-
-        if [[ "$INCLUDE_NODE10" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
-        fi
-
         ARCH="darwin-arm64"
-        if [[ "$INCLUDE_NODE16" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        fi
         if [[ "$INCLUDE_NODE20" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
         fi
@@ -305,13 +252,6 @@ else
     elif [[ "$PACKAGERUNTIME" == "linux-musl-arm64" ]]; then
         ARCH="linux-arm64-musl"
 
-        if [[ "$INCLUDE_NODE10" == "true" ]]; then
-            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10/bin fix_nested_dir false node_alpine_arm64
-        fi
-
-        if [[ "$INCLUDE_NODE16" == "true" ]]; then
-            acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16/bin fix_nested_dir false node_alpine_arm64
-        fi
         if [[ "$INCLUDE_NODE20" == "true" ]]; then
             acquireExternalTool "${CONTAINER_URL}/nodejs/${ARCH}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1/bin fix_nested_dir false node_alpine_arm64
         fi
@@ -326,15 +266,6 @@ else
             *) echo "Unknown PACKAGERUNTIME: ${PACKAGERUNTIME}"; exit 1;;
         esac
 
-        if [[ "$INCLUDE_NODE6" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE_VERSION}/node-v${NODE_VERSION}-${ARCH}.tar.gz" node fix_nested_dir
-        fi
-        if [[ "$INCLUDE_NODE10" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE10_VERSION}/node-v${NODE10_VERSION}-${ARCH}.tar.gz" node10 fix_nested_dir
-        fi
-        if [[ "$INCLUDE_NODE16" == "true" ]]; then
-            acquireExternalTool "${NODE_URL}/v${NODE16_VERSION}/node-v${NODE16_VERSION}-${ARCH}.tar.gz" node16 fix_nested_dir
-        fi
         if [[ "$INCLUDE_NODE20" == "true" ]]; then
             acquireExternalTool "${NODE_URL}/v${NODE20_VERSION}/node-v${NODE20_VERSION}-${ARCH}.tar.gz" node20_1 fix_nested_dir
         fi
@@ -344,20 +275,6 @@ else
     fi
     # remove `npm`, `npx`, `corepack`, and related `node_modules` from the `externals/node*` agent directory
     # they are installed along with node, but agent does not use them
-
-    rm -rf "$LAYOUT_DIR/externals/node/lib"
-    rm "$LAYOUT_DIR/externals/node/bin/npm"
-
-    rm -rf "$LAYOUT_DIR/externals/node10/lib"
-    rm "$LAYOUT_DIR/externals/node10/bin/npm"
-    rm "$LAYOUT_DIR/externals/node10/bin/npx"
-
-    if [[ "$INCLUDE_NODE16" == "true" ]]; then
-        rm -rf "$LAYOUT_DIR/externals/node16/lib"
-        rm "$LAYOUT_DIR/externals/node16/bin/npm"
-        rm "$LAYOUT_DIR/externals/node16/bin/npx"
-        rm "$LAYOUT_DIR/externals/node16/bin/corepack"
-    fi
 
     if [[ "$INCLUDE_NODE20" == "true" ]]; then
         rm -rf "$LAYOUT_DIR/externals/node20_1/lib"

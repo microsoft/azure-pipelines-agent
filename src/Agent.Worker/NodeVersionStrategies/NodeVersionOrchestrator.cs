@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -64,6 +65,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking strategy: {strategy.GetType().Name}");
 
+                if ((context.HandlerData is Node20_1HandlerData || context.HandlerData is Node24HandlerData ||
+                    AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean()) && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; modern Node selection must not fall back to a legacy runner");
+                    continue;
+                }
+
                 try
                 {
                     var selectionResult = strategy.CanHandle(context, ExecutionContext, glibcInfo);
@@ -107,8 +115,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         }
 
         /// <summary>
-        /// Gets strategies that support container execution (Custom node, Node24, Node20, Node16).
-        /// Only these strategies have CanHandleInContainer implementations.
+        /// Gets strategies for container startup (Custom node, Node24, Node20, Node16).
+        /// Node16 is only selected when it has been installed manually.
         /// </summary>
         private IEnumerable<INodeVersionStrategy> GetContainerCapableStrategies()
         {
@@ -117,7 +125,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         /// <summary>
         /// Container-specific node version selection using CanHandleInContainer methods.
-        /// Follows the container knob precedence: Custom Node → Node24 → Node20 → Node16.
+        /// Follows the container startup precedence: Custom Node → Node24 → Node20 → Node16.
         /// </summary>
         public NodeRunnerInfo SelectNodeVersionForContainer(TaskContext context, IDockerCommandManager dockerManager)
         {
@@ -177,7 +185,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 catch (NotSupportedException ex)
                 {
                     ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
-                    ExecutionContext.Error($"Container node version selection failed: {ex.Message}");
                     throw;
                 }
                 catch (Exception ex)
@@ -186,11 +193,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
             }
 
-            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+            throw new NotSupportedException("No Node.js version could be selected for container execution. Ensure Node24 or Node20 is installed and compatible with the container.");
+        }
+
+        private static bool IsLegacyStrategy(INodeVersionStrategy strategy)
+        {
+            return strategy is Node16Strategy || strategy is Node10Strategy || strategy is Node6Strategy;
         }
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            bool isDeprecatedNodeVersion =
+                selection.NodeVersion == NodeVersion.Node6 ||
+                selection.NodeVersion == NodeVersion.Node10 ||
+                selection.NodeVersion == NodeVersion.Node16;
+            if (isDeprecatedNodeVersion && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                string deprecatedWarning = StringUtil.Loc("DeprecatedRunner",
+                    ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task");
+                selection.Warning = string.IsNullOrEmpty(selection.Warning)
+                    ? deprecatedWarning
+                    : $"{selection.Warning}{Environment.NewLine}{deprecatedWarning}";
+            }
+
             if (selection.NodeVersion == NodeVersion.Custom)
             {
                 return selection;

@@ -9,8 +9,6 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System;
-using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
@@ -62,10 +60,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 return false;
             }
             var nodePath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), nodeFolder, "bin", $"node{IOUtil.ExeExtension}");
-            const int NodeNotExecutableExitCode = 216;
             try
             {
                 var processInvoker = HostContext.CreateService<IProcessInvoker>();
+                var output = new List<string>();
+                var outputLock = new object();
+                void CaptureOutput(object sender, ProcessDataReceivedEventArgs args)
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        lock (outputLock)
+                        {
+                            output.Add(args.Data);
+                        }
+                    }
+                }
+
+                processInvoker.OutputDataReceived += CaptureOutput;
+                processInvoker.ErrorDataReceived += CaptureOutput;
                 var exitCodeTask = processInvoker.ExecuteAsync(
                                     workingDirectory: HostContext.GetDirectory(WellKnownDirectory.Work),
                                     fileName: nodePath,
@@ -75,7 +87,26 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                     outputEncoding: null,
                                     cancellationToken: CancellationToken.None);
                 int exitCode = exitCodeTask.GetAwaiter().GetResult();
-                return exitCode != NodeNotExecutableExitCode;
+                if (exitCode != 0)
+                {
+                    bool glibcError;
+                    lock (outputLock)
+                    {
+                        glibcError = WorkerUtilities.IsCommandResultGlibcError(ExecutionContext, output, out _);
+                    }
+
+                    bool ignoreGlibcError = exitCode != 216 && glibcError &&
+                        ((nodeFolder == NodeHandler.Node20_1Folder && AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean()) ||
+                         (nodeFolder == NodeHandler.Node24Folder && AgentKnobs.UseNode24InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean()));
+                    if (ignoreGlibcError)
+                    {
+                        ExecutionContext.Debug($"Ignoring glibc compatibility failure for {nodeFolder}.");
+                        return true;
+                    }
+
+                    ExecutionContext.Debug($"Node executable test failed for {nodeFolder} with exit code {exitCode}.");
+                }
+                return exitCode == 0;
             }
             catch (Exception ex)
             {
@@ -94,29 +125,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         internal static readonly string Node16Folder = "node16";
         internal static readonly string Node20_1Folder = "node20_1";
         internal static readonly string Node24Folder = "node24";
-        private static readonly string nodeLTS = Node20_1Folder;
+        private static readonly string nodeLTS = Node24Folder;
         private const string useNodeKnobLtsKey = "LTS";
         private const string useNodeKnobUpgradeKey = "UPGRADE";
         private string[] possibleNodeFolders = { NodeFolder, Node10Folder, Node16Folder, Node20_1Folder, Node24Folder };
-        private static Regex _vstsTaskLibVersionNeedsFix = new Regex("^[0-2]\\.[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static string[] _extensionsNode6 ={
-            "if (process.versions.node && process.versions.node.match(/^5\\./)) {",
-            "   String.prototype.startsWith = function (str) {",
-            "       return this.slice(0, str.length) == str;",
-            "   };",
-            "   String.prototype.endsWith = function (str) {",
-            "       return this.slice(-str.length) == str;",
-            "   };",
-            "};",
-            "String.prototype.isEqual = function (ignoreCase, str) {",
-            "   var str1 = this;",
-            "   if (ignoreCase) {",
-            "       str1 = str1.toLowerCase();",
-            "       str = str.toLowerCase();",
-            "       }",
-            "   return str1 === str;",
-            "};"
-        };
         private bool? supportsNode20;
         private bool? supportsNode24;
 
@@ -149,37 +161,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             ArgUtil.NotNull(Inputs, nameof(Inputs));
             ArgUtil.Directory(TaskDirectory, nameof(TaskDirectory));
 
-            if (!PlatformUtil.RunningOnWindows && !AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
-            {
-                Dictionary<string, string> telemetryData = new Dictionary<string, string>
-                {
-                    { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
-                    { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
-                    { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
-                    { "MachineName", ExecutionContext.Variables.Get(Constants.Variables.Agent.MachineName)},
-                    { "AgentVersion", ExecutionContext.Variables.Get(Constants.Variables.Agent.Version)},
-                    { "IsSelfHosted", ExecutionContext.Variables.Get(Constants.Variables.Agent.IsSelfHosted)},
-                    { "IsAzureVM", ExecutionContext.Variables.Get(Constants.Variables.System.IsAzureVM)},
-                    { "IsDockerContainer", ExecutionContext.Variables.Get(Constants.Variables.System.IsDockerContainer)},
-                    { "VsoTaskLibUsed", "true" },
-                    { "Platform", PlatformUtil.HostOS.ToString() }
-                };
-                ExecutionContext.PublishTaskRunnerTelemetry(telemetryData);
-
-                await VsoTaskLibManager.DownloadVsoTaskLibAsync(ExecutionContext);
-                
-                // Ensure compat vso-task-lib exist at the root of _work folder
-                // This will make vsts-agent work against 2015 RTM/QU1 TFS, since tasks in those version doesn't package with task lib
-                // Put the 0.5.5 version vso-task-lib into the root of _work/node_modules folder, so tasks are able to find those lib.
-                string vsoTaskLibFromExternal = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), "vso-task-lib");
-                if (Directory.Exists(vsoTaskLibFromExternal) &&
-                    !File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib", "package.json")))
-                {
-                    string compatVsoTaskLibInWork = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), "node_modules", "vso-task-lib");
-                    IOUtil.CopyDirectory(vsoTaskLibFromExternal, compatVsoTaskLibInWork, ExecutionContext.CancellationToken);
-                }
-            }
-
             // Update the env dictionary.
             AddVariablesToEnvironment();
             AddInputsToEnvironment();
@@ -203,24 +184,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 {
                     workingDirectory = HostContext.GetDirectory(WellKnownDirectory.Work);
                 }
-            }
-
-            // fix vsts-task-lib for node 6.x
-            // vsts-task-lib 0.6/0.7/0.8/0.9/2.0-preview implemented String.prototype.startsWith and String.prototype.endsWith since Node 5.x doesn't have them.
-            // however the implementation is added in node 6.x, the implementation in vsts-task-lib is different.
-            // node 6.x's implementation takes 2 parameters str.endsWith(searchString[, length]) / str.startsWith(searchString[, length])
-            // the implementation vsts-task-lib had only takes one parameter str.endsWith(searchString) / str.startsWith(searchString).
-            // as long as vsts-task-lib be loaded into memory, it will overwrite the implementation node 6.x has,
-            // so any script that use the second parameter (length) will encounter unexpected result.
-            // to avoid customer hit this error, we will modify the file (extensions.js) under vsts-task-lib module folder when customer choose to use Node 6.x
-            if (!AgentKnobs.IgnoreVSTSTaskLib.GetValue(ExecutionContext).AsBoolean())
-            {
-                Trace.Info("Inspect node_modules folder, make sure vsts-task-lib doesn't overwrite String.startsWith/endsWith.");
-                FixVstsTaskLibModule();
-            }
-            else
-            {
-                Trace.Info("AZP_AGENT_IGNORE_VSTSTASKLIB enabled, ignoring fix");
             }
 
             StepHost.OutputDataReceived += OnDataReceived;
@@ -270,7 +233,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             }
             else
             {
-                file = GetNodeLocation(container.NeedsNode16Redirect, container.NeedsNode20Redirect, inContainer: true);
+                file = GetNodeLocation(container.Node20HasGlibcError, container.NeedsNode20Redirect, inContainer: true);
             }
 
             ExecutionContext.Debug("Using node path: " + file);
@@ -373,52 +336,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 case var folder when folder == NodeHandler.Node24Folder:
                     // Fallback if Node24 has glibc error OR doesn't exist (e.g., win-x86) or not executable (e.g, windows 2012 R2)
-                    bool node24NotExecutable = !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, this.HostContext, this.ExecutionContext);
+                    bool node24NotExecutable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node24Folder, HostContext) ||
+                        !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node24Folder, HostContext, ExecutionContext);
                     if (node24ResultsInGlibCError || node24NotExecutable)
                     {
-                        // Fallback to Node20, then Node16 only if Node16 exists on disk
-                        bool node20NotAvailableForNode24Fallback = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
-                        if (node20ResultsInGlibCError || node20NotAvailableForNode24Fallback)
-                        {
-                            // Only fall back to Node16 if it actually exists (e.g., vsts-agent or installed via task)
-                            if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
-                            {
-                                fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
-                                fallbackOccurred = true;
-                                NodeFallbackWarning("24", "16", inContainer, node24NotExecutable);
-                                return NodeHandler.Node16Folder;
-                            }
-                            // Node16 not available either — return Node20 folder and let caller handle the error
-                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
-                            fallbackOccurred = true;
-                            NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
-                            return NodeHandler.Node20_1Folder;
-                        }
-                        else
-                        {
-                            fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
-                            fallbackOccurred = true;
-                            NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
-                            return NodeHandler.Node20_1Folder;
-                        }
+                        fallbackReason = node24NotExecutable ? "NodeNotExecutable" : "GlibCError";
+                        fallbackOccurred = true;
+                        NodeFallbackWarning("24", "20", inContainer, node24NotExecutable);
+                        return GetNodeFolderWithFallback(Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
                     }
                     return NodeHandler.Node24Folder;
 
                 case var folder when folder == NodeHandler.Node20_1Folder:
                     // Fallback if Node20 has glibc error OR doesn't exist
-                    bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
+                    bool node20NotAvailable = !nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext) ||
+                        !nodeHandlerHelper.IsNodeExecutable(NodeHandler.Node20_1Folder, HostContext, ExecutionContext);
                     if (node20ResultsInGlibCError || node20NotAvailable)
                     {
-                        // Only fall back to Node16 if it actually exists on disk
-                        if (nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node16Folder, HostContext))
+                        if (Data is Node20_1HandlerData || Data is Node24HandlerData ||
+                            AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean())
+                        {
+                            throw new NotSupportedException(StringUtil.Loc("NodeVersionNotAvailable", Data?.GetType().Name ?? "Unknown"));
+                        }
+
+                        if (nodeHandlerHelper.IsNodeFolderExist(Node16Folder, HostContext))
                         {
                             fallbackReason = node20NotAvailable ? "NodeNotAvailable" : "GlibCError";
                             fallbackOccurred = true;
                             NodeFallbackWarning("20", "16", inContainer, node20NotAvailable);
-                            return NodeHandler.Node16Folder;
+                            return Node16Folder;
                         }
-                        // Node16 not available — stay on Node20 and let the caller handle the missing binary error
-                        return NodeHandler.Node20_1Folder;
+
+                        throw new NotSupportedException("No compatible bundled Node.js runtime is available. Update the agent operating system to support Node20 or Node24.");
                     }
                     return NodeHandler.Node20_1Folder;
 
@@ -430,10 +379,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
         public string GetNodeLocation(bool node20ResultsInGlibCError, bool node24ResultsInGlibCError, bool inContainer)
         {
             bool useStrategyPattern = AgentKnobs.UseEnhancedNodeSelection.GetValue(ExecutionContext).AsBoolean();
+            bool enforceEOLPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
             
-            if (useStrategyPattern)
+            if (useStrategyPattern || enforceEOLPolicy)
             {
-                ExecutionContext.Debug("Using enhanced node selection path for handler node resolution.");
+                ExecutionContext.Debug(enforceEOLPolicy
+                    ? "Using enhanced node selection to enforce the EOL node version policy."
+                    : "Using enhanced node selection path for handler node resolution.");
                 return GetNodeLocationUsingStrategy(inContainer).GetAwaiter().GetResult();
             }
 
@@ -469,11 +421,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             {
                 return ExecutionContext.StepTarget().CustomNodePath;
             }
-            bool useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsBoolean();
             bool useNode20_1 = AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean();
-            bool UseNode20InUnsupportedSystem = AgentKnobs.UseNode20InUnsupportedSystem.GetValue(ExecutionContext).AsBoolean();
             bool useNode24 = AgentKnobs.UseNode24.GetValue(ExecutionContext).AsBoolean();
-            bool UseNode24withHandlerData = AgentKnobs.UseNode24withHandlerData.GetValue(ExecutionContext).AsBoolean();
             bool taskHasNode6Data = Data is NodeHandlerData;
             bool taskHasNode10Data = Data is Node10HandlerData;
             bool taskHasNode16Data = Data is Node16HandlerData;
@@ -481,17 +430,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             bool taskHasNode24Data = Data is Node24HandlerData;
             string useNodeKnob = AgentKnobs.UseNode.GetValue(ExecutionContext).AsString();
 
-            //using Node20_1 as default node version
-            string nodeFolder = NodeHandler.Node20_1Folder;
-            if (taskHasNode24Data && UseNode24withHandlerData)
+            string nodeFolder;
+            if (useNode24)
             {
-                Trace.Info($"Task.json has node24 handler data: {taskHasNode24Data}");
+                Trace.Info($"Found UseNode24 knob, using node24 for node tasks: {useNode24}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
-            else if (taskHasNode20_1Data)
+            else if (useNode20_1)
             {
-                Trace.Info($"Task.json has node20_1 handler data: {taskHasNode20_1Data} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
+                Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+            }
+            else if (taskHasNode24Data || taskHasNode20_1Data)
+            {
+                Trace.Info("Using Node24 with Node20 fallback for a modern Node task handler.");
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (taskHasNode16Data)
             {
@@ -508,32 +461,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Task.json has node6 handler data: {taskHasNode6Data}");
                 nodeFolder = NodeHandler.NodeFolder;
             }
-            else if (PlatformUtil.RunningOnAlpine)
+            else
             {
-                Trace.Info($"Detected Alpine, using node10 instead of node (6)");
-                nodeFolder = NodeHandler.Node10Folder;
-            }
-
-            if (useNode24)
-            {
-                Trace.Info($"Found UseNode24 knob, using node24 for node tasks: {useNode24}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-            }
-            else if (useNode20_1)
-            {
-                Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
-                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
-            }
-            else if (useNode10)
-            {
-                Trace.Info($"Found UseNode10 knob, use node10 for node tasks: {useNode10}");
-                nodeFolder = NodeHandler.Node10Folder;
-            }
-            // Warn for deprecated node versions
-            if ((nodeFolder == NodeHandler.NodeFolder || nodeFolder == NodeHandler.Node10Folder || nodeFolder == NodeHandler.Node16Folder) &&
-                AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
-            {
-                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", Task.Name.ToString()));
             }
 
             if (!nodeHandlerHelper.IsNodeFolderExist(nodeFolder, HostContext))
@@ -572,6 +502,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
                 throw new FileNotFoundException(StringUtil.Loc("MissingNodePath", nodeHandlerHelper.GetNodeFolderPath(nodeFolder, HostContext)));
             }
+
+            bool isEolNodeRunner = nodeFolder == NodeFolder || nodeFolder == Node10Folder ||
+                nodeFolder == Node16Folder;
+            string taskName = Task?.Name?.ToString() ??
+                ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ??
+                "Unknown Task";
+            if (isEolNodeRunner)
+            {
+                ExecutionContext.Warning(StringUtil.Loc("NodeEOLRetirementWarning", taskName));
+            }
+
+            if (isEolNodeRunner && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                ExecutionContext.Warning(StringUtil.Loc("DeprecatedRunner", taskName));
+            }
+
             if (AgentKnobs.UseNewNodeHandlerTelemetry.GetValue(ExecutionContext).AsBoolean())
             {
                 try
@@ -614,56 +560,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
             if (!CommandManager.TryProcessCommand(ExecutionContext, e.Data))
             {
                 ExecutionContext.Output(e.Data);
-            }
-        }
-
-        private void FixVstsTaskLibModule()
-        {
-            // to avoid modify node_module all the time, we write a .node6 file to indicate we finsihed scan and modify.
-            // the current task is good for node 6.x
-            if (File.Exists(TaskDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + ".node6"))
-            {
-                Trace.Info("This task has already been scanned and corrected, no more operation needed.");
-            }
-            else
-            {
-                Trace.Info("Scan node_modules folder, looking for vsts-task-lib\\extensions.js");
-                try
-                {
-                    foreach (var file in new DirectoryInfo(TaskDirectory).EnumerateFiles("extensions.js", SearchOption.AllDirectories))
-                    {
-                        if (string.Equals(file.Directory.Name, "vsts-task-lib", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(file.Directory.Name, "vso-task-lib", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (File.Exists(Path.Combine(file.DirectoryName, "package.json")))
-                            {
-                                // read package.json, we only do the fix for 0.x->2.x
-                                JObject packageJson = JObject.Parse(File.ReadAllText(Path.Combine(file.DirectoryName, "package.json")));
-
-                                JToken versionToken;
-                                if (packageJson.TryGetValue("version", StringComparison.OrdinalIgnoreCase, out versionToken))
-                                {
-                                    if (_vstsTaskLibVersionNeedsFix.IsMatch(versionToken.ToString()))
-                                    {
-                                        Trace.Info($"Fix extensions.js file at '{file.FullName}'. The vsts-task-lib version is '{versionToken.ToString()}'");
-
-                                        // take backup of the original file
-                                        File.Copy(file.FullName, Path.Combine(file.DirectoryName, "extensions.js.vstsnode5"));
-                                        File.WriteAllLines(file.FullName, _extensionsNode6);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    File.WriteAllText(TaskDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + ".node6", string.Empty);
-                    Trace.Info("Finished scan and correct extensions.js under vsts-task-lib");
-                }
-                catch (Exception ex)
-                {
-                    Trace.Error("Unable to scan and correct potential bug in extensions.js of vsts-task-lib.");
-                    Trace.Error(ex);
-                }
             }
         }
 
