@@ -1053,10 +1053,10 @@ namespace Agent.Plugins.Repository
                 throw new InvalidOperationException($"Git fetch failed with exit code: {exitCode_fetch}");
             }
 
-            // If checking out by commit, explicity fetch it
+            // If checking out by commit, explicitly fetch it unless the preceding fetch already did so.
             // This is done as a separate fetch rather than adding an additional refspec on the proceeding fetch to prevent overriding previous behavior which may have dependencies in other tasks
             // i.e. "git fetch origin" versus "git fetch origin commit"
-            if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion))
+            if (fetchByCommit && !string.IsNullOrEmpty(sourceVersion) && refFetchedByCommit == null)
             {
                 List<string> commitFetchSpecs = new List<string>() { $"+{sourceVersion}" };
                 exitCode_fetch = await gitCommandManager.GitFetch(executionContext, targetPath, "origin", fetchDepth, additionalFetchFilterOptions, fetchTags, commitFetchSpecs, string.Join(" ", additionalFetchArgs), cancellationToken);
