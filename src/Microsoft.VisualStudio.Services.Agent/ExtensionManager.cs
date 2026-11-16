@@ -46,6 +46,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 case "Microsoft.VisualStudio.Services.Agent.Capabilities.ICapabilitiesProvider":
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.AgentCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
                     Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.EnvironmentCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
+                    Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.PwshCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");
                     if (PlatformUtil.RunningOnLinux || PlatformUtil.RunningOnMacOS)
                     {
                         Add<T>(extensions, "Microsoft.VisualStudio.Services.Agent.Capabilities.NixCapabilitiesProvider, Microsoft.VisualStudio.Services.Agent");

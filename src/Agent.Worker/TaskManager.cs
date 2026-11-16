@@ -616,6 +616,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private Node16HandlerData _node16;
         private Node20_1HandlerData _node20_1;
         private Node24HandlerData _node24;
+        private PwshHandlerData _pwsh;
         private PowerShellHandlerData _powerShell;
         private PowerShell3HandlerData _powerShell3;
         private PowerShellExeHandlerData _powerShellExe;
@@ -709,6 +710,21 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             set
             {
                 _node24 = value;
+                Add(value);
+            }
+        }
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public PwshHandlerData Pwsh
+        {
+            get
+            {
+                return _pwsh;
+            }
+
+            set
+            {
+                _pwsh = value;
                 Add(value);
             }
         }
@@ -912,6 +928,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     }
 
     public sealed class PowerShell3HandlerData : HandlerData
+    {
+        public override int Priority => 106;
+    }
+
+    public sealed class PwshHandlerData : HandlerData
     {
         public override int Priority => 106;
     }
