@@ -183,7 +183,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
                     string actualLocation = nodeHandler.GetNodeLocation(node20ResultsInGlibCError: false, node24ResultsInGlibCError: false, inContainer: false);
                     string expectedLocation = Path.Combine(thc.GetDirectory(WellKnownDirectory.Externals),
-                        nodeVersion == "node20_1" ? "node24" : nodeVersion,
+                        nodeVersion,
                         "bin",
                         $"node{IOUtil.ExeExtension}");
                     Assert.Equal(expectedLocation, actualLocation);

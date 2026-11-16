@@ -85,7 +85,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 handlerData: typeof(Node20_1HandlerData),
                 customNodePath: "",
                 inContainer: false,
-                expectedNode: "node24"
+                legacyExpectedNode: "node20_1",
+                strategyExpectedNode: "node24"
             ),
 
             new TestScenario(
@@ -412,10 +413,20 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // ========================================================================================
             new TestScenario(
                 name: "Node20_DefaultBehavior_WithHandler",
-                description: "Node20 handler prefers Node24 by default",
+                description: "Node20 handler uses Node20 in legacy selection and prefers Node24 with enhanced selection",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() { },
-                expectedNode: "node24"
+                legacyExpectedNode: "node20_1",
+                strategyExpectedNode: "node24"
+            ),
+
+            new TestScenario(
+                name: "Node20_GlibcError_LegacyFails_EnhancedUsesNode24",
+                description: "Legacy selection fails when Node20 cannot run; enhanced selection can use Node24",
+                handlerData: typeof(Node20_1HandlerData),
+                node20GlibcError: true,
+                legacyExpectedErrorType: typeof(NotSupportedException),
+                strategyExpectedNode: "node24"
             ),
             
             new TestScenario(
@@ -463,15 +474,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             // ========================================================================================
                       
             new TestScenario( 
-                name: "Node20_AllGlobalKnobsDisabled_PrefersNode24",
-                description: "Node20 handler prefers Node24 without global overrides",
+                name: "Node20_AllGlobalKnobsDisabled",
+                description: "Node20 handler selection depends on the selection mode without global overrides",
                 handlerData: typeof(Node20_1HandlerData),
                 knobs: new() 
                 { 
                     ["AGENT_USE_NODE20_1"] = "false",
                     ["AGENT_USE_NODE24"] = "false"
                 },
-                expectedNode: "node24"
+                legacyExpectedNode: "node20_1",
+                strategyExpectedNode: "node24"
             ),
 
             
@@ -553,8 +565,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
 
             new TestScenario(
                 name: "Node24NotExecutable_fallsBackToNode20_1",
-                description: "Node24 handler with Node24 not executable: falls back to Node20_1 in container",
-                handlerData: typeof(Node20_1HandlerData),
+                description: "Node24 handler falls back to Node20 when Node24 is not executable",
+                handlerData: typeof(Node24HandlerData),
                 node24Executable: false,
                 expectedNode: "node20_1"
             ),

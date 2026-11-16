@@ -184,7 +184,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
-        [InlineData(false, 20, true, true, false, false, false, 24)]
+        [InlineData(false, 20, true, true, false, false, false, 20)]
         [InlineData(true, 20, true, true, false, false, false, 24)]
         [InlineData(false, 24, true, true, false, false, false, 24)]
         [InlineData(true, 24, true, true, false, false, false, 24)]
@@ -192,7 +192,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData(true, 20, false, true, false, false, false, 20)]
         [InlineData(false, 24, false, true, false, false, false, 20)]
         [InlineData(true, 24, false, true, false, false, false, 20)]
-        [InlineData(false, 20, true, false, false, false, false, 24)]
+        [InlineData(false, 20, true, false, false, false, false, 0)]
         [InlineData(true, 20, true, false, false, false, false, 24)]
         [InlineData(false, 20, true, true, true, false, false, 20)]
         [InlineData(true, 20, true, true, true, false, false, 20)]
@@ -212,11 +212,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData(true, 16, true, true, false, false, false, 16)]
         [InlineData(false, 16, true, true, false, false, true, 24)]
         [InlineData(true, 16, true, true, false, false, true, 24)]
+        [InlineData(false, 20, true, false, false, false, true, 24)]
+        [InlineData(true, 20, true, true, false, false, true, 24)]
         [InlineData(false, 24, true, true, false, true, true, 20)]
         [InlineData(true, 24, true, true, false, true, true, 20)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void NodeSelection_PrefersNode24_PreservesLegacyHandlersAndStrictNode20Pin(
+        public void NodeSelection_RespectsSelectionModeAndStrictNode20Pin(
             bool useStrategy, int handlerVersion, bool node24Available, bool node20Available,
             bool node24GlibcError, bool pinNode20, bool eolPolicy, int expectedVersion)
         {

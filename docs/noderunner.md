@@ -30,7 +30,7 @@ Task maintainers should update task dependencies for Node 24 compatibility, decl
 }
 ```
 
-Use an up-to-date agent on a platform that supports Node 24. Node 20 and Node 24 task handlers run on Node 24 by default, falling back to Node 20 only when Node 24 is missing or cannot run. If neither runtime can run, the task fails rather than falling back to a legacy runner.
+Use an up-to-date agent on a platform that supports Node 24. With enhanced selection and the EOL policy disabled, a Node 20-only handler uses Node 20 and fails if it cannot run, while a Node 24 handler tries Node 24 and then Node 20. With enhanced selection or the EOL policy enabled, both handlers prefer Node 24 and fall back to Node 20. Fallback changes the runtime, not the selected handler. If neither runtime can run, the task fails rather than falling back to a legacy runner. Global overrides and custom Node paths can change the selection.
 Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
 

@@ -81,7 +81,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 // CmdLineV2 runs on powershell on windows
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    // Node20 tasks prefer Node24 when it is included in the platform's package.
+                    // This CmdLine fixture declares both Node24 and Node20 handlers.
                     string expectedNode = System.IO.File.Exists(System.IO.Path.Combine(
                         _l1HostContext.GetDirectory(WellKnownDirectory.Externals), "node24", "bin", "node"))
                         ? "node24" : "node20_1";

@@ -441,10 +441,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                 Trace.Info($"Found UseNode20_1 knob, using node20_1 for node tasks {useNode20_1} node20ResultsInGlibCError = {node20ResultsInGlibCError}");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
-            else if (taskHasNode24Data || taskHasNode20_1Data)
+            else if (taskHasNode24Data)
             {
-                Trace.Info("Using Node24 with Node20 fallback for a modern Node task handler.");
+                Trace.Info("Using Node24 with Node20 fallback for a Node24 task handler.");
                 nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node24Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
+            }
+            else if (taskHasNode20_1Data)
+            {
+                Trace.Info("Using Node20 for a Node20 task handler.");
+                nodeFolder = GetNodeFolderWithFallback(NodeHandler.Node20_1Folder, node20ResultsInGlibCError, node24ResultsInGlibCError, inContainer);
             }
             else if (taskHasNode16Data)
             {
