@@ -115,19 +115,3 @@ stages:
         GH_TOKEN: '$(GitHubPAT)'
       displayName: Open a PR
       condition: and(succeeded(), or(and(eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule')), eq(variables['build.reason'], 'Manual')))
-    
-    # Two next tasks are used to notify about Localization update PRs
-    # Notifications are set by POST method to MS Teams webhook
-    # Body of message is compiled as Office 365 connector card
-    # More details about cards - https://docs.microsoft.com/en-us/microsoftteams/platform/task-modules-and-cards/cards/cards-reference#office-365-connector-card
-    - powershell: .\send-notifications.ps1 -IsPRCreated $true -RepoName "Agent"
-      env:
-        TEAMS_WEBHOOK: $(MSTeamsUri)
-      displayName: 'Send MS Teams notification about PR opened'
-      condition: and(succeeded(), or(and(eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule')), eq(variables['build.reason'], 'Manual')))
-
-    - powershell: .\send-notifications.ps1 -IsPRCreated $false -RepoName "Agent"
-      env:
-        TEAMS_WEBHOOK: $(MSTeamsUri)
-      displayName: 'Send MS Teams notification about error'
-      condition: and(failed(), or(and(eq(variables['SHOULDCREATEPR'], 'True'), eq(variables['build.reason'], 'Schedule')), eq(variables['build.reason'], 'Manual')))
