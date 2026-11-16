@@ -24,6 +24,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
         [InlineData(false, false, 20)]
         [InlineData(false, true, 20)]
         [InlineData(true, false, 0)]
+        [InlineData(true, true, 0)]
+        [InlineData(true, false, 24)]
+        [InlineData(true, true, 24)]
         [Trait("Level", "L1")]
         [Trait("Category", "Worker")]
         public async Task Node6Handler_WarnsWhenRedirected(bool eolPolicy, bool enhancedSelection, int forcedNodeVersion)
@@ -35,6 +38,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 Guid taskId = Guid.NewGuid();
                 string externalsDirectory = _l1HostContext.GetDirectory(WellKnownDirectory.Externals);
                 string node24Path = Path.Combine(externalsDirectory, "node24", "bin", $"node{IOUtil.ExeExtension}");
+                bool expectMissingLegacyRunner = enhancedSelection && !eolPolicy &&
+                    forcedNodeVersion == 24 && !File.Exists(node24Path);
+                if (expectMissingLegacyRunner)
+                {
+                    Assert.False(File.Exists(Path.Combine(externalsDirectory, "node", "bin", $"node{IOUtil.ExeExtension}")),
+                        "This scenario requires a layout without a manually installed Node 6 runner.");
+                }
                 int expectedNodeVersion = forcedNodeVersion == 20 || !File.Exists(node24Path) ? 20 : 24;
                 if (expectedNodeVersion == 20)
                 {
@@ -76,13 +86,22 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var result = await RunWorker(message);
 
                 AssertJobCompleted();
-                Assert.Equal(TaskResult.Succeeded, result.Result);
+                Assert.Equal(expectMissingLegacyRunner ? TaskResult.Failed : TaskResult.Succeeded, result.Result);
                 var step = GetSteps().Single(record => record.Name == "Node 6 warning probe");
                 string warning = StringUtil.Loc("DeprecatedNodeRunner", "Node 6 warning probe", "1.0.0", "Node6WarningProbe", "6");
                 Assert.Contains("(6)", warning);
                 Assert.Contains("end-of-life", warning);
                 Assert.Contains(step.Issues, issue => issue.Type == IssueType.Warning && issue.Message == warning);
-                Assert.Contains(GetTimelineLogLines(step), line => line.Contains($"NODE6_HANDLER_RAN_ON_NODE_{expectedNodeVersion}"));
+                if (expectMissingLegacyRunner)
+                {
+                    Assert.Contains(step.Issues, issue => issue.Type == IssueType.Error &&
+                        issue.Message.Contains("No compatible Node.js version available for host execution."));
+                    Assert.DoesNotContain(GetTimelineLogLines(step), line => line.Contains("NODE6_HANDLER_RAN_ON_NODE_"));
+                }
+                else
+                {
+                    Assert.Contains(GetTimelineLogLines(step), line => line.Contains($"NODE6_HANDLER_RAN_ON_NODE_{expectedNodeVersion}"));
+                }
             }
             finally
             {

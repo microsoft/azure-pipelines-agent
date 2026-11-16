@@ -121,6 +121,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
+        [InlineData(6, false, false)]
+        [InlineData(6, false, true)]
+        [InlineData(6, true, false)]
+        [InlineData(6, true, true)]
+        [InlineData(10, false, false)]
+        [InlineData(10, false, true)]
+        [InlineData(10, true, false)]
+        [InlineData(10, true, true)]
+        [InlineData(16, false, false)]
+        [InlineData(16, false, true)]
+        [InlineData(16, true, false)]
+        [InlineData(16, true, true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task LegacySelectionWithoutNode24_UsesNode20OnlyWithEolPolicy(
+            int handlerVersion, bool eolPolicy, bool useNode24)
+        {
+            using (var thc = new TestHostContext(this))
+            {
+                thc.SetSingleton<IGlibcCompatibilityInfoProvider>(CreateGlibcProvider().Object);
+                var executionContext = CreateExecutionContext(thc, new Dictionary<string, VariableValue>
+                {
+                    ["AGENT_RESTRICT_EOL_NODE_VERSIONS"] = eolPolicy.ToString(),
+                    ["AGENT_USE_NODE24"] = useNode24.ToString()
+                });
+                var helper = CreateNodeHandlerHelper(nodeFolderExists: true);
+                helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node24Folder, It.IsAny<IHostContext>()))
+                    .Returns(false);
+                var context = new TaskContext
+                {
+                    HandlerData = handlerVersion switch
+                    {
+                        6 => new NodeHandlerData(),
+                        10 => new Node10HandlerData(),
+                        16 => new Node16HandlerData(),
+                        _ => throw new ArgumentOutOfRangeException(nameof(handlerVersion))
+                    }
+                };
+                var orchestrator = new NodeVersionOrchestrator(executionContext.Object, thc, helper.Object);
+
+                var result = await orchestrator.SelectNodeVersionForHostAsync(context);
+
+                NodeVersion expectedVersion = eolPolicy ? NodeVersion.Node20 : handlerVersion switch
+                {
+                    6 => NodeVersion.Node6,
+                    10 => NodeVersion.Node10,
+                    16 => NodeVersion.Node16,
+                    _ => throw new ArgumentOutOfRangeException(nameof(handlerVersion))
+                };
+                Assert.Equal(expectedVersion, result.NodeVersion);
+                Assert.Equal(helper.Object.GetNodeFolderPath(
+                    NodeVersionHelper.GetFolderName(result.NodeVersion), thc), result.NodePath);
+                if (eolPolicy)
+                {
+                    Assert.Equal(StringUtil.Loc("NodeEOLUpgradeWarning", "Unknown Task"), result.Warning);
+                    helper.Setup(x => x.IsNodeFolderExist(NodeHandler.Node20_1Folder, It.IsAny<IHostContext>()))
+                        .Returns(false);
+                    await Assert.ThrowsAsync<NotSupportedException>(() => orchestrator.SelectNodeVersionForHostAsync(context));
+                }
+            }
+        }
+
+        [Theory]
         [InlineData(false, 20, true, true, false, false, false, 24)]
         [InlineData(true, 20, true, true, false, false, false, 24)]
         [InlineData(false, 24, true, true, false, false, false, 24)]
