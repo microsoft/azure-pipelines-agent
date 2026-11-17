@@ -127,7 +127,7 @@ Common runtime identifiers:
 
 ### Package Types
 - `agent` (default): Full agent package
-- `pipelines-agent`: Pipelines-specific package (excludes Node 6/10)
+- `pipelines-agent`: Pipelines-specific package (same Node runners as `agent`)
 
 ## Code Style
 

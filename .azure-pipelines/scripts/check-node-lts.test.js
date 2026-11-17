@@ -35,10 +35,10 @@ const analyzeSource = (text = source, options = {}) => analyze(readPinnedVersion
     options.releases ?? releases, options.advisories ?? { 1: advisory },
     options.schedule ?? schedule, options.asOf ?? asOf);
 
-test('pin parsing: legacy/platform names and invalid assignments', () => {
-    assert.deepEqual(readPinnedVersions('NODE_VERSION="6.17.1"\r\nNODE16_WIN_ARM64_VERSION="16.9.1"\r\nMINGIT_VERSION="2.55.0"'), [
-        { variable: 'NODE_VERSION', major: 6, version: '6.17.1' },
-        { variable: 'NODE16_WIN_ARM64_VERSION', major: 16, version: '16.9.1' }
+test('pin parsing: bundled/platform names and invalid assignments', () => {
+    assert.deepEqual(readPinnedVersions('NODE20_VERSION="20.20.2"\r\nNODE24_WIN_ARM64_VERSION="24.22.1"\r\nMINGIT_VERSION="2.55.0"'), [
+        { variable: 'NODE20_VERSION', major: 20, version: '20.20.2' },
+        { variable: 'NODE24_WIN_ARM64_VERSION', major: 24, version: '24.22.1' }
     ]);
     for (const text of ['# ' + pin('24.18.1'), pin('24.18.1') + '\n' + pin('24.22.1'),
         pin('24.bad.0'), pin('24.22.1-rc.1'), 'NODE24_VERSION="22.21.0"', 'NODE24_VERSION="24.18.1']) {

@@ -45,9 +45,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             // that even a global override / EOL upgrade cannot select a missing Node20.
             var hostContext = executionContext.GetHostContext();
             string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
-            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext) ||
+                !_nodeHandlerHelper.IsNodeExecutable(node20Folder, hostContext, executionContext))
             {
-                executionContext.Debug("[Node20Strategy] Node20 binary not found on disk, skipping to allow fallback to next strategy");
+                executionContext.Debug("[Node20Strategy] Node20 binary is missing or cannot execute, skipping");
                 return null;
             }
 
@@ -115,14 +116,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();        
-            if (!useNode20ToStartContainer)
-            {
-                executionContext.Debug("[Node20Strategy] UseNode20ToStartContainer=false, cannot handle container");
-                return null;
-            }
-
-            executionContext.Debug("[Node20Strategy] UseNode20ToStartContainer=true, checking Node20 availability in container");
+            executionContext.Debug("[Node20Strategy] Checking Node20 availability in container");
 
             try
             {
@@ -132,7 +126,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     {
                         NodePath = null,
                         NodeVersion = NodeVersion.Node20,
-                        Reason = "Node20 available in container via UseNode20ToStartContainer knob",
+                        Reason = "Node20 available in container as fallback",
                         Warning = null
                     };
                 }

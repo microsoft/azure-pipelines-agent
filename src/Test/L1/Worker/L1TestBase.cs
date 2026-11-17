@@ -367,7 +367,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private void ResetNodeKnobs()
         {
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);

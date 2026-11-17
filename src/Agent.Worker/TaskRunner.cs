@@ -696,7 +696,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             try
             {
-                var useNode10 = AgentKnobs.UseNode10.GetValue(ExecutionContext).AsString();
                 var expectedExecutionHandler = (taskDefinition.Data.Execution?.All != null) ? string.Join(", ", taskDefinition.Data.Execution.All) : "";
                 var systemVersion = PlatformUtil.GetSystemVersion();
 
@@ -710,7 +709,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     { "OSBuild", systemVersion?.Version?.ToString() ?? "" },
                     { "ExpectedExecutionHandler", expectedExecutionHandler },
                     { "RealExecutionHandler", handlerData.ToString() },
-                    { "UseNode10", useNode10 },
                     { "JobId", ExecutionContext.Variables.System_JobId.ToString()},
                     { "PlanId", ExecutionContext.Variables.Get(Constants.Variables.System.PlanId)},
                     { "AgentName", ExecutionContext.Variables.Get(Constants.Variables.Agent.Name)},
