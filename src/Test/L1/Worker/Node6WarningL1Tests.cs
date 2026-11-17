@@ -45,8 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                     Assert.False(File.Exists(Path.Combine(externalsDirectory, "node", "bin", $"node{IOUtil.ExeExtension}")),
                         "This scenario requires a layout without a manually installed Node 6 runner.");
                 }
+                bool expectEolFailure = eolPolicy && !File.Exists(node24Path);
                 int expectedNodeVersion = forcedNodeVersion == 20 || !File.Exists(node24Path) ? 20 : 24;
-                if (expectedNodeVersion == 20)
+                if (expectedNodeVersion == 20 && !expectEolFailure)
                 {
                     string node20Path = Path.Combine(externalsDirectory, "node20_1", "bin", $"node{IOUtil.ExeExtension}");
                     Assert.True(File.Exists(node20Path), "The Node 20 runtime is required for this test.");
@@ -86,7 +87,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 var result = await RunWorker(message);
 
                 AssertJobCompleted();
-                Assert.Equal(expectMissingLegacyRunner ? TaskResult.Failed : TaskResult.Succeeded, result.Result);
+                Assert.Equal(expectMissingLegacyRunner || expectEolFailure ? TaskResult.Failed : TaskResult.Succeeded, result.Result);
                 var step = GetSteps().Single(record => record.Name == "Node 6 warning probe");
                 string warning = StringUtil.Loc("DeprecatedNodeRunner", "Node 6 warning probe", "1.0.0", "Node6WarningProbe", "6");
                 Assert.Contains("(6)", warning);
@@ -96,6 +97,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
                 {
                     Assert.Contains(step.Issues, issue => issue.Type == IssueType.Error &&
                         issue.Message.Contains("No compatible Node.js version available for host execution."));
+                    Assert.DoesNotContain(GetTimelineLogLines(step), line => line.Contains("NODE6_HANDLER_RAN_ON_NODE_"));
+                }
+                else if (expectEolFailure)
+                {
+                    Assert.Contains(step.Issues, issue => issue.Type == IssueType.Error);
                     Assert.DoesNotContain(GetTimelineLogLines(step), line => line.Contains("NODE6_HANDLER_RAN_ON_NODE_"));
                 }
                 else
