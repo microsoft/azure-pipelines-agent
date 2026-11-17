@@ -69,9 +69,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         private Mock<IAsyncCommandContext> _asyncCommandContext;
         private TestHostContext CreateTestContext(CancellationTokenSource _tokenSource, [CallerMemberName] String testName = "")
         {
-            // Prevent L0 tests from making a real HTTP download of Node 6
-            Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", "true");
-
             var hc = new TestHostContext(this, testName);
             _jobEc = new Agent.Worker.ExecutionContext();
             _taskManager = new Mock<ITaskManager>();
@@ -289,9 +286,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
         private TestHostContext CreateMSITestContext(CancellationTokenSource _tokenSource, [CallerMemberName] String testName = "")
         {
-            // Prevent L0 tests from making a real HTTP download of Node 6
-            Environment.SetEnvironmentVariable("AGENT_DISABLE_NODE6_TASKS", "true");
-
             TestHostContext hc = new TestHostContext(this, testName);
             _jobEc = new Agent.Worker.ExecutionContext();
             _taskManager = new Mock<ITaskManager>();

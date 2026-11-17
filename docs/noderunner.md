@@ -6,11 +6,13 @@ Agent tasks can be implemented in PowerShell or Node. Use Node 24 as the runner 
 
 | Node version | Status |
 |--------------|--------|
-| 6, 10, 16, 20 | Deprecated; end-of-life upstream. Migrate tasks to Node 24. |
+| 20 | End-of-life; migrate tasks to Node 24. |
 | 24 | Recommended task runner. |
 
-Deprecated runners may remain in some agent packages for backward compatibility. Their presence does not imply ongoing upstream security support.
+Only Node 20 and Node 24 are bundled, subject to platform availability. Older runners are not bundled or automatically downloaded.
 See [Agent packages and Node versions](agentpakcages.md) for the runtimes included in each package.
+
+The agent no longer downloads or copies the legacy `vso-task-lib` compatibility library for TFS 2015 tasks. Tasks must provide their own dependencies.
 
 For the Node runner deprecation and removal schedule, see [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops).
 
@@ -28,11 +30,19 @@ Task maintainers should update task dependencies for Node 24 compatibility, decl
 }
 ```
 
-Use an up-to-date agent on a platform that supports Node 24. Handler selection also depends on the agent's Node 24 rollout settings.
+Use an up-to-date agent on a platform that supports Node 24. With enhanced selection and the EOL policy disabled, a Node 20-only handler uses Node 20 and fails if it cannot run, while a Node 24 handler tries Node 24 and then Node 20. With enhanced selection or the EOL policy enabled, both handlers prefer Node 24 and fall back to Node 20. Fallback changes the runtime, not the selected handler. If neither runtime can run, the task fails rather than falling back to a legacy runner. Global overrides and custom Node paths can change the selection.
 Pipeline users should update to a task version that supports Node 24, or ask the task maintainer to migrate.
 Installing Node with `NodeTool` changes the version available to pipeline scripts; it does not change a task's execution handler.
 
-The installation instructions below are for legacy compatibility only. Installing a deprecated runner does not restore upstream support and is not a substitute for migrating tasks to Node 24.
+Set `AGENT_RESTRICT_EOL_NODE_VERSIONS=true` to run tasks targeting end-of-life Node handlers on Node 24. If Node 24 is unavailable or cannot run, the agent falls back to Node 20, and fails if Node 20 is also unavailable; it never falls back to an older runner. With the policy disabled, legacy handlers may still use a runner that is present in the selected agent package or manually installed.
+
+Without EOL policy or a global Node override, Node 6, Node 10, and Node 16 handlers retain task-declared runner selection. `AGENT_USE_NODE24=true` upgrades all Node task handlers to Node 24 when it is available. With enhanced selection and EOL policy disabled, an unavailable Node 24 leaves legacy handlers using their manually installed runners, or failing if those runners are missing; enabling EOL policy instead selects Node 20 when it is available, regardless of `AGENT_USE_NODE24`. `AGENT_USE_NODE20_1=true` explicitly selects Node 20 and fails if it is missing or incompatible, subject to the glibc override below; it does not upgrade to Node 24 or fall back to a legacy runner. If both global overrides are enabled, `AGENT_USE_NODE24` takes precedence. In legacy selection, `AGENT_USE_NODE=LTS` uses Node 24 when a legacy task's declared runner is missing; `AGENT_USE_NODE=upgrade` retains its existing legacy-runner upgrade behavior.
+
+When a Node 6 handler is selected, the agent always warns that it is end-of-life, including when a policy or override runs the task on a newer Node version.
+
+`AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM=true` and `AGENT_USE_NODE24_IN_UNSUPPORTED_SYSTEM=true` suppress fallback for the respective runner's recognized glibc compatibility errors. They do not select a runner or bypass other executable checks, and cannot make an incompatible runtime work. Container startup still requires a runnable Node executable.
+
+Job-container startup also tries the agent's Node 24 runtime first, then Node 20. If neither can run and Node 16 has been installed manually in `externals/node16`, startup falls back to it (unless the EOL policy is enabled); otherwise it fails. Explicit custom Node paths and platforms that require the container's own Node remain unchanged.
 
 ## Manual runner installation paths
 
@@ -44,58 +54,6 @@ The agent uses the following executable paths for legacy runners, relative to th
 | Node 10 | `externals\node10\bin\node.exe` | `externals/node10/bin/node` |
 | Node 16 | `externals\node16\bin\node.exe` | `externals/node16/bin/node` |
 
-Use the matching Node major version for each folder. Installing a runner makes it available to the agent; it does not force the agent to select it or bypass the end-of-life Node restriction policy. These runners are end-of-life, and installing them does not restore upstream support.
+Use the matching Node major version for each folder. Installing a runner makes it available for task-handler selection; it does not force the agent to select it or bypass the end-of-life Node restriction policy. These runners are end-of-life, and installing them does not restore upstream support.
 
-The examples below install Node 6. To install Node 10 or Node 16, replace the Node version in the download URL and archive name with the desired version, and replace the destination folder `node` with `node10` or `node16`, respectively. Keep the executable inside the destination's `bin` directory.
-
-## Install Node 6 runner manually
-
-For legacy Node 6 tasks, the runner must be present in the agent's `externals/node` directory. Node 6 is deprecated and no longer receives upstream security updates.
-
-Please use the following steps to manually install the required runner:
-
-1. Download the latest available version of Node 6 binaries for your operating system from the official Node [registry](https://nodejs.org/dist/).
-
-1. Create a folder named `node` under the agent's `externals` directory. Place the executable at `externals\node\bin\node.exe` on Windows or `externals/node/bin/node` on Linux/macOS. When extracting a tar archive, remove its top-level directory so it does not introduce an extra directory between `node` and `bin`.
-
-The agent looks for the executable at this exact path; placing it directly in `externals/node` or leaving the archive's top-level directory in place will not work. Use a binary compatible with the agent's operating system and architecture, and ensure the agent account can execute it.
-
-You can also use the following commands to install the Node 6 runner via the Powershell or Bash:
-
-Windows:
-```powershell
-    $agentFolder = ""   # Specify the Azure DevOps Agent folder, e.g. C:\agents\my_agent
-    $osArch = ""        # Specify the OS architecture, e.g. x64 / x86
-
-    New-Item -ItemType Directory -Force -Path "${agentFolder}\externals\node\bin"
-
-    Invoke-WebRequest -Uri "https://nodejs.org/dist/v6.17.1/win-${osArch}/node.exe" -OutFile "${agentFolder}\externals\node\bin\node.exe"
-    Invoke-WebRequest -Uri "https://nodejs.org/dist/v6.17.1/win-${osArch}/node.lib" -OutFile "${agentFolder}\externals\node\bin\node.lib"
-```
-
-Linux / macOS:
-```bash
-    agent_folder=""   # Specify the Azure DevOps Agent folder, e.g. /home/user/agents/my_agent
-    os_platform=""    # Specify the OS platform, e.g. linux / darwin
-    os_arch=""        # Specify the OS architecture, e.g. x64 / x86
-
-    mkdir -p "${agent_folder}/externals/node"
-
-    wget -O "/tmp/node-v6.17.1-${os_platform}-${os_arch}.tar.gz" "https://nodejs.org/dist/v6.17.1/node-v6.17.1-${os_platform}-${os_arch}.tar.gz"
-
-    tar -xzvf "/tmp/node-v6.17.1-${os_platform}-${os_arch}.tar.gz" -C "${agent_folder}/externals/node/" --strip-components=1
-```
-
-## Install Node runner via NodeTaskRunnerInstaller
-
-For legacy tasks that cannot yet be migrated, you can use the Azure DevOps task [NodeTaskRunnerInstaller](https://github.com/microsoft/azure-pipelines-tasks/tree/master/Tasks/NodeTaskRunnerInstallerV0) to install a legacy runner via Azure DevOps CI.
-
-The following example installs the deprecated Node 6 runner for legacy task compatibility only:
-
-```yaml
-  - task: NodeTaskRunnerInstaller@0
-    inputs:
-      runnerVersion: 6
-```
-
-Please, check more details in [NodeTaskRunnerInstaller task](https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/node-task-runner-installer-v0) documentation.
+Use a binary compatible with the agent's operating system and architecture, and ensure the agent account can execute it. Keep the executable at the exact path above; placing it directly in the runner folder or leaving an archive's top-level directory in place will not work.

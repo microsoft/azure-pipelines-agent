@@ -268,7 +268,6 @@
   "DeploymentMachineWithSameNameAlreadyExistInDeploymentGroup": "DeploymentGroup {0} already contains a machine with name {1}.",
   "DeploymentPoolName": "Deployment Pool name",
   "DeploymentPoolNotFound": "Deployment pool not found: '{0}'",
-  "DeprecatedNode6": "This task uses Node 6 execution handler, which will be removed March 31st 2022. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10 (check this page also if you would like to disable Node 6 deprecation warnings). If you are the user - feel free to reach out to the owners of this task to proceed on migration.",
   "DeprecatedNodeRunner": "Task '{0}' version {1} ({2}@{1}) is dependent on a Node version ({3}) that is end-of-life. Contact the extension owner for an updated version of the task. Task maintainers should review Node upgrade guidance: https://aka.ms/node-runner-guidance",
   "DeprecatedRunner": "Task '{0}' is dependent on a task runner that is end-of-life and will be removed in the future. Authors should review Node upgrade guidance: https://aka.ms/node-runner-guidance.",
   "DeprecationMessage": "Task '{0}' version {1} ({2}@{1}) is deprecated.",
