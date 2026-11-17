@@ -195,7 +195,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob UseNode20_1 = new Knob(
             nameof(UseNode20_1),
-            "Forces the agent to use Node 20 handler for all Node-based tasks",
+            "Forces Node 20 for Node-based tasks unless the EOL policy requires Node 24",
             new RuntimeKnobSource("AGENT_USE_NODE20_1"),
             new EnvironmentKnobSource("AGENT_USE_NODE20_1"),
             new BuiltInDefaultKnobSource("false"));
@@ -225,7 +225,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob WarnOnNode20Task = new Knob(
             nameof(WarnOnNode20Task),
-            "If true, warns when the enhanced Node selection strategy runs a task authored for the Node 20 handler.",
+            "Emits an end-of-life retirement warning when Node 20 is selected.",
             new PipelineFeatureSource("WarnOnNode20Task"),
             new RuntimeKnobSource("AGENT_WARN_ON_NODE20_TASK"),
             new EnvironmentKnobSource("AGENT_WARN_ON_NODE20_TASK"),
@@ -583,7 +583,7 @@ namespace Agent.Sdk.Knob
 
         public static readonly Knob EnableEOLNodeVersionPolicy = new Knob(
             nameof(EnableEOLNodeVersionPolicy),
-            "When enabled, tasks that specify end-of-life Node.js versions will run using a supported Node.js version available on the agent. An error is thrown if no supported version is available.",
+            "When enabled, agent-managed Node.js 6, 10, 16, and 20 task handlers run on Node.js 24. An error is thrown if Node.js 24 cannot run; explicit custom Node paths remain overrides.",
             new RuntimeKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new EnvironmentKnobSource("AGENT_RESTRICT_EOL_NODE_VERSIONS"),
             new BuiltInDefaultKnobSource("false"));

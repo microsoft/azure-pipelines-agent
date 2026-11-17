@@ -38,8 +38,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         private const string c_workloadIdentityFederationScheme = "WorkloadIdentityFederation";
         private const string c_managedServiceIdentityScheme = "ManagedServiceIdentity";
 
+        private readonly INodeHandlerHelper _nodeHandlerHelper;
         private IDockerCommandManager _dockerManger;
         private string _containerNetwork;
+
+        public ContainerOperationProviderEnhanced() : this(new NodeHandlerHelper())
+        {
+        }
+
+        internal ContainerOperationProviderEnhanced(INodeHandlerHelper nodeHandlerHelper)
+        {
+            _nodeHandlerHelper = nodeHandlerHelper ?? throw new ArgumentNullException(nameof(nodeHandlerHelper));
+        }
 
         public override void Initialize(IHostContext hostContext)
         {
@@ -666,7 +676,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 trace.Info($"Configured {container.MountVolumes.Count} volume mounts: {string.Join(", ", mountSummary)}");
 
                 bool useEnhancedNodeSelection = AgentKnobs.UseEnhancedNodeSelection.GetValue(executionContext).AsBoolean();
+                bool restrictEolNodeVersions = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
+                bool node20Available = _nodeHandlerHelper.IsNodeFolderExist(NodeHandler.Node20_1Folder, HostContext);
                 bool useAgentNode = false;
+                bool verifyManagedNodeSelection = false;
 
                 string labelContainerStartupUsingNode24 = "container-startup-using-node-24";
                 string labelContainerStartupUsingNode20 = "container-startup-using-node-20";
@@ -685,6 +698,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 // Node16 is not bundled; it is only used when installed manually and the EOL policy is off.
                 bool node16Available = !AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean() &&
                     File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Externals), NodeHandler.Node16Folder, "bin", $"node{IOUtil.ExeExtension}"));
+                async Task<bool> verifyNode24InContainer()
+                {
+                    string command = container.ImageOS == PlatformUtil.OS.Windows
+                        ? $"cmd.exe /c \"\"{node24ContainerPath}\" --version\""
+                        : $"bash -c \"'{node24ContainerPath}' --version\"";
+                    var output = new List<string>();
+                    int exitCode = await _dockerManger.DockerExec(executionContext, container.ContainerId, string.Empty, command, output);
+                    return exitCode == 0 && output.Count > 0;
+                }
 
 
                 if (container.IsJobContainer)
@@ -694,6 +716,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     container.CustomNodePath = await _dockerManger.DockerInspect(context: executionContext,
                                                                         dockerObject: container.ContainerImage,
                                                                         options: $"--format=\"{{{{index .Config.Labels \\\"{_nodeJsPathLabel}\\\"}}}}\"");
+
+                    bool requiresContainerNode = PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux);
+                    verifyManagedNodeSelection = string.IsNullOrEmpty(container.CustomNodePath) &&
+                        (restrictEolNodeVersions || (!node20Available && !node16Available && !requiresContainerNode));
 
                     if (useEnhancedNodeSelection)
                     {
@@ -725,8 +751,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             container.ContainerCommand = useDoubleQuotes(nodeSetInterval(container.CustomNodePath));
                             container.ResultNodePath = container.CustomNodePath;
                         }
-                        else if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+                        else if (requiresContainerNode)
                         {
+                            if (restrictEolNodeVersions)
+                            {
+                                throw new NotSupportedException(NodeVersionStrategies.NodeVersionOrchestrator.CrossPlatformEolError);
+                            }
+
                             trace.Info("Platform requires container to provide Node.js, using 'node' command");
                             // require container to have node if running on macOS, or if running on Windows and attempting to run Linux container
                             executionContext.Debug($"[ContainerSetup] Legacy path: Platform requirement - using container node. MacOS: {PlatformUtil.RunningOnMacOS}, Windows+LinuxContainer: {PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux}");
@@ -744,6 +775,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 : "";
                             executionContext.Debug($"[ContainerSetup] Legacy agent node: Using Node24 with fallbacks (24->20{(node16Available ? "->16" : "")})");
                             string sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || '{node20ContainerPath}' --version && echo '{labelContainerStartupUsingNode20}' && {nodeSetInterval(node20ContainerPath)}{node16Segment} || echo '{labelContainerStartupFailed}'";
+                            if (restrictEolNodeVersions || (!node20Available && !node16Available))
+                            {
+                                executionContext.Debug("[ContainerSetup] Using Node24 without Node20 fallback");
+                                sleepCommand = $"'{node24ContainerPath}' --version && echo '{labelContainerStartupUsingNode24}' && {nodeSetInterval(node24ContainerPath)} || echo '{labelContainerStartupFailed}'";
+                            }
                             container.ContainerCommand = PlatformUtil.RunningOnWindows ? $"cmd.exe /c call {useDoubleQuotes(sleepCommand)}" : $"bash -c \"{sleepCommand}\"";
                         }
                     }
@@ -804,6 +840,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             executionContext.Warning($"Docker logs fail with exit code {logsExitCode}");
                         }
 
+                        if (verifyManagedNodeSelection)
+                        {
+                            throw new NotSupportedException($"Container startup failed: container image '{container.ContainerImage}' is not running; the agent cannot verify its Node.js runtime, including Node 24. Check the container logs for details.");
+                        }
+
                         executionContext.Warning($"Docker container {container.ContainerId} is not in running state.");
                         if (container.IsJobContainer && (useAgentNode || useEnhancedNodeSelection))
                         {
@@ -812,8 +853,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     }
                     else if (useEnhancedNodeSelection && container.IsJobContainer)
                     {
-                        executionContext.Debug("[ContainerSetup] Calling enhanced node selection path for container startup.");
-                        SetContainerNodePathWithOrchestrator(executionContext, container);
+                        try
+                        {
+                            executionContext.Debug("[ContainerSetup] Calling enhanced node selection path for container startup.");
+                            SetContainerNodePathWithOrchestrator(executionContext, container);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            throw new NotSupportedException($"Container Node.js runtime selection failed: {ex.Message}", ex);
+                        }
                     }
                     else if (useAgentNode)
                     {
@@ -826,7 +874,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                         while (true)
                         {
-                            List<string> containerLogs = await _dockerManger.GetDockerLogs(executionContext, container.ContainerId);
+                            List<string> containerLogs;
+                            try
+                            {
+                                containerLogs = await _dockerManger.GetDockerLogs(executionContext, container.ContainerId);
+                            }
+                            catch (Exception ex) when (verifyManagedNodeSelection && ex is not OperationCanceledException)
+                            {
+                                Trace.Error("Could not read container startup logs.");
+                                Trace.Error(ex);
+                                if (await verifyNode24InContainer())
+                                {
+                                    executionContext.Warning("Could not read container startup logs; verified that Node 24 can run in the container.");
+                                    container.ResultNodePath = node24ContainerPath;
+                                    break;
+                                }
+
+                                throw new NotSupportedException($"Container startup failed: could not verify the agent's Node 24 runtime in container image '{container.ContainerImage}'.", ex);
+                            }
 
                             foreach (string logLine in containerLogs)
                             {
@@ -839,6 +904,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
                                 else if (logLine.Contains(labelContainerStartupUsingNode20))
                                 {
+                                    if (restrictEolNodeVersions || !node20Available)
+                                    {
+                                        throw new NotSupportedException($"Container startup reported using Node 20 for image '{container.ContainerImage}', but Node 20 is unavailable or disallowed and the agent requires Node 24.");
+                                    }
+
                                     executionContext.Warning($"The agent's Node 24 runtime could not run inside container image '{container.ContainerImage}'; the container was started using the agent's Node 20 runtime instead.");
                                     containerStartupCompleted = true;
                                     container.ResultNodePath = node20ContainerPath;
@@ -846,6 +916,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
                                 else if (logLine.Contains(labelContainerStartupUsingNode16))
                                 {
+                                    if (!node16Available)
+                                    {
+                                        throw new NotSupportedException("Container startup reported Node 16, but that runner is unavailable or disallowed by the EOL policy.");
+                                    }
                                     executionContext.Warning($"The agent's Node 24 and Node 20 runtimes could not run inside container image '{container.ContainerImage}'; the container was started using the manually installed Node 16 runtime (end-of-life). Update the pipeline or container image to run on Node 20 or newer.");
                                     containerStartupCompleted = true;
                                     container.ResultNodePath = node16ContainerPath;
@@ -853,7 +927,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 }
                                 else if (logLine.Contains(labelContainerStartupFailed))
                                 {
-                                    string attemptedNodeVersions = node16Available ? "Node 24, Node 20, Node 16" : "Node 24, Node 20";
+                                    string attemptedNodeVersions = restrictEolNodeVersions || (!node20Available && !node16Available)
+                                        ? "Node 24" : node16Available ? "Node 24, Node 20, Node 16" : "Node 24, Node 20";
                                     throw new NotSupportedException(
                                         $"Container startup failed: none of the agent's Node.js runtimes ({attemptedNodeVersions}) could execute inside container image '{container.ContainerImage}'. " +
                                         "This usually means the container's OS / C library is incompatible with the agent's Node.js binaries " +
@@ -870,6 +945,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             checksCount++;
                             if (checksCount * delayInMilliseconds > containerStartupTimeoutInMilliseconds)
                             {
+                                if (verifyManagedNodeSelection)
+                                {
+                                    if (await verifyNode24InContainer())
+                                    {
+                                        executionContext.Warning("Could not read container startup status; verified that Node 24 can run in the container.");
+                                        container.ResultNodePath = node24ContainerPath;
+                                        break;
+                                    }
+
+                                    throw new NotSupportedException($"Container startup failed: could not verify that the agent's Node 24 runtime started in container image '{container.ContainerImage}'. Check the container logs for details.");
+                                }
+
                                 throw new NotSupportedException($"Could not determine which Node.js runtime started container '{container.ContainerImage}'.");
                             }
 
@@ -877,8 +964,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                     }
                 }
-                catch (Exception ex) when (!container.IsJobContainer || (!useAgentNode && !useEnhancedNodeSelection))
+                catch (Exception ex) when (ex is not NotSupportedException)
                 {
+                    if (verifyManagedNodeSelection)
+                    {
+                        if (ex is OperationCanceledException)
+                        {
+                            throw;
+                        }
+
+                        throw new NotSupportedException($"Container startup failed: could not verify the agent's Node.js runtime, including Node 24, for container image '{container.ContainerImage}'.", ex);
+                    }
+
+                    if (container.IsJobContainer && (useAgentNode || useEnhancedNodeSelection))
+                    {
+                        throw;
+                    }
+
                     // pull container log is best effort.
                     Trace.Error("Catch exception when check container log and container status.");
                     Trace.Error(ex);
@@ -1460,7 +1562,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Creates handler data for Node24-first container startup or a custom node path.
         /// Used by orchestrator to determine the best node version for the container.
         /// </summary>
-        private BaseNodeHandlerData GetJobContainerHandlerData(ContainerInfo container)
+        private BaseNodeHandlerData GetJobContainerHandlerData(IExecutionContext executionContext, ContainerInfo container)
         {
             // Custom node takes highest priority
             if (!string.IsNullOrEmpty(container.CustomNodePath))
@@ -1469,7 +1571,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
             
             // Special platform requirement: macOS or Windows with Linux containers must use container's own node
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux))
+            if ((PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && container.ImageOS == PlatformUtil.OS.Linux)) &&
+                !AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
                 container.CustomNodePath = "node";
                 return new CustomNodeHandlerData();
@@ -1484,7 +1587,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// </summary>
         private void SetContainerNodePathWithOrchestrator(IExecutionContext executionContext, ContainerInfo container)
         {
-            var handlerData = GetJobContainerHandlerData(container);
+            var handlerData = GetJobContainerHandlerData(executionContext, container);
             
             var taskContext = new NodeVersionStrategies.TaskContext
             {
@@ -1493,15 +1596,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 StepTarget = null
             };
             
-            var orchestrator = new NodeVersionStrategies.NodeVersionOrchestrator(executionContext, HostContext);
+            var orchestrator = new NodeVersionStrategies.NodeVersionOrchestrator(executionContext, HostContext, _nodeHandlerHelper);
             var result = orchestrator.SelectNodeVersionForContainer(taskContext, _dockerManger);
             
             container.ResultNodePath = result.NodePath;
-            
-            if (!string.IsNullOrEmpty(result.Warning))
-            {
-                executionContext.Warning(result.Warning);
-            }
             
             executionContext.Output($"Container node selection: {result.NodeVersion} - {result.Reason}");
         }

@@ -31,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             var hostContext = executionContext.GetHostContext();
             string node24Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node24);
 
-            if (useNode20Globally && !useNode24Globally)
+            if (useNode20Globally && !useNode24Globally && !enforceEolPolicy)
             {
                 return null;
             }
@@ -45,7 +45,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             if (glibcInfo.Node24HasGlibcError)
             {
-                executionContext.Debug(StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
+                executionContext.Debug(AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean()
+                    ? StringUtil.Loc("NodeEOLFallbackBlocked", "Node20")
+                    : StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20"));
                 return null;
             }
 
@@ -75,13 +77,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
-            if (context.EffectiveMaxVersion < 20)
+            if (context.EffectiveMaxVersion < 24)
             {
-                executionContext.Debug($"[Node24Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 20, preserving legacy handler selection");
+                executionContext.Debug($"[Node24Strategy] EffectiveMaxVersion={context.EffectiveMaxVersion} < 24, preserving authored handler selection");
                 return null;
             }
 
-            if (context.HandlerData is Node24HandlerData || context.HandlerData is Node20_1HandlerData)
+            if (context.HandlerData is Node24HandlerData)
             {
                 return new NodeRunnerInfo
                 {
