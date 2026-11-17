@@ -1088,6 +1088,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [InlineData(true, false)]
         [InlineData(false, false)]
         [InlineData(true, true)]
+        [InlineData(false, true)]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
         public void Orchestrator_ContainerSelection_FallsBackToManuallyInstalledNode16(bool node16Installed, bool eolPolicyEnabled)
@@ -1112,13 +1113,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 };
 
                 var dockerManager = new Mock<IDockerCommandManager>();
-                if (PlatformUtil.RunningOnMacOS)
+                if (eolPolicyEnabled)
+                {
+                    var exception = Assert.Throws<NotSupportedException>(
+                        () => orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object));
+                    Assert.Contains("Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS", exception.Message);
+                }
+                else if (PlatformUtil.RunningOnMacOS)
                 {
                     var result = orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object);
                     Assert.Equal(NodeVersion.ContainerDefaultNode, result.NodeVersion);
                     Assert.Equal("node", result.NodePath);
                 }
-                else if (node16Installed && !eolPolicyEnabled)
+                else if (node16Installed)
                 {
                     var result = orchestrator.SelectNodeVersionForContainer(context, dockerManager.Object);
                     Assert.Equal(NodeVersion.Node16, result.NodeVersion);
