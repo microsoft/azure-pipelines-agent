@@ -10,7 +10,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Hashing;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 
 namespace Agent.Plugins.PipelineCache
@@ -34,6 +36,12 @@ namespace Agent.Plugins.PipelineCache
             if (File.Exists(inputPath))
             {
                 throw new DirectoryNotFoundException($"Please specify path to a directory, File path is not allowed. {inputPath} is a file.");
+            }
+
+            if (AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+            {
+                inputPath = Path.GetFullPath(inputPath);
+                PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, inputPath, write: false);
             }
 
             var archiveFileName = CreateArchiveFileName();
@@ -73,6 +81,13 @@ namespace Agent.Plugins.PipelineCache
             CancellationToken cancellationToken)
         {
             ValidateTarManifest(manifest);
+
+            if (AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+            {
+                targetDirectory = Path.GetFullPath(targetDirectory);
+                // Check before creating the folder, since creating it follows links.
+                PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, targetDirectory, write: true);
+            }
 
             Directory.CreateDirectory(targetDirectory);
 

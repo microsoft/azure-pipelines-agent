@@ -6,10 +6,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Agent.Plugins.PipelineArtifact.Telemetry;
 using Microsoft.TeamFoundation.Build.WebApi;
 using BuildXL.Cache.ContentStore.Hashing;
 using Microsoft.VisualStudio.Services.Agent.Blob;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.WebApi;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -57,9 +59,10 @@ namespace Agent.Plugins
             using (clientTelemetry)
             {
                 var manifestId = DedupIdentifier.Create(buildArtifact.Resource.Data);
+                string targetDirectory = EnsureTargetWithinMounts(context, downloadParameters.TargetDirectory);
                 var options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
-                    downloadParameters.TargetDirectory,
+                    targetDirectory,
                     proxyUri: null,
                     minimatchPatterns: downloadParameters.MinimatchFilters,
                     customMinimatchOptions: downloadParameters.CustomMinimatchOptions);
@@ -138,9 +141,10 @@ namespace Agent.Plugins
                 using (clientInfo.Telemetry)
                 {
                     // 2) download to the target path
+                    string targetDirectory = EnsureTargetWithinMounts(context, downloadParameters.TargetDirectory);
                     var options = DownloadDedupManifestArtifactOptions.CreateWithMultiManifestIds(
                         clientInfo.ArtifactDictionary,
-                        downloadParameters.TargetDirectory,
+                        targetDirectory,
                         proxyUri: null,
                         minimatchPatterns: downloadParameters.MinimatchFilters,
                         minimatchFilterWithArtifactName: downloadParameters.MinimatchFilterWithArtifactName,
@@ -169,6 +173,19 @@ namespace Agent.Plugins
                     this.context.PublishTelemetry(area: PipelineArtifactConstants.AzurePipelinesAgent, feature: PipelineArtifactConstants.PipelineArtifact, record: downloadRecord);
                 }
             }
+        }
+
+        // The client writes the files itself, so the folder and its contents are checked first.
+        internal static string EnsureTargetWithinMounts(AgentTaskPluginExecutionContext context, string targetDirectory)
+        {
+            if (!AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+            {
+                return targetDirectory;
+            }
+
+            targetDirectory = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetDirectory, write: true);
+            PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, targetDirectory, write: true);
+            return targetDirectory;
         }
     }
 }

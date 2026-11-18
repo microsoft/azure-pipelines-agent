@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using BuildXL.Cache.ContentStore.Interfaces.Utils;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Minimatch;
 using System;
@@ -203,6 +205,8 @@ namespace Agent.Plugins.PipelineCache
             string filePathRoot,
             IEnumerable<string> keySegments)
         {
+            bool enforceContainerBoundary = AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean();
+
             // Quickly validate all segments
             foreach (string keySegment in keySegments)
             {
@@ -309,7 +313,13 @@ namespace Agent.Plugins.PipelineCache
 
                         foreach (string path in files)
                         {
-                            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            string resolvedPath = path;
+                            if (enforceContainerBoundary)
+                            {
+                                resolvedPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, path, write: false);
+                            }
+
+                            using (var fs = new FileStream(resolvedPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
                                 // Path.GetRelativePath returns 'The relative path, or path if the paths don't share the same root.'
                                 string displayPath = filePathRoot == null ? path : Path.GetRelativePath(filePathRoot, path);
