@@ -1,10 +1,16 @@
 # Azure Pipelines Agent
 
-## Announcement -  `AZP_AGENT_USE_LEGACY_HTTP` agent knob future deprecation
+## Announcement - Node.js task runner removals
 
-We are working on pipeline agent migration to .NET 6. One of the side effect of this migration is that the legacy HTTP handler will be no longer available for use due to changes in the .NET runtime itself.
+Upcoming agent releases change the bundled Node.js task runners:
 
-Thus the related agent knob will not work once the migration will be completed. We recommend stopping using the `AZP_AGENT_USE_LEGACY_HTTP` knob.
+- Node.js 6, 10, and 16 are being removed from `vsts-agent`, with removal scheduled for November 24, 2026. Missing legacy runners are no longer downloaded automatically.
+- Node.js 20 is being removed from `pipelines-agent`, which will bundle only Node.js 24. Node.js 20 remains in `vsts-agent` for backward compatibility.
+- `pipelines-agent` packages for Windows x86 and Linux ARM32 are being removed because Node.js 24 has no official builds for these platforms. `vsts-agent` remains available.
+
+Tasks that require a removed runner may fail. Update built-in and Marketplace tasks to versions that support Node.js 24, and migrate and test custom tasks with the Node.js 24 handler.
+
+See [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops) for the retirement schedule, and [Node task runners](docs/noderunner.md) for migration guidance and policy behavior.
 
 ## Overview
 
