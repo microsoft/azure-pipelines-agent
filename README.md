@@ -1,6 +1,4 @@
-# Azure Pipelines Agent
-
-## Announcement - Node.js task runner removals
+# Announcement - Node.js task runner removals
 
 Upcoming agent releases change the bundled Node.js task runners:
 
@@ -11,6 +9,8 @@ Upcoming agent releases change the bundled Node.js task runners:
 Tasks that require a removed runner may fail. Update built-in and Marketplace tasks to versions that support Node.js 24, and migrate and test custom tasks with the Node.js 24 handler.
 
 See [Node.js runners in Azure Pipelines Agent](https://learn.microsoft.com/en-us/azure/devops/pipelines/agents/nodejs-runners?view=azure-devops) for the retirement schedule, and [Node task runners](docs/noderunner.md) for migration guidance and policy behavior.
+
+# Azure Pipelines Agent
 
 ## Overview
 
