@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Services.Agent.Util;
 
@@ -101,5 +102,24 @@ namespace Agent.Sdk
         public string SourceVolumePath { get; set; }
         public string TargetVolumePath { get; set; }
         public bool ReadOnly { get; set; }
+
+        /// <summary>
+        /// System = agent-managed mounts (Work, Temp, Tasks, etc.). User = pipeline-authored bind
+        /// mounts from "resources.containers.*.volumes". Keeps the two from shadowing each other.
+        /// </summary>
+        public enum MountVolumeKind
+        {
+            System,
+            User
+        }
+
+        /// <summary>Defaults to System; JobRunner.ExpandProperties sets User for pipeline-authored mounts.</summary>
+        public MountVolumeKind Kind { get; set; } = MountVolumeKind.System;
+
+        /// <summary>
+        /// True only for real bind mounts (rooted host path). Named/anonymous Docker volumes have
+        /// no real host path and must never be treated as one.
+        /// </summary>
+        public bool IsBindMount => !string.IsNullOrEmpty(SourceVolumePath) && Path.IsPathRooted(SourceVolumePath);
     }
 }
