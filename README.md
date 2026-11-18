@@ -6,6 +6,7 @@ Upcoming agent releases change the bundled Node.js task runners:
 
 - Node.js 6, 10, and 16 are being removed from `vsts-agent`, with removal scheduled for November 24, 2026. Missing legacy runners are no longer downloaded automatically.
 - Node.js 20 is being removed from `pipelines-agent`, which will bundle only Node.js 24. Node.js 20 remains in `vsts-agent` for backward compatibility.
+- `pipelines-agent` packages for Windows x86 and Linux ARM32 are being removed because Node.js 24 has no official builds for these platforms. `vsts-agent` remains available.
 
 Tasks that require a removed runner may fail. Update built-in and Marketplace tasks to versions that support Node.js 24, and migrate and test custom tasks with the Node.js 24 handler.
 
