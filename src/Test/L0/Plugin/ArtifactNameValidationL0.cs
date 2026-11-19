@@ -31,7 +31,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
 {
     public sealed class ArtifactNameValidationL0 : IDisposable
     {
-        private const string KnobVariable = "AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION";
+        private const string KnobVariable = "DistributedTask.Agent.EnableArtifactNameValidation";
         private const string StrictError = "ArtifactNameIsNotValidWithStrictValidation";
         private readonly string target = Path.Combine(TestUtil.GetSrcPath(), "Test", "TestResults", Guid.NewGuid().ToString("N"));
         private readonly ConcurrentQueue<string> output = new ConcurrentQueue<string>();
@@ -226,26 +226,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Plugin")]
-        public async Task InheritedEnvironmentEnablesFilteringAndRuntimeFalseOverrides()
-        {
-            var context = Context();
-            bool enabled = StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"));
-            var plugin = new DownloadPipelineArtifactTaskV2_0_0();
-            await plugin.RunAsync(context, CancellationToken.None);
-            Assert.Equal(enabled ? 1 : 0, Errors().Count);
-            Assert.Equal(enabled ? 1 : 0, FailureCommands());
-
-            context.Variables[KnobVariable] = "false";
-            output.Clear();
-            await plugin.RunAsync(context, CancellationToken.None);
-            Assert.Empty(Warnings());
-            Assert.Empty(Errors());
-            Assert.Equal(0, FailureCommands());
-        }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Plugin")]
         public async Task ErrorEscapesNameWithoutChangingGlobalLocalization()
         {
             string localizationBefore = StringUtil.Loc("MissingNodePath");
@@ -287,7 +267,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Plugin
         [Trait("Category", "Plugin")]
         public async Task DownloadBuildArtifactsAllUsesFlagForBothBuildTypes(string buildType, string flag)
         {
-            bool enabled = flag == null ? StringUtil.ConvertToBoolean(Environment.GetEnvironmentVariable(KnobVariable)) : flag == "true";
+            bool enabled = flag == "true";
             var context = DownloadBuildContext("specific", flag, buildType: buildType);
             if (enabled)
             {

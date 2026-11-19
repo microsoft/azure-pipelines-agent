@@ -199,21 +199,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         }
 
         [Theory]
-        [InlineData(null, null, "true", true, typeof(PipelineFeatureSource))]
-        [InlineData("true", "true", "false", false, typeof(PipelineFeatureSource))]
-        [InlineData("false", "true", null, false, typeof(RuntimeKnobSource))]
-        [InlineData(null, "true", null, true, typeof(EnvironmentKnobSource))]
-        [InlineData(null, null, null, false, typeof(BuiltInDefaultKnobSource))]
+        [InlineData("true", true, typeof(PipelineFeatureSource))]
+        [InlineData("false", false, typeof(PipelineFeatureSource))]
+        [InlineData(null, false, typeof(BuiltInDefaultKnobSource))]
         [Trait("Level", "L0")]
         [Trait("Category", "Common")]
-        public void ArtifactNameValidationKnobTest(
-            string runtimeValue, string environmentValue, string pipelineFeatureValue, bool expected, Type sourceType)
+        public void ArtifactNameValidationKnobTest(string pipelineFeatureValue, bool expected, Type sourceType)
         {
-            var environment = new LocalEnvironment();
-            environment.SetEnvironmentVariable("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION", environmentValue);
             var context = new Mock<IExecutionContext>();
-            context.Setup(x => x.GetScopedEnvironment()).Returns(environment);
-            context.Setup(x => x.GetVariableValueOrDefault("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION")).Returns(runtimeValue);
             context.Setup(x => x.GetVariableValueOrDefault("DistributedTask.Agent.EnableArtifactNameValidation")).Returns(pipelineFeatureValue);
 
             var value = AgentKnobs.EnableArtifactNameValidation.GetValue(context.Object);
