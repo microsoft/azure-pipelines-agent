@@ -1,3 +1,18 @@
+## Features
+
+
+## Bugs
+ - Add artifact name validation for DownloadBuildArtifactsV1 (#5723)
+ - Fix ZIP path containment check (#5732)
+ - Avoid redundant fetch when checkout commit was already fetched (#5746)
+
+## Misc
+ - Update mingit to 2.56.0 (#5721)
+ - docs: fix legacy Node runner installation paths (#5734)
+ - Update System.Security.Cryptography.Pkcs to 10.0.14 (#5725)
+ - Update mingit to 2.56.0.4 (#5729)
+ - Bump Node 24.22.1 to 24.22.3 (#5745)
+
 
 ## Agent Downloads
 
