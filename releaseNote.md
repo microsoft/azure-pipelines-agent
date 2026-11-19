@@ -1,3 +1,23 @@
+## Features
+ - Remove legacy Node runtimes (#5737)
+ - Remove Node 20 from pipelines-agent packages and EOL-policy selection (#5748)
+
+## Bugs
+ - Add artifact name validation for DownloadBuildArtifactsV1 (#5723)
+ - Fix ZIP path containment check (#5732)
+ - Avoid redundant fetch when checkout commit was already fetched (#5746)
+ - Updated ff to use PipelineFeatureSource (#5765)
+
+## Misc
+ - Update mingit to 2.56.0 (#5721)
+ - docs: fix legacy Node runner installation paths (#5734)
+ - Update System.Security.Cryptography.Pkcs to 10.0.14 (#5725)
+ - Update mingit to 2.56.0.4 (#5729)
+ - Bump Node 24.22.1 to 24.22.3 (#5745)
+ - update CmdLineV2 task to 283 version with package updates (#5757)
+ - docs: announce Node.js task runner removals (#5760)
+ - docs: move Node.js announcement above agent heading (#5761)
+
 
 ## Agent Downloads
 
