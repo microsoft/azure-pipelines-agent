@@ -545,8 +545,7 @@ namespace Agent.Sdk.Knob
         public static readonly Knob EnableArtifactNameValidation = new Knob(
             nameof(EnableArtifactNameValidation),
             "Enable strict pipeline artifact name validation.",
-            new RuntimeKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
-            new EnvironmentKnobSource("AZP_AGENT_ENABLE_ARTIFACT_NAME_VALIDATION"),
+            new PipelineFeatureSource("EnableArtifactNameValidation"),
             new BuiltInDefaultKnobSource("false"));
 
         public static readonly Knob EnableIncompatibleBuildArtifactsPathResolution = new Knob(
