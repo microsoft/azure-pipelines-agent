@@ -461,7 +461,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             AddResultsFileToRunLevelAttachments = true;
         }
 
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null, bool isParallelProcessingFFEnabled = false)
         {
             var doc = new XmlDocument();
             try
