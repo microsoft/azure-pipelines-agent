@@ -120,6 +120,8 @@ You can also inject anything you want to run when the service runs.  For example
 # insert anything to setup env when running as a service
 ```
 
+Agent self-update refreshes the Node.js runtime selection between `# BEGIN AGENT SERVICE NODE SELECTION` and `# END AGENT SERVICE NODE SELECTION` in ./runsvc.sh, so keep customizations outside that block. A backup of the previous script is saved as `runsvc.sh.<previous version>.bak`.
+
 ## Service Files
 
 This is a convenience that simply creates a service file for you can sets permissions.  You are free to manually configure and control your service using alternate methods.

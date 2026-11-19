@@ -12,6 +12,8 @@ fi
 
 # insert anything to setup env when running as a service
 
+# BEGIN AGENT SERVICE NODE SELECTION
+# This block is refreshed by agent self-update. Do not edit it; put customizations outside it.
 # Prefer Node24, fall back to Node20
 ./externals/node24/bin/node --version 2>/dev/null
 if [ $? == 0 ]; then
@@ -28,6 +30,7 @@ fi
 
 # run the host process which keep the listener alive
 ./externals/"$NODE_VER"/bin/node ./bin/AgentService.js &
+# END AGENT SERVICE NODE SELECTION
 PID=$!
 wait $PID
 trap - TERM INT

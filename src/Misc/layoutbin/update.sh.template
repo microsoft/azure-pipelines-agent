@@ -18,6 +18,71 @@ downloadagentversion=_DOWNLOAD_AGENT_VERSION_
 logfile="_UPDATE_LOG_"
 restartinteractiveagent=_RESTART_INTERACTIVE_AGENT_
 
+# "svc.sh install" copies bin/runsvc.sh to the agent root once, so the root copy keeps selecting the
+# Node.js runtime of the version that installed the service. Refresh only its node selection block so
+# customizations outside the block are kept. Problems are logged and never fail the update.
+refresh_service_script() {
+    local root="$1" version="$2" log="$3"
+    local service="$root/runsvc.sh"
+    local region="$root/runsvc.sh.region" refreshed="$root/runsvc.sh.refreshed"
+    local begin='# BEGIN AGENT SERVICE NODE SELECTION' end='# END AGENT SERVICE NODE SELECTION'
+    local manual="To use the bundled Node.js runtime, reinstall the service from $root: sudo ./svc.sh stop && sudo ./svc.sh uninstall && sudo ./svc.sh install <user> && sudo ./svc.sh start"
+
+    if [ ! -f "$service" ]; then
+        return 0
+    fi
+    if [ -L "$service" ]; then
+        date "+[%F %T-%4N] $service is a symbolic link, skip refreshing it. $manual" >> "$log" 2>&1
+        return 0
+    fi
+
+    rm -f "$region" "$refreshed"
+    awk -v b="$begin" -v e="$end" 'index($0, b) == 1 { f = 1 } f { print } f && index($0, e) == 1 { exit }' \
+        "$root/bin/runsvc.sh" > "$region" 2>> "$log"
+    if [ ! -s "$region" ] || ! tail -n 1 "$region" | grep -q "^$end"; then
+        date "+[%F %T-%4N] $root/bin/runsvc.sh has no node selection block, skip refreshing $service" >> "$log" 2>&1
+        rm -f "$region"
+        return 0
+    fi
+
+    # Copy first so the refreshed file keeps the owner, mode and SELinux context of the original.
+    # Replace the managed block, or for scripts created before the block existed, the stock node
+    # selection and launch line.
+    if ! cp -a "$service" "$refreshed" >> "$log" 2>&1 ||
+       ! awk -v b="$begin" -v e="$end" '
+            NR == FNR { region = region $0 "\n"; next }
+            skip { if (index($0, e) == 1) skip = 0; next }
+            legacy { if ($0 ~ /^fi[ \t]*$/) legacy = 0; next }
+            index($0, b) == 1 { printf "%s", region; replaced++; skip = 1; next }
+            /^# (fallback on Node16|Prefer Node24)/ { legacy = 1; next }
+            /^# run the host process which keep the listener alive[ \t]*$/ { held = $0; next }
+            /^\.\/externals\/[^ ]+\/bin\/node \.\/bin\/AgentService\.js &[ \t]*$/ { held = ""; printf "%s", region; replaced++; next }
+            { if (held != "") { print held; held = "" } print }
+            END { if (held != "") print held; if (skip || legacy || replaced != 1) exit 3 }
+        ' "$region" "$service" > "$refreshed" 2>> "$log"; then
+        date "+[%F %T-%4N] $service does not have a recognized node selection, skip refreshing it. $manual" >> "$log" 2>&1
+        rm -f "$region" "$refreshed"
+        return 0
+    fi
+    rm -f "$region"
+
+    if cmp -s "$refreshed" "$service"; then
+        date "+[%F %T-%4N] $service is up to date" >> "$log" 2>&1
+        rm -f "$refreshed"
+        return 0
+    fi
+
+    # Rename instead of rewriting in place: the running service's bash still reads the old file.
+    date "+[%F %T-%4N] Refresh node selection in $service, backup saved to $service.$version.bak" >> "$log" 2>&1
+    if cp -a "$service" "$service.$version.bak" >> "$log" 2>&1 && mv -f "$refreshed" "$service" >> "$log" 2>&1; then
+        date "+[%F %T-%4N] $service refreshed, it takes effect the next time the service starts" >> "$log" 2>&1
+    else
+        date "+[%F %T-%4N] Cannot refresh $service. $manual" >> "$log" 2>&1
+        rm -f "$refreshed"
+    fi
+    return 0
+}
+
 # log user who run the script
 date "+[%F %T-%4N] --------whoami--------" >> "$logfile" 2>&1
 whoami >> "$logfile" 2>&1
@@ -119,6 +184,8 @@ then
     mv -fv "$logfile" "$logfile.failed"
     exit 1
 fi
+
+refresh_service_script "$rootfolder" "$existagentversion" "$logfile"
 
 date "+[%F %T-%4N] Update succeed" >> "$logfile" 2>&1
 
