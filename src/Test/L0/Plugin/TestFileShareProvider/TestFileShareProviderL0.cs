@@ -17,11 +17,13 @@ using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Tests;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
 using Microsoft.VisualStudio.Services.WebApi;
 using Moq;
 using Xunit;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
 {
@@ -201,6 +203,87 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 }
                 TestCleanup();
             }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadDoesNotWriteThroughLinkOutOfContainerMounts()
+        {
+            string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                string source = Path.Combine(root, "source");
+                new TestFile(GenerateRandomData()).PlaceItem(Path.Combine(source, "drop", "test.txt"));
+                string mount = Directory.CreateDirectory(Path.Combine(root, "mount")).FullName;
+                string outside = Directory.CreateDirectory(Path.Combine(root, "outside")).FullName;
+                Util.PluginFileAccessGuardL0.CreateDirectoryLink(Path.Combine(mount, "drop"), outside);
+
+                using (var hostContext = new TestHostContext(this))
+                {
+                    AgentTaskPluginExecutionContext context = CreateContainerContext(hostContext, mount);
+                    var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
+
+                    Exception ex = await Assert.ThrowsAnyAsync<Exception>(() => provider.DownloadMultipleArtifactsAsync(
+                        CreateDownloadParameters(mount), new List<BuildArtifact> { CreateArtifact(source) }, CancellationToken.None, context));
+
+                    Assert.Contains("outside the mounts of the container", ex.ToString());
+                    Assert.Empty(Directory.GetFiles(outside));
+                }
+            }
+            finally
+            {
+                IOUtil.DeleteDirectory(root, CancellationToken.None);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public async Task DownloadInsideContainerMountsStillWorksWithBoundaryEnforced()
+        {
+            string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                string source = Path.Combine(root, "source");
+                byte[] content = GenerateRandomData();
+                new TestFile(content).PlaceItem(Path.Combine(source, "drop", "nested", "test.txt"));
+                string mount = Directory.CreateDirectory(Path.Combine(root, "mount")).FullName;
+
+                using (var hostContext = new TestHostContext(this))
+                {
+                    AgentTaskPluginExecutionContext context = CreateContainerContext(hostContext, mount);
+                    var provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), new MockDedupManifestArtifactClientFactory());
+
+                    await provider.DownloadMultipleArtifactsAsync(
+                        CreateDownloadParameters(mount), new List<BuildArtifact> { CreateArtifact(source) }, CancellationToken.None, context);
+
+                    Assert.Equal(content, File.ReadAllBytes(Path.Combine(mount, "drop", "nested", "test.txt")));
+                }
+            }
+            finally
+            {
+                IOUtil.DeleteDirectory(root, CancellationToken.None);
+            }
+        }
+
+        private static AgentTaskPluginExecutionContext CreateContainerContext(TestHostContext hostContext, string mount)
+        {
+            var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+            context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue("true");
+            context.Container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
+            context.Container.MountVolumes.Add(new MountVolume(mount, "/mount"));
+            return context;
+        }
+
+        private static ArtifactDownloadParameters CreateDownloadParameters(string targetDirectory)
+        {
+            return new ArtifactDownloadParameters { TargetDirectory = targetDirectory, MinimatchFilters = new[] { "**" } };
+        }
+
+        private static BuildArtifact CreateArtifact(string source)
+        {
+            return new BuildArtifact { Name = "drop", Resource = new ArtifactResource { Data = source } };
         }
 
         private void TestCleanup()

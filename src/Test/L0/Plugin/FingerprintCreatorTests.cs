@@ -6,11 +6,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using Agent.Plugins.PipelineCache;
 using Agent.Sdk;
 using BuildXL.Cache.ContentStore.Interfaces.Utils;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.PipelineCache.WebApi;
 using Xunit;
+using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 {
@@ -181,6 +185,37 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
 
                 Assert.Equal(1, f.Segments.Length);
                 Assert.Equal($"hello", f.Segments[0]);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        public void Fingerprint_DoesNotReadThroughLinkOutOfContainerMounts()
+        {
+            string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                string mount = Directory.CreateDirectory(Path.Combine(root, "mount")).FullName;
+                string outside = Directory.CreateDirectory(Path.Combine(root, "outside")).FullName;
+                File.WriteAllText(Path.Combine(outside, "file.txt"), "content");
+                string keyFiles = Path.Combine(mount, "keyfiles");
+                Util.PluginFileAccessGuardL0.CreateDirectoryLink(keyFiles, outside);
+
+                using (var hostContext = new TestHostContext(this))
+                {
+                    var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
+                    context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue("true");
+                    context.Container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
+                    context.Container.MountVolumes.Add(new MountVolume(mount, "/mount"));
+
+                    Assert.Throws<InvalidOperationException>(() =>
+                        FingerprintCreator.EvaluateKeyToFingerprint(context, mount, new[] { $"{keyFiles}/**" }));
+                }
+            }
+            finally
+            {
+                IOUtil.DeleteDirectory(root, CancellationToken.None);
             }
         }
 

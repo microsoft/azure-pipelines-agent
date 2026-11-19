@@ -126,12 +126,19 @@ namespace Agent.Plugins
             }
         }
 
-        private async Task DownloadFileContainerAsync(IEnumerable<FileContainerItem> items, ArtifactDownloadParameters downloadParameters, BuildArtifact artifact, string rootPath, AgentTaskPluginExecutionContext context, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
+        internal async Task DownloadFileContainerAsync(IEnumerable<FileContainerItem> items, ArtifactDownloadParameters downloadParameters, BuildArtifact artifact, string rootPath, AgentTaskPluginExecutionContext context, CancellationToken cancellationToken, bool isSingleArtifactDownload = true)
         {
             var containerIdAndRoot = ParseContainerId(artifact.Resource.Data);
             var projectId = downloadParameters.ProjectId;
 
             tracer.Info($"Start downloading FCS artifact- {artifact.Name}");
+
+            bool enforceContainerBoundary = AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean();
+
+            if (enforceContainerBoundary)
+            {
+                rootPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, rootPath, write: true);
+            }
 
             if (!isSingleArtifactDownload && items.Any())
             {
@@ -142,6 +149,10 @@ namespace Agent.Plugins
             Parallel.ForEach(folderItems, (folder) =>
             {
                 var targetPath = ResolveTargetPath(rootPath, folder, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
+                if (enforceContainerBoundary)
+                {
+                    targetPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetPath, write: true);
+                }
                 Directory.CreateDirectory(targetPath);
             });
 
@@ -202,7 +213,16 @@ namespace Agent.Plugins
                 {
                     var targetPath = ResolveTargetPath(rootPath, item, containerIdAndRoot.Item2, downloadParameters.IncludeArtifactNameInPath);
                     var directory = Path.GetDirectoryName(targetPath);
+                    if (enforceContainerBoundary)
+                    {
+                        directory = PluginFileAccessGuard.EnsureWithinMounts(context.Container, directory, write: true);
+                    }
                     Directory.CreateDirectory(directory);
+                    if (enforceContainerBoundary)
+                    {
+                        // Check the file too, not just its folder.
+                        targetPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, Path.Combine(directory, Path.GetFileName(targetPath)), write: true);
+                    }
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                         async () =>
                         {
@@ -447,6 +467,8 @@ namespace Agent.Plugins
         {
             tracer.Info(StringUtil.Loc("TarSearchStart"));
 
+            bool enforceContainerBoundary = AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean();
+
             int tarsFoundCount = 0;
 
             foreach (var fileArtifactPath in fileArtifactPaths)
@@ -460,7 +482,7 @@ namespace Agent.Plugins
                     string relativeFileArtifactDirPath = Path.GetDirectoryName(relativeFileArtifactPath).TrimStart('/');
                     string extractedFilesDir = Path.Combine(extractedTarsTempPath, relativeFileArtifactDirPath);
 
-                    ExtractTar(fileArtifactPath, extractedFilesDir);
+                    ExtractTar(fileArtifactPath, extractedFilesDir, context, enforceContainerBoundary);
 
                     try
                     {
@@ -488,17 +510,35 @@ namespace Agent.Plugins
                 tracer.Info(StringUtil.Loc("TarsFound", tarsFoundCount));
 
                 string targetDirectory = Path.Combine(rootPath, "extracted_tars");
+                if (enforceContainerBoundary)
+                {
+                    targetDirectory = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetDirectory, write: true);
+                }
                 Directory.CreateDirectory(targetDirectory);
-                MoveDirectory(extractedTarsTempPath, targetDirectory);
+                if (enforceContainerBoundary)
+                {
+                    // Check the whole extracted tree before anything is moved.
+                    PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, extractedTarsTempPath, write: false);
+                }
+                MoveDirectory(extractedTarsTempPath, targetDirectory, context, enforceContainerBoundary);
             }
         }
 
         // Extracts tar archive at tarArchivePath to extractedFilesDir.
         // Uses 'tar' utility like this: tar xf `tarArchivePath` --directory `extractedFilesDir`.
         // Throws if any errors are encountered.
-        private void ExtractTar(string tarArchivePath, string extractedFilesDir)
+        private void ExtractTar(string tarArchivePath, string extractedFilesDir, AgentTaskPluginExecutionContext context, bool enforceContainerBoundary)
         {
             tracer.Info(StringUtil.Loc("TarExtraction", tarArchivePath));
+
+            if (enforceContainerBoundary)
+            {
+                tarArchivePath = Path.GetFullPath(tarArchivePath);
+                extractedFilesDir = Path.GetFullPath(extractedFilesDir);
+                // tar runs as a separate process, so its input and output are checked before it starts.
+                PluginFileAccessGuard.EnsureWithinMounts(context.Container, tarArchivePath, write: true);
+                PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, extractedFilesDir, write: true);
+            }
 
             Directory.CreateDirectory(extractedFilesDir);
             var extractionProcessInfo = new ProcessStartInfo("tar")
@@ -521,28 +561,44 @@ namespace Agent.Plugins
         }
 
         // Recursively moves sourcePath directory to targetPath
-        private void MoveDirectory(string sourcePath, string targetPath)
+        private void MoveDirectory(string sourcePath, string targetPath, AgentTaskPluginExecutionContext context, bool enforceContainerBoundary)
         {
+            if (enforceContainerBoundary)
+            {
+                sourcePath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, sourcePath, write: false);
+                targetPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetPath, write: true);
+            }
+
             var sourceDirectoryInfo = new DirectoryInfo(sourcePath);
             foreach (FileInfo file in sourceDirectoryInfo.GetFiles("*", SearchOption.TopDirectoryOnly))
             {
-                file.MoveTo(Path.Combine(targetPath, file.Name), true);
+                string destinationFilePath = Path.Combine(targetPath, file.Name);
+                if (enforceContainerBoundary)
+                {
+                    destinationFilePath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, destinationFilePath, write: true);
+                }
+                file.MoveTo(destinationFilePath, true);
             }
             foreach (DirectoryInfo subdirectory in sourceDirectoryInfo.GetDirectories("*", SearchOption.TopDirectoryOnly))
             {
+                string sourceSubdirectoryPath = Path.Combine(sourcePath, subdirectory.Name);
                 string subdirectoryDestinationPath = Path.Combine(targetPath, subdirectory.Name);
+
+                if (enforceContainerBoundary)
+                {
+                    sourceSubdirectoryPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, sourceSubdirectoryPath, write: false);
+                    subdirectoryDestinationPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, subdirectoryDestinationPath, write: true);
+                }
+
                 var subdirectoryDestination = new DirectoryInfo(subdirectoryDestinationPath);
 
                 if (subdirectoryDestination.Exists)
                 {
-                    MoveDirectory(
-                        Path.Combine(sourcePath, subdirectory.Name),
-                        Path.Combine(targetPath, subdirectory.Name)
-                    );
+                    MoveDirectory(sourceSubdirectoryPath, subdirectoryDestinationPath, context, enforceContainerBoundary);
                 }
                 else
                 {
-                    subdirectory.MoveTo(Path.Combine(targetPath, subdirectory.Name));
+                    subdirectory.MoveTo(subdirectoryDestinationPath);
                 }
             }
         }
