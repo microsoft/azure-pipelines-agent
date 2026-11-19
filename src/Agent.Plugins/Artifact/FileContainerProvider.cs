@@ -218,11 +218,10 @@ namespace Agent.Plugins
                         directory = PluginFileAccessGuard.EnsureWithinMounts(context.Container, directory, write: true);
                     }
                     Directory.CreateDirectory(directory);
-                    targetPath = Path.Combine(directory, Path.GetFileName(targetPath));
                     if (enforceContainerBoundary)
                     {
                         // Check the file too, not just its folder.
-                        targetPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetPath, write: true);
+                        targetPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, Path.Combine(directory, Path.GetFileName(targetPath)), write: true);
                     }
                     await AsyncHttpRetryHelper.InvokeVoidAsync(
                         async () =>

@@ -7,6 +7,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using Xunit;
 using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
@@ -15,7 +17,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
     public sealed class PluginFileAccessGuardL0 : IDisposable
     {
-        private readonly string _root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        private readonly string _root = Path.Combine(PluginFileAccessGuard.ResolveAllLinks(Path.GetTempPath()), Guid.NewGuid().ToString("N"));
         private readonly string _mount;
         private readonly string _outside;
         private readonly string _readOnlyMount;
@@ -241,6 +243,139 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
             CreateDirectoryLink(Path.Combine(root, "loop"), root);
 
             PluginFileAccessGuard.EnsureTreeWithinMounts(_container, root, write: true);
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Util")]
+        public void EnsureWithinMounts_UsesMountsChangedAfterEarlierCheck()
+        {
+            string outsidePath = Path.Combine(_outside, "a");
+            string mountPath = Path.Combine(_mount, "a");
+            Assert.Throws<InvalidOperationException>(() =>
+                PluginFileAccessGuard.EnsureWithinMounts(_container, outsidePath, write: true));
+            PluginFileAccessGuard.EnsureWithinMounts(_container, mountPath, write: true);
+
+            _container.MountVolumes.Add(new MountVolume(_outside, "/outside"));
+            _container.MountVolumes[0].ReadOnly = true;
+
+            Assert.Equal(outsidePath, PluginFileAccessGuard.EnsureWithinMounts(_container, outsidePath, write: true));
+            Assert.Throws<InvalidOperationException>(() =>
+                PluginFileAccessGuard.EnsureWithinMounts(_container, mountPath, write: true));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Util")]
+        public void EnsureWithinMounts_ChecksSharedFolderAgainAfterItIsReplacedByLink()
+        {
+            string writable = Directory.CreateDirectory(Path.Combine(_root, "writable")).FullName;
+            ContainerInfo container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
+            container.MountVolumes.Add(new MountVolume(writable, "/writable"));
+            container.MountVolumes.Add(new MountVolume(_readOnlyMount, "/readonlymount", readOnly: true));
+            string path = Path.Combine(writable, "file.txt");
+            PluginFileAccessGuard.EnsureWithinMounts(container, path, write: true);
+
+            Directory.Delete(writable);
+            CreateDirectoryLink(writable, _readOnlyMount);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                PluginFileAccessGuard.EnsureWithinMounts(container, path, write: true));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Util")]
+        public void EnsureWithinMounts_ChecksPartsBelowFolderThatCannotBeRead()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            string parent = Directory.CreateDirectory(Path.Combine(_mount, "parent")).FullName;
+            string folder = Directory.CreateDirectory(Path.Combine(parent, "folder")).FullName;
+            CreateDirectoryLink(Path.Combine(folder, "staging"), _outside);
+            SetDenyRule(folder, FileSystemRights.ReadAttributes, deny: true);
+            SetDenyRule(parent, FileSystemRights.ListDirectory, deny: true);
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    PluginFileAccessGuard.EnsureWithinMounts(_container, Path.Combine(folder, "staging", "file.txt"), write: true));
+            }
+            finally
+            {
+                SetDenyRule(parent, FileSystemRights.ListDirectory, deny: false);
+                SetDenyRule(folder, FileSystemRights.ReadAttributes, deny: false);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Util")]
+        public void EnsureTreeWithinMounts_ChecksEntriesBelowLinkChainTooLongToFollow()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            File.WriteAllText(Path.Combine(_outside, "file.txt"), "content");
+            string chain = Directory.CreateDirectory(Path.Combine(_mount, "chain")).FullName;
+            string previous = _outside;
+            for (int i = 0; i < 70; i++)
+            {
+                string link = Path.Combine(chain, "link" + i);
+                Directory.CreateSymbolicLink(link, previous);
+                previous = link;
+            }
+
+            string root = Directory.CreateDirectory(Path.Combine(_mount, "staging")).FullName;
+            Directory.CreateSymbolicLink(Path.Combine(root, "top"), previous);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                PluginFileAccessGuard.EnsureTreeWithinMounts(_container, root, write: false));
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Util")]
+        public void EnsureWithinMounts_BlocksLinkWhoseTargetCannotBeRead()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            string folder = Directory.CreateDirectory(Path.Combine(_mount, "folder")).FullName;
+            CreateDirectoryLink(Path.Combine(folder, "staging"), _outside);
+            SetDenyRule(folder, FileSystemRights.ListDirectory, deny: true);
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    PluginFileAccessGuard.EnsureWithinMounts(_container, Path.Combine(folder, "staging", "file.txt"), write: true));
+            }
+            finally
+            {
+                SetDenyRule(folder, FileSystemRights.ListDirectory, deny: false);
+            }
+        }
+
+        private static void SetDenyRule(string directory, FileSystemRights rights, bool deny)
+        {
+            var info = new DirectoryInfo(directory);
+            DirectorySecurity security = info.GetAccessControl();
+            var rule = new FileSystemAccessRule(WindowsIdentity.GetCurrent().User, rights, AccessControlType.Deny);
+            if (deny)
+            {
+                security.AddAccessRule(rule);
+            }
+            else
+            {
+                security.RemoveAccessRule(rule);
+            }
+
+            info.SetAccessControl(security);
         }
 
         internal static void CreateDirectoryLink(string link, string target)
