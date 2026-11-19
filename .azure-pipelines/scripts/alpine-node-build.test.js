@@ -2,12 +2,16 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { ensureAlpineBuilds } = require('./alpine-node-build');
 
-const checked = ['22.23.4', '24.23.0', '24.23.0'].map(latestVersion => ({ outdated: true, latestVersion }));
+const checked = ['22.23.4', '24.22.1', '24.22.1'].map(latestSecurityVersion => ({
+    securityUpdateRequired: true, latestSecurityVersion, outdated: true,
+    latestVersion: latestSecurityVersion.startsWith('22.') ? '22.24.0' : '24.23.0'
+}));
 const build = (id, nodeVersion, status = 'completed', result = 'succeeded') =>
     ({ id, templateParameters: { nodeVersion }, status, result });
 const response = (data, token) => new Response(JSON.stringify(data),
     { headers: token ? { 'x-ms-continuationtoken': token } : {} });
-const run = (pins, fetchImpl) => ensureAlpineBuilds(pins, { token: 'test-token', fetchImpl });
+const run = (pins, fetchImpl, includeNonSecurityUpdates = false) =>
+    ensureAlpineBuilds(pins, { token: 'test-token', fetchImpl, includeNonSecurityUpdates });
 
 test('duplicate detection: exact versions across all statuses/pages, newest match, and early exit', async () => {
     for (const [status, result] of [['notStarted', null], ['inProgress', null], ['cancelling', null],
@@ -16,11 +20,11 @@ test('duplicate detection: exact versions across all statuses/pages, newest matc
         const results = await run([checked[1]], async (url, options) => {
             assert.equal(options.method, 'GET', 'Existing versions must never queue a run');
             if (++calls === 1) {
-                return response({ value: [build(10, '24.22.1'), build(9, ''), { id: 8 }] }, 'next page+/=');
+                return response({ value: [build(10, '24.23.0'), build(9, ''), { id: 8 }] }, 'next page+/=');
             }
             assert.equal(new URL(url).searchParams.get('continuationToken'), 'next page+/=');
             assert.equal(calls, 2, 'Stop as soon as the target is found');
-            return response({ value: [build(7, 'v24.23.0', status, result), build(6, '24.23.0')] }, 'not-needed');
+            return response({ value: [build(7, 'v24.22.1', status, result), build(6, '24.22.1')] }, 'not-needed');
         });
         assert.deepEqual(results.map(item => [item.outcome, item.runId, item.status, item.result]),
             [['existing', 7, status, result]]);
@@ -29,12 +33,12 @@ test('duplicate detection: exact versions across all statuses/pages, newest matc
     const results = await run(checked, async (url, options) => {
         assert.equal(options.method, 'GET');
         assert.equal(++calls, 1);
-        return response({ value: [build(30, '24.23.0'), build(29, '22.23.4'), build(28, '24.23.0')] }, 'not-needed');
+        return response({ value: [build(30, '24.22.1'), build(29, '22.23.4'), build(28, '24.22.1')] }, 'not-needed');
     });
     assert.deepEqual(results.map(item => item.runId), [29, 30]);
 });
 
-test('queue contract: unique latest stable targets, correct inputs, scoped authentication, and no-op', async () => {
+test('queue contract: unique security release targets, correct inputs, scoped authentication, and no-op', async () => {
     const posted = [];
     const results = await run(checked, async (url, options) => {
         const parsed = new URL(url);
@@ -49,7 +53,7 @@ test('queue contract: unique latest stable targets, correct inputs, scoped authe
             assert.equal(parsed.searchParams.get('queryOrder'), 'queueTimeDescending');
             assert.equal(parsed.searchParams.has('statusFilter'), false);
             assert.equal(parsed.searchParams.has('branchName'), false);
-            return response({ value: [build(1, '24.22.1')] });
+            return response({ value: [build(1, '24.23.0')] });
         }
         assert.equal(parsed.pathname, '/mseng/AzureDevOps/_apis/pipelines/21894/runs');
         assert.equal(options.headers['Content-Type'], 'application/json');
@@ -59,16 +63,26 @@ test('queue contract: unique latest stable targets, correct inputs, scoped authe
         posted.push(body.templateParameters.nodeVersion);
         return response({ id: posted.length, state: 'inProgress' });
     });
-    assert.deepEqual(posted, ['22.23.4', '24.23.0']);
+    assert.deepEqual(posted, ['22.23.4', '24.22.1']);
     assert.ok(results.every(item => item.outcome === 'queued' && item.url.includes(`buildId=${item.runId}`)));
-    assert.deepEqual(await ensureAlpineBuilds([{ outdated: false }], {
+    assert.deepEqual(await ensureAlpineBuilds([{
+        outdated: true, latestVersion: '24.22.2', latestSecurityVersion: '24.22.1', securityUpdateRequired: false
+    }, { outdated: false, securityUpdateRequired: false }], {
         fetchImpl: () => assert.fail('No token or request is needed for a no-op')
     }), []);
+    const optional = await run([...checked, {
+        outdated: true, latestVersion: '26.12.2', securityUpdateRequired: false
+    }, { outdated: false, securityUpdateRequired: false }], async (url, options) => {
+        assert.equal(options.method, 'GET', 'Opt-in must still suppress existing versions, including failed builds');
+        return response({ value: [build(1, '22.24.0'), build(2, '24.23.0', 'completed', 'failed'), build(3, '26.12.2')] });
+    }, true);
+    assert.deepEqual(optional.map(item => [item.nodeVersion, item.outcome]),
+        [['22.24.0', 'existing'], ['24.23.0', 'existing'], ['26.12.2', 'existing']]);
 });
 
 test('failure safety: incomplete history never queues, and failed/ambiguous POSTs never retry', async () => {
-    await assert.rejects(ensureAlpineBuilds(checked, {}), /System.AccessToken/);
-    await assert.rejects(run([{ outdated: true, latestVersion: 'bad' }], () => assert.fail()), /version/i);
+    await assert.rejects(ensureAlpineBuilds(checked, {}), /ALPINE_BUILDS_ACCESS_TOKEN/);
+    await assert.rejects(run([{ securityUpdateRequired: true, latestSecurityVersion: 'bad' }], () => assert.fail()), /version/i);
     for (const invalid of [null, {}, { value: null }, { value: [null] }, { value: [{ id: 'bad' }] }]) {
         await assert.rejects(run(checked, async (url, options) => {
             assert.equal(options.method, 'GET');
@@ -80,7 +94,7 @@ test('failure safety: incomplete history never queues, and failed/ambiguous POST
         let calls = 0;
         await assert.rejects(run(checked, async (url, options) => {
             assert.equal(options.method, 'GET');
-            return ++calls === 1 ? response({ value: [build(1, '24.23.0')] }, 'next') : failure();
+            return ++calls === 1 ? response({ value: [build(1, '24.22.1')] }, 'next') : failure();
         }), error => !/test-token|private body/.test(error.message));
         assert.equal(calls, 2);
     }

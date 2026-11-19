@@ -84,14 +84,14 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     try{
                         string actualLocation;
 
+                        ConfigureNodeHandlerHelper(scenario);
+
                         if (scenario.InContainer)
                         {
                             actualLocation = TestActualContainerNodeSelection(thc, scenario, knobs);
                         }
                         else
                         {
-                            ConfigureNodeHandlerHelper(scenario);
-
                             NodeHandler nodeHandler = new NodeHandler(NodeHandlerHelper.Object);
                             nodeHandler.Initialize(thc);
 
@@ -119,6 +119,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                             {
                                 Assert.Contains(CapturedWarnings, w => w.Contains(scenario.StrategyExpectedWarning));
                             }
+                        }
+
+                        if (scenario.ExpectedWarning != null)
+                        {
+                            Assert.Contains(CapturedWarnings, w => w.Contains(scenario.ExpectedWarning));
                         }
                     }
                     catch (Exception ex) when (expectations.ExpectedErrorType != null)
@@ -268,7 +273,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     $"node{IOUtil.ExeExtension}"));
             NodeHandlerHelper
                 .Setup(x => x.IsNodeExecutable(It.IsAny<string>(), It.IsAny<IHostContext>(), It.IsAny<IExecutionContext>()))
-                .Returns(scenario.Node24Executable);
+                .Returns((string folder, IHostContext _, IExecutionContext _) =>
+                    folder != NodeHandler.Node24Folder || scenario.Node24Executable);
         }
 
         private string GetExpectedNodeLocation(string expectedNode, TestScenario scenario, TestHostContext thc)
@@ -476,13 +482,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         protected void ResetEnvironment()
         { 
             // Core Node.js strategy knobs
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE24_WITH_HANDLER_DATA", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE", null);
-            Environment.SetEnvironmentVariable("AZP_AGENT_USE_NODE20_TO_START_CONTAINER", null); 
-            Environment.SetEnvironmentVariable("AZP_AGENT_USE_NODE24_TO_START_CONTAINER", null);
        
             // EOL and strategy control
             Environment.SetEnvironmentVariable("AGENT_RESTRICT_EOL_NODE_VERSIONS", null);

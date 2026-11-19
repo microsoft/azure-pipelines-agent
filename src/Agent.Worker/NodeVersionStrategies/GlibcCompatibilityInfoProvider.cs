@@ -107,7 +107,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 // Container execution - use container-specific redirect information
                 var glibcInfo = GlibcCompatibilityInfo.Create(
                     node24HasGlibcError: context.Container.NeedsNode20Redirect, 
-                    node20HasGlibcError: context.Container.NeedsNode16Redirect);
+                    node20HasGlibcError: context.Container.Node20HasGlibcError);
                 
                 _executionContext.Debug($"[{environmentType}] Container glibc compatibility - Node24: {!glibcInfo.Node24HasGlibcError}, Node20: {!glibcInfo.Node20HasGlibcError}");
                 

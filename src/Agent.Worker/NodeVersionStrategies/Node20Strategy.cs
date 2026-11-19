@@ -29,25 +29,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
         public NodeRunnerInfo CanHandle(TaskContext context, IExecutionContext executionContext, GlibcCompatibilityInfo glibcInfo)
         {
             bool useNode20Globally = AgentKnobs.UseNode20_1.GetValue(executionContext).AsBoolean();
-            bool eolPolicyEnabled = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean();
-
-            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
-            string node20TaskWarning =
-                AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean() &&
-                context.HandlerData is Node20_1HandlerData
-                    ? StringUtil.Loc("Node20TaskRetirementWarning", taskName)
-                    : null;
 
             // Only use Node20 if the binary actually exists on disk. When absent, return null
             // so the orchestrator falls through to the next strategy (and ultimately its clean
             // terminal error) instead of returning a non-existent node path that would fail
             // later at process launch. This guard is placed before the knob-driven returns so
-            // that even a global override / EOL upgrade cannot select a missing Node20.
+            // that even a global override cannot select a missing Node20.
             var hostContext = executionContext.GetHostContext();
             string node20Folder = NodeVersionHelper.GetFolderName(NodeVersion.Node20);
-            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext))
+            if (!_nodeHandlerHelper.IsNodeFolderExist(node20Folder, hostContext) ||
+                !_nodeHandlerHelper.IsNodeExecutable(node20Folder, hostContext, executionContext))
             {
-                executionContext.Debug("[Node20Strategy] Node20 binary not found on disk, skipping to allow fallback to next strategy");
+                executionContext.Debug("[Node20Strategy] Node20 binary is missing or cannot execute, skipping");
                 return null;
             }
 
@@ -57,6 +50,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
+            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
+            {
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
+            }
+
+            string node20TaskWarning = GetNode20TaskWarning(executionContext);
+
             if (useNode20Globally)
             {
                 return new NodeRunnerInfo
@@ -65,19 +65,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     NodeVersion = NodeVersion.Node20,
                     Reason = "Selected via global AGENT_USE_NODE20_1 override",
                     Warning = node20TaskWarning
-                };
-            }
-
-            if (eolPolicyEnabled)
-            {
-                return new NodeRunnerInfo
-                {
-                    NodePath = null,
-                    NodeVersion = NodeVersion.Node20,
-                    Reason = "Upgraded from end-of-life Node version due to EOL policy",
-                    Warning = context.EffectiveMaxVersion <= NodeVersionHelper.MaxEOLNodeVersion
-                        ? StringUtil.Loc("NodeEOLUpgradeWarning", taskName)
-                        : node20TaskWarning
                 };
             }
 
@@ -98,12 +85,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 };
             }
 
+            string fallbackWarning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20");
+            if (node20TaskWarning != null)
+            {
+                fallbackWarning += Environment.NewLine + node20TaskWarning;
+            }
+
             return new NodeRunnerInfo
             {
                 NodePath = null,
                 NodeVersion = NodeVersion.Node20,
                 Reason = "Fallback to Node20",
-                Warning = StringUtil.Loc("NodeGlibcFallbackWarning", "agent", "Node24", "Node20")
+                Warning = fallbackWarning
             };
         }
 
@@ -115,14 +108,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 return null;
             }
 
-            bool useNode20ToStartContainer = AgentKnobs.UseNode20ToStartContainer.GetValue(executionContext).AsBoolean();        
-            if (!useNode20ToStartContainer)
+            if (AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(executionContext).AsBoolean())
             {
-                executionContext.Debug("[Node20Strategy] UseNode20ToStartContainer=false, cannot handle container");
+                throw new NotSupportedException(StringUtil.Loc("NodeEOLPolicyBlocked", "Node20"));
+            }
+
+            if (!_nodeHandlerHelper.IsNodeFolderExist(NodeVersionHelper.GetFolderName(NodeVersion.Node20), executionContext.GetHostContext()))
+            {
+                executionContext.Debug("[Node20Strategy] Node20 is not bundled, skipping container startup");
                 return null;
             }
 
-            executionContext.Debug("[Node20Strategy] UseNode20ToStartContainer=true, checking Node20 availability in container");
+            executionContext.Debug("[Node20Strategy] Checking Node20 availability in container");
 
             try
             {
@@ -132,7 +129,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                     {
                         NodePath = null,
                         NodeVersion = NodeVersion.Node20,
-                        Reason = "Node20 available in container via UseNode20ToStartContainer knob",
+                        Reason = "Node20 available in container as fallback",
                         Warning = null
                     };
                 }
@@ -147,6 +144,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 executionContext.Warning($"[Node20Strategy] Failed to test Node20 in container: {ex.Message}");
                 return null;
             }
+        }
+
+        private static string GetNode20TaskWarning(IExecutionContext executionContext)
+        {
+            if (!AgentKnobs.WarnOnNode20Task.GetValue(executionContext).AsBoolean())
+            {
+                return null;
+            }
+
+            string taskName = executionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task";
+            return StringUtil.Loc("Node20TaskRetirementWarning", taskName);
         }
     }
 }

@@ -129,9 +129,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             {
                 Reference = new TaskStepDefinitionReference
                 {
-                    Id = Guid.Parse("20ae8e90-cba3-4e58-a89c-7783b7ac8762"),
+                    Id = Guid.Parse("2df61bcf-06dd-43f4-b8e1-98b774607c7f"),
                     Name = "CmdLine",
-                    Version = "2.281.0"
+                    Version = "2.283.0"
                 },
                 Name = "CmdLine",
                 DisplayName = "CmdLine",
@@ -367,7 +367,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
 
         private void ResetNodeKnobs()
         {
-            Environment.SetEnvironmentVariable("AGENT_USE_NODE10", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_1", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE20_IN_UNSUPPORTED_SYSTEM", null);
             Environment.SetEnvironmentVariable("AGENT_USE_NODE24", null);
@@ -416,9 +415,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
       },
       'type': 'task',
       'reference': {
-        'id': '20ae8e90-cba3-4e58-a89c-7783b7ac8762',
+        'id': '2df61bcf-06dd-43f4-b8e1-98b774607c7f',
         'name': 'CmdLine',
-        'version': '2.281.0'
+        'version': '2.283.0'
       },
       'id': '9c939e41-62c2-5605-5e05-fc3554afc9f5',
       'name': 'CmdLine',

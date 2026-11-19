@@ -185,14 +185,14 @@ function renderMarkdown(report) {
     lines.push(
         '', ...Object.entries(sources).map(([name, url]) => `${name}: ${url}`), '',
         'Full lifecycle dates, release metadata, CVE descriptions and patched ranges are in `node-lts-report.json`.',
-        'Security updates fail even without indexed CVEs. Alpine builds do not clear findings; existing runs are never retried.', ''
+        'Security updates fail even without indexed CVEs. Alpine builds default to newer security releases; nonsecurity releases require opt-in. Builds do not clear findings; existing runs are never retried.', ''
     );
     return lines.join('\n');
 }
 
 async function monitor({
     externalsPath, outputDirectory, fetchImpl = fetch, log = console.log, now = new Date(),
-    triggerAlpineBuilds = false, accessToken
+    triggerAlpineBuilds = false, alpineBuildToken, includeNonSecurityUpdates = false
 }) {
     await fs.mkdir(outputDirectory, { recursive: true });
     const report = { checkedAt: now.toISOString(), sources };
@@ -209,7 +209,7 @@ async function monitor({
     }
     if (!report.error && triggerAlpineBuilds) {
         try {
-            report.alpineBuilds = await ensureAlpineBuilds(report.checked, { token: accessToken, fetchImpl });
+            report.alpineBuilds = await ensureAlpineBuilds(report.checked, { token: alpineBuildToken, fetchImpl, includeNonSecurityUpdates });
         } catch (error) {
             report.alpineBuildError = error.message;
         }
@@ -243,7 +243,9 @@ async function monitor({
         }
     }
     if (report.alpineBuilds?.length === 0) {
-        log('Alpine-NodeJs-Build skipped: no outdated bundled LTS versions require a build.');
+        log(includeNonSecurityUpdates
+            ? 'Alpine-NodeJs-Build skipped: no outdated bundled LTS versions require a build.'
+            : 'Alpine-NodeJs-Build skipped: no bundled LTS versions require a security update.');
     }
     const summaryPath = path.join(outputDirectory, 'node-lts-report.md');
     await Promise.all([
@@ -263,16 +265,20 @@ async function monitor({
 
 if (require.main === module) {
     const outputDirectory = process.argv[2];
-    const triggerAlpineBuilds = process.argv[3] === '--trigger-alpine-builds';
-    if (!outputDirectory || (process.argv.length !== 3 && !(process.argv.length === 4 && triggerAlpineBuilds))) {
-        console.error('Usage: node check-node-lts.js <report-directory> [--trigger-alpine-builds]');
+    const flags = process.argv.slice(3);
+    const triggerAlpineBuilds = flags.includes('--trigger-alpine-builds');
+    const includeNonSecurityUpdates = flags.includes('--include-nonsecurity-updates');
+    if (!outputDirectory || flags.some(flag => !['--trigger-alpine-builds', '--include-nonsecurity-updates'].includes(flag)) ||
+        (includeNonSecurityUpdates && !triggerAlpineBuilds)) {
+        console.error('Usage: node check-node-lts.js <report-directory> [--trigger-alpine-builds [--include-nonsecurity-updates]]');
         process.exitCode = 2;
     } else {
         monitor({
             externalsPath: path.resolve(__dirname, '..', '..', 'src', 'Misc', 'externals.sh'),
             outputDirectory,
             triggerAlpineBuilds,
-            accessToken: process.env.SYSTEM_ACCESSTOKEN
+            includeNonSecurityUpdates,
+            alpineBuildToken: process.env.ALPINE_BUILDS_ACCESS_TOKEN
         }).then(exitCode => {
             process.exitCode = exitCode;
         }).catch(error => {
