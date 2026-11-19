@@ -51,15 +51,35 @@ refresh_service_script() {
     if ! cp -a "$service" "$refreshed" >> "$log" 2>&1 ||
        ! awk -v b="$begin" -v e="$end" '
             NR == FNR { region = region $0 "\n"; next }
-            skip { if (index($0, e) == 1) skip = 0; next }
-            legacy { if ($0 ~ /^fi[ \t]*$/) legacy = 0; next }
-            index($0, b) == 1 { printf "%s", region; replaced++; skip = 1; next }
+            skip {
+                if ($0 ~ /^\.\/externals\/[^ ]+\/bin\/node \.\/bin\/AgentService\.js[ \t]*$/) foreground = 1
+                if (index($0, e) == 1) {
+                    replacement = region
+                    if (foreground) sub(/AgentService[.]js &\n/, "AgentService.js\n", replacement)
+                    printf "%s", replacement; replaced++; skip = 0
+                }
+                next
+            }
+            legacy == 1 {
+                if ($0 ~ /^[ \t]*if[ \t]/) depth++
+                if ($0 ~ /^[ \t]*fi[ \t]*$/ && --depth == 0) legacy = 2
+                next
+            }
+            legacy == 2 && /^[ \t]*$/ { next }
+            index($0, b) == 1 { foreground = 0; skip = 1; next }
             /^# (fallback on Node16|Prefer Node24)/ { legacy = 1; next }
             /^# run the host process which keep the listener alive[ \t]*$/ { held = $0; next }
-            /^\.\/externals\/[^ ]+\/bin\/node \.\/bin\/AgentService\.js &[ \t]*$/ { held = ""; printf "%s", region; replaced++; next }
+            /^\.\/externals\/[^ ]+\/bin\/node \.\/bin\/AgentService\.js( &)?[ \t]*$/ {
+                replacement = region
+                # The earliest service script ran in the foreground without PID/wait handling.
+                if ($0 !~ / &[ \t]*$/) sub(/AgentService[.]js &\n/, "AgentService.js\n", replacement)
+                held = ""; legacy = 0; printf "%s", replacement; replaced++; next
+            }
+            legacy == 2 { exit 3 }
             { if (held != "") { print held; held = "" } print }
             END { if (held != "") print held; if (skip || legacy || replaced != 1) exit 3 }
-        ' "$region" "$service" > "$refreshed" 2>> "$log"; then
+        ' "$region" "$service" > "$refreshed" 2>> "$log" ||
+       ! bash -n "$refreshed" >> "$log" 2>&1; then
         date "+[%F %T-%4N] $service does not have a recognized node selection, skip refreshing it. $manual" >> "$log" 2>&1
         rm -f "$region" "$refreshed"
         return 0

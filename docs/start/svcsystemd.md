@@ -86,6 +86,8 @@ You can also inject anything you want to run when the service runs.  For example
 
 Agent self-update refreshes the Node.js runtime selection between `# BEGIN AGENT SERVICE NODE SELECTION` and `# END AGENT SERVICE NODE SELECTION` in ./runsvc.sh, so keep customizations outside that block. A backup of the previous script is saved as `runsvc.sh.<previous version>.bak`.
 
+The refresh also recognizes historical bundled service scripts, including those installed by v2, v3, and v4 agents. It preserves foreground/background execution and settings outside runtime selection. This does not bypass the target agent version's operating system requirements.
+
 ## Service Files
 
 This is a convenience that simply creates a service file for you can sets permissions.  You are free to manually configure and control your service using alternate methods.

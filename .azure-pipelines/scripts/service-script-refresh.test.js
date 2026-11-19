@@ -24,55 +24,6 @@ function managedRegion(content) {
     return content.slice(start, end + 1);
 }
 
-const header = `#!/bin/bash
-
-# convert SIGTERM signal to SIGINT
-trap 'kill -INT $PID' TERM INT
-
-if [ -f ".path" ]; then
-    # configure
-    export PATH=\`cat .path\`
-    echo ".path=\${PATH}"
-fi
-
-# insert anything to setup env when running as a service
-export CUSTOM_ENV=keep-me
-`;
-const tail = 'PID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n';
-const launchComment = '# run the host process which keep the listener alive\n';
-
-const legacyServices = {
-    'node16 only': header + '\n' + launchComment +
-        './externals/node16/bin/node ./bin/AgentService.js &\n' + tail,
-    'node20 with node16 fallback': header + `
-# fallback on Node16 if Node20 is not supported by the host
-./externals/node20_1/bin/node --version
-if [ $? == 0 ]; then
-    NODE_VER="node20_1"
-else    
-    NODE_VER="node16"
-fi
-
-` + launchComment + './externals/"$NODE_VER"/bin/node ./bin/AgentService.js &\n' + tail,
-    'node24 with node16 fallback': header + `
-# Prefer Node24, fall back to Node20, then Node16 only if present
-./externals/node24/bin/node --version 2>/dev/null
-if [ $? == 0 ]; then
-    NODE_VER="node24"
-else
-    ./externals/node20_1/bin/node --version 2>/dev/null
-    if [ $? == 0 ]; then
-        NODE_VER="node20_1"
-    elif [ -f "./externals/node16/bin/node" ]; then
-        NODE_VER="node16"
-    else
-        exit 1
-    fi
-fi
-
-` + launchComment + './externals/"$NODE_VER"/bin/node ./bin/AgentService.js &\n' + tail
-};
-
 function runRefresh(rootService) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-refresh-'));
     try {
@@ -110,8 +61,8 @@ function selectedRunner(service, node24, node20) {
     const instrumented = service
         .replace('./externals/node24/bin/node', 'probeNode24')
         .replace('./externals/node20_1/bin/node', 'probeNode20')
-        .replace('./externals/"$NODE_VER"/bin/node ./bin/AgentService.js &',
-            'printf "SERVICE_RUNNER:%s\\n" "$NODE_VER" &');
+        .replace(/\.\/externals\/"\$NODE_VER"\/bin\/node \.\/bin\/AgentService\.js( &)?/,
+            (_, background) => 'printf "SERVICE_RUNNER:%s\\n" "$NODE_VER"' + (background || ''));
     const result = spawnSync(bash, ['-s'], {
         input: `function probeNode24() { return ${node24}; }\n` +
             `function probeNode20() { return ${node20}; }\n` + instrumented,
@@ -128,19 +79,32 @@ test('stock runsvc.sh wraps node selection in a managed region', () => {
     assert.equal(stockService.match(LAUNCH).length, 1);
 });
 
-for (const [name, legacy] of Object.entries(legacyServices)) {
-    test(`upgrade refreshes legacy service script (${name}) and keeps customizations`, () => {
+// Exact file snapshots from git log --follow, including every distinct script in release-tag history.
+const history = require('./runsvc-history.json');
+for (const { revision, content } of history) {
+    test(`upgrade preserves service behavior from historical revision ${revision}`, () => {
+        const customization = 'export CUSTOM_ENV=keep-me\n';
+        const legacy = content.replace('# insert anything to setup env when running as a service\n',
+            '# insert anything to setup env when running as a service\n' + customization);
         const { result, service, backup } = runRefresh(legacy);
         assert.match(result.stdout, /EXIT:0/, result.stderr);
         assert.equal(backup, legacy);
-        assert.equal(managedRegion(service), managedRegion(stockService));
-        assert.match(service, /^export CUSTOM_ENV=keep-me$/m);
-        assert.doesNotMatch(service, /node16/);
-        assert.equal(service.match(LAUNCH).length, 1);
-        assert.equal(service.split(launchComment).length, 2);
-        assert.ok(service.endsWith(tail));
+
+        const selectionStart = legacy.search(/^# (fallback on Node16|Prefer Node24|run the host process)/m);
+        const launch = /^\.\/externals\/[^\n]+\/bin\/node \.\/bin\/AgentService\.js( &)?\n/m.exec(legacy);
+        assert.ok(selectionStart >= 0 && launch);
+        const region = launch[1] ? managedRegion(stockService)
+            : managedRegion(stockService).replace('AgentService.js &\n', 'AgentService.js\n');
+        assert.equal(service, legacy.slice(0, selectionStart) + region +
+            legacy.slice(launch.index + launch[0].length));
+        const syntax = spawnSync(bash, ['-n'], { input: service, encoding: 'utf8' });
+        assert.ifError(syntax.error);
+        assert.equal(syntax.status, 0, syntax.stderr);
         assert.equal(selectedRunner(service, 0, 0), 'node24');
         assert.equal(selectedRunner(service, 1, 0), 'node20_1');
+        const repeated = runRefresh(service);
+        assert.equal(repeated.service, service);
+        assert.equal(repeated.backup, null);
     });
 }
 
@@ -165,7 +129,10 @@ test('upgrade leaves an up-to-date service script untouched', () => {
 
 for (const [name, content] of Object.entries({
     'unrecognized launch command': '#!/bin/bash\nexec /opt/node/bin/node ./bin/AgentService.js\n',
-    'unterminated managed region': stockService.replace(END, '# end')
+    'unterminated managed region': stockService.replace(END, '# end'),
+    'malformed fallback block': history[0].content.replace('\nfi\n\n# run', '\n\n# run'),
+    'custom code after fallback block': history[0].content.replace(
+        '# run the host process', 'export CUSTOM_AFTER_SELECTION=keep-me\n# run the host process')
 })) {
     test(`upgrade skips service script with ${name}`, () => {
         const { result, service, files, log } = runRefresh(content);

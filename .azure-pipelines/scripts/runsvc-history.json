@@ -1,0 +1,57 @@
+[
+  {
+    "revision": "2a411ad279cca599d53fe51e8b05c60b1f182a1c",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# Prefer Node24, fall back to Node20\n./externals/node24/bin/node --version 2>/dev/null\nif [ $? == 0 ]; then\n    NODE_VER=\"node24\"\nelse\n    ./externals/node20_1/bin/node --version 2>/dev/null\n    if [ $? == 0 ]; then\n        NODE_VER=\"node20_1\"\n    else\n        echo \"ERROR: No compatible Node.js runtime found. Requires Node 20 or later.\" >&2\n        exit 1\n    fi\nfi\n\n# run the host process which keep the listener alive\n./externals/\"$NODE_VER\"/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "b8dd627a75ad995a6081436f72b7346dd1d4442c",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# Prefer Node24, fall back to Node20, then Node16 only if present\n./externals/node24/bin/node --version 2>/dev/null\nif [ $? == 0 ]; then\n    NODE_VER=\"node24\"\nelse\n    ./externals/node20_1/bin/node --version 2>/dev/null\n    if [ $? == 0 ]; then\n        NODE_VER=\"node20_1\"\n    elif [ -f \"./externals/node16/bin/node\" ]; then\n        ./externals/node16/bin/node --version 2>/dev/null\n        if [ $? == 0 ]; then\n            NODE_VER=\"node16\"\n        else\n            echo \"ERROR: No compatible Node.js runtime found.\" >&2\n            exit 1\n        fi\n    else\n        echo \"ERROR: No compatible Node.js runtime found. Requires Node 20 or later.\" >&2\n        exit 1\n    fi\nfi\n\n# run the host process which keep the listener alive\n./externals/\"$NODE_VER\"/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "1a54ad6bb054cdd5a13a264da7c7a5e7feb88b27",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# fallback on Node16 if Node20 is not supported by the host\n./externals/node20_1/bin/node --version\nif [ $? == 0 ]; then\n    NODE_VER=\"node20_1\"\nelse    \n    NODE_VER=\"node16\"\nfi\n\n# run the host process which keep the listener alive\n./externals/\"$NODE_VER\"/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "a4ecb428333af44a0b87b62142e7fce2f556a5d2",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node16/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "95db487f8b43dc67b4064a090e668d34aa1b78a4",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node10/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "5a99d2004e7d7f2332dc2d62d3f1ba8585daae34",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "1c3de097e1e87c9868c359bd63d44a7ab4bd4f91",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".env\" ]; then\n    export $(cat .env)\nfi\n\nif [ -f \".path\" ]; then\n    # configure\n    export PATH=`cat .path`\n    echo \".path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "a5b1224310efca17123649862f38b625eed727a9",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".Env\" ]; then\n    export $(cat .Env)\nfi\n\nif [ -f \".Path\" ]; then\n    # configure\n    export PATH=`cat .Path`\n    echo \".Path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "11546b189181b4569c73d554d593fe7c8ad96428",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\n# for more info on how to propagate SIGTERM to a child process see: http://veithen.github.io/2014/11/16/sigterm-propagation.html\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".Path\" ]; then\n    # configure\n    export PATH=`cat .Path`\n    echo \".Path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "d7cf0540ef82bde0f00ba68762466ca01bbaec25",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\n# convert SIGTERM signal to SIGINT\ntrap 'kill -INT $PID' TERM INT\n\nif [ -f \".Path\" ]; then\n    # configure\n    export PATH=`cat .Path`\n    echo \".Path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js &\nPID=$!\nwait $PID\ntrap - TERM INT\nwait $PID\n"
+  },
+  {
+    "revision": "6120628221c46e3d35a0cf41f2c1c5d6cc2596d8",
+    "source": "src/Misc/layoutbin/runsvc.sh",
+    "content": "#!/bin/bash\n\nif [ -f \".Path\" ]; then\n    # configure\n    export PATH=`cat .Path`\n    echo \".Path=${PATH}\"\nfi\n\n# insert anything to setup env when running as a service\n\n# run the host process which keep the listener alive\n./externals/node/bin/node ./bin/AgentService.js\n"
+  }
+]
