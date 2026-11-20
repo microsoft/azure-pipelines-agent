@@ -217,7 +217,7 @@ test('treats an already current stamped script as up to date', () => {
 
 for (const [name, mutate] of [
     ['an edited body', content => content.replace('# insert anything to setup env when running as a service\n',
-        '# insert anything to setup env when running as a service\nexport CUSTOMER_SETUP=preserve-me\n')],
+        '# insert anything to setup env when running as a service\nexport CUSTOMER_SETUP="$PATH"\n')],
     ['lines appended after the marker', content => content + 'export CUSTOMER_SETUP=preserve-me\n'],
     ['a marker without a final newline', content => content.slice(0, -1)],
     ['a marker with CRLF line endings', content => content.replace(/\n/g, '\r\n')],
@@ -402,8 +402,12 @@ const marker = '# insert anything to setup env when running as a service\n';
 const customize = (content, lines) => content.replace(marker, marker + lines);
 const hookPattern = /^# Service customizations migrated from runsvc\.sh[^\n]*\n# [^\n]*\n([\s\S]*)$/;
 
-for (const { revision, content } of history) {
-    test(`migrates documented customizations to runsvc.hook.sh from historical revision ${revision}`, () => {
+for (const { revision, content } of [
+    ...history,
+    { revision: 'stamped current', content: stockService },
+    { revision: 'stamped future', content: stamp(sourceService + '# future release\n') }
+]) {
+    test(`migrates documented customizations to runsvc.hook.sh from revision ${revision}`, () => {
         const customization = '# Customer environment\nexport CUSTOMER_SETUP="from-hook ok"\nexport PATH=/usr/bin:/bin\n';
         const custom = customize(content, customization);
         const outcome = runUpdate({ service: custom, serviceConfigured: true });
@@ -415,6 +419,7 @@ for (const { revision, content } of history) {
         assert.equal(outcome.oldBinSaved, true);
         assert.match(outcome.telemetry, /--service-script-telemetry Migrated/);
         assert.match(outcome.log, /runsvc\.hook\.sh/);
+        assert.deepEqual(outcome.files.filter(file => file.startsWith('.runsvc')), []);
         if (process.platform !== 'win32') {
             assert.equal(outcome.hookMode, 0o750);
         }
@@ -481,22 +486,24 @@ const unsafeCustomizations = {
     'a removed blank line after the insertion marker': content => content.replace(marker + '\n', marker + 'export CUSTOMER_SETUP=1\n')
 };
 
-for (const [name, make] of Object.entries(unsafeCustomizations)) {
-    test(`blocks the update instead of migrating ${name}`, () => {
-        const custom = make(history[0].content);
-        assert.notEqual(custom, history[0].content);
-        const outcome = runUpdate({ service: custom, serviceConfigured: true });
-        assert.notEqual(outcome.result.status, 0);
-        assert.equal(outcome.service, custom);
-        assert.equal(outcome.hook, null);
-        assert.equal(outcome.oldBinStillActive, true);
-        assert.equal(outcome.oldExternalsStillActive, true);
-        assert.equal(outcome.failed, true);
-        assert.match(outcome.result.stderr, /ERROR.*(custom|unrecognized)/i);
-        assert.match(outcome.telemetry, /--service-script-telemetry Unrecognized/);
-        assert.deepEqual(outcome.backups, []);
-        assert.deepEqual(outcome.files.filter(file => file.startsWith('.runsvc')), []);
-    });
+for (const content of [history[0].content, stockService]) {
+    for (const [name, make] of Object.entries(unsafeCustomizations)) {
+        test(`blocks the update instead of migrating ${name} (${content === stockService ? 'stamped' : 'legacy'})`, () => {
+            const custom = make(content);
+            assert.notEqual(custom, content);
+            const outcome = runUpdate({ service: custom, serviceConfigured: true });
+            assert.notEqual(outcome.result.status, 0);
+            assert.equal(outcome.service, custom);
+            assert.equal(outcome.hook, null);
+            assert.equal(outcome.oldBinStillActive, true);
+            assert.equal(outcome.oldExternalsStillActive, true);
+            assert.equal(outcome.failed, true);
+            assert.match(outcome.result.stderr, /ERROR.*(custom|unrecognized)/i);
+            assert.match(outcome.telemetry, /--service-script-telemetry Unrecognized/);
+            assert.deepEqual(outcome.backups, []);
+            assert.deepEqual(outcome.files.filter(file => file.startsWith('.runsvc')), []);
+        });
+    }
 }
 
 test('blocks customer commands without executing them during inspection', () => {
