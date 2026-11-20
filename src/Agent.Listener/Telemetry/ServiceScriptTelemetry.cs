@@ -12,7 +12,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener.Telemetry
         public static bool IsValidUpgradeStatus(string status)
         {
             return status == "Stock" || status == "Unrecognized" || status == "Missing" ||
-                status == "NoService" || status == "Error";
+                status == "NoService" || status == "Error" || status == "Node24Unsupported";
         }
 
         public static async Task PublishUpgradeStatusAsync(IHostContext context, string status, Tracing trace)

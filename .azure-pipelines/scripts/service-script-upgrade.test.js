@@ -21,7 +21,7 @@ const stamp = content => `${content}# agent-stock-sha256: ${hash(content)}\n`;
 const stockService = stamp(sourceService);
 const hashes = [...new Set(history.map(item => hash(item.content)))];
 
-function runUpdate({ service, newService = stockService, serviceConfigured = false, symlink = false, preview, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false } = {}) {
+function runUpdate({ service, newService = stockService, serviceConfigured = false, symlink = false, preview, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false, node24Runtime = 'ok' } = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-upgrade-'));
     try {
         for (const dir of ['bin', 'externals', 'bin.2.0.0', 'externals.2.0.0']) {
@@ -51,6 +51,18 @@ function runUpdate({ service, newService = stockService, serviceConfigured = fal
             if (probeRuntime === 'native') {
                 fs.copyFileSync(path.join(layoutbin, 'AgentService.js'), path.join(root, 'bin.2.0.0', 'AgentService.js'));
             }
+        }
+        const node24 = path.join(root, 'externals.2.0.0', 'node24', 'bin', 'node');
+        if (node24Runtime === 'missing') {
+            fs.rmSync(path.join(root, 'externals.2.0.0', 'node24'), { recursive: true, force: true });
+        } else if (node24Runtime === 'broken' || !probeRuntime) {
+            fs.mkdirSync(path.dirname(node24), { recursive: true });
+            fs.rmSync(node24, { force: true });
+            fs.writeFileSync(node24, node24Runtime === 'broken'
+                ? "#!/bin/bash\necho 'node: /lib64/libc.so.6: version GLIBC_2.28 not found' >&2\nexit 1\n"
+                : '#!/bin/bash\necho v24.0.0\n',
+                { mode: 0o755 });
+            fs.chmodSync(node24, 0o755);
         }
         if (!omitManifest) {
             fs.writeFileSync(path.join(root, 'bin.2.0.0', 'runsvc.sh.sha256'), hashes.join(manifestEol) + manifestEol);
@@ -146,6 +158,33 @@ test('the replacement runs AgentService.js with a real Node 24 binary', {
     assert.match(outcome.serviceResult.stdout, /v24\.\d+\.\d+/);
     assert.match(outcome.serviceResult.stdout, /Starting Agent listener with startup type: service/);
     assert.match(outcome.serviceResult.stdout, /listener-launched:run --startuptype service/);
+});
+
+for (const [name, node24Runtime] of [
+    ['cannot run on this machine', 'broken'],
+    ['is missing from the downloaded agent', 'missing']
+]) {
+    test(`blocks the upgrade before any change when Node 24 ${name}`, () => {
+        const original = history[history.length - 1].content;
+        const outcome = runUpdate({ service: original, serviceConfigured: true, node24Runtime });
+        assert.notEqual(outcome.result.status, 0);
+        assert.equal(outcome.failed, true);
+        assert.equal(outcome.service, original);
+        assert.deepEqual(outcome.backups, []);
+        assert.equal(outcome.preview, null);
+        assert.equal(outcome.oldBinStillActive, true);
+        assert.equal(outcome.oldExternalsStillActive, true);
+        assert.match(outcome.log, /Node\.js 24 .*cannot run on this machine/);
+        assert.match(outcome.result.stderr, /Agent update blocked/);
+        assert.match(outcome.telemetry || '', /--service-script-telemetry Node24Unsupported/);
+    });
+}
+
+test('blocks the upgrade when Node 24 cannot run even for an agent without a service', () => {
+    const outcome = runUpdate({ node24Runtime: 'broken' });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.failed, true);
+    assert.equal(outcome.oldBinStillActive, true);
 });
 
 test('frozen fingerprint list covers every historical unstamped stock script', () => {

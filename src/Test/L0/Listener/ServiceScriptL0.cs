@@ -85,9 +85,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
             }
         }
 
-        [Fact]
+        [Theory]
         [Trait("Level", "L0")]
-        public async Task PublishesOnlyTheUpgradeClassificationAndAgentVersion()
+        [InlineData("Unrecognized")]
+        [InlineData("Node24Unsupported")]
+        public async Task PublishesOnlyTheUpgradeClassificationAndAgentVersion(string status)
         {
             using (var context = new TestHostContext(this))
             {
@@ -98,13 +100,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .Returns(Task.CompletedTask);
                 context.SetSingleton(publisher.Object);
 
-                await ServiceScriptTelemetry.PublishUpgradeStatusAsync(context, "Unrecognized", context.GetTrace(nameof(ServiceScriptL0)));
+                await ServiceScriptTelemetry.PublishUpgradeStatusAsync(context, status, context.GetTrace(nameof(ServiceScriptL0)));
 
                 Assert.NotNull(published);
                 Assert.Equal("AzurePipelinesAgent", published.Properties["area"]);
                 Assert.Equal("ServiceScriptUpdateCheck", published.Properties["feature"]);
                 JObject properties = JObject.Parse(published.Data);
-                Assert.Equal("Unrecognized", (string)properties["ServiceScriptStatus"]);
+                Assert.Equal(status, (string)properties["ServiceScriptStatus"]);
                 Assert.Equal(2, properties.Count);
                 Assert.NotNull(properties["AgentVersion"]);
             }

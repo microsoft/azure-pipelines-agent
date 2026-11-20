@@ -242,6 +242,20 @@ date "+[%F %T-%4N] Process $agentpid finished running" >> "$logfile" 2>&1
 date "+[%F %T-%4N] Sleep 1 more second to make sure process exited" >> "$logfile" 2>&1
 ping -c 2 -i 1 127.0.0.1 > /dev/null
 
+# The new runsvc.sh hosts AgentService.js on the bundled Node 24. Refuse to switch to an agent
+# whose Node 24 cannot run here (for example, an OS whose glibc is too old) and keep the current agent.
+node24="$rootfolder/externals.$downloadagentversion/node24/bin/node"
+date "+[%F %T-%4N] Checking that $node24 can run on this machine" >> "$logfile" 2>&1
+if ! "$node24" --version >> "$logfile" 2>&1; then
+    service_script_error "Node.js 24 ($node24) cannot run on this machine. Agent update blocked; the current agent remains active. Upgrade the operating system to one supported by Node.js 24."
+    report_service_script_status Node24Unsupported
+    mv -fv "$logfile" "$logfile.failed"
+    if [ "$restartinteractiveagent" -ne 0 ]; then
+        "$rootfolder/run.sh" &
+    fi
+    exit 1
+fi
+
 if ! refresh_service_script; then
     mv -fv "$logfile" "$logfile.failed"
     if [ "$restartinteractiveagent" -ne 0 ]; then

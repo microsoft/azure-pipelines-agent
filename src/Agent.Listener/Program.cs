@@ -147,9 +147,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         return Constants.Agent.ReturnCode.TerminatedError;
                     }
 
-                    if (args[1] == "Unrecognized" || args[1] == "Missing" || args[1] == "Error")
+                    if (args[1] == "Unrecognized" || args[1] == "Missing" || args[1] == "Error" || args[1] == "Node24Unsupported")
                     {
-                        trace.Warning("Service-script verification blocked the agent update. See the SelfUpdate log for details.");
+                        trace.Warning("Pre-update verification blocked the agent update. See the SelfUpdate log for details.");
                     }
 
                     try
