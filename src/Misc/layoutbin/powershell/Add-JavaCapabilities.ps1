@@ -36,6 +36,9 @@ $jdk9AndGreaterNameAdoptOpenJRESemeru = "Software\Semeru\JRE"
 $jvmHotSpot = "hotspot\MSI"
 $jvmOpenj9 = "openj9\MSI"
 
+# JDK Keys for Microsoft Build for OpenJDK
+$jdk9AndGreaterNameMicrosoftOpenJDK = "Software\Microsoft\JDK"
+
 # Check for JRE.
 $latestJre = $null
 $null = Add-CapabilityFromRegistry -Name 'java_6' -Hive 'LocalMachine' -View 'Registry32' -KeyName $jre6KeyName -ValueName 'JavaHome' -Value ([ref]$latestJre)
@@ -101,6 +104,12 @@ if (-not $latestJdk) {
     $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDKEclipseAdoptium -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
     $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDKEclipseFoundation -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
     $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameAdoptOpenJDKSemeru -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmOpenj9 -MinimumMajorVersion $minimumMajorVersion9
+}
+
+#Check default reg keys for Microsoft Build of OpenJDK in case we didn't find JDK in JavaSoft or AdoptOpenJDK
+if (-not $latestJdk) {
+    # Microsoft OpenJDK section
+    $null = Add-CapabilityFromRegistryWithLastVersionAvailable -PrefixName 'jdk_' -PostfixName '_x64' -Hive 'LocalMachine' -View 'Registry64' -KeyName $jdk9AndGreaterNameMicrosoftOpenJDK -ValueName 'Path' -Value ([ref]$latestJdk) -VersionSubdirectory $jvmHotSpot -MinimumMajorVersion $minimumMajorVersion9
 }
 
 if ($latestJdk) {
