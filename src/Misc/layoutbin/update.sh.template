@@ -101,8 +101,13 @@ service_script_stamp_matches() {
 }
 
 # Returns 0 when the fingerprint is a known stock script, 1 when it is not, and 2 on error.
+# The frozen list is needed only for scripts without a valid stamp.
 is_stock_fingerprint() {
     local result
+    if [ ! -f "$service_manifest" ] || [ ! -r "$service_manifest" ]; then
+        echo "Cannot read the frozen service-script fingerprint list $service_manifest." >> "$logfile"
+        return 2
+    fi
     awk -v expected="$1" '
         { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
         END { if (!found) exit 1 }
@@ -129,11 +134,20 @@ extract_service_customization() {
     lines="${lines//[[:space:]]/}"
     [[ "$marker_line" =~ ^[0-9]+$ && "$lines" =~ ^[0-9]+$ ]] || return 2
 
+    # Stamped candidates do not need the frozen list; unstamped candidates fail closed without it.
+    local manifest_available=1 manifest_needed=0
+    if [ ! -f "$service_manifest" ] || [ ! -r "$service_manifest" ]; then
+        manifest_available=0
+    fi
     for ((k = marker_line + 1; k <= lines + 2; k++)); do
         { head -n "$marker_line" "$snapshot" && tail -n "+$k" "$snapshot"; } > "$output" || return 2
         service_script_stamp_matches "$output"
         result=$?
         if [ "$result" -eq 1 ]; then
+            if [ "$manifest_available" -eq 0 ]; then
+                manifest_needed=1
+                continue
+            fi
             digest=$(service_script_fingerprint "$output") || return 2
             is_stock_fingerprint "$digest"
             result=$?
@@ -145,6 +159,10 @@ extract_service_customization() {
             return 2
         fi
     done
+    if [ "$matches" -eq 0 ] && [ "$manifest_needed" -eq 1 ]; then
+        echo "Cannot read the frozen service-script fingerprint list $service_manifest." >> "$logfile"
+        return 2
+    fi
     if [ "$matches" -ne 1 ]; then
         migration_reason="changes were found outside the documented insertion region"
         return 1
@@ -248,7 +266,7 @@ refresh_service_script() {
         return 0
     fi
     if [ ! -f "$service_script" ] || [ ! -r "$service_script" ] ||
-       [ ! -r "$new_service_script" ] || [ ! -r "$service_manifest" ] ||
+       [ ! -r "$new_service_script" ] ||
        ! bash -n "$new_service_script" >> "$logfile" 2>&1; then
         report_service_script_status Error
         service_script_error "Cannot verify $service_script or the downloaded service script. Agent update blocked."
@@ -267,7 +285,11 @@ refresh_service_script() {
 
     service_script_stamp_matches "$snapshot"
     result=$?
-    if [ "$result" -eq 1 ]; then
+    if [ "$result" -eq 1 ] && [ ! -r "$service_manifest" ] &&
+       tail -n 1 "$snapshot" 2>> "$logfile" | grep -q -E '^# agent-stock-sha256: [0-9a-f]{64}$'; then
+        # A customized stamped script can be verified from its own stamp during migration.
+        result=1
+    elif [ "$result" -eq 1 ]; then
         # Scripts shipped before build-time stamping are recognized by the frozen fingerprint list.
         is_stock_fingerprint "$digest"
         result=$?

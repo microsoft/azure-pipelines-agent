@@ -428,6 +428,34 @@ for (const { revision, content } of [
     });
 }
 
+test('upgrades a stamped stock script without the frozen fingerprint list', () => {
+    const outcome = runUpdate({ service: stamp(sourceService + '# previous release\n'), omitManifest: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.service, stockService);
+    assert.equal(outcome.succeeded, true);
+    assert.match(outcome.telemetry, /--service-script-telemetry Stock/);
+});
+
+test('migrates customizations from a stamped stock script without the frozen fingerprint list', () => {
+    const customization = 'export CUSTOMER_SETUP=stamped\n';
+    const custom = customize(stamp(sourceService + '# previous release\n'), customization);
+    const outcome = runUpdate({ service: custom, omitManifest: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.service, stockService);
+    assert.equal(hookPattern.exec(outcome.hook)?.[1], customization);
+    assert.match(outcome.telemetry, /--service-script-telemetry Migrated/);
+});
+
+test('blocks migration from an unstamped script when the frozen fingerprint list is unavailable', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=legacy\n');
+    const outcome = runUpdate({ service: custom, omitManifest: true });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+    assert.equal(outcome.oldBinStillActive, true);
+    assert.match(outcome.telemetry, /--service-script-telemetry Error/);
+});
+
 test('the migrated hook is applied when the replacement service script starts', () => {
     const custom = customize(history[history.length - 1].content, 'export CUSTOMER_SETUP=migrated\n');
     const outcome = runUpdate({ service: custom, probeRuntime: true });
