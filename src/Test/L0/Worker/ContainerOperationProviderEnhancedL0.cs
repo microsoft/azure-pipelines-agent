@@ -60,6 +60,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return works ? 0 : 127;
                     });
                 var executionContext = CreateExecutionContextMock(hc, useNodeVersionStrategy: useStrategy);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("false");
                 executionContext.Setup(x => x.GetHostContext()).Returns(hc);
                 var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
                 {

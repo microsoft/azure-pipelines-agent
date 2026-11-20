@@ -35,7 +35,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
 
     public class NodeHandlerHelper : INodeHandlerHelper
     {
-        public bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => File.Exists(GetNodeFolderPath(nodeFolderName, hostContext));
+        public virtual bool IsNodeFolderExist(string nodeFolderName, IHostContext hostContext) => File.Exists(GetNodeFolderPath(nodeFolderName, hostContext));
 
         public string GetNodeFolderPath(string nodeFolderName, IHostContext hostContext) => Path.Combine(
             hostContext.GetDirectory(WellKnownDirectory.Externals),
@@ -85,7 +85,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                                     environment: null,
                                     requireExitCodeZero: false,
                                     outputEncoding: null,
-                                    cancellationToken: CancellationToken.None);
+                                    cancellationToken: ExecutionContext.CancellationToken);
                 int exitCode = exitCodeTask.GetAwaiter().GetResult();
                 if (exitCode != 0)
                 {
@@ -622,7 +622,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Handlers
                             environment: null,
                             requireExitCodeZero: requireZeroExitCode,
                             outputEncoding: null,
-                            cancellationToken: CancellationToken.None);
+                            cancellationToken: context.CancellationToken);
 
             if ((showOutputOnFailureOnly && exitCode != 0) || !showOutputOnFailureOnly)
             {
