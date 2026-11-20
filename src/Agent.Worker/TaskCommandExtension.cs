@@ -26,6 +26,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             InstallWorkerCommand(new TaskCompleteCommand());
             InstallWorkerCommand(new TaskSetSecretCommand());
             InstallWorkerCommand(new TaskSetVariableCommand());
+            InstallWorkerCommand(new TaskUnsetVariableCommand());
             InstallWorkerCommand(new TaskAddAttachmentCommand());
             InstallWorkerCommand(new TaskDebugCommand());
             InstallWorkerCommand(new TaskUploadSummaryCommand());
@@ -666,6 +667,58 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (checker.CheckSettableVariable(context, name))
             {
                 context.SetVariable(name, data, isSecret: isSecret, isOutput: isOutput, isReadOnly: isReadOnly, preserveCase: preserveCase);
+            }
+        }
+    }
+
+    [CommandRestriction(AllowedInRestrictedMode = true)]
+    public sealed class TaskUnsetVariableCommand : IWorkerCommand
+    {
+        private static readonly HashSet<string> AllowedVariableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+            "NODE_EXTRA_CA_CERTS",
+            "REQUESTS_CA_BUNDLE",
+            "NODE_USE_ENV_PROXY",
+            "JAVA_TOOL_OPTIONS",
+            "UV_NATIVE_TLS",
+            "SSL_CERT_FILE"
+        };
+
+        public string Name => "unsetvariable";
+        public List<string> Aliases => null;
+
+        public void Execute(IExecutionContext context, Command command)
+        {
+            ArgUtil.NotNull(context, nameof(context));
+            ArgUtil.NotNull(command, nameof(command));
+
+            if (!command.Properties.TryGetValue(TaskSetVariableEventProperties.Variable, out string name) || String.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentNullException(StringUtil.Loc("MissingVariableName"));
+            }
+
+            if (context.Variables.IsReadOnly(name))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("ReadOnlyVariable", name));
+            }
+
+            if (!AllowedVariableNames.Contains(name))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("UnsetVariableNotAllowed", name));
+            }
+
+            if (context.Variables.Private.Any(variable => String.Equals(variable.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("UnsetSecretVariableNotAllowed", name));
+            }
+
+            var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();
+            if (checker.CheckSettableVariable(context, name))
+            {
+                context.Variables.Unset(name);
             }
         }
     }
