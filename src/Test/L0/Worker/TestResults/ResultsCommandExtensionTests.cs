@@ -111,8 +111,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             using (var _hc = SetupMocks())
             {
                 List<string> publishedFiles = null;
-                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>()))
-                    .Returns((string path) => path);
+                _ec.Setup(x => x.TranslateToHostPath(
+                        It.IsAny<string>(),
+                        VsoPathTranslationSource.ResultsPublishResultFiles))
+                    .Returns((string path, VsoPathTranslationSource source) => path);
                 _mockCommandContext.SetupProperty(x => x.Task);
                 _mockTestRunDataPublisher
                     .Setup(x => x.PublishAsync(
@@ -146,8 +148,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
             using (var _hc = SetupMocks())
             {
                 List<string> publishedFiles = null;
-                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>()))
-                    .Returns((string path) => path);
+                _ec.Setup(x => x.TranslateToHostPath(
+                        It.IsAny<string>(),
+                        VsoPathTranslationSource.ResultsPublishResultFiles))
+                    .Returns((string path, VsoPathTranslationSource source) => path);
                 _mockCommandContext.SetupProperty(x => x.Task);
                 _mockTestRunDataPublisher
                     .Setup(x => x.PublishAsync(

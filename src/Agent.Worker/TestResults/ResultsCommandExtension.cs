@@ -133,7 +133,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
                     throw new ArgumentException("The resultFilesJson property must be a non-empty JSON array of non-empty file paths.", ResultFilesJsonProperty);
                 }
 
-                _testResultFiles = resultFiles.Select(context.TranslateToHostPath).ToList();
+                testResultFiles = resultFiles
+                    .Select(x => context.TranslateToHostPath(x, source: VsoPathTranslationSource.ResultsPublishResultFiles))
+                    .ToList();
             }
             else
             {
