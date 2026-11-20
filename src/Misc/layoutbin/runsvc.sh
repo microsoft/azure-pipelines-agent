@@ -12,6 +12,13 @@ fi
 
 # insert anything to setup env when running as a service
 
+# Put service environment customizations in runsvc.hook.sh in the agent root instead of editing this file.
+# The hook is sourced by this script, so exported variables and other shell changes apply to the agent.
+# Agent updates preserve the hook; changes made directly to this file can block agent updates.
+if [ -f "./runsvc.hook.sh" ]; then
+    . "./runsvc.hook.sh"
+fi
+
 # Prefer Node24, fall back to Node20
 ./externals/node24/bin/node --version 2>/dev/null
 if [ $? == 0 ]; then

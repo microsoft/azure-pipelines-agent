@@ -21,6 +21,12 @@ restartinteractiveagent=_RESTART_INTERACTIVE_AGENT_
 service_script="$rootfolder/runsvc.sh"
 new_service_script="$rootfolder/bin.$downloadagentversion/runsvc.sh"
 service_script_backup=""
+service_manifest="$rootfolder/bin.$downloadagentversion/runsvc.sh.sha256"
+service_hook="$rootfolder/runsvc.hook.sh"
+service_hook_created=0
+service_hook_digest=""
+service_marker="# insert anything to setup env when running as a service"
+migration_reason=""
 service_script_replaced=0
 update_succeeded=0
 
@@ -94,14 +100,123 @@ service_script_stamp_matches() {
     [ "$actual" = "$expected" ] || return 1
 }
 
+# Returns 0 when the fingerprint is a known stock script, 1 when it is not, and 2 on error.
+is_stock_fingerprint() {
+    local result
+    awk -v expected="$1" '
+        { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
+        END { if (!found) exit 1 }
+    ' "$service_manifest" 2>> "$logfile"
+    result=$?
+    [ "$result" -le 1 ] && return "$result"
+    return 2
+}
+
+# Customizations can be migrated only when they were added directly after the documented insertion
+# marker and removing them yields a known stock script. Customer code is parsed but never executed.
+# Returns 0 and writes the customization to $1, 1 when it cannot be migrated safely, and 2 on error.
+extract_service_customization() {
+    local output="$1" marker_line count lines k digest result matches=0 match=0
+    count=$(grep -c -x -F -e "$service_marker" "$service_script" 2>> "$logfile")
+    if [ "$count" != "1" ]; then
+        migration_reason="the documented insertion marker was not found exactly once"
+        return 1
+    fi
+    marker_line=$(grep -n -x -F -e "$service_marker" "$service_script" 2>> "$logfile") || return 2
+    marker_line="${marker_line%%:*}"
+    lines=$(wc -l < "$service_script") || return 2
+    lines="${lines//[[:space:]]/}"
+    [[ "$marker_line" =~ ^[0-9]+$ && "$lines" =~ ^[0-9]+$ ]] || return 2
+
+    for ((k = marker_line + 1; k <= lines + 2; k++)); do
+        digest=$({ head -n "$marker_line" "$service_script" && tail -n "+$k" "$service_script"; } | sha256_of_stdin) || return 2
+        is_stock_fingerprint "$digest"
+        result=$?
+        if [ "$result" -eq 0 ]; then
+            matches=$((matches + 1))
+            match=$k
+        elif [ "$result" -ne 1 ]; then
+            return 2
+        fi
+    done
+    if [ "$matches" -ne 1 ]; then
+        migration_reason="changes were found outside the documented insertion region"
+        return 1
+    fi
+
+    tail -n "+$((marker_line + 1))" "$service_script" | head -n "$((match - marker_line - 1))" > "$output" || return 2
+    if ! cmp -s "$service_script" <(head -n "$marker_line" "$service_script"; cat "$output"; tail -n "+$match" "$service_script"); then
+        migration_reason="the customization could not be separated exactly"
+        return 1
+    fi
+
+    # These behave differently when the code is sourced from a separate file instead of running inline.
+    grep -q -E '(^|[^[:alnum:]_])(return|caller|BASH_SOURCE|BASH_LINENO|BASH_ARGC|BASH_ARGV|FUNCNAME|LINENO)([^[:alnum:]_]|$)' "$output"
+    result=$?
+    if [ "$result" -eq 0 ]; then
+        migration_reason="the customization uses shell features that behave differently in a sourced file"
+        return 1
+    elif [ "$result" -ne 1 ]; then
+        return 2
+    fi
+    if [ "$(tr -d '\000' < "$output" | wc -c)" != "$(wc -c < "$output")" ]; then
+        migration_reason="the customization contains binary data"
+        return 1
+    fi
+    result=$(bash -n "$output" 2>&1)
+    if [ "$?" -ne 0 ] || [ -n "$result" ]; then
+        migration_reason="the customization is not complete, valid shell code on its own"
+        return 1
+    fi
+}
+
+block_customized_service_script() {
+    report_service_script_status Unrecognized
+    write_service_script_preview
+    service_script_error "$service_script is customized or unrecognized, and its customizations cannot be migrated automatically: $migration_reason. Agent update blocked; preserve your changes, move them to $service_hook, and restore the stock script from $service_script.new."
+}
+
+remove_created_service_hook() {
+    if [ "$service_hook_created" -eq 1 ]; then
+        local digest
+        if [ ! -L "$service_hook" ] && digest=$(service_script_fingerprint "$service_hook") &&
+           [ "$digest" = "$service_hook_digest" ] && rm -f "$service_hook"; then
+            service_hook_created=0
+            return 0
+        fi
+        printf 'ERROR: Could not remove %s created by this update.\n' "$service_hook" >> "$1"
+        printf 'ERROR: Could not remove %s created by this update.\n' "$service_hook" >&2
+        return 1
+    fi
+}
+
+write_service_hook() {
+    local customization="$1" temporary
+    temporary=$(mktemp "$rootfolder/.runsvc-hook.XXXXXX") || return 1
+    # Copy the backup first so the hook keeps the original script's owner and restrictive mode.
+    if ! cp -a "$service_script_backup" "$temporary" >> "$logfile" 2>&1 ||
+       [ -L "$temporary" ] ||
+       ! {
+           printf '# Service customizations migrated from runsvc.sh while updating the agent from %s to %s.\n' \
+               "$existagentversion" "$downloadagentversion"
+           printf '# runsvc.sh sources this file before starting the agent. Agent updates preserve it.\n'
+           cat "$customization"
+       } > "$temporary" ||
+       ! service_hook_digest=$(service_script_fingerprint "$temporary") ||
+       ! ln "$temporary" "$service_hook" >> "$logfile" 2>&1; then
+        rm -f "$temporary"
+        return 1
+    fi
+    rm -f "$temporary"
+    service_hook_created=1
+}
+
 refresh_service_script() {
-    local manifest="$rootfolder/bin.$downloadagentversion/runsvc.sh.sha256"
-    local digest backup_digest result temporary snapshot
+    local digest backup_digest result temporary snapshot customization="" migrate=0
 
     if [ -L "$service_script" ]; then
-        report_service_script_status Unrecognized
-        write_service_script_preview
-        service_script_error "$service_script is a symbolic link and may be customized. Agent update blocked; preserve it and review $service_script.new."
+        migration_reason="it is a symbolic link"
+        block_customized_service_script
         return 1
     fi
     if [ ! -e "$service_script" ]; then
@@ -114,7 +229,7 @@ refresh_service_script() {
         return 0
     fi
     if [ ! -f "$service_script" ] || [ ! -r "$service_script" ] ||
-       [ ! -r "$new_service_script" ] || [ ! -r "$manifest" ] ||
+       [ ! -r "$new_service_script" ] || [ ! -r "$service_manifest" ] ||
        ! bash -n "$new_service_script" >> "$logfile" 2>&1; then
         report_service_script_status Error
         service_script_error "Cannot verify $service_script or the downloaded service script. Agent update blocked."
@@ -136,42 +251,60 @@ refresh_service_script() {
     rm -f "$snapshot"
     if [ "$result" -eq 1 ]; then
         # Scripts shipped before build-time stamping are recognized by the frozen fingerprint list.
-        awk -v expected="$digest" '
-            { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
-            END { if (!found) exit 1 }
-        ' "$manifest" 2>> "$logfile"
+        is_stock_fingerprint "$digest"
         result=$?
     elif [ "$result" -ne 0 ]; then
         result=2
     fi
     if [ "$result" -eq 1 ]; then
-        report_service_script_status Unrecognized
-        write_service_script_preview
-        service_script_error "$service_script is customized or unrecognized. Agent update blocked; preserve your changes and review $service_script.new."
-        return 1
+        if [ -e "$service_hook" ] || [ -L "$service_hook" ]; then
+            migration_reason="$service_hook already exists"
+            block_customized_service_script
+            return 1
+        fi
+        customization=$(mktemp "$rootfolder/.runsvc-customization.XXXXXX") || {
+            report_service_script_status Error
+            service_script_error "Cannot create a temporary file to inspect $service_script. Agent update blocked."
+            return 1
+        }
+        extract_service_customization "$customization"
+        result=$?
+        if [ "$result" -ne 0 ]; then
+            rm -f "$customization"
+            if [ "$result" -eq 1 ]; then
+                block_customized_service_script
+            else
+                report_service_script_status Error
+                service_script_error "Cannot inspect the customizations in $service_script. Agent update blocked."
+            fi
+            return 1
+        fi
+        migrate=1
+        report_service_script_status Migrated
     elif [ "$result" -ne 0 ]; then
         report_service_script_status Error
         service_script_error "Cannot verify the service-script fingerprint. Agent update blocked."
         return 1
-    fi
-
-    report_service_script_status Stock
-    cmp -s "$service_script" "$new_service_script"
-    result=$?
-    if [ "$result" -eq 0 ]; then
-        printf '%s is already up to date.\n' "$service_script" >> "$logfile"
-        return 0
-    elif [ "$result" -ne 1 ]; then
-        service_script_error "Cannot compare $service_script with the downloaded script. Agent update blocked."
-        return 1
+    else
+        report_service_script_status Stock
+        cmp -s "$service_script" "$new_service_script"
+        result=$?
+        if [ "$result" -eq 0 ]; then
+            printf '%s is already up to date.\n' "$service_script" >> "$logfile"
+            return 0
+        elif [ "$result" -ne 1 ]; then
+            service_script_error "Cannot compare $service_script with the downloaded script. Agent update blocked."
+            return 1
+        fi
     fi
 
     temporary=$(mktemp "$rootfolder/.runsvc-update.XXXXXX") || {
+        rm -f "$customization"
         service_script_error "Cannot create a temporary service script. Agent update blocked."
         return 1
     }
     service_script_backup=$(mktemp "$service_script.$existagentversion.bak.XXXXXX") || {
-        rm -f "$temporary"
+        rm -f "$temporary" "$customization"
         service_script_error "Cannot create a backup of $service_script. Agent update blocked."
         return 1
     }
@@ -183,20 +316,37 @@ refresh_service_script() {
        ! cp -a "$service_script_backup" "$temporary" >> "$logfile" 2>&1 ||
        [ -L "$temporary" ] ||
        ! cat "$new_service_script" > "$temporary" ||
-       ! bash -n "$temporary" >> "$logfile" 2>&1 ||
-       [ -L "$service_script" ] ||
+       ! bash -n "$temporary" >> "$logfile" 2>&1; then
+        rm -f "$temporary" "$customization"
+        service_script_error "Cannot safely replace $service_script. Agent update blocked; backup: $service_script_backup."
+        return 1
+    fi
+    if [ "$migrate" -eq 1 ]; then
+        if ! write_service_hook "$customization"; then
+            rm -f "$temporary" "$customization"
+            service_script_error "Cannot create $service_hook without overwriting an existing file. Agent update blocked; backup: $service_script_backup."
+            return 1
+        fi
+        rm -f "$customization"
+    fi
+    if [ -L "$service_script" ] ||
        ! cmp -s "$service_script_backup" "$service_script" ||
        ! mv -f "$temporary" "$service_script" >> "$logfile" 2>&1; then
         rm -f "$temporary"
+        remove_created_service_hook "$logfile"
         service_script_error "Cannot safely replace $service_script. Agent update blocked; backup: $service_script_backup."
         return 1
     fi
 
     service_script_replaced=1
-    printf 'Replaced %s; previous script saved at %s. Restart the service to use it.\n' \
-        "$service_script" "$service_script_backup" >> "$logfile"
+    if [ "$migrate" -eq 1 ]; then
+        printf 'Moved customizations from %s to %s and replaced the script; previous script saved at %s. Restart the service to use it.\n' \
+            "$service_script" "$service_hook" "$service_script_backup" >> "$logfile"
+    else
+        printf 'Replaced %s; previous script saved at %s. Restart the service to use it.\n' \
+            "$service_script" "$service_script_backup" >> "$logfile"
+    fi
 }
-
 restore_service_script_on_failure() {
     if [ "$service_script_replaced" -eq 1 ] && [ "$update_succeeded" -eq 0 ]; then
         local temporary log="$logfile"
@@ -213,6 +363,7 @@ restore_service_script_on_failure() {
            cp -a "$service_script_backup" "$temporary" >> "$log" 2>&1 &&
            mv -f "$temporary" "$service_script" >> "$log" 2>&1; then
             printf 'Restored %s after the update failed.\n' "$service_script" >> "$log"
+            remove_created_service_hook "$log"
         else
             printf 'ERROR: Could not restore %s; backup: %s.\n' "$service_script" "$service_script_backup" >> "$log"
             printf 'ERROR: Could not restore %s; backup: %s.\n' "$service_script" "$service_script_backup" >&2

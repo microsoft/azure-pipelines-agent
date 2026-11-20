@@ -21,7 +21,7 @@ const stamp = content => `${content}# agent-stock-sha256: ${hash(content)}\n`;
 const stockService = stamp(sourceService);
 const hashes = [...new Set(history.map(item => hash(item.content)))];
 
-function runUpdate({ service, newService = stockService, serviceConfigured = false, symlink = false, preview, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false, node24Runtime = 'ok' } = {}) {
+function runUpdate({ service, newService = stockService, serviceConfigured = false, symlink = false, preview, hook, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false, node24Runtime = 'ok' } = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-upgrade-'));
     try {
         for (const dir of ['bin', 'externals', 'bin.2.0.0', 'externals.2.0.0']) {
@@ -43,7 +43,7 @@ function runUpdate({ service, newService = stockService, serviceConfigured = fal
                     fs.symlinkSync(process.execPath, path.join(directory, 'node'));
                 } else {
                     fs.writeFileSync(path.join(directory, 'node'),
-                        `#!/bin/bash\nif [ "$1" = "--version" ]; then echo "${runtime}"; else echo "${runtime}-host:$1"; fi\n`,
+                        `#!/bin/bash\nif [ "$1" = "--version" ]; then echo "${runtime}"; else echo "${runtime}-host:$1:\${CUSTOMER_SETUP:-}"; fi\n`,
                         { mode: 0o755 });
                     fs.chmodSync(path.join(directory, 'node'), 0o755);
                 }
@@ -80,6 +80,9 @@ function runUpdate({ service, newService = stockService, serviceConfigured = fal
         }
         if (preview !== undefined) {
             fs.writeFileSync(path.join(root, 'runsvc.sh.new'), preview);
+        }
+        if (hook !== undefined) {
+            fs.writeFileSync(path.join(root, 'runsvc.hook.sh'), hook);
         }
 
         const script = updateTemplate
@@ -125,6 +128,8 @@ function runUpdate({ service, newService = stockService, serviceConfigured = fal
             serviceIsLink: actualService !== null && fs.lstatSync(path.join(root, 'runsvc.sh')).isSymbolicLink(),
             serviceMode,
             preview: file('runsvc.sh.new'),
+            hook: file('runsvc.hook.sh'),
+            hookMode: fs.existsSync(path.join(root, 'runsvc.hook.sh')) ? fs.statSync(path.join(root, 'runsvc.hook.sh')).mode & 0o777 : null,
             backups: backups.map(file),
             oldBinStillActive: fs.existsSync(path.join(root, 'bin', 'old-agent')),
             oldExternalsStillActive: fs.existsSync(path.join(root, 'externals', 'old-runtime')),
@@ -190,7 +195,6 @@ test('blocks the upgrade when Node 24 cannot run even for an agent without a ser
 test('frozen fingerprint list covers every historical unstamped stock script', () => {
     const manifest = read(path.join(layoutbin, 'runsvc.sh.sha256')).split(/\r?\n/);
     assert.deepEqual(new Set(manifest.filter(line => /^[0-9a-f]{64}$/.test(line))), new Set(hashes));
-    assert.ok(hashes.includes(hash(sourceService)), 'the last unstamped stock script must stay recognizable');
     assert.doesNotMatch(sourceService, /agent-stock-sha256/, 'the build stamps runsvc.sh; do not commit a marker');
 });
 
@@ -392,4 +396,123 @@ test('does not overwrite a new customization while rolling back a failed upgrade
     assert.equal(outcome.service, stockService + change);
     assert.equal(outcome.failed, true);
     assert.match(outcome.log, /ERROR.*restore/i);
+});
+
+const marker = '# insert anything to setup env when running as a service\n';
+const customize = (content, lines) => content.replace(marker, marker + lines);
+const hookPattern = /^# Service customizations migrated from runsvc\.sh[^\n]*\n# [^\n]*\n([\s\S]*)$/;
+
+for (const { revision, content } of history) {
+    test(`migrates documented customizations to runsvc.hook.sh from historical revision ${revision}`, () => {
+        const customization = 'export CUSTOMER_SETUP="from-hook $(printf ok)"\nif [ -n "$CUSTOMER_SETUP" ]; then\n    export PATH="/opt/custom:$PATH"\nfi\n';
+        const custom = customize(content, customization);
+        const outcome = runUpdate({ service: custom, serviceConfigured: true });
+        assert.equal(outcome.result.status, 0, outcome.result.stderr);
+        assert.equal(outcome.service, stockService);
+        assert.equal(hookPattern.exec(outcome.hook)?.[1], customization);
+        assert.deepEqual(outcome.backups, [custom]);
+        assert.equal(outcome.succeeded, true);
+        assert.equal(outcome.oldBinSaved, true);
+        assert.match(outcome.telemetry, /--service-script-telemetry Migrated/);
+        assert.match(outcome.log, /runsvc\.hook\.sh/);
+        if (process.platform !== 'win32') {
+            assert.equal(outcome.hookMode, 0o750);
+        }
+    });
+}
+
+test('the migrated hook is applied when the replacement service script starts', () => {
+    const custom = customize(history[history.length - 1].content, 'export CUSTOMER_SETUP=migrated\n');
+    const outcome = runUpdate({ service: custom, probeRuntime: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.serviceResult.status, 0, outcome.serviceResult.stderr);
+    assert.match(outcome.serviceResult.stdout, /node24-host:\.\/bin\/AgentService\.js:migrated/);
+});
+
+test('preserves an existing hook when replacing a stock service script', () => {
+    const hook = 'export CUSTOMER_SETUP=existing-hook\n';
+    const outcome = runUpdate({ service: history[0].content, hook, probeRuntime: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.service, stockService);
+    assert.equal(outcome.hook, hook);
+    assert.match(outcome.serviceResult.stdout, /node24-host:\.\/bin\/AgentService\.js:existing-hook/);
+});
+
+test('blocks migration without overwriting an existing hook', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=inline\n');
+    const hook = 'export CUSTOMER_SETUP=existing-hook\n';
+    const outcome = runUpdate({ service: custom, hook, serviceConfigured: true });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, hook);
+    assert.equal(outcome.preview, stockService);
+    assert.equal(outcome.oldBinStillActive, true);
+    assert.equal(outcome.oldExternalsStillActive, true);
+    assert.equal(outcome.failed, true);
+    assert.match(outcome.result.stderr, /ERROR.*runsvc\.hook\.sh already exists/);
+    assert.match(outcome.telemetry, /--service-script-telemetry Unrecognized/);
+    assert.deepEqual(outcome.backups, []);
+});
+
+const unsafeCustomizations = {
+    'changes outside the insertion region': content => customize(content, 'export CUSTOMER_SETUP=1\n')
+        .replace('# run the host process', '# customer edit\n# run the host process'),
+    'a syntax error': content => customize(content, 'if true; then\n'),
+    'an unterminated here-document': content => customize(content, 'cat <<EOF\n'),
+    'return': content => customize(content, 'return 0\n'),
+    'BASH_SOURCE': content => customize(content, 'export CUSTOMER_SETUP="${BASH_SOURCE[0]}"\n'),
+    'LINENO': content => customize(content, 'echo $LINENO\n'),
+    'a duplicated insertion marker': content => customize(content, marker),
+    'a removed blank line after the insertion marker': content => content.replace(marker + '\n', marker + 'export CUSTOMER_SETUP=1\n')
+};
+
+for (const [name, make] of Object.entries(unsafeCustomizations)) {
+    test(`blocks the update instead of migrating ${name}`, () => {
+        const custom = make(history[0].content);
+        assert.notEqual(custom, history[0].content);
+        const outcome = runUpdate({ service: custom, serviceConfigured: true });
+        assert.notEqual(outcome.result.status, 0);
+        assert.equal(outcome.service, custom);
+        assert.equal(outcome.hook, null);
+        assert.equal(outcome.oldBinStillActive, true);
+        assert.equal(outcome.oldExternalsStillActive, true);
+        assert.equal(outcome.failed, true);
+        assert.match(outcome.result.stderr, /ERROR.*(custom|unrecognized)/i);
+        assert.match(outcome.telemetry, /--service-script-telemetry Unrecognized/);
+        assert.deepEqual(outcome.backups, []);
+        assert.deepEqual(outcome.files.filter(file => file.startsWith('.runsvc')), []);
+    });
+}
+
+test('does not execute customer code while migrating', () => {
+    const custom = customize(history[0].content, 'touch "$PWD/executed"\nexport CUSTOMER_SETUP=1\n');
+    const outcome = runUpdate({ service: custom });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.files.includes('executed'), false);
+});
+
+test('removes the migrated hook and restores the script if switching the agent fails', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=rollback\n');
+    const outcome = runUpdate({
+        service: custom,
+        setup: 'ln() { if [ "$1" = "-s" ] && [ "${!#}" = "$ROOT/bin" ]; then return 1; fi; command ln "$@"; }'
+    });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+    assert.equal(outcome.failed, true);
+    assert.match(outcome.log, /Restored .*runsvc\.sh/);
+});
+
+test('removes the migrated hook if replacing the service script fails', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=1\n');
+    const outcome = runUpdate({
+        service: custom,
+        setup: 'mv() { if [ "${!#}" = "$ROOT/runsvc.sh" ]; then return 1; fi; command mv "$@"; }'
+    });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+    assert.equal(outcome.oldBinStillActive, true);
+    assert.equal(outcome.failed, true);
 });
