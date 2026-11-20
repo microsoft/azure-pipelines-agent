@@ -89,6 +89,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
         [Trait("Level", "L0")]
         [InlineData("Unrecognized")]
         [InlineData("Node24Unsupported")]
+        [InlineData("Migrated")]
         public async Task PublishesOnlyTheUpgradeClassificationAndAgentVersion(string status)
         {
             using (var context = new TestHostContext(this))

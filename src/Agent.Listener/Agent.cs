@@ -282,7 +282,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             if (status != ServiceScriptStatus.Match)
                             {
                                 Trace.Warning("The root runsvc.sh is missing, outdated, or customized compared to bin/runsvc.sh. " +
-                                    "Preserve any customizations before replacing it; unrecognized scripts block agent updates.");
+                                    "Move customizations to runsvc.hook.sh, which runsvc.sh sources and agent updates preserve; customizations that cannot be migrated safely block agent updates.");
                             }
                         }
                         catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
