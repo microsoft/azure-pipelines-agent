@@ -483,6 +483,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 public static readonly string BuildDirectoryClean = "agent.clean.buildDirectory";
                 public static readonly string GitLfsSupport = "agent.source.git.lfs";
                 public static readonly string GitShallowDepth = "agent.source.git.shallowFetchDepth";
+                public static readonly string ResultsPublishStructuredFiles = "agent.features.resultspublishstructuredfiles";
                 public static readonly string SkipSyncSource = "agent.source.skip";
             }
 
@@ -667,6 +668,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 Features.BuildDirectoryClean,
                 Features.GitLfsSupport,
                 Features.GitShallowDepth,
+                Features.ResultsPublishStructuredFiles,
                 Features.SkipSyncSource,
                 // Pipeline variables
                 Pipeline.Workspace,

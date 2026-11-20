@@ -18,6 +18,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebPlatform;
+using Newtonsoft.Json;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
 {
@@ -36,6 +37,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
     {
         public string Name => "publish";
         public List<string> Aliases => null;
+        private const string ResultFilesJsonProperty = "resultFilesJson";
 
         //telemetry constants
         private const string _telemetryFeature = "PublishTestResultsCommand";
@@ -113,6 +115,27 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.TestResults
             if (!string.IsNullOrWhiteSpace(data) && data.Split(',').Count() != 0)
             {
                 testResultFiles = data.Split(',').Select(x => context.TranslateToHostPath(x, source: VsoPathTranslationSource.ResultsPublishData)).ToList();
+            }
+            else if (eventProperties.TryGetValue(ResultFilesJsonProperty, out string resultFilesJson))
+            {
+                List<string> resultFiles;
+                try
+                {
+                    resultFiles = JsonConvert.DeserializeObject<List<string>>(resultFilesJson);
+                }
+                catch (JsonException ex)
+                {
+                    throw new ArgumentException("The resultFilesJson property must be a valid JSON array of file paths.", ResultFilesJsonProperty, ex);
+                }
+
+                if (resultFiles == null || resultFiles.Count == 0 || resultFiles.Any(string.IsNullOrWhiteSpace))
+                {
+                    throw new ArgumentException("The resultFilesJson property must be a non-empty JSON array of non-empty file paths.", ResultFilesJsonProperty);
+                }
+
+                testResultFiles = resultFiles
+                    .Select(x => context.TranslateToHostPath(x, source: VsoPathTranslationSource.ResultsPublishResultFiles))
+                    .ToList();
             }
             else
             {
