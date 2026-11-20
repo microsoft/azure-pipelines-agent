@@ -96,6 +96,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             //     1> set definition variable build.clean or agent.clean.buildDirectory. (on-prem user need to use this, since there is no Web UI in TFS 2016)
             //     2> select source clean option in definition repository tab. (VSTS will have this option in definition designer UI)
             BuildCleanOption cleanOption = GetBuildDirectoryCleanOption(executionContext, workspace);
+            if (File.Exists(Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), ".autoManagedVhd")) &&
+                (cleanOption == BuildCleanOption.All || cleanOption == BuildCleanOption.Source))
+            {
+                Trace.Info($"AutoManagedVHD detected. Overriding clean option '{cleanOption}' with '{BuildCleanOption.Binary}'.");
+                cleanOption = BuildCleanOption.Binary;
+            }
 
             CreateDirectory(
                 executionContext,
