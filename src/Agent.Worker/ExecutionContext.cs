@@ -112,6 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class ExecutionContext : AgentService, IExecutionContext, ICorrelationContext, IDisposable
     {
         private const int _maxIssueCount = 10;
+        private const int MaxLinkResolutionDepth = 40;
 
         private readonly TimelineRecord _record = new TimelineRecord();
         private readonly Dictionary<Guid, TimelineRecord> _detailRecords = new Dictionary<Guid, TimelineRecord>();
@@ -1073,7 +1074,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// then applies ".." — matching OS filesystem semantics.
         /// Non-existent segments are appended verbatim.
         /// </summary>
-        private string ResolveAllLinks(string path)
+        private string ResolveAllLinks(string path, int depth = 0)
         {
             // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
             // without lexically resolving ".." before symlinks are followed.
@@ -1116,6 +1117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     continue;
                 }
 
+                string targetPath = null;
                 try
                 {
                     FileSystemInfo linkTarget = Directory.Exists(current)
@@ -1125,12 +1127,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (linkTarget != null)
                     {
                         Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
+                        targetPath = Path.GetFullPath(linkTarget.FullName);
                     }
                 }
                 catch (Exception ex)
                 {
                     Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
+                }
+
+                if (targetPath != null)
+                {
+                    // The target is stored as written, so symlinked ancestors inside it (e.g. /var on macOS) still need resolving.
+                    if (depth >= MaxLinkResolutionDepth)
+                    {
+                        throw new InvalidOperationException($"Too many nested symbolic links while resolving '{path}'.");
+                    }
+
+                    current = ResolveAllLinks(targetPath, depth + 1);
                 }
             }
 
