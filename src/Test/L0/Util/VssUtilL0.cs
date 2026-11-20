@@ -11,6 +11,13 @@ using System.Text.RegularExpressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Util
 {
+    // These tests mutate process-wide HTTP settings used by other test collections.
+    [CollectionDefinition("VssUtil environment tests", DisableParallelization = true)]
+    public class VssUtilEnvironmentTestFixture
+    {
+    }
+
+    [Collection("VssUtil environment tests")]
     public sealed class VssUtilL0
     {
         [Fact]
