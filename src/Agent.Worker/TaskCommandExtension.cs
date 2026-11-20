@@ -674,6 +674,19 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     [CommandRestriction(AllowedInRestrictedMode = true)]
     public sealed class TaskUnsetVariableCommand : IWorkerCommand
     {
+        private static readonly HashSet<string> AllowedVariableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+            "NODE_EXTRA_CA_CERTS",
+            "REQUESTS_CA_BUNDLE",
+            "NODE_USE_ENV_PROXY",
+            "JAVA_TOOL_OPTIONS",
+            "UV_NATIVE_TLS",
+            "SSL_CERT_FILE"
+        };
+
         public string Name => "unsetvariable";
         public List<string> Aliases => null;
 
@@ -690,6 +703,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (context.Variables.IsReadOnly(name))
             {
                 throw new InvalidOperationException(StringUtil.Loc("ReadOnlyVariable", name));
+            }
+
+            if (!AllowedVariableNames.Contains(name))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("UnsetVariableNotAllowed", name));
+            }
+
+            if (context.Variables.Private.Any(variable => String.Equals(variable.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException(StringUtil.Loc("UnsetSecretVariableNotAllowed", name));
             }
 
             var checker = context.GetHostContext().GetService<ITaskRestrictionsChecker>();

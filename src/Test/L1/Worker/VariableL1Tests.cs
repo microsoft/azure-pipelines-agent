@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -48,6 +49,69 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             }
             finally
             {
+                TearDown();
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L1")]
+        [Trait("Category", "Worker")]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task UnsetVariable_RemovesFromLaterTasks(bool writeToBlobstorageService)
+        {
+            const string variableName = "NO_PROXY";
+            string inheritedValue = Environment.GetEnvironmentVariable(variableName);
+            try
+            {
+                // Removal preserves inherited values; isolate the fixture's process environment.
+                Environment.SetEnvironmentVariable(variableName, null);
+                SetupL1();
+                var message = LoadTemplateMessage();
+                message.Steps.Clear();
+                message.Variables.Add("agent.LogToBlobstorageService", writeToBlobstorageService.ToString());
+
+                bool windows = TestUtil.IsWindows();
+                string Echo(string text) => windows ? $"echo {text}" : $"echo '{text}'";
+                string checkPresent = windows
+                    ? $"if not \"%{variableName}%\"==\"temporary-value\" exit /b 1"
+                    : $"[ \"${variableName}\" = 'temporary-value' ] || exit 1";
+                string checkAbsent = windows
+                    ? $"powershell.exe -NoLogo -NoProfile -NonInteractive -Command \"if ([Environment]::GetEnvironmentVariables().Contains('{variableName}')) {{ exit 1 }}\"\nif errorlevel 1 exit /b 1"
+                    : $"[ \"${{{variableName}+x}}\" != x ] || exit 1";
+                string checkReset = windows
+                    ? $"if not \"%{variableName}%\"==\"replacement-value\" exit /b 1"
+                    : $"[ \"${variableName}\" = 'replacement-value' ] || exit 1";
+                message.Steps.Add(CreateScriptTask(Echo($"##vso[task.setvariable variable={variableName}]temporary-value")));
+                message.Steps.Add(CreateScriptTask(string.Join("\n",
+                    checkPresent,
+                    "echo VariablePresent",
+                    Echo($"##vso[task.unsetvariable variable={variableName}]"),
+                    checkPresent)));
+                message.Steps.Add(CreateScriptTask(string.Join("\n",
+                    checkAbsent,
+                    "echo VariableAbsent",
+                    Echo($"##vso[task.setvariable variable={variableName}]replacement-value"))));
+                message.Steps.Add(CreateScriptTask(string.Join("\n", checkReset, "echo VariableReset")));
+
+                var results = await RunWorker(message);
+
+                AssertJobCompleted();
+                Assert.False(results.TimedOut);
+                var steps = GetSteps();
+                Assert.True(
+                    results.Result == TaskResult.Succeeded,
+                    string.Join("\n", steps.Where(step => step.Log != null).SelectMany(GetTimelineLogLines)));
+                Assert.Equal(6, steps.Count);
+                Assert.All(steps, step => Assert.Equal(TaskResult.Succeeded, step.Result));
+                // Match emitted output rather than debug logging of the script text.
+                Assert.Contains(GetTimelineLogLines(steps[2]), line => line.Contains("Z VariablePresent"));
+                Assert.Contains(GetTimelineLogLines(steps[3]), line => line.Contains("Z VariableAbsent"));
+                Assert.Contains(GetTimelineLogLines(steps[4]), line => line.Contains("Z VariableReset"));
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, inheritedValue);
                 TearDown();
             }
         }
