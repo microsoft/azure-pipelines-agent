@@ -166,8 +166,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                 try
                 {
                     trackingManager.MaintenanceStarted(trackingConfig);
-                    string repositoryPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), trackingConfig.SourcesDirectory);
-                    await sourceProvider.RunMaintenanceOperations(executionContext, repositoryPath);
+                    foreach(var repository in trackingConfig.RepositoryTrackingInfo)
+                    {
+                        string repositoryPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), repository.SourcesDirectory);
+                        await sourceProvider.RunMaintenanceOperations(executionContext, repositoryPath);
+                    }
                     trackingManager.MaintenanceCompleted(trackingConfig);
                 }
                 catch (Exception ex)
