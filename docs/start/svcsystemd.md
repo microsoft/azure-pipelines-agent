@@ -84,9 +84,9 @@ You can also inject anything you want to run when the service runs.  For example
 # insert anything to setup env when running as a service
 ```
 
-Agent self-update refreshes the Node.js runtime selection between `# BEGIN AGENT SERVICE NODE SELECTION` and `# END AGENT SERVICE NODE SELECTION` in ./runsvc.sh, so keep customizations outside that block. A backup of the previous script is saved as `runsvc.sh.<previous version>.bak`.
+During self-update, a root `runsvc.sh` that matches a known stock script is replaced with the entire script from the new agent. The previous script is saved as `runsvc.sh.<previous version>.bak.<suffix>`. The new script takes effect the next time the service starts.
 
-The refresh also recognizes historical bundled service scripts, including those installed by v2, v3, and v4 agents. It preserves foreground/background execution and settings outside runtime selection. This does not bypass the target agent version's operating system requirements.
+If `runsvc.sh` is customized, a symbolic link, or otherwise unrecognized, the agent update is blocked before switching the active agent binaries. The existing script is left untouched, and the new script is saved as `runsvc.sh.new` when possible without overwriting an existing file. To retry, back up the script and any symlink target, move required customizations to your service configuration, and restore a known stock script. The error appears in service output and `_diag/SelfUpdate-*.log.failed`; agents with this change also warn in the listener log when the root script differs from the shipped script. Historical stock scripts are recognized, but the target agent's operating system requirements still apply.
 
 ## Service Files
 
