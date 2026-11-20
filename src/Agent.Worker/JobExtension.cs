@@ -130,6 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     // Set agent version variable.
                     context.SetVariable(Constants.Variables.Agent.Version, BuildConstants.AgentPackage.Version);
+                    context.SetVariable(Constants.Variables.Features.ResultsPublishStructuredFiles, bool.TrueString, isReadOnly: true);
                     context.Output(StringUtil.Loc("AgentNameLog", context.Variables.Get(Constants.Variables.Agent.Name)));
                     context.Output(StringUtil.Loc("AgentMachineNameLog", context.Variables.Get(Constants.Variables.Agent.MachineName)));
                     context.Output(StringUtil.Loc("AgentVersion", BuildConstants.AgentPackage.Version));

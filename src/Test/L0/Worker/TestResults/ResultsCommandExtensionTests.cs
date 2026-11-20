@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Services.Agent.Worker.TestResults;
 using Microsoft.VisualStudio.Services.Agent.Worker.TestResults.Utils;
 using Microsoft.VisualStudio.Services.WebPlatform;
 using Moq;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -99,6 +100,75 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.TestResults
                 Assert.Equal(0, _errors.Count());
                 _ec.Verify(x => x.TranslateToHostPath("testfile1", VsoPathTranslationSource.ResultsPublishData), Times.Once);
                 _ec.Verify(x => x.TranslateToHostPath("testfile2", VsoPathTranslationSource.ResultsPublishData), Times.Once);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishTestResults")]
+        public async System.Threading.Tasks.Task Publish_ResultFilesJsonPreservesCommasInPaths()
+        {
+            using (var _hc = SetupMocks())
+            {
+                List<string> publishedFiles = null;
+                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>()))
+                    .Returns((string path) => path);
+                _mockCommandContext.SetupProperty(x => x.Task);
+                _mockTestRunDataPublisher
+                    .Setup(x => x.PublishAsync(
+                        It.IsAny<TestRunContext>(),
+                        It.IsAny<List<string>>(),
+                        It.IsAny<PublishOptions>(),
+                        It.IsAny<CancellationToken>()))
+                    .Callback<TestRunContext, List<string>, PublishOptions, CancellationToken>(
+                        (context, files, options, cancellationToken) => publishedFiles = files)
+                    .ReturnsAsync(false);
+
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("type", "mockResults");
+                command.Properties.Add("resultFiles", @"C:\results\test,run.xml");
+                command.Properties.Add("resultFilesJson", JsonConvert.SerializeObject(new List<string> { @"C:\results\test,run.xml" }));
+                resultCommand.ProcessCommand(_ec.Object, command);
+
+                await _mockCommandContext.Object.Task;
+
+                Assert.Equal(new[] { @"C:\results\test,run.xml" }, publishedFiles);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "PublishTestResults")]
+        public async System.Threading.Tasks.Task Publish_ResultFilesPropertyRetainsCommaSeparatedCompatibility()
+        {
+            using (var _hc = SetupMocks())
+            {
+                List<string> publishedFiles = null;
+                _ec.Setup(x => x.TranslateToHostPath(It.IsAny<string>()))
+                    .Returns((string path) => path);
+                _mockCommandContext.SetupProperty(x => x.Task);
+                _mockTestRunDataPublisher
+                    .Setup(x => x.PublishAsync(
+                        It.IsAny<TestRunContext>(),
+                        It.IsAny<List<string>>(),
+                        It.IsAny<PublishOptions>(),
+                        It.IsAny<CancellationToken>()))
+                    .Callback<TestRunContext, List<string>, PublishOptions, CancellationToken>(
+                        (context, files, options, cancellationToken) => publishedFiles = files)
+                    .ReturnsAsync(false);
+
+                var resultCommand = new ResultsCommandExtension();
+                resultCommand.Initialize(_hc);
+                var command = new Command("results", "publish");
+                command.Properties.Add("type", "mockResults");
+                command.Properties.Add("resultFiles", "first.xml,second.xml");
+                resultCommand.ProcessCommand(_ec.Object, command);
+
+                await _mockCommandContext.Object.Task;
+
+                Assert.Equal(new[] { "first.xml", "second.xml" }, publishedFiles);
             }
         }
 
