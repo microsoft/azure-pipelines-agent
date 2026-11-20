@@ -84,7 +84,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Translates a logging-command path using its source-specific policy.
         /// </summary>
         string TranslateToHostPath(string path, VsoPathTranslationSource source);
-        string ValidateContainerPath(string originalPath, string resolvedPath);
+        /// <summary>
+        /// Validates that a host path stays inside the work directory.
+        /// When <paramref name="validateDirectoryContents"/> is true and the path is a directory,
+        /// every file beneath it must also resolve inside the work directory.
+        /// </summary>
+        string ValidateContainerPath(string originalPath, string resolvedPath, bool validateDirectoryContents = true);
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -107,6 +112,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class ExecutionContext : AgentService, IExecutionContext, ICorrelationContext, IDisposable
     {
         private const int _maxIssueCount = 10;
+        private const int MaxLinkResolutionDepth = 40;
 
         private readonly TimelineRecord _record = new TimelineRecord();
         private readonly Dictionary<Guid, TimelineRecord> _detailRecords = new Dictionary<Guid, TimelineRecord>();
@@ -942,11 +948,30 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             if (validateContainerPath && stepTarget is ContainerInfo)
             {
                 Trace.Info($"TranslateToHostPath: validating container path — original='{path}' preValidation='{resolved}'");
-                resolved = ValidateContainerPath(path, resolved);
+                resolved = ValidateContainerPath(path, resolved, validateDirectoryContents: AcceptsDirectoryInput(source));
                 Trace.Info($"TranslateToHostPath: validation passed — canonical='{resolved}'");
             }
 
             return resolved;
+        }
+
+        // File-only commands reject directories on their own, so their contents are never consumed.
+        // Unknown and new sources default to inspecting directory contents.
+        private static bool AcceptsDirectoryInput(VsoPathTranslationSource source)
+        {
+            switch (source)
+            {
+                case VsoPathTranslationSource.TaskAddAttachment:
+                case VsoPathTranslationSource.TaskUploadFile:
+                case VsoPathTranslationSource.TaskUploadSummary:
+                case VsoPathTranslationSource.BuildUploadLog:
+                case VsoPathTranslationSource.BuildUploadSummary:
+                case VsoPathTranslationSource.CodeCoveragePublishSummaryFile:
+                case VsoPathTranslationSource.CodeCoveragePublishAdditionalFiles:
+                    return false;
+                default:
+                    return true;
+            }
         }
 
         private void PublishVsoPathTranslationTelemetry(
@@ -983,7 +1008,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                 IsAgentTelemetry: true);
         }
 
-        public string ValidateContainerPath(string originalPath, string resolvedPath)
+        public string ValidateContainerPath(string originalPath, string resolvedPath, bool validateDirectoryContents = true)
         {
             if (string.IsNullOrEmpty(resolvedPath))
             {
@@ -1016,6 +1041,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     $"which is outside the allowed directory '{workDir}'.");
             }
 
+            // A directory is consumed recursively by the sinks (e.g. artifact upload), so every file inside
+            // must also resolve under the work directory. Enumerated paths are not link-resolved.
+            if (validateDirectoryContents && Directory.Exists(fullResolved))
+            {
+                foreach (string file in Directory.EnumerateFiles(fullResolved, "*", SearchOption.AllDirectories))
+                {
+                    string fullFile = ResolveAllLinks(file);
+
+                    bool fileUnderWork =
+                        fullFile.Equals(fullWork, IOUtil.FilePathStringComparison) ||
+                        fullFile.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+
+                    if (!fileUnderWork)
+                    {
+                        Trace.Info($"ValidateContainerPath: BLOCKED — original='{originalPath}' file='{file}' canonical='{fullFile}' is outside work='{fullWork}'");
+                        throw new InvalidOperationException(
+                            $"Container jobs may only reference files within the work directory. " +
+                            $"The file '{file}' under '{originalPath}' resolves to '{fullFile}', " +
+                            $"which is outside the allowed directory '{workDir}'.");
+                    }
+                }
+            }
+
             Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
             // Return canonical path so the sink opens exactly what was validated.
             return fullResolved;
@@ -1026,7 +1074,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// then applies ".." — matching OS filesystem semantics.
         /// Non-existent segments are appended verbatim.
         /// </summary>
-        private string ResolveAllLinks(string path)
+        private string ResolveAllLinks(string path, int depth = 0)
         {
             // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
             // without lexically resolving ".." before symlinks are followed.
@@ -1069,6 +1117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     continue;
                 }
 
+                string targetPath = null;
                 try
                 {
                     FileSystemInfo linkTarget = Directory.Exists(current)
@@ -1078,12 +1127,23 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     if (linkTarget != null)
                     {
                         Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
+                        targetPath = Path.GetFullPath(linkTarget.FullName);
                     }
                 }
                 catch (Exception ex)
                 {
                     Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
+                }
+
+                if (targetPath != null)
+                {
+                    // The target is stored as written, so symlinked ancestors inside it (e.g. /var on macOS) still need resolving.
+                    if (depth >= MaxLinkResolutionDepth)
+                    {
+                        throw new InvalidOperationException($"Too many nested symbolic links while resolving '{path}'.");
+                    }
+
+                    current = ResolveAllLinks(targetPath, depth + 1);
                 }
             }
 
