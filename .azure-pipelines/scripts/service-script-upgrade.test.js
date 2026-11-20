@@ -10,6 +10,8 @@ const useWsl = process.platform === 'win32' && process.env.SERVICE_SCRIPT_TEST_W
 const bash = useWsl ? 'wsl.exe' : process.platform === 'win32'
     ? path.join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe')
     : 'bash';
+// Git Bash process startup is slower during repeated candidate fingerprint checks.
+const updateTimeout = process.platform === 'win32' && !useWsl ? 120000 : 30000;
 const layoutbin = path.resolve(__dirname, '..', '..', 'src', 'Misc', 'layoutbin');
 const read = file => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 const sourceService = read(path.join(layoutbin, 'runsvc.sh'));
@@ -102,7 +104,7 @@ function runUpdate({ service, newService = stockService, serviceConfigured = fal
         const result = spawnSync(bash, args, {
             input: rootSetup + 'ping() { :; }\n' + setup + '\n' + script,
             encoding: 'utf8',
-            timeout: 30000
+            timeout: updateTimeout
         });
         assert.ifError(result.error);
         const serviceResult = probeRuntime && result.status === 0
