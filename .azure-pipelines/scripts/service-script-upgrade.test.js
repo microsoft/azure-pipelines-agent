@@ -12,13 +12,16 @@ const bash = useWsl ? 'wsl.exe' : process.platform === 'win32'
     : 'bash';
 const layoutbin = path.resolve(__dirname, '..', '..', 'src', 'Misc', 'layoutbin');
 const read = file => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-const stockService = read(path.join(layoutbin, 'runsvc.sh'));
+const sourceService = read(path.join(layoutbin, 'runsvc.sh'));
 const updateTemplate = read(path.join(layoutbin, 'update.sh.template'));
 const history = require('./runsvc-history.json');
 const hash = content => crypto.createHash('sha256').update(content).digest('hex');
-const hashes = [...new Set([...history.map(item => hash(item.content)), hash(stockService)])];
+// Mirrors the StampServiceScript build step in src/dir.proj.
+const stamp = content => `${content}# agent-stock-sha256: ${hash(content)}\n`;
+const stockService = stamp(sourceService);
+const hashes = [...new Set(history.map(item => hash(item.content)))];
 
-function runUpdate({ service, serviceConfigured = false, symlink = false, preview, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false } = {}) {
+function runUpdate({ service, newService = stockService, serviceConfigured = false, symlink = false, preview, omitManifest = false, manifestEol = '\n', setup = '', probeRuntime = false } = {}) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-upgrade-'));
     try {
         for (const dir of ['bin', 'externals', 'bin.2.0.0', 'externals.2.0.0']) {
@@ -26,7 +29,7 @@ function runUpdate({ service, serviceConfigured = false, symlink = false, previe
         }
         fs.writeFileSync(path.join(root, 'bin', 'old-agent'), 'old');
         fs.writeFileSync(path.join(root, 'externals', 'old-runtime'), 'old');
-        fs.writeFileSync(path.join(root, 'bin.2.0.0', 'runsvc.sh'), stockService);
+        fs.writeFileSync(path.join(root, 'bin.2.0.0', 'runsvc.sh'), newService);
         fs.writeFileSync(path.join(root, 'bin.2.0.0', 'Agent.Listener'),
             '#!/bin/bash\nif [ "$1" = "--service-script-telemetry" ]; then\n' +
             '  printf "%s\\n" "$*" > "$(dirname "$0")/telemetry.txt"\n' +
@@ -145,10 +148,50 @@ test('the replacement runs AgentService.js with a real Node 24 binary', {
     assert.match(outcome.serviceResult.stdout, /listener-launched:run --startuptype service/);
 });
 
-test('shipped fingerprint list covers every historical and current stock script', () => {
+test('frozen fingerprint list covers every historical unstamped stock script', () => {
     const manifest = read(path.join(layoutbin, 'runsvc.sh.sha256')).split(/\r?\n/);
     assert.deepEqual(new Set(manifest.filter(line => /^[0-9a-f]{64}$/.test(line))), new Set(hashes));
+    assert.ok(hashes.includes(hash(sourceService)), 'the last unstamped stock script must stay recognizable');
+    assert.doesNotMatch(sourceService, /agent-stock-sha256/, 'the build stamps runsvc.sh; do not commit a marker');
 });
+
+test('recognizes a stamped stock script without a fingerprint list entry', () => {
+    const futureStock = stamp(sourceService.replace('# insert anything', '# future stock change\n# insert anything'));
+    const nextStock = stamp(sourceService + '# next release\n');
+    const outcome = runUpdate({ service: futureStock, newService: nextStock, serviceConfigured: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.service, nextStock);
+    assert.deepEqual(outcome.backups, [futureStock]);
+    assert.match(outcome.telemetry, /--service-script-telemetry Stock/);
+});
+
+test('treats an already current stamped script as up to date', () => {
+    const outcome = runUpdate({ service: stockService, serviceConfigured: true });
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(outcome.service, stockService);
+    assert.deepEqual(outcome.backups, []);
+});
+
+for (const [name, mutate] of [
+    ['an edited body', content => content.replace('# insert anything to setup env when running as a service\n',
+        '# insert anything to setup env when running as a service\nexport CUSTOMER_SETUP=preserve-me\n')],
+    ['lines appended after the marker', content => content + 'export CUSTOMER_SETUP=preserve-me\n'],
+    ['a marker without a final newline', content => content.slice(0, -1)],
+    ['a marker with CRLF line endings', content => content.replace(/\n/g, '\r\n')],
+    ['an uppercase marker hash', content => content.replace(/: ([0-9a-f]{64})\n$/, (_, h) => `: ${h.toUpperCase()}\n`)],
+    ['a marker that is not on its own line', content => content.replace(/\n(# agent-stock-sha256: )/, ' $1')]
+]) {
+    test(`blocks a stamped script with ${name}`, () => {
+        const custom = mutate(stockService);
+        assert.notEqual(custom, stockService);
+        const outcome = runUpdate({ service: custom, newService: stamp(sourceService + '# next release\n'), serviceConfigured: true });
+        assert.notEqual(outcome.result.status, 0);
+        assert.equal(outcome.service, custom.replace(/\r\n/g, '\n'));
+        assert.equal(outcome.oldBinStillActive, true);
+        assert.equal(outcome.oldExternalsStillActive, true);
+        assert.match(outcome.telemetry, /--service-script-telemetry Unrecognized/);
+    });
+}
 
 for (const { revision, content } of history) {
     test(`replaces the full stock service script from historical revision ${revision}`, () => {
@@ -234,7 +277,7 @@ test('uses shasum when sha256sum is unavailable', () => {
     const outcome = runUpdate({
         service: history[history.length - 1].content,
         setup: 'command() { if [ "$1" = "-v" ] && [ "$2" = "sha256sum" ]; then return 1; fi; builtin command "$@"; }\n' +
-            'shasum() { [ "$1" = "-a" ] && [ "$2" = "256" ] || return 1; command sha256sum "$3"; }'
+            'shasum() { [ "$1" = "-a" ] && [ "$2" = "256" ] || return 1; shift 2; command sha256sum "$@"; }'
     });
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.equal(outcome.service, stockService);

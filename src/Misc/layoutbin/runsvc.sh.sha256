@@ -1,5 +1,6 @@
-# SHA-256 fingerprints of stock runsvc.sh files shipped in agent releases.
-# When changing runsvc.sh, add its new fingerprint and retain all previous ones.
+# FROZEN: SHA-256 fingerprints of stock runsvc.sh files shipped before build-time stamping.
+# Do not add entries. The build now appends "# agent-stock-sha256: <hash>" to runsvc.sh and the
+# updater verifies that self-describing hash instead (see StampServiceScript in src/dir.proj).
 4c7962a9d4f50d5078c06202e7ba6820120516a256c25ff25c5d28f9e56423b0
 4c2beb6409ed912d1cc960ba87ca417c59ab23fba65dffb36d54e21002cbfd1f
 3c5f6e1ee0be54833980759cc115e4cf0356b21b5f6887caa90903aa3d15ae52

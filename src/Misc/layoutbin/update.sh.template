@@ -58,12 +58,12 @@ write_service_script_preview() {
     rm -f "$temporary"
 }
 
-service_script_fingerprint() {
+sha256_of_stdin() {
     local digest
     if command -v sha256sum >/dev/null 2>&1; then
-        digest=$(sha256sum "$1" 2>> "$logfile") || return 1
+        digest=$(sha256sum 2>> "$logfile") || return 1
     elif command -v shasum >/dev/null 2>&1; then
-        digest=$(shasum -a 256 "$1" 2>> "$logfile") || return 1
+        digest=$(shasum -a 256 2>> "$logfile") || return 1
     else
         return 1
     fi
@@ -72,9 +72,31 @@ service_script_fingerprint() {
     printf '%s\n' "$digest"
 }
 
+service_script_fingerprint() {
+    sha256_of_stdin < "$1"
+}
+
+# Stock scripts are stamped at build time with a final line containing the SHA-256 of all preceding bytes.
+# Returns 0 for a valid stamp, 1 when there is no matching stamp, and 2 when the file cannot be checked.
+service_script_stamp_matches() {
+    local file="$1" prefix='# agent-stock-sha256: ' size marker_length marker expected actual
+    marker_length=$(( ${#prefix} + 65 ))
+    size=$(wc -c < "$file" 2>> "$logfile") || return 2
+    size="${size//[[:space:]]/}"
+    [[ "$size" =~ ^[0-9]+$ ]] || return 2
+    [ "$size" -gt "$marker_length" ] || return 1
+    marker=$(LC_ALL=C tail -c "$marker_length" "$file" 2>/dev/null) || return 2
+    [[ "$marker" =~ ^"$prefix"([0-9a-f]{64})$ ]] || return 1
+    expected="${BASH_REMATCH[1]}"
+    # Require exact bytes: a newline before the marker and exactly one trailing newline.
+    LC_ALL=C cmp -s <(tail -c "$(( marker_length + 1 ))" "$file") <(printf '\n%s%s\n' "$prefix" "$expected") || return 1
+    actual=$(head -c "$(( size - marker_length ))" "$file" | sha256_of_stdin) || return 2
+    [ "$actual" = "$expected" ] || return 1
+}
+
 refresh_service_script() {
     local manifest="$rootfolder/bin.$downloadagentversion/runsvc.sh.sha256"
-    local digest backup_digest result temporary
+    local digest backup_digest result temporary snapshot
 
     if [ -L "$service_script" ]; then
         report_service_script_status Unrecognized
@@ -99,17 +121,29 @@ refresh_service_script() {
         return 1
     fi
 
-    if ! digest=$(service_script_fingerprint "$service_script"); then
+    # Classify a private snapshot so the stamp and digest describe the same bytes.
+    snapshot=$(mktemp "$rootfolder/.runsvc-check.XXXXXX") || snapshot=""
+    if [ -z "$snapshot" ] || ! cat "$service_script" > "$snapshot" 2>> "$logfile" ||
+       ! digest=$(service_script_fingerprint "$snapshot"); then
+        [ -n "$snapshot" ] && rm -f "$snapshot"
         report_service_script_status Error
         service_script_error "Cannot calculate the SHA-256 fingerprint of $service_script. Agent update blocked."
         return 1
     fi
 
-    awk -v expected="$digest" '
-        { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
-        END { if (!found) exit 1 }
-    ' "$manifest" 2>> "$logfile"
+    service_script_stamp_matches "$snapshot"
     result=$?
+    rm -f "$snapshot"
+    if [ "$result" -eq 1 ]; then
+        # Scripts shipped before build-time stamping are recognized by the frozen fingerprint list.
+        awk -v expected="$digest" '
+            { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
+            END { if (!found) exit 1 }
+        ' "$manifest" 2>> "$logfile"
+        result=$?
+    elif [ "$result" -ne 0 ]; then
+        result=2
+    fi
     if [ "$result" -eq 1 ]; then
         report_service_script_status Unrecognized
         write_service_script_preview
@@ -117,7 +151,7 @@ refresh_service_script() {
         return 1
     elif [ "$result" -ne 0 ]; then
         report_service_script_status Error
-        service_script_error "Cannot read the service-script fingerprint list. Agent update blocked."
+        service_script_error "Cannot verify the service-script fingerprint. Agent update blocked."
         return 1
     fi
 
