@@ -31,5 +31,8 @@ namespace Agent.Listener.CommandLine
 
         [Option(Constants.Agent.CommandLine.Args.ClientSecret)]
         public string ClientSecret { get; set; }
+
+        [Option(Constants.Agent.CommandLine.Args.Url)]
+        public string Url { get; set; }
     }
 }
