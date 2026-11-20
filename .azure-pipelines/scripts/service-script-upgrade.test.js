@@ -472,6 +472,7 @@ const unsafeCustomizations = {
     'an escaped expansion': content => customize(content, 'export CUSTOMER_SETUP="\\$_"\n'),
     'an export with a second command': content => customize(content, 'export CUSTOMER_SETUP=1; touch executed\n'),
     'a shell-special variable': content => customize(content, 'export RANDOM=1\n'),
+    'a dynamic shell clock': content => customize(content, 'export EPOCHSECONDS=1\n'),
     'a shell-special array': content => customize(content, 'export BASH_SOURCE=customer\n'),
     'tilde expansion': content => customize(content, 'export CUSTOMER_SETUP=~/customer\n'),
     'multiple assignments': content => customize(content, 'export CUSTOMER_SETUP=1 PATH=/opt/custom\n'),
