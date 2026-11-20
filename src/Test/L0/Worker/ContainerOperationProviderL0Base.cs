@@ -69,6 +69,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
             executionContext.Setup(x => x.GetHostContext()).Returns(hc);
             executionContext.Setup(x => x.CancellationToken).Returns(CancellationToken.None);
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
+            executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("false");
             executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());
             executionContext.Setup(x => x.GetScopedEnvironment()).Returns(new SystemEnvironment());
 
