@@ -1,3 +1,13 @@
+## Features
+
+
+## Bugs
+ - Fix container Node fallback and isolate EOL policy tests (#5770)
+ - Safely refresh service scripts during agent upgrades (#5767)
+
+## Misc
+ - update dotnet to latest security patch .NET 10 available (#5766)
+
 
 ## Agent Downloads
 
