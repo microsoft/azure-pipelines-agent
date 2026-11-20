@@ -456,6 +456,20 @@ test('blocks migration from an unstamped script when the frozen fingerprint list
     assert.match(outcome.telemetry, /--service-script-telemetry Error/);
 });
 
+test('does not migrate customizations when Node 24 cannot run', () => {
+    const custom = customize(stockService, 'export CUSTOMER_SETUP=1\n');
+    const outcome = runUpdate({ service: custom, serviceConfigured: true, node24Runtime: 'broken' });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.failed, true);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+    assert.deepEqual(outcome.backups, []);
+    assert.equal(outcome.oldBinStillActive, true);
+    assert.equal(outcome.oldExternalsStillActive, true);
+    assert.match(outcome.telemetry || '', /--service-script-telemetry Node24Unsupported/);
+    assert.doesNotMatch(outcome.telemetry || '', /Migrated/);
+});
+
 test('the migrated hook is applied when the replacement service script starts', () => {
     const custom = customize(history[history.length - 1].content, 'export CUSTOMER_SETUP=migrated\n');
     const outcome = runUpdate({ service: custom, probeRuntime: true });
