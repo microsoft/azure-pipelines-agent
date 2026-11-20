@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Agent.Listener.Configuration;
+using Agent.Sdk;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Listener;
 using Microsoft.VisualStudio.Services.WebApi;
@@ -91,6 +92,61 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 await jobDispatcher.WaitAsync(CancellationToken.None);
 
                 Assert.False(jobDispatcher.RunOnceJobCompleted.Task.IsCompleted, "JobDispatcher should not set task complete token for regular agent.");
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task DispatcherStopsRenewJobRequestWhenSetupFailsBeforeWorkerStarts()
+        {
+            //Arrange
+            using (var hc = new TestHostContext(this))
+            {
+                // Keep the 60 second delay between renewals so the renew loop waits on its cancellation token like it does in production.
+                hc.UseRealDelays = true;
+                var jobDispatcher = new JobDispatcher();
+                hc.SetSingleton<IConfigurationStore>(_configurationStore.Object);
+                hc.SetSingleton<IAgentServer>(_agentServer.Object);
+                hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+                hc.SetSingleton<IJobNotification>(new Mock<IJobNotification>().Object);
+
+                hc.EnqueueInstance<IProcessChannel>(_processChannel.Object);
+                hc.EnqueueInstance<IProcessInvoker>(_processInvoker.Object);
+
+                _configurationStore.Setup(x => x.GetSettings()).Returns(new AgentSettings() { PoolId = 1 });
+                jobDispatcher.Initialize(hc);
+
+                Pipelines.AgentJobRequestMessage message = CreateJobRequestMessage();
+
+                // Simulate the server call timing out before the worker is started.
+                _featureFlagProvider.Setup(x => x.GetFeatureFlagAsync(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(new TimeoutException("The HTTP request timed out after 00:01:40."));
+
+                var request = new TaskAgentJobRequest();
+                PropertyInfo lockUntilProperty = request.GetType().GetProperty("LockedUntil", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                Assert.NotNull(lockUntilProperty);
+                lockUntilProperty.SetValue(request, DateTime.UtcNow.AddMinutes(5));
+
+                CancellationToken renewToken = default(CancellationToken);
+                int renewCount = 0;
+                _agentServer.Setup(x => x.RenewAgentRequestAsync(It.IsAny<int>(), It.IsAny<long>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .Returns((int poolId, long requestId, Guid lockToken, CancellationToken token) =>
+                    {
+                        renewToken = token;
+                        Interlocked.Increment(ref renewCount);
+                        return Task.FromResult<TaskAgentJobRequest>(request);
+                    });
+
+                //Act
+                jobDispatcher.Run(message);
+                await jobDispatcher.WaitAsync(CancellationToken.None);
+
+                //Assert
+                _featureFlagProvider.Verify(x => x.GetFeatureFlagAsync(It.IsAny<IHostContext>(), It.IsAny<string>(), It.IsAny<ITraceWriter>(), It.IsAny<CancellationToken>()), Times.Once);
+                Assert.True(renewCount > 0, "Job request should have been renewed before the worker setup started.");
+                Assert.True(renewToken.IsCancellationRequested, "Job request renewal should be stopped when the job fails before the worker starts.");
+                _processChannel.Verify(x => x.StartServer(It.IsAny<StartProcessDelegate>(), It.IsAny<bool>()), Times.Never);
             }
         }
 

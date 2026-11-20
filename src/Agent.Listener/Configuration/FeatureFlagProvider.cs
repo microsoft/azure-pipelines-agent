@@ -55,10 +55,12 @@ namespace Agent.Listener.Configuration
 
             ArgUtil.NotNull(creds, nameof(creds));
 
-            using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter, agentCertManager.SkipServerCertificateValidation);
-            var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
             try
             {
+                // GetClient may call the server (connectionData, OAuth token), so it must be inside the try as well.
+                // Otherwise a network failure escapes to callers such as JobDispatcher.RunAsync before the worker starts.
+                using var vssConnection = VssUtil.CreateConnection(new Uri(settings.ServerUrl), creds, traceWriter, agentCertManager.SkipServerCertificateValidation);
+                var client = vssConnection.GetClient<FeatureAvailabilityHttpClient>();
                 return await client.GetFeatureFlagByNameAsync(featureFlagName, checkFeatureExists: false, ctk);
             }
             catch (Exception e)

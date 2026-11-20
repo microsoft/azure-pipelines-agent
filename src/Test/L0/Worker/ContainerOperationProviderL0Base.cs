@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Services.Agent;
 using Microsoft.TeamFoundation.Framework.Common;
+using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 {
@@ -22,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         protected const string NodePathFromLabel = "/usr/bin/node";
         protected const string NodePathFromLabelEmpty = "";
         protected const string DefaultNodeCommand = "node";
-        protected const string NodeFromAgentExternal = "externals/node";
+        protected const string NodeFromAgentExternal = "externals/node24";
 
         protected Mock<IDockerCommandManager> CreateDockerManagerMock(string inspectResult)
         {
@@ -39,12 +40,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 .ReturnsAsync("container123");
             dockerManager.Setup(x => x.DockerStart(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
                 .ReturnsAsync(0);
+            dockerManager.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<string> { "container-startup-using-node-24" });
             dockerManager.Setup(x => x.DockerInspect(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(inspectResult);
             dockerManager.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>()))
                 .ReturnsAsync((IExecutionContext context, string containerId, string options, string command, List<string> output) =>
                 {
-                    if (command.Contains("node -v"))
+                    if (command.Contains("--version"))
+                    {
+                        output.Add(command.Contains("node24") ? "v24.0.0" : "v20.0.0");
+                    }
+                    else if (command.Contains("node -v"))
                     {
                         output.Add("v16.20.2");
                     }
@@ -55,9 +62,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
 
         protected Mock<IExecutionContext> CreateExecutionContextMock(TestHostContext hc, bool useNodeVersionStrategy = false)
         {
+            hc.SetSingleton<IGlibcCompatibilityInfoProvider>(Mock.Of<IGlibcCompatibilityInfoProvider>());
             var executionContext = new Mock<IExecutionContext>();
             var variables = new Variables(hc, new Dictionary<string, VariableValue>(), out var warnings);
             executionContext.Setup(x => x.Variables).Returns(variables);
+            executionContext.Setup(x => x.GetHostContext()).Returns(hc);
             executionContext.Setup(x => x.CancellationToken).Returns(CancellationToken.None);
             executionContext.Setup(x => x.GetVariableValueOrDefault(It.IsAny<string>())).Returns(string.Empty);
             executionContext.Setup(x => x.Containers).Returns(new List<ContainerInfo>());

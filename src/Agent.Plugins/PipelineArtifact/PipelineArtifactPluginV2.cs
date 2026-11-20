@@ -315,7 +315,7 @@ namespace Agent.Plugins.PipelineArtifact
             downloadParameters.SkipInvalidArtifactNames = downloadOptions == DownloadOptions.MultiDownload &&
                 useStrictValidation;
 
-            context.Output(StringUtil.Loc("DownloadArtifactTo", targetPath));
+            context.OutputExternal(StringUtil.Loc("DownloadArtifactTo", targetPath));
             await server.DownloadAsyncV2(context, downloadParameters, downloadOptions, token);
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }

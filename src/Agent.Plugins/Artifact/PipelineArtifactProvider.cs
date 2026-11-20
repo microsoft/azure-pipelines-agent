@@ -47,7 +47,7 @@ namespace Agent.Plugins
 
             var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                 this.context.IsSystemDebugTrue(),
-                (str) => this.context.Output(str),
+                (str) => this.context.OutputExternal(str),
                 this.connection,
                 domainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,
@@ -116,7 +116,7 @@ namespace Agent.Plugins
                     // create the clients:
                     var (dedupManifestClient, clientTelemetry) = await DedupManifestArtifactClientFactory.Instance.CreateDedupManifestClientAsync(
                         this.context.IsSystemDebugTrue(),
-                        (str) => this.context.Output(str),
+                        (str) => this.context.OutputExternal(str),
                         this.connection,
                         domainId,
                         Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineArtifact,

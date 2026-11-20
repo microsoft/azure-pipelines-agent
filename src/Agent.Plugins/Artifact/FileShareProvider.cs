@@ -64,7 +64,7 @@ namespace Agent.Plugins
             context.Warning(StringUtil.Loc("DownloadArtifactWarning", "UNC"));
             var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
                 context.IsSystemDebugTrue(),
-                (str) => context.Output(str),
+                (str) => context.OutputExternal(str),
                 connection,
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
@@ -116,7 +116,7 @@ namespace Agent.Plugins
         {
             var (dedupManifestClient, clientTelemetry) = await this.factory.CreateDedupManifestClientAsync(
                 context.IsSystemDebugTrue(),
-                (str) => context.Output(str),
+                (str) => context.OutputExternal(str),
                 connection,
                 WellKnownDomainIds.DefaultDomainId,
                 Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.FileShare,
@@ -275,7 +275,7 @@ namespace Agent.Plugins
                     if (minimatchFuncs == null || minimatchFuncs.Any(match => match(file.FullName)))
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
-                        context.Output(StringUtil.Loc("CopyFileToDestination", file, tempPath));
+                        context.OutputExternal(StringUtil.Loc("CopyFileToDestination", file, tempPath));
                         FileInfo tempFile = new System.IO.FileInfo(tempPath);
                         using (StreamReader fileReader = GetFileReader(file.FullName))
                         {

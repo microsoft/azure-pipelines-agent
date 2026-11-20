@@ -55,7 +55,7 @@ namespace Agent.Plugins.PipelineCache
             var (dedupManifestClient, clientTelemetry) = DedupManifestArtifactClientFactory.Instance
                 .CreateDedupManifestClient(
                     context.IsSystemDebugTrue(),
-                    (str) => context.Output(str),
+                    (str) => context.OutputExternal(str),
                     connection,
                     domainId, 
                     clientSettings,
@@ -77,7 +77,7 @@ namespace Agent.Plugins.PipelineCache
                 //If cache exists, return.
                 if (getResult != null)
                 {
-                    context.Output($"Cache with fingerprint `{getResult.Fingerprint}` already exists.");
+                    context.OutputExternal($"Cache with fingerprint `{getResult.Fingerprint}` already exists.");
                     return;
                 }
 
@@ -209,18 +209,18 @@ namespace Agent.Plugins.PipelineCache
 
                 if (result != null)
                 {
-                    context.Output($"Entry found at fingerprint: `{result.Fingerprint.ToString()}`");
+                    context.OutputExternal($"Entry found at fingerprint: `{result.Fingerprint.ToString()}`");
                     context.Verbose($"Manifest ID is: {result.ManifestId.ValueString}");
 
                     // if  the cache artifact doesn't have a domain id, use the default domain for backward compatibility
                     IDomainId domainId = WellKnownDomainIds.DefaultDomainId;
                     if (String.IsNullOrEmpty(result.DomainId))
                     {
-                        context.Output($"No Domain specified, using default domain: `{domainId.Serialize()}`");
+                        context.OutputExternal($"No Domain specified, using default domain: `{domainId.Serialize()}`");
                     }
                     else
                     {
-                        context.Output($"Retrieving entry from domain: `{result.DomainId}`");
+                        context.OutputExternal($"Retrieving entry from domain: `{result.DomainId}`");
                         domainId = DomainIdFactory.Create(result.DomainId);
                     }
 
@@ -228,7 +228,7 @@ namespace Agent.Plugins.PipelineCache
                     var (dedupManifestClient, _) = await DedupManifestArtifactClientFactory.Instance
                         .CreateDedupManifestClientAsync(
                             context.IsSystemDebugTrue(),
-                            (str) => context.Output(str),
+                            (str) => context.OutputExternal(str),
                             connection,
                             domainId,
                             Microsoft.VisualStudio.Services.BlobStore.WebApi.Contracts.Client.PipelineCache,

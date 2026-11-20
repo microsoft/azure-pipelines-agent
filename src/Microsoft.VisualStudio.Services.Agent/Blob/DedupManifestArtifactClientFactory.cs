@@ -219,7 +219,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                     return parallelism;
                 }
             }
-            return GetDedupStoreClientMaxParallelism(clientSettings, msg => context.Output(msg));
+            return GetDedupStoreClientMaxParallelism(clientSettings, msg => context.OutputExternal(msg));
         }
 
         public int GetDedupStoreClientMaxParallelism(BlobstoreClientSettings clientSettings, Action<string> logOutput)
@@ -247,12 +247,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Blob
                 {
                     if (v.Value.Equals(Environment.GetEnvironmentVariable(varName), StringComparison.Ordinal))
                     {
-                        context.Output($"{varName} is already set to `{v.Value}`.");
+                        context.OutputExternal($"{varName} is already set to `{v.Value}`.");
                     }
                     else
                     {
                         Environment.SetEnvironmentVariable(varName, v.Value);
-                        context.Output($"Set {varName} to `{v.Value}`.");
+                        context.OutputExternal($"Set {varName} to `{v.Value}`.");
                     }
                 }
             }

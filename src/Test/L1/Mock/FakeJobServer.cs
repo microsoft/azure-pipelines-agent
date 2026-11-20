@@ -47,6 +47,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.L1.Worker
             return Task.CompletedTask;
         }
 
+        public Task ConnectAsync(VssConnection jobConnection, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        }
+
         public Task<TaskLog> AppendLogContentAsync(Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream uploadStream, CancellationToken cancellationToken)
         {
             using (var reader = new StreamReader(uploadStream))

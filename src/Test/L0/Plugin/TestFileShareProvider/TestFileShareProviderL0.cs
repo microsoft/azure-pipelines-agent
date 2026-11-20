@@ -14,9 +14,13 @@ using Agent.Plugins;
 using Agent.Plugins.PipelineArtifact;
 using Agent.Sdk;
 using Microsoft.TeamFoundation.Build.WebApi;
+using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Blob;
 using Microsoft.VisualStudio.Services.Agent.Tests;
+using Microsoft.VisualStudio.Services.BlobStore.Common;
 using Microsoft.VisualStudio.Services.Content.Common.Tracing;
+using Microsoft.VisualStudio.Services.WebApi;
+using Moq;
 using Xunit;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests
@@ -26,6 +30,57 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private const string TestSourceFolder = "sourceFolder";
         private const string TestDestFolder = "destFolder";
         private const string TestDownloadSourceFolder = "sourceDownloadFolder";
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Plugin")]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task FactoryTraceOutputRespectsExternalOutputFiltering(bool publish, bool filteringEnabled)
+        {
+            const string externalMessage = "Artifact client message containing an incomplete marker: ##vso[";
+            List<string> messages = new List<string>();
+            Mock<ITraceWriter> trace = new Mock<ITraceWriter>();
+            trace
+                .Setup(writer => writer.Info(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback((string message, string operation) => messages.Add(message));
+            AgentTaskPluginExecutionContext context = new AgentTaskPluginExecutionContext(trace.Object);
+            context.Variables["AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"] =
+                new VariableValue(filteringEnabled.ToString());
+
+            Mock<IDedupManifestArtifactClientFactory> factory = new Mock<IDedupManifestArtifactClientFactory>();
+            factory
+                .Setup(clientFactory => clientFactory.CreateDedupManifestClientAsync(
+                    It.IsAny<bool>(),
+                    It.IsAny<Action<string>>(),
+                    It.IsAny<VssConnection>(),
+                    It.IsAny<IDomainId>(),
+                    It.IsAny<BlobStore.WebApi.Contracts.Client>(),
+                    It.IsAny<AgentTaskPluginExecutionContext>(),
+                    It.IsAny<CancellationToken>()))
+                .Callback((bool verbose, Action<string> output, VssConnection connection, IDomainId domainId,
+                    BlobStore.WebApi.Contracts.Client client, AgentTaskPluginExecutionContext executionContext,
+                    CancellationToken cancellationToken) => output(externalMessage))
+                .ThrowsAsync(new OperationCanceledException());
+
+            FileShareProvider provider = new FileShareProvider(context, null, context.CreateArtifactsTracer(), factory.Object);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => publish
+                ? provider.PublishArtifactAsync("source", "destination", 1, CancellationToken.None)
+                : provider.DownloadMultipleArtifactsAsync(
+                    new ArtifactDownloadParameters(), Array.Empty<BuildArtifact>(), CancellationToken.None, context));
+
+            string expectedMessage = filteringEnabled
+                ? externalMessage.Replace("##vso[", "##_vso[")
+                : externalMessage;
+            Assert.Contains(expectedMessage, messages);
+            if (filteringEnabled)
+            {
+                Assert.DoesNotContain(externalMessage, messages);
+            }
+        }
 
         [Fact]
         [Trait("Level", "L0")]

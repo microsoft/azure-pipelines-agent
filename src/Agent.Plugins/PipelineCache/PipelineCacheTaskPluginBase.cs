@@ -106,7 +106,7 @@ namespace Agent.Plugins.PipelineCache
 
             context.Output("Resolving key:");
             Fingerprint keyFp = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, keySegments);
-            context.Output($"Resolved to: {keyFp}");
+            context.OutputExternal($"Resolved to: {keyFp}");
 
             Func<Fingerprint[]> restoreKeysGenerator = () =>
                 restoreKeys.Select(restoreKey =>
@@ -114,7 +114,7 @@ namespace Agent.Plugins.PipelineCache
                     context.Output("Resolving restore key:");
                     Fingerprint f = FingerprintCreator.EvaluateKeyToFingerprint(context, workspaceRoot, restoreKey);
                     f.Segments = f.Segments.Concat(new[] { Fingerprint.Wildcard }).ToArray();
-                    context.Output($"Resolved to: {f}");
+                    context.OutputExternal($"Resolved to: {f}");
                     return f;
                 }).ToArray();
 

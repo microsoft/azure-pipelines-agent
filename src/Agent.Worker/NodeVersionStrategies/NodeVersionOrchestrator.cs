@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Agent.Sdk;
+using Agent.Sdk.Knob;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
 using Microsoft.VisualStudio.Services.Agent.Worker.Container;
@@ -16,6 +17,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 {
     public sealed class NodeVersionOrchestrator
     {
+        internal const string CrossPlatformEolError = "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS. Cross-platform container execution cannot use the agent's bundled Node24. Specify a custom Node path with the 'com.azure.dev.pipelines.agent.handler.node.path' image label.";
+
         private readonly List<INodeVersionStrategy> _strategies;
         private readonly IExecutionContext ExecutionContext;
         private readonly IHostContext HostContext;
@@ -64,6 +67,13 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking strategy: {strategy.GetType().Name}");
 
+                if ((context.HandlerData is Node20_1HandlerData || context.HandlerData is Node24HandlerData ||
+                    AgentKnobs.UseNode20_1.GetValue(ExecutionContext).AsBoolean()) && IsLegacyStrategy(strategy))
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; modern Node selection must not fall back to a legacy runner");
+                    continue;
+                }
+
                 try
                 {
                     var selectionResult = strategy.CanHandle(context, ExecutionContext, glibcInfo);
@@ -103,12 +113,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
             string handlerType = context.HandlerData?.GetType().Name ?? "Unknown";
             ExecutionContext.Debug(StringUtil.Loc("NodeVersionNotAvailable", handlerType));
-            throw new NotSupportedException($"No compatible Node.js version available for host execution. Handler type: {handlerType}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false");
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute."
+                : $"No compatible Node.js version available for host execution. Handler type: {handlerType}. Update the task to use Node24, enable AGENT_RESTRICT_EOL_NODE_VERSIONS, or install the required runner manually.");
         }
 
         /// <summary>
-        /// Gets strategies that support container execution (Custom node, Node24, Node20, Node16).
-        /// Only these strategies have CanHandleInContainer implementations.
+        /// Gets strategies for container startup (Custom node, Node24, Node20, Node16).
+        /// Node16 is only selected when it has been installed manually.
         /// </summary>
         private IEnumerable<INodeVersionStrategy> GetContainerCapableStrategies()
         {
@@ -117,7 +130,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
 
         /// <summary>
         /// Container-specific node version selection using CanHandleInContainer methods.
-        /// Follows the container knob precedence: Custom Node → Node24 → Node20 → Node16.
+        /// Follows the container startup precedence: Custom Node → Node24 → Node20 → Node16.
         /// </summary>
         public NodeRunnerInfo SelectNodeVersionForContainer(TaskContext context, IDockerCommandManager dockerManager)
         {
@@ -125,8 +138,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             ExecutionContext.Debug($"[{environmentType}] Starting container node version selection");
             ExecutionContext.Debug($"[{environmentType}] Handler type: {context.HandlerData?.GetType().Name ?? "null"}");
 
-            if (PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux))
+            bool enforceEolPolicy = AgentKnobs.EnableEOLNodeVersionPolicy.GetValue(ExecutionContext).AsBoolean();
+            if ((PlatformUtil.RunningOnMacOS || (PlatformUtil.RunningOnWindows && context.Container.ImageOS == PlatformUtil.OS.Linux)) &&
+                string.IsNullOrWhiteSpace(context.Container.CustomNodePath))
             {
+                if (enforceEolPolicy)
+                {
+                    throw new NotSupportedException(CrossPlatformEolError);
+                }
+
                 ExecutionContext.Debug($"[{environmentType}] Cross-platform scenario detected - using container's built-in Node.js");
                 ExecutionContext.Debug($"[{environmentType}] Agent OS: {(PlatformUtil.RunningOnMacOS ? "macOS" : "Windows")}, Container OS: {context.Container.ImageOS}");
                 
@@ -147,6 +167,12 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
             foreach (var strategy in GetContainerCapableStrategies())
             {
                 ExecutionContext.Debug($"[{environmentType}] Checking container strategy: {strategy.GetType().Name}");
+
+                if (enforceEolPolicy && strategy is not CustomNodeStrategy && strategy is not Node24Strategy)
+                {
+                    ExecutionContext.Debug($"[{environmentType}] Skipping {strategy.GetType().Name}; EOL policy requires Node24");
+                    continue;
+                }
 
                 try
                 {
@@ -177,7 +203,6 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 catch (NotSupportedException ex)
                 {
                     ExecutionContext.Debug($"[{environmentType}] Strategy '{strategy.GetType().Name}' threw NotSupportedException: {ex.Message}");
-                    ExecutionContext.Error($"Container node version selection failed: {ex.Message}");
                     throw;
                 }
                 catch (Exception ex)
@@ -186,11 +211,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies
                 }
             }
 
-            throw new NotSupportedException("No Node.js version could be selected for container execution. Please check your container knobs and node availability.");
+            throw new NotSupportedException(enforceEolPolicy
+                ? "Node24 is required by AGENT_RESTRICT_EOL_NODE_VERSIONS but is missing or cannot execute in the container."
+                : "No Node.js version could be selected for container execution. Ensure Node24 or Node20 is installed and compatible with the container.");
+        }
+
+        private static bool IsLegacyStrategy(INodeVersionStrategy strategy)
+        {
+            return strategy is Node16Strategy || strategy is Node10Strategy || strategy is Node6Strategy;
         }
 
         private NodeRunnerInfo CreateNodeRunnerInfoWithPath(TaskContext context, NodeRunnerInfo selection)
         {
+            bool isDeprecatedNodeVersion =
+                selection.NodeVersion == NodeVersion.Node6 ||
+                selection.NodeVersion == NodeVersion.Node10 ||
+                selection.NodeVersion == NodeVersion.Node16;
+            if (isDeprecatedNodeVersion && AgentKnobs.AgentDeprecatedNodeWarnings.GetValue(ExecutionContext).AsBoolean())
+            {
+                string deprecatedWarning = StringUtil.Loc("DeprecatedRunner",
+                    ExecutionContext.Variables.Get(Constants.Variables.Task.DisplayName) ?? "Unknown Task");
+                selection.Warning = string.IsNullOrEmpty(selection.Warning)
+                    ? deprecatedWarning
+                    : $"{selection.Warning}{Environment.NewLine}{deprecatedWarning}";
+            }
+
             if (selection.NodeVersion == NodeVersion.Custom)
             {
                 return selection;
