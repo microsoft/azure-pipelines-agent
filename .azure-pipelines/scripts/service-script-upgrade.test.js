@@ -404,7 +404,7 @@ const hookPattern = /^# Service customizations migrated from runsvc\.sh[^\n]*\n#
 
 for (const { revision, content } of history) {
     test(`migrates documented customizations to runsvc.hook.sh from historical revision ${revision}`, () => {
-        const customization = 'export CUSTOMER_SETUP="from-hook $(printf ok)"\nif [ -n "$CUSTOMER_SETUP" ]; then\n    export PATH="/opt/custom:$PATH"\nfi\n';
+        const customization = '# Customer environment\nexport CUSTOMER_SETUP="from-hook ok"\nexport PATH=/usr/bin:/bin\n';
         const custom = customize(content, customization);
         const outcome = runUpdate({ service: custom, serviceConfigured: true });
         assert.equal(outcome.result.status, 0, outcome.result.stderr);
@@ -462,6 +462,20 @@ const unsafeCustomizations = {
     'return': content => customize(content, 'return 0\n'),
     'BASH_SOURCE': content => customize(content, 'export CUSTOMER_SETUP="${BASH_SOURCE[0]}"\n'),
     'LINENO': content => customize(content, 'echo $LINENO\n'),
+    'the last shell argument': content => customize(content, 'export CUSTOMER_SETUP="$_"\n'),
+    'a trap': content => customize(content, 'trap "echo customer" EXIT\n'),
+    'a nested source': content => customize(content, 'source ./customer.sh\n'),
+    'a nested dot source': content => customize(content, '. ./customer.sh\n'),
+    'command substitution': content => customize(content, 'export CUSTOMER_SETUP="$(printf customer)"\n'),
+    'backtick substitution': content => customize(content, 'export CUSTOMER_SETUP=`printf customer`\n'),
+    'PATH expansion': content => customize(content, 'export PATH="/opt/custom:$PATH"\n'),
+    'an escaped expansion': content => customize(content, 'export CUSTOMER_SETUP="\\$_"\n'),
+    'an export with a second command': content => customize(content, 'export CUSTOMER_SETUP=1; touch executed\n'),
+    'a shell-special variable': content => customize(content, 'export RANDOM=1\n'),
+    'a shell-special array': content => customize(content, 'export BASH_SOURCE=customer\n'),
+    'tilde expansion': content => customize(content, 'export CUSTOMER_SETUP=~/customer\n'),
+    'multiple assignments': content => customize(content, 'export CUSTOMER_SETUP=1 PATH=/opt/custom\n'),
+    'a continued line': content => customize(content, 'export CUSTOMER_SETUP=\\\ncustomer\n'),
     'a duplicated insertion marker': content => customize(content, marker),
     'a removed blank line after the insertion marker': content => content.replace(marker + '\n', marker + 'export CUSTOMER_SETUP=1\n')
 };
@@ -484,11 +498,58 @@ for (const [name, make] of Object.entries(unsafeCustomizations)) {
     });
 }
 
-test('does not execute customer code while migrating', () => {
+test('blocks customer commands without executing them during inspection', () => {
     const custom = customize(history[0].content, 'touch "$PWD/executed"\nexport CUSTOMER_SETUP=1\n');
     const outcome = runUpdate({ service: custom });
-    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.notEqual(outcome.result.status, 0);
     assert.equal(outcome.files.includes('executed'), false);
+    assert.equal(outcome.hook, null);
+});
+
+for (const [value, expected] of [
+    ['unquoted:/opt/custom@1,2%+3', 'unquoted:/opt/custom@1,2%+3'],
+    ['"spaces and # punctuation; stay literal"', 'spaces and # punctuation; stay literal'],
+    ["'literal $_ $(touch executed) `command` $PATH \\\\ text'", 'literal $_ $(touch executed) `command` $PATH \\\\ text'],
+    ["''", ''],
+    ['""', ''],
+    ['', '']
+]) {
+    test(`preserves the value of the accepted literal export ${JSON.stringify(value)}`, () => {
+        const customization = ` \t# Comment only\n\n  export CUSTOMER_SETUP=${value}\t\n`;
+        const custom = customize(history[0].content, customization);
+        const outcome = runUpdate({ service: custom, probeRuntime: true });
+        assert.equal(outcome.result.status, 0, outcome.result.stderr);
+        assert.equal(hookPattern.exec(outcome.hook)?.[1], customization);
+        assert.equal(outcome.serviceResult.status, 0, outcome.serviceResult.stderr);
+        assert.ok(outcome.serviceResult.stdout.includes(`node24-host:./bin/AgentService.js:${expected}\n`));
+        assert.equal(outcome.files.includes('executed'), false);
+    });
+}
+
+test('reports migration only after both agent directory switches succeed', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=1\n');
+    const outcome = runUpdate({
+        service: custom,
+        setup: 'ln() { if [ "$1" = "-s" ] && [ "${!#}" = "$ROOT/externals" ]; then return 1; fi; command ln "$@"; }'
+    });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.telemetry, null);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+});
+
+test('does not report migration if creating the hook fails', () => {
+    const custom = customize(history[0].content, 'export CUSTOMER_SETUP=1\n');
+    const outcome = runUpdate({
+        service: custom,
+        setup: 'ln() { if [ "${!#}" = "$ROOT/runsvc.hook.sh" ]; then return 1; fi; command ln "$@"; }'
+    });
+    assert.notEqual(outcome.result.status, 0);
+    assert.equal(outcome.telemetry, null);
+    assert.equal(outcome.service, custom);
+    assert.equal(outcome.hook, null);
+    assert.equal(outcome.oldBinStillActive, true);
+    assert.equal(outcome.oldExternalsStillActive, true);
 });
 
 test('removes the migrated hook and restores the script if switching the agent fails', () => {
@@ -502,6 +563,7 @@ test('removes the migrated hook and restores the script if switching the agent f
     assert.equal(outcome.hook, null);
     assert.equal(outcome.failed, true);
     assert.match(outcome.log, /Restored .*runsvc\.sh/);
+    assert.equal(outcome.telemetry, null);
 });
 
 test('removes the migrated hook if replacing the service script fails', () => {
@@ -515,4 +577,5 @@ test('removes the migrated hook if replacing the service script fails', () => {
     assert.equal(outcome.hook, null);
     assert.equal(outcome.oldBinStillActive, true);
     assert.equal(outcome.failed, true);
+    assert.equal(outcome.telemetry, null);
 });

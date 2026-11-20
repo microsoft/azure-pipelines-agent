@@ -113,7 +113,8 @@ is_stock_fingerprint() {
 }
 
 # Customizations can be migrated only when they were added directly after the documented insertion
-# marker and removing them yields a known stock script. Customer code is parsed but never executed.
+# marker and removing them yields a known stock script. Only literal exports are accepted;
+# shell commands, expansions, and assignments to shell-special variables cannot be moved safely.
 # Returns 0 and writes the customization to $1, 1 when it cannot be migrated safely, and 2 on error.
 extract_service_customization() {
     local output="$1" marker_line count lines k digest result matches=0 match=0
@@ -150,23 +151,36 @@ extract_service_customization() {
         return 1
     fi
 
-    # These behave differently when the code is sourced from a separate file instead of running inline.
-    grep -q -E '(^|[^[:alnum:]_])(return|caller|BASH_SOURCE|BASH_LINENO|BASH_ARGC|BASH_ARGV|FUNCNAME|LINENO)([^[:alnum:]_]|$)' "$output"
-    result=$?
-    if [ "$result" -eq 0 ]; then
-        migration_reason="the customization uses shell features that behave differently in a sourced file"
-        return 1
-    elif [ "$result" -ne 1 ]; then
-        return 2
-    fi
     if [ "$(tr -d '\000' < "$output" | wc -c)" != "$(wc -c < "$output")" ]; then
         migration_reason="the customization contains binary data"
         return 1
     fi
-    result=$(bash -n "$output" 2>&1)
-    if [ "$?" -ne 0 ] || [ -n "$result" ]; then
-        migration_reason="the customization is not complete, valid shell code on its own"
+    # This is an allowlist, not a shell parser. Single quotes preserve every printable literal;
+    # double quotes must not contain expansions or escapes, and unquoted values use a small alphabet.
+    LC_ALL=C awk '
+        /^[ \t]*(#.*)?$/ { next }
+        {
+            line = $0
+            sub(/^[ \t]*/, "", line)
+            sub(/[ \t]*$/, "", line)
+            if (line !~ /^export[ \t]+[A-Za-z_][A-Za-z0-9_]*=/) exit 1
+            sub(/^export[ \t]+/, "", line)
+            name = line
+            sub(/=.*/, "", name)
+            if (name ~ /^(_|BASH.*|HIST.*|COMP.*|PS[0-9]|SHELLOPTS|CDPATH|DIRSTACK|ENV|EUID|FCEDIT|FIGNORE|FUNCNAME|GLOBIGNORE|GROUPS|HOME|HOSTFILE|HOSTNAME|HOSTTYPE|IFS|IGNOREEOF|INPUTRC|LANG|LC_.*|LINENO|MACHTYPE|MAIL|MAILCHECK|MAILPATH|OLDPWD|OPTARG|OPTERR|OPTIND|OSTYPE|PIPESTATUS|POSIXLY_CORRECT|PPID|PROMPT_COMMAND|PWD|RANDOM|REPLY|SECONDS|SHLVL|SRANDOM|TIMEFORMAT|TMOUT|TMPDIR|UID)$/) exit 1
+            sub(/^[^=]*=/, "", line)
+            if (line ~ /^[-A-Za-z0-9_./:@%+,]*$/ ||
+                line ~ /^\047[^\047[:cntrl:]]*\047$/ ||
+                line ~ /^"[^"$`\\[:cntrl:]]*"$/) next
+            exit 1
+        }
+    ' "$output" 2>> "$logfile"
+    result=$?
+    if [ "$result" -eq 1 ]; then
+        migration_reason="only one literal export of a non-shell-special variable per line, blank lines, and comments can be migrated; shell commands, expansions, escapes, and other syntax require manual migration"
         return 1
+    elif [ "$result" -ne 0 ]; then
+        return 2
     fi
 }
 
@@ -280,7 +294,6 @@ refresh_service_script() {
             return 1
         fi
         migrate=1
-        report_service_script_status Migrated
     elif [ "$result" -ne 0 ]; then
         report_service_script_status Error
         service_script_error "Cannot verify the service-script fingerprint. Agent update blocked."
@@ -498,6 +511,9 @@ then
 fi
 
 update_succeeded=1
+if [ "$service_hook_created" -eq 1 ]; then
+    report_service_script_status Migrated
+fi
 date "+[%F %T-%4N] Update succeed" >> "$logfile" 2>&1
 
 # rename the update log file with %logfile%.succeed/.failed/succeedneedrestart
