@@ -39,6 +39,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         private AssemblyLoadContext _loadContext;
         private string _tempDirectoryRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
         public bool UseRealDelays { get; set; } = false;  // Default: skip delays for speed
+        public string RootDirectoryOverride { get; set; }
         public List<TimeSpan> CapturedDelays { get; private set; } = new List<TimeSpan>();
         private StartupType _startupType;
         public event EventHandler Unloading;
@@ -260,7 +261,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     break;
 
                 case WellKnownDirectory.Root:
-                    path = new DirectoryInfo(GetDirectory(WellKnownDirectory.Bin)).Parent.FullName;
+                    path = RootDirectoryOverride ?? new DirectoryInfo(GetDirectory(WellKnownDirectory.Bin)).Parent.FullName;
                     break;
 
                 case WellKnownDirectory.ServerOM:
