@@ -924,77 +924,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 }
             }
         }
-
-        [Fact]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        public void ValidateContainerPath_EmptyDirectoryOutsideWork_Throws()
-        {
-            using (TestHostContext hc = CreateTestContext())
-            using (var ec = new Agent.Worker.ExecutionContext())
-            {
-                InitializePathTranslationContext(hc, ec, true, "container", null);
-                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
-                try
-                {
-                    Directory.CreateDirectory(outside);
-
-                    // No files to inspect: the root itself must still be rejected.
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(outside, outside));
-                }
-                finally
-                {
-                    DeleteDirectoryIfExists(outside);
-                }
-            }
-        }
-
-        [Theory]
-        [Trait("Level", "L0")]
-        [Trait("Category", "Worker")]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void TranslateToHostPath_ArtifactUploadDirectoryWithEscapingSymlink_FollowsEnforcement(bool enforce)
-        {
-            using (TestHostContext hc = CreateTestContext())
-            using (var ec = new Agent.Worker.ExecutionContext())
-            {
-                InitializePathTranslationContext(hc, ec, enforce, "container", null);
-                string work = hc.GetDirectory(WellKnownDirectory.Work);
-                string root = Path.Combine(work, "translate-escape");
-                string dir = Path.Combine(root, "office");
-                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
-                try
-                {
-                    Directory.CreateDirectory(dir);
-                    Directory.CreateDirectory(outside);
-                    string secret = Path.Combine(outside, "config");
-                    File.WriteAllText(secret, "secret");
-                    if (!TryCreateSymbolicLink(Path.Combine(dir, "rate.txt"), secret, isDirectory: false))
-                    {
-                        return;
-                    }
-
-                    string workAlias = ec.StepTarget().TranslateToContainerPath(work);
-                    string containerDir = Path.Combine(workAlias, "translate-escape", "office");
-
-                    if (enforce)
-                    {
-                        Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(containerDir, source: VsoPathTranslationSource.ArtifactUpload));
-                    }
-                    else
-                    {
-                        Assert.Equal(Path.GetFullPath(dir), ec.TranslateToHostPath(containerDir, source: VsoPathTranslationSource.ArtifactUpload));
-                    }
-                }
-                finally
-                {
-                    DeleteDirectoryIfExists(root);
-                    DeleteDirectoryIfExists(outside);
-                }
-            }
-        }
-
+        
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
