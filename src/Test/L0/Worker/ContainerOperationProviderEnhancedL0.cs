@@ -145,14 +145,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         SetupProcessInvokerMock(hc);
                     }
                     hc.SetSingleton<IDockerCommandManager>(dockerManager.Object);
-                    var provider = new ContainerOperationProviderEnhanced();
+                    var nodeHelper = new Mock<INodeHandlerHelper>();
+                    nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(false);
+                    var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
                     provider.Initialize(hc);
 
                     if (expectNode16)
                     {
                         await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
                         Assert.Contains("node16", container.ResultNodePath);
-                        Assert.True(container.ContainerCommand.IndexOf("node20_1", System.StringComparison.Ordinal) <
+                        Assert.DoesNotContain("node20_1", container.ContainerCommand);
+                        Assert.True(container.ContainerCommand.IndexOf("node24", System.StringComparison.Ordinal) <
                             container.ContainerCommand.IndexOf("node16", System.StringComparison.Ordinal));
                         executionContext.Verify(x => x.AddIssue(
                             It.Is<Issue>(issue => issue.Type == IssueType.Warning && issue.Message.Contains("Node 16"))), Times.Once);
@@ -170,6 +173,93 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     {
                         System.IO.Directory.Delete(node16Folder, recursive: true);
                     }
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(true, false, true)]
+        [InlineData(false, false, true)]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public async Task StartContainer_LegacyCannotReadStartupLogs_ProbesAvailableNode20(bool node20Runs, bool cancelled, bool logsUnavailable)
+        {
+            if (PlatformUtil.RunningOnMacOS)
+            {
+                return;
+            }
+
+            using (var hc = new TestHostContext(this))
+            {
+                System.IO.Directory.CreateDirectory(hc.GetDirectory(WellKnownDirectory.Work));
+                var nodeHelper = new Mock<INodeHandlerHelper>();
+                nodeHelper.Setup(x => x.IsNodeFolderExist("node20_1", hc)).Returns(true);
+                var docker = CreateDockerManagerMock(NodePathFromLabelEmpty);
+                System.Exception logException = cancelled
+                    ? new System.OperationCanceledException("Docker logs unavailable")
+                    : new System.InvalidOperationException("Docker logs unavailable");
+                if (logsUnavailable)
+                {
+                    docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                        .ThrowsAsync(logException);
+                }
+                else
+                {
+                    docker.Setup(x => x.GetDockerLogs(It.IsAny<IExecutionContext>(), It.IsAny<string>()))
+                        .ReturnsAsync(new List<string>());
+                }
+                var probes = new List<int>();
+                docker.Setup(x => x.DockerExec(It.IsAny<IExecutionContext>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.Is<string>(command => command.Contains("--version")), It.IsAny<List<string>>()))
+                    .ReturnsAsync((IExecutionContext _, string _, string _, string command, List<string> output) =>
+                    {
+                        int version = command.Contains("node24") ? 24 : 20;
+                        probes.Add(version);
+                        if (version == 20 && node20Runs)
+                        {
+                            output.Add("v20.0.0");
+                            return 0;
+                        }
+                        return 127;
+                    });
+                var executionContext = CreateExecutionContextMock(hc);
+                executionContext.Setup(x => x.GetVariableValueOrDefault("AGENT_RESTRICT_EOL_NODE_VERSIONS")).Returns("false");
+                var container = new ContainerInfo(new Pipelines.ContainerResource { Alias = "test", Image = "test-image" })
+                {
+                    ImageOS = PlatformUtil.HostOS
+                };
+                if (!PlatformUtil.RunningOnWindows)
+                {
+                    SetupProcessInvokerMock(hc);
+                }
+                hc.SetSingleton<IDockerCommandManager>(docker.Object);
+                var provider = new ContainerOperationProviderEnhanced(nodeHelper.Object);
+                provider.Initialize(hc);
+
+                if (cancelled)
+                {
+                    await Assert.ThrowsAsync<System.OperationCanceledException>(() =>
+                        provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                    Assert.Empty(probes);
+                }
+                else
+                {
+                    if (node20Runs)
+                    {
+                        await provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container });
+                        Assert.Contains("node20_1", container.ResultNodePath);
+                        executionContext.Verify(x => x.AddIssue(It.Is<Issue>(issue =>
+                            issue.Type == IssueType.Warning && issue.Message.Contains("verified that Node 20"))), Times.Once);
+                    }
+                    else
+                    {
+                        var exception = await Assert.ThrowsAsync<System.NotSupportedException>(() =>
+                            provider.StartContainersAsync(executionContext.Object, new List<ContainerInfo> { container }));
+                        Assert.Contains("Docker logs unavailable", exception.InnerException.Message);
+                    }
+                    Assert.Equal(new[] { 24, 20 }, probes);
                 }
             }
         }

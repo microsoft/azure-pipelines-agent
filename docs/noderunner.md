@@ -48,6 +48,8 @@ When a Node 6 handler is selected, the agent always warns that it is end-of-life
 
 Job-container startup also tries the agent's Node 24 runtime first, then Node 20. If neither can run and Node 16 has been installed manually in `externals/node16`, startup falls back to it (unless the EOL policy is enabled); otherwise it fails. With EOL policy enabled, only Node 24 is used for agent-managed startup. Explicit custom Node paths remain overrides; platforms requiring the container's own Node must declare that custom path when the policy is enabled.
 
+Startup skips missing fallback runners. If legacy startup logs are unavailable or lack a startup marker, the agent probes the available, policy-permitted runtimes in the same order before selecting a runner or reporting failure.
+
 ## Manual runner installation paths
 
 The agent uses the following executable paths for legacy runners, relative to the agent's installation directory:
