@@ -269,6 +269,29 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                     }
 
+                    string serviceScriptStatus = null;
+                    if (!PlatformUtil.RunningOnWindows && (configuredAsService || startType == StartupType.Service))
+                    {
+                        try
+                        {
+                            string root = HostContext.GetDirectory(WellKnownDirectory.Root);
+                            var status = ServiceScriptInspector.GetStatus(
+                                Path.Combine(root, "runsvc.sh"),
+                                Path.Combine(root, "bin", "runsvc.sh"));
+                            serviceScriptStatus = status.ToString();
+                            if (status != ServiceScriptStatus.Match)
+                            {
+                                Trace.Warning("The root runsvc.sh is missing, outdated, or customized compared to bin/runsvc.sh. " +
+                                    "Preserve any customizations before replacing it; unrecognized scripts block agent updates.");
+                            }
+                        }
+                        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                        {
+                            serviceScriptStatus = "Error";
+                            Trace.Warning($"Unable to compare the service script with the shipped script: {ex.Message}");
+                        }
+                    }
+
                     //Publish inital telemetry data
                     var telemetryPublisher = HostContext.GetService<IAgenetListenerTelemetryPublisher>();
 
@@ -284,6 +307,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                             { "configuredAsService", $"{configuredAsService}"},
                             { "startupType", startupTypeAsString }
                         };
+
+                        if (serviceScriptStatus != null)
+                        {
+                            telemetryData["ServiceScriptStatus"] = serviceScriptStatus;
+                        }
 
                         // Check for EnableAgent fallback indicator
                         string fallbackUsed = Environment.GetEnvironmentVariable("VSTS_AGENT_VMEXT_FALLBACK_USED");

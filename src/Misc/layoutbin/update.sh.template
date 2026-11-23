@@ -18,6 +18,210 @@ downloadagentversion=_DOWNLOAD_AGENT_VERSION_
 logfile="_UPDATE_LOG_"
 restartinteractiveagent=_RESTART_INTERACTIVE_AGENT_
 
+service_script="$rootfolder/runsvc.sh"
+new_service_script="$rootfolder/bin.$downloadagentversion/runsvc.sh"
+service_script_backup=""
+service_script_replaced=0
+update_succeeded=0
+
+service_script_error() {
+    printf 'ERROR: %s\n' "$1" >> "$logfile"
+    printf 'ERROR: %s\n' "$1" >&2
+}
+
+report_service_script_status() {
+    # Older listeners cannot report this check. Use the downloaded listener without delaying the update.
+    if [ -x "$rootfolder/bin.$downloadagentversion/Agent.Listener" ]; then
+        "$rootfolder/bin.$downloadagentversion/Agent.Listener" --service-script-telemetry "$1" \
+            </dev/null >/dev/null 2>&1 &
+    else
+        printf 'WARNING: Unable to start service-script telemetry reporter.\n' >> "$logfile"
+    fi
+}
+
+write_service_script_preview() {
+    local preview="$service_script.new" temporary
+    if [ -e "$preview" ] || [ -L "$preview" ]; then
+        printf 'Existing %s was not overwritten.\n' "$preview" >> "$logfile"
+        return
+    fi
+    temporary=$(mktemp "$rootfolder/.runsvc-preview.XXXXXX") || {
+        printf 'WARNING: Could not create a service-script preview.\n' >> "$logfile"
+        return
+    }
+    if cp -p "$new_service_script" "$temporary" >> "$logfile" 2>&1 &&
+       ln "$temporary" "$preview" >> "$logfile" 2>&1; then
+        printf 'New service script available for review at %s.\n' "$preview" >> "$logfile"
+    else
+        printf 'WARNING: Could not create %s; existing files were not overwritten.\n' "$preview" >> "$logfile"
+    fi
+    rm -f "$temporary"
+}
+
+sha256_of_stdin() {
+    local digest
+    if command -v sha256sum >/dev/null 2>&1; then
+        digest=$(sha256sum 2>> "$logfile") || return 1
+    elif command -v shasum >/dev/null 2>&1; then
+        digest=$(shasum -a 256 2>> "$logfile") || return 1
+    else
+        return 1
+    fi
+    digest="${digest%% *}"
+    [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || return 1
+    printf '%s\n' "$digest"
+}
+
+service_script_fingerprint() {
+    sha256_of_stdin < "$1"
+}
+
+# Stock scripts are stamped at build time with a final line containing the SHA-256 of all preceding bytes.
+# Returns 0 for a valid stamp, 1 when there is no matching stamp, and 2 when the file cannot be checked.
+service_script_stamp_matches() {
+    local file="$1" prefix='# agent-stock-sha256: ' size marker_length marker expected actual
+    marker_length=$(( ${#prefix} + 65 ))
+    size=$(wc -c < "$file" 2>> "$logfile") || return 2
+    size="${size//[[:space:]]/}"
+    [[ "$size" =~ ^[0-9]+$ ]] || return 2
+    [ "$size" -gt "$marker_length" ] || return 1
+    marker=$(LC_ALL=C tail -c "$marker_length" "$file" 2>/dev/null) || return 2
+    [[ "$marker" =~ ^"$prefix"([0-9a-f]{64})$ ]] || return 1
+    expected="${BASH_REMATCH[1]}"
+    # Require exact bytes: a newline before the marker and exactly one trailing newline.
+    LC_ALL=C cmp -s <(tail -c "$(( marker_length + 1 ))" "$file") <(printf '\n%s%s\n' "$prefix" "$expected") || return 1
+    actual=$(head -c "$(( size - marker_length ))" "$file" | sha256_of_stdin) || return 2
+    [ "$actual" = "$expected" ] || return 1
+}
+
+refresh_service_script() {
+    local manifest="$rootfolder/bin.$downloadagentversion/runsvc.sh.sha256"
+    local digest backup_digest result temporary snapshot
+
+    if [ -L "$service_script" ]; then
+        report_service_script_status Unrecognized
+        write_service_script_preview
+        service_script_error "$service_script is a symbolic link and may be customized. Agent update blocked; preserve it and review $service_script.new."
+        return 1
+    fi
+    if [ ! -e "$service_script" ]; then
+        if [ -e "$rootfolder/.service" ] || [ -L "$rootfolder/.service" ]; then
+            report_service_script_status Missing
+            service_script_error "$service_script is missing for a configured service. Agent update blocked."
+            return 1
+        fi
+        report_service_script_status NoService
+        return 0
+    fi
+    if [ ! -f "$service_script" ] || [ ! -r "$service_script" ] ||
+       [ ! -r "$new_service_script" ] || [ ! -r "$manifest" ] ||
+       ! bash -n "$new_service_script" >> "$logfile" 2>&1; then
+        report_service_script_status Error
+        service_script_error "Cannot verify $service_script or the downloaded service script. Agent update blocked."
+        return 1
+    fi
+
+    # Classify a private snapshot so the stamp and digest describe the same bytes.
+    snapshot=$(mktemp "$rootfolder/.runsvc-check.XXXXXX") || snapshot=""
+    if [ -z "$snapshot" ] || ! cat "$service_script" > "$snapshot" 2>> "$logfile" ||
+       ! digest=$(service_script_fingerprint "$snapshot"); then
+        [ -n "$snapshot" ] && rm -f "$snapshot"
+        report_service_script_status Error
+        service_script_error "Cannot calculate the SHA-256 fingerprint of $service_script. Agent update blocked."
+        return 1
+    fi
+
+    service_script_stamp_matches "$snapshot"
+    result=$?
+    rm -f "$snapshot"
+    if [ "$result" -eq 1 ]; then
+        # Scripts shipped before build-time stamping are recognized by the frozen fingerprint list.
+        awk -v expected="$digest" '
+            { sub(/\r$/, ""); if ($0 == expected) { found = 1; exit } }
+            END { if (!found) exit 1 }
+        ' "$manifest" 2>> "$logfile"
+        result=$?
+    elif [ "$result" -ne 0 ]; then
+        result=2
+    fi
+    if [ "$result" -eq 1 ]; then
+        report_service_script_status Unrecognized
+        write_service_script_preview
+        service_script_error "$service_script is customized or unrecognized. Agent update blocked; preserve your changes and review $service_script.new."
+        return 1
+    elif [ "$result" -ne 0 ]; then
+        report_service_script_status Error
+        service_script_error "Cannot verify the service-script fingerprint. Agent update blocked."
+        return 1
+    fi
+
+    report_service_script_status Stock
+    cmp -s "$service_script" "$new_service_script"
+    result=$?
+    if [ "$result" -eq 0 ]; then
+        printf '%s is already up to date.\n' "$service_script" >> "$logfile"
+        return 0
+    elif [ "$result" -ne 1 ]; then
+        service_script_error "Cannot compare $service_script with the downloaded script. Agent update blocked."
+        return 1
+    fi
+
+    temporary=$(mktemp "$rootfolder/.runsvc-update.XXXXXX") || {
+        service_script_error "Cannot create a temporary service script. Agent update blocked."
+        return 1
+    }
+    service_script_backup=$(mktemp "$service_script.$existagentversion.bak.XXXXXX") || {
+        rm -f "$temporary"
+        service_script_error "Cannot create a backup of $service_script. Agent update blocked."
+        return 1
+    }
+    # Copy the old file first to preserve its mode, owner and platform-specific attributes.
+    if ! cp -a "$service_script" "$service_script_backup" >> "$logfile" 2>&1 ||
+       [ -L "$service_script_backup" ] ||
+       ! backup_digest=$(service_script_fingerprint "$service_script_backup") ||
+       [ "$backup_digest" != "$digest" ] ||
+       ! cp -a "$service_script_backup" "$temporary" >> "$logfile" 2>&1 ||
+       [ -L "$temporary" ] ||
+       ! cat "$new_service_script" > "$temporary" ||
+       ! bash -n "$temporary" >> "$logfile" 2>&1 ||
+       [ -L "$service_script" ] ||
+       ! cmp -s "$service_script_backup" "$service_script" ||
+       ! mv -f "$temporary" "$service_script" >> "$logfile" 2>&1; then
+        rm -f "$temporary"
+        service_script_error "Cannot safely replace $service_script. Agent update blocked; backup: $service_script_backup."
+        return 1
+    fi
+
+    service_script_replaced=1
+    printf 'Replaced %s; previous script saved at %s. Restart the service to use it.\n' \
+        "$service_script" "$service_script_backup" >> "$logfile"
+}
+
+restore_service_script_on_failure() {
+    if [ "$service_script_replaced" -eq 1 ] && [ "$update_succeeded" -eq 0 ]; then
+        local temporary log="$logfile"
+        if [ ! -e "$log" ] && [ -f "$logfile.failed" ]; then
+            log="$logfile.failed"
+        fi
+        if [ -L "$service_script" ] || ! cmp -s "$service_script" "$new_service_script"; then
+            printf 'ERROR: Cannot restore %s because it changed; backup: %s.\n' "$service_script" "$service_script_backup" >> "$log"
+            printf 'ERROR: Cannot restore %s because it changed; backup: %s.\n' "$service_script" "$service_script_backup" >&2
+            return
+        fi
+        temporary=$(mktemp "$rootfolder/.runsvc-restore.XXXXXX")
+        if [ -n "$temporary" ] &&
+           cp -a "$service_script_backup" "$temporary" >> "$log" 2>&1 &&
+           mv -f "$temporary" "$service_script" >> "$log" 2>&1; then
+            printf 'Restored %s after the update failed.\n' "$service_script" >> "$log"
+        else
+            printf 'ERROR: Could not restore %s; backup: %s.\n' "$service_script" "$service_script_backup" >> "$log"
+            printf 'ERROR: Could not restore %s; backup: %s.\n' "$service_script" "$service_script_backup" >&2
+            [ -n "$temporary" ] && rm -f "$temporary"
+        fi
+    fi
+}
+trap restore_service_script_on_failure EXIT
+
 # log user who run the script
 date "+[%F %T-%4N] --------whoami--------" >> "$logfile" 2>&1
 whoami >> "$logfile" 2>&1
@@ -37,6 +241,28 @@ date "+[%F %T-%4N] Process $agentpid finished running" >> "$logfile" 2>&1
 # start re-organize folders
 date "+[%F %T-%4N] Sleep 1 more second to make sure process exited" >> "$logfile" 2>&1
 ping -c 2 -i 1 127.0.0.1 > /dev/null
+
+# The new runsvc.sh hosts AgentService.js on the bundled Node 24. Refuse to switch to an agent
+# whose Node 24 cannot run here (for example, an OS whose glibc is too old) and keep the current agent.
+node24="$rootfolder/externals.$downloadagentversion/node24/bin/node"
+date "+[%F %T-%4N] Checking that $node24 can run on this machine" >> "$logfile" 2>&1
+if ! "$node24" --version >> "$logfile" 2>&1; then
+    service_script_error "Node.js 24 ($node24) cannot run on this machine. Agent update blocked; the current agent remains active. Upgrade the operating system to one supported by Node.js 24."
+    report_service_script_status Node24Unsupported
+    mv -fv "$logfile" "$logfile.failed"
+    if [ "$restartinteractiveagent" -ne 0 ]; then
+        "$rootfolder/run.sh" &
+    fi
+    exit 1
+fi
+
+if ! refresh_service_script; then
+    mv -fv "$logfile" "$logfile.failed"
+    if [ "$restartinteractiveagent" -ne 0 ]; then
+        "$rootfolder/run.sh" &
+    fi
+    exit 1
+fi
 
 # the folder structure under agent root will be
 # ./bin -> bin.2.100.0 (junction folder)
@@ -120,6 +346,7 @@ then
     exit 1
 fi
 
+update_succeeded=1
 date "+[%F %T-%4N] Update succeed" >> "$logfile" 2>&1
 
 # rename the update log file with %logfile%.succeed/.failed/succeedneedrestart

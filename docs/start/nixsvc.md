@@ -120,6 +120,12 @@ You can also inject anything you want to run when the service runs.  For example
 # insert anything to setup env when running as a service
 ```
 
+During self-update, a root `runsvc.sh` that matches a known stock script is replaced with the entire script from the new agent. The previous script is saved as `runsvc.sh.<previous version>.bak.<suffix>`. The new script takes effect the next time the service starts. Stock scripts end with a `# agent-stock-sha256:` line that records the hash of the rest of the script; any edit to the script, including that line, marks it as customized.
+
+Before making any change, self-update checks that the bundled Node.js 24 in the new agent can run on the machine. If it cannot (for example, because the operating system's C library is too old), the update is blocked, the current agent stays active, and the error is written to the `_diag/SelfUpdate-*.log.failed` file.
+
+If `runsvc.sh` is customized, a symbolic link, or otherwise unrecognized, the agent update is blocked before switching the active agent binaries. The existing script is left untouched, and the new script is saved as `runsvc.sh.new` when possible without overwriting an existing file. To retry, back up the script and any symlink target, move required customizations to your service configuration, and restore a known stock script. The error appears in service output and `_diag/SelfUpdate-*.log.failed`; agents with this change also warn in the listener log when the root script differs from the shipped script. Historical stock scripts are recognized, but the target agent's operating system requirements still apply.
+
 ## Service Files
 
 This is a convenience that simply creates a service file for you can sets permissions.  You are free to manually configure and control your service using alternate methods.

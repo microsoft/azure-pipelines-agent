@@ -13,6 +13,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
+using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 
 namespace Microsoft.VisualStudio.Services.Agent.Listener
 {
@@ -135,6 +137,35 @@ namespace Microsoft.VisualStudio.Services.Agent.Listener
                         }
                     }
                     trace.Info($"Successfully loaded {envContents.Length} environment variables from .env file");
+                }
+
+                if (args.Length == 2 && args[0] == "--service-script-telemetry")
+                {
+                    if (!ServiceScriptTelemetry.IsValidUpgradeStatus(args[1]))
+                    {
+                        trace.Error("Invalid service-script telemetry status.");
+                        return Constants.Agent.ReturnCode.TerminatedError;
+                    }
+
+                    if (args[1] == "Unrecognized" || args[1] == "Missing" || args[1] == "Error" || args[1] == "Node24Unsupported")
+                    {
+                        trace.Warning("Pre-update verification blocked the agent update. See the SelfUpdate log for details.");
+                    }
+
+                    try
+                    {
+                        var proxy = context.GetService<IVstsAgentWebProxy>();
+                        var certificates = context.GetService<IAgentCertificateManager>();
+                        VssUtil.InitializeVssClientSettings(context.UserAgent, proxy.WebProxy,
+                            certificates.VssClientCertificateManager, certificates.SkipServerCertificateValidation);
+                        await ServiceScriptTelemetry.PublishUpgradeStatusAsync(context, args[1], trace);
+                    }
+                    catch (Exception ex)
+                    {
+                        trace.Warning($"Unable to initialize service-script telemetry: {ex}");
+                    }
+
+                    return Constants.Agent.ReturnCode.Success;
                 }
 
                 // Parse the command line args.

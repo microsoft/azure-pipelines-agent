@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Services.Agent.Listener.Configuration;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -15,6 +16,7 @@ using Pipelines = Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Listener.Telemetry;
 using Agent.Listener.Configuration;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
 {
@@ -219,6 +221,62 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                 await agent.ExecuteCommand(command);
 
                 _messageListener.Verify(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()), expectedTimes);
+            }
+        }
+
+        [Theory]
+        [InlineData("stock", "Match", false)]
+        [InlineData("custom", "Different", true)]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Agent")]
+        public async Task ServiceStartupReportsScriptStatus(string script, string expectedStatus, bool expectWarning)
+        {
+            if (TestUtil.IsWindows())
+            {
+                return;
+            }
+
+            string root = Path.Combine(Path.GetTempPath(), $"agent-service-status-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(Path.Combine(root, "bin"));
+            try
+            {
+                File.WriteAllText(Path.Combine(root, "runsvc.sh"), script);
+                File.WriteAllText(Path.Combine(root, "bin", "runsvc.sh"), "stock");
+                using (var hc = new TestHostContext(this))
+                using (var agent = new Agent.Listener.Agent())
+                {
+                    hc.RootDirectoryOverride = root;
+                    hc.SetSingleton<IConfigurationManager>(_configurationManager.Object);
+                    hc.SetSingleton<IPromptManager>(_promptManager.Object);
+                    hc.SetSingleton<IMessageListener>(_messageListener.Object);
+                    hc.SetSingleton<IVstsAgentWebProxy>(_proxy.Object);
+                    hc.SetSingleton<IAgentCertificateManager>(_cert.Object);
+                    hc.SetSingleton<IConfigurationStore>(_configStore.Object);
+                    hc.SetSingleton<IAgenetListenerTelemetryPublisher>(_listenerTelemetryPublisher.Object);
+                    hc.SetSingleton<IFeatureFlagProvider>(_featureFlagProvider.Object);
+
+                    _configurationManager.Setup(x => x.IsConfigured()).Returns(true);
+                    _configurationManager.Setup(x => x.LoadSettings()).Returns(new AgentSettings());
+                    _configStore.Setup(x => x.IsServiceConfigured()).Returns(true);
+                    _messageListener.Setup(x => x.CreateSessionAsync(It.IsAny<CancellationToken>()))
+                        .Returns(Task.FromResult(false));
+
+                    Command published = null;
+                    _listenerTelemetryPublisher.Setup(x => x.PublishEvent(hc, It.IsAny<Command>()))
+                        .Callback<IHostContext, Command>((_, command) => published = command)
+                        .Returns(Task.CompletedTask);
+                    agent.Initialize(hc);
+                    await agent.ExecuteCommand(new CommandSettings(hc, new[] { "run", "--startuptype", "service" }));
+
+                    Assert.NotNull(published);
+                    Assert.Equal(expectedStatus, (string)JObject.Parse(published.Data)["ServiceScriptStatus"]);
+                    string log = File.ReadAllText(hc.TraceFileName);
+                    Assert.Equal(expectWarning, log.Contains("The root runsvc.sh is missing, outdated, or customized"));
+                }
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
             }
         }
 

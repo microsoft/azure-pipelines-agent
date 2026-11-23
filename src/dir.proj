@@ -27,6 +27,38 @@
     <L1Tasks Include="$(L1Root)/externals/Tasks/**"/>
   </ItemGroup>
 
+  <UsingTask TaskName="StampServiceScript" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ScriptPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Security.Cryptography" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        // Appends "# agent-stock-sha256: <hash>" where hash covers all preceding bytes, so the
+        // self-updater can recognize unmodified stock scripts without a per-release fingerprint list.
+        const string Prefix = "# agent-stock-sha256: ";
+        byte[] content = File.ReadAllBytes(ScriptPath);
+        if (content.Length == 0 || content[content.Length - 1] != (byte)'\n' || Array.IndexOf(content, (byte)'\r') >= 0)
+        {
+            Log.LogError("{0} must use LF line endings and end with a newline before it can be stamped.", ScriptPath);
+            return false;
+        }
+        if (Encoding.UTF8.GetString(content).Contains(Prefix.Trim()))
+        {
+            Log.LogError("{0} already contains a stock fingerprint marker; remove it from the source file.", ScriptPath);
+            return false;
+        }
+        string hash;
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            hash = BitConverter.ToString(sha256.ComputeHash(content)).Replace("-", string.Empty).ToLowerInvariant();
+        }
+        File.WriteAllBytes(ScriptPath, content.Concat(Encoding.ASCII.GetBytes(Prefix + hash + "\n")).ToArray());
+        Log.LogMessage(MessageImportance.High, "Stamped {0} with stock fingerprint {1}", ScriptPath, hash);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
   <Target Name="GenerateConstant">
     <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitInfoCommitHash" />
@@ -110,6 +142,7 @@
   <Target Name="Layout" DependsOnTargets="Clean;Build">
     <Copy SourceFiles="@(LayoutRootFiles)"  DestinationFolder="$(LayoutRoot)/%(RecursiveDir)"/>
     <Copy SourceFiles="@(LayoutBinFiles)"  DestinationFolder="$(LayoutRoot)/bin/%(RecursiveDir)"/>
+    <StampServiceScript ScriptPath="$(LayoutRoot)/bin/runsvc.sh" />
 
     <ItemGroup>
         <LayoutRootFilesToDelete Include="$(LayoutRoot)/*.cmd" Condition="'$(PackageRuntime)' != 'win-x64' And '$(PackageRuntime)' != 'win-x86' And '$(PackageRuntime)' != 'win-arm64'"/>
