@@ -72,5 +72,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         }
 
         public DefinitionData Definition { get; }
+
+        /// <summary>
+        /// Kill-switch feature flag that bypasses these restrictions when enabled.
+        /// </summary>
+        public string DisableFeatureFlag => Definition.Restrictions?.DisableFeatureFlag;
     }
 }

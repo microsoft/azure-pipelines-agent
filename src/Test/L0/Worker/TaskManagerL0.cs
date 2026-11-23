@@ -484,7 +484,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                 ""okVar"",
                 ""otherVar""
             ]
-        }
+        },
+        ""disableFeatureFlag"": ""DistributedTask.Tasks.SomeTask.DisableRestrictions""
     },
     ""someExtraSection"": {
         ""someExtraKey"": ""Some extra value""
@@ -560,6 +561,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     Assert.Equal(2, definition.Data.Restrictions.SettableVariables.Allowed.Count);
                     Assert.Equal("okVar", definition.Data.Restrictions.SettableVariables.Allowed[0]);
                     Assert.Equal("otherVar", definition.Data.Restrictions.SettableVariables.Allowed[1]);
+                    Assert.Equal("DistributedTask.Tasks.SomeTask.DisableRestrictions", definition.Data.Restrictions.DisableFeatureFlag);
                 }
             }
             finally
