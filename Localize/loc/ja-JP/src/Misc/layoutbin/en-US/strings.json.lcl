@@ -238,6 +238,9 @@
       <Item ItemId=";AgentWorkerStartupFailed" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[The agent failed during job startup before the job was dispatched to the worker. Stage: {0}. Job ID: {1}. Request ID: {2}. Exception: {3}]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ジョブがワーカーにディスパッチされる前の起動処理中に、エージェントでエラーが発生しました。ステージ: {0}。ジョブ ID: {1}。要求 ID: {2}。例外: {3}]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -325,6 +328,9 @@
       <Item ItemId=";ArtifactNameIsNotValidWithStrictValidation" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Artifact name is not valid: {0}. It cannot contain '\', /', "', ':', '<', '>', '|', '*', and '?'. It cannot be empty or consist entirely of dots or spaces.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[成果物名が無効です: {0}。'\'、/'、"'、':'、'<'、'>'、'|'、'*'、'?' を含めることはできません。空にすることも、ドットまたはスペースだけで構成することもできません。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -745,6 +751,9 @@
       <Item ItemId=";CodeCoverageFileSkippedPathTraversal" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Skipping code coverage file due to path traversal attempt: {0}]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[パス トラバーサルの試行があったため、コード カバレッジ ファイルをスキップしています: {0}]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -2203,15 +2212,6 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";DeprecatedNode6" ItemType="0" PsrId="306" Leaf="true">
-        <Str Cat="Text">
-          <Val><![CDATA[This task uses Node 6 execution handler, which will be removed March 31st 2022. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10 (check this page also if you would like to disable Node 6 deprecation warnings). If you are the user - feel free to reach out to the owners of this task to proceed on migration.]]></Val>
-          <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[このタスクでは Node 6 実行ハンドラーが使用されています。これは 2022 年 3 月 31 日に削除されます。タスクの開発者である場合は、Node 10 ハンドラーへの移行ガイドラインを検討してください - https://aka.ms/migrateTaskNode10 (Node 6 の非推奨化に関する警告を無効にする場合は、このページも確認してください)。ユーザーの場合は、移行を続行するために、このタスクの所有者に連絡してください。]]></Val>
-          </Tgt>
-        </Str>
-        <Disp Icon="Str" />
-      </Item>
       <Item ItemId=";DeprecatedNodeRunner" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task '{0}' version {1} ({2}@{1}) is dependent on a Node version ({3}) that is end-of-life. Contact the extension owner for an updated version of the task. Task maintainers should review Node upgrade guidance: https://aka.ms/node-runner-guidance]]></Val>
@@ -2485,6 +2485,9 @@
       <Item ItemId=";EnvironmentVariableContainsNullCharacter" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[The {1} of environment variable '{0}' contains a NUL (U+0000) character, which is not permitted in environment variables because it corrupts the process environment block and can cause unexpected behavior, so the operation was blocked.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[環境変数 '{0}' の {1} に NUL (U+0000) 文字が含まれています。NUL 文字はプロセス環境ブロックを破損させ、予期しない動作を引き起こす可能性があるため、環境変数では許可されていません。そのため、この操作はブロックされました。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3421,18 +3424,27 @@
       <Item ItemId=";LoggingCommandProcessingPaused" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has been paused.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[VSO コマンドの処理が一時停止されました。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";LoggingCommandProcessingResumed" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has resumed.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[VSO コマンドの処理が再開されました。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";LoggingCommandProcessingResumedAtTaskCompletion" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has resumed automatically because the task completed.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[タスクが完了したため、VSO コマンド処理は自動的に再開されました。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3811,6 +3823,9 @@
       <Item ItemId=";Node20TaskRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task {0} relies on Node.js 20, which is no longer supported. Task maintainers should update the task to use Node.js 24. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[タスク {0} は、サポートされなくなった Node.js 20 に依存しています。タスクの保守担当者は、Node.js 24 を使用するようにタスクを更新してください。詳細情報: https://aka.ms/node-runner-guidance]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3825,10 +3840,13 @@
       </Item>
       <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[タスクにはサポート終了になった {0} が必要です。これは組織のポリシーでブロックされています。タスクを Node20 または Node24 にアップグレードしてください。このチェックを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
+            <Val><![CDATA[タスクにはサポート終了になった {0} が必要です。これは組織のポリシーでブロックされています。タスクを Node24 にアップグレードしてください。このチェックを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3861,10 +3879,13 @@
       </Item>
       <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[ホストの実行に使用できる互換性のある Node.js バージョンがありません。ハンドラーの種類: {0}。これは、使用可能なすべてのバージョンが EOL ポリシーによってブロックされている場合に発生することがあります。Node20 または Node24 のタスクを使用するようにパイプラインを更新してください。EOL ポリシーを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
+            <Val><![CDATA[ホストの実行に使用できる互換性のある Node.js バージョンがありません。ハンドラーの種類: {0}。これは、使用可能なすべてのバージョンが EOL ポリシーによってブロックされている場合に発生することがあります。Node24 のタスクを使用するようにパイプラインを更新してください。EOL ポリシーを一時的に無効にするには、AGENT_RESTRICT_EOL_NODE_VERSIONS=false に設定します]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -5359,6 +5380,9 @@
       <Item ItemId=";ServiceConnectionNotDeclared" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Service connection with id '{0}' is not declared in the pipeline job and therefore can't be referenced in task.setendpoint commands.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[ID '{0}' のサービス接続はパイプライン ジョブで宣言されていないため、task.setendpoint コマンドで参照できません。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>

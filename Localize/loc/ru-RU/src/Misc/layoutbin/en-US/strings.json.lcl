@@ -751,6 +751,9 @@
       <Item ItemId=";CodeCoverageFileSkippedPathTraversal" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Skipping code coverage file due to path traversal attempt: {0}]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Пропуск файла объема протестированного кода из-за попытки обхода пути: {0}]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -2209,15 +2212,6 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";DeprecatedNode6" ItemType="0" PsrId="306" Leaf="true">
-        <Str Cat="Text">
-          <Val><![CDATA[This task uses Node 6 execution handler, which will be removed March 31st 2022. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10 (check this page also if you would like to disable Node 6 deprecation warnings). If you are the user - feel free to reach out to the owners of this task to proceed on migration.]]></Val>
-          <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[В этой задаче используется обработчик выполнения Node 6, который будет удален 31 марта 2022 г. Если вы являетесь разработчиком задачи, ознакомьтесь с руководством по переходу на обработчик Node 10 — https://aka.ms/migrateTaskNode10 (также проверьте эту страницу, если вы хотите отключить предупреждения об устаревании Node 6). Если вы являетесь пользователем, не стесняйтесь обращаться к владельцам этой задачи, чтобы продолжить миграцию.]]></Val>
-          </Tgt>
-        </Str>
-        <Disp Icon="Str" />
-      </Item>
       <Item ItemId=";DeprecatedNodeRunner" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task '{0}' version {1} ({2}@{1}) is dependent on a Node version ({3}) that is end-of-life. Contact the extension owner for an updated version of the task. Task maintainers should review Node upgrade guidance: https://aka.ms/node-runner-guidance]]></Val>
@@ -2491,6 +2485,9 @@
       <Item ItemId=";EnvironmentVariableContainsNullCharacter" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[The {1} of environment variable '{0}' contains a NUL (U+0000) character, which is not permitted in environment variables because it corrupts the process environment block and can cause unexpected behavior, so the operation was blocked.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Значение {1} переменной среды "{0}" содержит символ NUL (U+0000). Этот символ запрещен в переменных среды, так как повреждает блок среды процесса и может привести к непредсказуемому поведению, поэтому операция заблокирована.]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3427,18 +3424,27 @@
       <Item ItemId=";LoggingCommandProcessingPaused" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has been paused.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Обработка команды VSO приостановлена.]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";LoggingCommandProcessingResumed" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has resumed.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Обработка команды VSO возобновлена.]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";LoggingCommandProcessingResumedAtTaskCompletion" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has resumed automatically because the task completed.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Обработка команды VSO автоматически возобновлена из-за завершения задачи.]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3817,6 +3823,9 @@
       <Item ItemId=";Node20TaskRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task {0} relies on Node.js 20, which is no longer supported. Task maintainers should update the task to use Node.js 24. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Задача {0} использует Node.js 20, поддержка которого прекращена. Сопровождающим задачи следует обновить ее для использования Node.js 24. Подробнее: https://aka.ms/node-runner-guidance]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3831,10 +3840,13 @@
       </Item>
       <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[Задача требует {0}, для которого наступило окончание жизненного цикла. Это заблокировано политикой организации. Обновите задачу до Node20 или Node24. Чтобы временно отключить эту проверку, установите значение AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+            <Val><![CDATA[Задача требует {0}, для которого наступило окончание жизненного цикла. Это заблокировано политикой организации. Обновите задачу до Node24. Чтобы временно отключить эту проверку, установите значение AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3867,10 +3879,13 @@
       </Item>
       <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[Нет доступной совместимой версии Node.js для выполнения узла. Тип обработчика: {0}. Это может произойти, если все доступные версии заблокированы политикой EOL. Обновите конвейер, чтобы использовать задачи Node20 или Node24. Чтобы временно отключить политику EOL, установите значение AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+            <Val><![CDATA[Нет совместимой версии Node.js, доступной для выполнения на узле. Тип обработчика: {0}. Это может произойти, если все доступные версии заблокированы политикой EOL. Обновите конвейер, чтобы использовать задачи Node24. Чтобы временно отключить политику EOL: установите значение AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -5365,6 +5380,9 @@
       <Item ItemId=";ServiceConnectionNotDeclared" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Service connection with id '{0}' is not declared in the pipeline job and therefore can't be referenced in task.setendpoint commands.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[Подключение к службе с идентификатором "{0}" не объявлено в задании конвейера, поэтому на него нельзя ссылаться в командах task.setendpoint.]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
