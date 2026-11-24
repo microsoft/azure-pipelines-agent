@@ -23,7 +23,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.LegacyTestResults
             AddResultsFileToRunLevelAttachments = true;
         }
         //Based on the XUnit V2 format: http://xunit.github.io/docs/format-xml-v2.html
-        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null)
+        public TestRunData ReadResults(IExecutionContext executionContext, string filePath, TestRunContext runContext = null, bool isParallelProcessingFFEnabled = false)
         {
             List<TestCaseResultData> results = new List<TestCaseResultData>();
 
