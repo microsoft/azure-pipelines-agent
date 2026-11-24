@@ -56,7 +56,38 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener.Configuration
             using (TestHostContext hc = new TestHostContext(this))
             {
                 Assert.False(Validators.NTAccountValidator(string.Empty));
-                Assert.True(Validators.NTAccountValidator("NT AUTHORITY\\LOCAL SERVICE"));
+
+                // English/Default local service account
+                bool foundAccount = Validators.NTAccountValidator(@"NT AUTHORITY\LOCAL SERVICE");
+
+                if(!foundAccount)
+                {
+                    // German local service account
+                    foundAccount = Validators.NTAccountValidator(@"NT-AUTORITÄT\LOKALER DIENST");
+
+                    if (!foundAccount)
+                    {
+                        // French local service account
+                        foundAccount = Validators.NTAccountValidator(@"AUTORITE NT\SERVICE LOCAL");
+
+                        if (!foundAccount)
+                        {
+                            // Italian local service account
+                            foundAccount = Validators.NTAccountValidator(@"NT AUTHORITY\SERVIZIO LOCALE");
+
+                            if (!foundAccount)
+                            {
+                                // Spanish local service account
+                                foundAccount = Validators.NTAccountValidator(@"NT AUTHORITY\SERVICIO LOC");
+
+                                // Account name in rest of the languages is the same as in English
+                            }
+                        }
+                    }
+                }
+
+                Assert.True(foundAccount, @"Wasn't able to validate local service account ""NT AUTHORITY\LOCAL SERVICE"" (tried English/Default name, German name, French name, Italian name and Spanish name)");
+
             }
         }
     }

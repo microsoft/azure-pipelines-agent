@@ -121,7 +121,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker.CodeCoverage
         private static string GetPathToValidCoberturaFile()
         {
             var file = Path.Combine(Path.GetTempPath(), "coberturaValid.xml");
-            File.WriteAllText(file, CodeCoverageTestConstants.ValidCoberturaXml);
+            File.WriteAllText(file, CodeCoverageTestConstants.ValidCoberturaXmlLocalized);
             return file;
         }
 
