@@ -210,7 +210,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             try
             {
                 Directory.CreateDirectory(tempDirectory);
-                int retryCount = 0;
+                int retryCount = 1;
 
                 // Allow up to 20 * 60s for any task to be downloaded from service.
                 // Base on Kusto, the longest we have on the service today is over 850 seconds.
@@ -231,8 +231,25 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             using (FileStream fs = new FileStream(zipFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: _defaultFileStreamBufferSize, useAsync: true))
                             using (Stream result = await taskServer.GetTaskContentZipAsync(task.Id, version, taskDownloadCancellation.Token))
                             {
-                                Trace.Info($"The '{task.Name}' task downloading started.");
-                                await result.CopyToAsync(fs, _defaultCopyBufferSize, taskDownloadCancellation.Token);
+                                if (retryCount == retryLimit)
+                                {
+                                    Trace.Info($"Last attempt to download the '{task.Name}' task.");
+                                    byte[] buffer = new byte[_defaultCopyBufferSize];
+                                    while (true)
+                                    {
+                                        int read = result.Read(buffer, 0, buffer.Length);
+                                        if (read == 0)
+                                        {
+                                            break;
+                                        }
+                                        fs.Write(buffer, 0, read);
+                                    }
+                                }
+                                else
+                                {
+                                    Trace.Info($"The '{task.Name}' task downloading started.");
+                                    await result.CopyToAsync(fs, _defaultCopyBufferSize, taskDownloadCancellation.Token);
+                                }
                                 Trace.Info($"The '{task.Name}' task downloading finished.");
                                 await fs.FlushAsync(taskDownloadCancellation.Token);
 
@@ -247,9 +264,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         }
                         catch (Exception ex)
                         {
-                            retryCount++;
                             Trace.Error($"Fail to download task '{task.Id} ({task.Name}/{task.Version})' -- Attempt: {retryCount}");
                             Trace.Error(ex);
+                            retryCount++;
                             if (taskDownloadTimeout.Token.IsCancellationRequested)
                             {
                                 // task download didn't finish within timeout
@@ -274,7 +291,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                 Trace.Info($"Zip file '{zipFile}' can not be found.");
                             }
 
-                            if (retryCount >= retryLimit)
+                            if (retryCount > retryLimit)
                             {
                                 Trace.Info($"Retry limit to download the '{task.Name}' task reached.");
                                 throw;
