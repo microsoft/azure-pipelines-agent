@@ -77,36 +77,17 @@ function Get-MaxInfoFromSqlServerDtaf {
     }
 }
 
-function Get-MaxInfoFromVisualStudio_15_0 {
+function Get-MaxInfoFromVisualStudioByVersion {
     [CmdletBinding()]
-    param()
+    param([int] $VersionNumber)
 
-    $vs15 = Get-VisualStudio -MajorVersion 15
-    if ($vs15 -and $vs15.installationPath) {
+    $vs = Get-VisualStudio -MajorVersion $VersionNumber
+    if ($vs -and $vs.installationPath) {
         # End with "\" for consistency with old ShellFolder values.
-        $shellFolder15 = $vs15.installationPath.TrimEnd('\'[0]) + "\"
+        $shellFolder = $vs.installationPath.TrimEnd('\'[0]) + "\"
 
         # Test for the DAC directory.
-        $dacDirectory = [System.IO.Path]::Combine($shellFolder15, 'Common7', 'IDE', 'Extensions', 'Microsoft', 'SQLDB', 'DAC')
-        $sqlPacakgeInfo = Get-SqlPacakgeFromDacDirectory -dacDirectory $dacDirectory
-
-        if($sqlPacakgeInfo -and $sqlPacakgeInfo.File) {
-            return $sqlPacakgeInfo
-        }
-    }
-}
-
-function Get-MaxInfoFromVisualStudio_16_0 {
-    [CmdletBinding()]
-    param()
-
-    $vs16 = Get-VisualStudio -MajorVersion 16
-    if ($vs16 -and $vs16.installationPath) {
-        # End with "\" for consistency with old ShellFolder values.
-        $shellFolder16 = $vs16.installationPath.TrimEnd('\'[0]) + "\"
-
-        # Test for the DAC directory.
-        $dacDirectory = [System.IO.Path]::Combine($shellFolder16, 'Common7', 'IDE', 'Extensions', 'Microsoft', 'SQLDB', 'DAC')
+        $dacDirectory = [System.IO.Path]::Combine($shellFolder, 'Common7', 'IDE', 'Extensions', 'Microsoft', 'SQLDB', 'DAC')
         $sqlPacakgeInfo = Get-SqlPacakgeFromDacDirectory -dacDirectory $dacDirectory
 
         if($sqlPacakgeInfo -and $sqlPacakgeInfo.File) {
@@ -190,8 +171,9 @@ $sqlPackageInfo = @( )
 $sqlPackageInfo += (Get-MaxInfoFromSqlServer)
 $sqlPackageInfo += (Get-MaxInfoFromSqlServerDtaf)
 $sqlPackageInfo += (Get-MaxInfoFromVisualStudio)
-$sqlPackageInfo += (Get-MaxInfoFromVisualStudio_15_0)
-$sqlPackageInfo += (Get-MaxInfoFromVisualStudio_16_0)
+$sqlPackageInfo += (Get-MaxInfoFromVisualStudioByVersion -VersionNumber 15)
+$sqlPackageInfo += (Get-MaxInfoFromVisualStudioByVersion -VersionNumber 16)
+$sqlPackageInfo += (Get-MaxInfoFromVisualStudioByVersion -VersionNumber 17)
 $sqlPackageInfo |
     Sort-Object -Property Version -Descending |
     Select -First 1 |
