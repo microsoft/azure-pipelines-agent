@@ -308,11 +308,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Expand container properties
                     foreach (var container in jobContext.Containers)
                     {
-                        this.ExpandProperties(container, jobContext.Variables);
+                        this.ExpandProperties(container, jobContext);
                     }
                     foreach (var sidecar in jobContext.SidecarContainers)
                     {
-                        this.ExpandProperties(sidecar, jobContext.Variables);
+                        this.ExpandProperties(sidecar, jobContext);
                     }
                     Trace.Info($"Container property expansion completed - Containers: {jobContext.Containers?.Count ?? 0}, Sidecars: {jobContext.SidecarContainers?.Count ?? 0}");
 
@@ -515,21 +515,50 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             }
         }
 
-        public void ExpandProperties(ContainerInfo container, Variables variables)
+        public void ExpandProperties(ContainerInfo container, IExecutionContext jobContext)
         {
-            if (container == null || variables == null)
+            if (container == null || jobContext?.Variables == null)
             {
                 return;
             }
+            Variables variables = jobContext.Variables;
+
             // Expand port mapping
             variables.ExpandValues(container.UserPortMappings);
 
             // Expand volume mounts
             variables.ExpandValues(container.UserMountVolumes);
+
+            // Path validation/allow-listing is new behavior, gated behind the flag so flag-off
+            // jobs keep pre-existing behavior.
+            bool enforcePathValidation = AgentKnobs.EnforceContainerVsoPathValidation.GetValue(jobContext).AsBoolean();
+
+            // Keep ContainerInfo's flag in sync. TODO: remove once the flag is fully rolled out.
+            container.EnforceVsoPathValidation = enforcePathValidation;
+
             foreach (var volume in container.UserMountVolumes.Values)
             {
                 // After mount volume variables are expanded, they are final
-                container.MountVolumes.Add(new MountVolume(volume));
+                var mountVolume = new MountVolume(volume);
+                container.MountVolumes.Add(mountVolume);
+
+                if (!enforcePathValidation)
+                {
+                    // Flag off: leave UserPathMappings empty, matches pre-redesign behavior.
+                    continue;
+                }
+
+                // Named/anonymous Docker volumes have no host-side path; skip to avoid fabricating one.
+                if (!mountVolume.IsBindMount)
+                {
+                    Trace.Info($"ExpandProperties: skipping named/anonymous volume for path validation — source='{mountVolume.SourceVolumePath}' target='{mountVolume.TargetVolumePath}'");
+                    continue;
+                }
+
+                // Tag as User and register separately; translation picks the more specific (longest)
+                // match across both tiers, see ContainerInfo.UserPathMappings.
+                mountVolume.Kind = MountVolume.MountVolumeKind.User;
+                container.UserPathMappings[mountVolume.SourceVolumePath] = mountVolume.TargetVolumePath;
             }
 
             // Expand env vars
