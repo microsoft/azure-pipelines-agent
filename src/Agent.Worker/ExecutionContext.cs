@@ -84,7 +84,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
         /// Translates a logging-command path using its source-specific policy.
         /// </summary>
         string TranslateToHostPath(string path, VsoPathTranslationSource source);
+        /// <summary>
+        /// Validates that a host path stays inside the work directory after resolving all links.
+        /// Returns the canonical path.
+        /// </summary>
         string ValidateContainerPath(string originalPath, string resolvedPath);
+        /// <summary>
+        /// Returns a function that resolves a path and throws if it is outside the work directory,
+        /// or null when the current step is not a container step (or validation is disabled).
+        /// Consumers that walk a directory use it on link entries only.
+        /// </summary>
+        Func<string, string> CreateContainmentValidator();
         ExecutionTargetInfo StepTarget();
         void SetStepTarget(Pipelines.StepTarget target);
         string TranslatePathForStepTarget(string val);
@@ -107,6 +117,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
     public sealed class ExecutionContext : AgentService, IExecutionContext, ICorrelationContext, IDisposable
     {
         private const int _maxIssueCount = 10;
+        private const int MaxLinkResolutionDepth = 40;
 
         private readonly TimelineRecord _record = new TimelineRecord();
         private readonly Dictionary<Guid, TimelineRecord> _detailRecords = new Dictionary<Guid, TimelineRecord>();
@@ -1003,9 +1014,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
             // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
             // Allow exact match or anything strictly inside work dir.
-            bool underWork =
-                fullResolved.Equals(fullWork, IOUtil.FilePathStringComparison) ||
-                fullResolved.StartsWith(fullWork + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+            bool underWork = IsUnderDirectory(fullResolved, fullWork);
 
             if (!underWork)
             {
@@ -1016,24 +1025,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     $"which is outside the allowed directory '{workDir}'.");
             }
 
+            // A directory's contents are validated by the consumer during its own walk (see CreateContainmentValidator).
             Trace.Info($"ValidateContainerPath: allowed — '{fullResolved}' is inside work dir.");
             // Return canonical path so the sink opens exactly what was validated.
             return fullResolved;
         }
+
+        public Func<string, string> CreateContainmentValidator()
+        {
+            if (!(StepTarget() is ContainerInfo) || !AgentKnobs.EnforceContainerVsoPathValidation.GetValue(this).AsBoolean())
+            {
+                return null;
+            }
+
+            string workDir = GetHostContext().GetDirectory(WellKnownDirectory.Work);
+            string fullWork = ResolveAllLinks(workDir, verbose: false);
+
+            // Called once per link entry, so keep it quiet except for a blocked entry.
+            return path =>
+            {
+                string fullPath = ResolveAllLinks(path, verbose: false);
+                if (!IsUnderDirectory(fullPath, fullWork))
+                {
+                    Trace.Info($"ContainmentValidator: BLOCKED — path='{path}' canonical='{fullPath}' is outside work='{fullWork}'");
+                    throw new InvalidOperationException(
+                        $"Container jobs may only reference files within the work directory. " +
+                        $"The path '{path}' resolves to '{fullPath}', " +
+                        $"which is outside the allowed directory '{workDir}'.");
+                }
+
+                return fullPath;
+            };
+        }
+
+        // Platform-aware comparison: Ordinal on Linux, OrdinalIgnoreCase on Windows/macOS.
+        // Allow exact match or anything strictly inside the directory.
+        private static bool IsUnderDirectory(string path, string directory)
+        {
+            return path.Equals(directory, IOUtil.FilePathStringComparison) ||
+                path.StartsWith(directory + Path.DirectorySeparatorChar, IOUtil.FilePathStringComparison);
+        }
+
 
         /// <summary>
         /// Walks each path segment resolving symlinks/junctions after each hop,
         /// then applies ".." — matching OS filesystem semantics.
         /// Non-existent segments are appended verbatim.
         /// </summary>
-        private string ResolveAllLinks(string path)
+        private string ResolveAllLinks(string path, int depth = 0, bool verbose = true)
         {
+            // verbose is false for per-entry calls so trace volume does not scale with directory size.
+            void Log(string message)
+            {
+                if (verbose)
+                {
+                    Trace.Info(message);
+                }
+            }
+
             // Use Path.Combine (not Path.GetFullPath) to make relative paths absolute
             // without lexically resolving ".." before symlinks are followed.
             if (!Path.IsPathRooted(path))
             {
                 string abs = Path.Combine(Directory.GetCurrentDirectory(), path);
-                Trace.Info($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
+                Log($"ResolveAllLinks: relative path '{path}' made absolute '{abs}'");
                 path = abs;
             }
 
@@ -1055,7 +1110,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     string parent = Path.GetDirectoryName(current);
                     if (parent != null)
                     {
-                        Trace.Info($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
+                        Log($"ResolveAllLinks: '..' at '{current}' -> '{parent}'");
                         current = parent;
                     }
                     continue;
@@ -1065,10 +1120,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                 if (!Directory.Exists(current) && !File.Exists(current))
                 {
-                    Trace.Info($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
+                    Log($"ResolveAllLinks: '{current}' does not exist, appending verbatim.");
                     continue;
                 }
 
+                string targetPath = null;
                 try
                 {
                     FileSystemInfo linkTarget = Directory.Exists(current)
@@ -1077,17 +1133,28 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
 
                     if (linkTarget != null)
                     {
-                        Trace.Info($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
-                        current = Path.GetFullPath(linkTarget.FullName);
+                        Log($"ResolveAllLinks: symlink/junction '{current}' -> '{linkTarget.FullName}'");
+                        targetPath = Path.GetFullPath(linkTarget.FullName);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Trace.Info($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
+                    Log($"ResolveAllLinks: ResolveLinkTarget failed for '{current}': {ex.Message}");
+                }
+
+                if (targetPath != null)
+                {
+                    // The target is stored as written, so symlinked ancestors inside it (e.g. /var on macOS) still need resolving.
+                    if (depth >= MaxLinkResolutionDepth)
+                    {
+                        throw new InvalidOperationException($"Too many nested symbolic links while resolving '{path}'.");
+                    }
+
+                    current = ResolveAllLinks(targetPath, depth + 1, verbose);
                 }
             }
 
-            Trace.Info($"ResolveAllLinks: result '{current}'");
+            Log($"ResolveAllLinks: result '{current}'");
             return current;
         }
 

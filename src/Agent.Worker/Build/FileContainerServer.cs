@@ -71,6 +71,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         public async Task<long> CopyToContainerAsync(
             IAsyncCommandContext context,
             String source,
+            Func<string, string> pathValidator,
             CancellationToken cancellationToken)
         {
             ArgUtil.NotNull(context, nameof(context));
@@ -83,12 +84,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             List<String> files;
             if (File.Exists(source))
             {
+                pathValidator?.Invoke(source);
                 files = new List<String>() { source };
                 _sourceParentDirectory = Path.GetDirectoryName(source);
             }
             else
             {
-                files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories).ToList();
+                // When set, pathValidator rejects links that resolve outside the allowed directory.
+                files = pathValidator == null
+                    ? Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories).ToList()
+                    : ContainedTreeWalker.EnumerateFiles(source, pathValidator);
                 _sourceParentDirectory = source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             }
 

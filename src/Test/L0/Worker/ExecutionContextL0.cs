@@ -802,6 +802,321 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
+        public void ContainmentValidator_FileSymlinkEscapingWork_Throws()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "symlink-file-escape");
+                string dir = Path.Combine(root, "office");
+                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    Directory.CreateDirectory(outside);
+                    string secret = Path.Combine(outside, "config");
+                    File.WriteAllText(secret, "secret");
+                    File.WriteAllText(Path.Combine(dir, "plain.txt"), "ok");
+                    if (!TryCreateSymbolicLink(Path.Combine(dir, "rate.txt"), secret, isDirectory: false))
+                    {
+                        return;
+                    }
+
+                    var validator = ec.CreateContainmentValidator();
+                    var ex = Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "rate.txt")));
+                    Assert.Contains("rate.txt", ex.Message);
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                    DeleteDirectoryIfExists(outside);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ContainmentValidator_DirectorySymlinkEscapingWork_Throws()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "symlink-dir-escape");
+                string dir = Path.Combine(root, "office");
+                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    Directory.CreateDirectory(outside);
+                    File.WriteAllText(Path.Combine(outside, "config"), "secret");
+                    if (!TryCreateSymbolicLink(Path.Combine(dir, "linkdir"), outside, isDirectory: true))
+                    {
+                        return;
+                    }
+
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "linkdir")));
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                    DeleteDirectoryIfExists(outside);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ContainmentValidator_LinksInsideWork_ReturnCanonicalTarget()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "internal-content");
+                string dir = Path.Combine(root, "office");
+                try
+                {
+                    string nested = Path.Combine(dir, "sub");
+                    Directory.CreateDirectory(nested);
+                    string target = Path.Combine(nested, "a.txt");
+                    File.WriteAllText(target, "ok");
+                    File.WriteAllText(Path.Combine(dir, "b.txt"), "ok");
+
+                    // Links that stay inside the work directory are allowed when the platform lets us create them.
+                    var validator = ec.CreateContainmentValidator();
+                    string alias = Path.Combine(dir, "alias.txt");
+                    if (TryCreateSymbolicLink(alias, target, isDirectory: false))
+                    {
+                        Assert.Equal("a.txt", Path.GetFileName(validator(alias)));
+                    }
+
+                    string sublink = Path.Combine(dir, "sublink");
+                    if (TryCreateSymbolicLink(sublink, nested, isDirectory: true))
+                    {
+                        Assert.Equal("sub", Path.GetFileName(validator(sublink)));
+                    }
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ContainmentValidator_FileSymlinkTargetThroughEscapingDirectorySymlink_Throws()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "indirect-escape");
+                string dir = Path.Combine(root, "office");
+                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    Directory.CreateDirectory(outside);
+                    File.WriteAllText(Path.Combine(outside, "config"), "secret");
+
+                    // The file link's target looks like it is inside work, but its parent is a link leaving work.
+                    string hop = Path.Combine(root, "hop");
+                    if (!TryCreateSymbolicLink(hop, outside, isDirectory: true)
+                        || !TryCreateSymbolicLink(Path.Combine(dir, "rate.txt"), Path.Combine(hop, "config"), isDirectory: false))
+                    {
+                        return;
+                    }
+
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "rate.txt")));
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                    DeleteDirectoryIfExists(outside);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ContainmentValidator_ChainOfFileSymlinksEndingOutsideWork_Throws()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "link-chain");
+                string dir = Path.Combine(root, "office");
+                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    Directory.CreateDirectory(outside);
+                    string secret = Path.Combine(outside, "config");
+                    File.WriteAllText(secret, "secret");
+
+                    // office/first.txt -> root/second.txt -> root/third.txt -> outside/config
+                    string third = Path.Combine(root, "third.txt");
+                    string second = Path.Combine(root, "second.txt");
+                    if (!TryCreateSymbolicLink(third, secret, isDirectory: false)
+                        || !TryCreateSymbolicLink(second, third, isDirectory: false)
+                        || !TryCreateSymbolicLink(Path.Combine(dir, "first.txt"), second, isDirectory: false))
+                    {
+                        return;
+                    }
+
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "first.txt")));
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                    DeleteDirectoryIfExists(outside);
+                }
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ValidateContainerPath_EmptyDirectoryInsideWork_IsAllowed()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string root = Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), "empty-inside");
+                try
+                {
+                    Directory.CreateDirectory(root);
+                    Assert.Equal(Path.GetFileName(root), Path.GetFileName(ec.ValidateContainerPath(root, root)));
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                }
+            }
+        }
+        
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void ValidateContainerPath_DoesNotInspectDirectoryContents()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                string root = Path.Combine(work, "root-only");
+                string dir = Path.Combine(root, "office");
+                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    Directory.CreateDirectory(outside);
+                    string secret = Path.Combine(outside, "config");
+                    File.WriteAllText(secret, "secret");
+                    if (!TryCreateSymbolicLink(Path.Combine(dir, "rate.txt"), secret, isDirectory: false))
+                    {
+                        return;
+                    }
+
+                    // Contents are validated by the consumer's walk, so only the root is checked here.
+                    Assert.Equal(Path.GetFileName(dir), Path.GetFileName(ec.ValidateContainerPath(dir, dir)));
+
+                    // The root itself is still validated.
+                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(outside, outside));
+                }
+                finally
+                {
+                    DeleteDirectoryIfExists(root);
+                    DeleteDirectoryIfExists(outside);
+                }
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        [InlineData(null, true, true)]
+        [InlineData(null, false, false)]
+        [InlineData("host", true, false)]
+        [InlineData("host", false, false)]
+        public void CreateContainmentValidator_IsCreatedOnlyForContainerStepsWithEnforcement(string stepTarget, bool enforce, bool expectValidator)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, enforce, "container", stepTarget);
+                Assert.Equal(expectValidator, ec.CreateContainmentValidator() != null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateContainmentValidator_PathsInsideWorkAreAllowedAndOutsideWorkThrow()
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, true, "container", null);
+                string work = hc.GetDirectory(WellKnownDirectory.Work);
+                var validator = ec.CreateContainmentValidator();
+
+                Assert.Equal("file.txt", Path.GetFileName(validator(Path.Combine(work, "file.txt"))));
+                Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(work + "-external", "file.txt")));
+            }
+        }
+
+        // Creating symlinks can require elevation on Windows; callers skip the scenario when it is unavailable.
+        private static bool TryCreateSymbolicLink(string linkPath, string target, bool isDirectory)
+        {
+            try
+            {
+                if (isDirectory)
+                {
+                    Directory.CreateSymbolicLink(linkPath, target);
+                }
+                else
+                {
+                    File.CreateSymbolicLink(linkPath, target);
+                }
+
+                return true;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException || ex is PlatformNotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        private static void DeleteDirectoryIfExists(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
         public void TranslateToHostPath_WithoutStepTargetPreservesInput()
         {
             using (TestHostContext hc = CreateTestContext())
