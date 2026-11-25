@@ -557,7 +557,16 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
             {
                 ExceptionsUtil.HandleAggregateException((AggregateException)ex, (message) => Trace.Error(message));
 
+                TaskResult resultBeforeShutdown = result;
                 result = TaskResultUtil.MergeTaskResults(result, TaskResult.Failed);
+                if (result != resultBeforeShutdown)
+                {
+                    Trace.Error($"Job result changed from {resultBeforeShutdown} to {result} because the job server queue shutdown failed: {ex.Message}");
+                }
+                else
+                {
+                    Trace.Error($"The job server queue shutdown failed: {ex.Message}. The job result stays {result}.");
+                }
             }
             catch (Exception ex)
             {

@@ -41,6 +41,10 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static readonly TimeSpan _delayForTimelineUpdateDequeue = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan _delayForFileUploadDequeue = TimeSpan.FromMilliseconds(1000);
 
+        // Tries for the final timeline update at job end, same as raising the JobCompleted event in JobRunner.
+        private const int _finalTimelineUpdateMaxAttempts = 5;
+        private static readonly TimeSpan _finalTimelineUpdateRetryDelay = TimeSpan.FromSeconds(5);
+
         // Job message information
         private Guid _scopeIdentifier;
         private string _hubName;
@@ -474,6 +478,10 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private async Task ProcessTimelinesUpdateQueueAsync(bool runOnce = false)
         {
+            // The final run (runOnce) retries a failed job timeline update,
+            // resending the buffered (previously failed) records even when nothing new is queued.
+            int finalUpdateAttempt = 1;
+            List<Exception> finalUpdateErrors = new List<Exception>();
             while (!_jobCompletionSource.Task.IsCompleted || runOnce)
             {
                 bool shouldDrain = ForceDrainTimelineQueue;
@@ -494,7 +502,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             }
                         }
 
-                        if (records.Count > 0)
+                        if (records.Count > 0 || (runOnce && _bufferedRetryRecords.ContainsKey(timeline)))
                         {
                             pendingUpdates.Add(new PendingTimelineRecord() { TimelineId = timeline, PendingRecords = records.ToList() });
                         }
@@ -579,6 +587,36 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (runOnce)
                 {
+                    if (mainTimelineRecordsUpdateErrors.Count > 0)
+                    {
+                        finalUpdateErrors.AddRange(mainTimelineRecordsUpdateErrors);
+
+                        // Same as raising the JobCompleted event: retrying cannot help when the plan is gone or not accessible.
+                        Exception planError = mainTimelineRecordsUpdateErrors.FirstOrDefault(ex => ex is TaskOrchestrationPlanNotFoundException || ex is TaskOrchestrationPlanSecurityException);
+                        if (planError != null)
+                        {
+                            Trace.Error($"{planError.GetType().Name} received during the final timeline update (attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}). Do not retry.");
+                        }
+                        else if (finalUpdateAttempt < _finalTimelineUpdateMaxAttempts)
+                        {
+                            Trace.Warning($"Final timeline update failed (attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}). Waiting {_finalTimelineUpdateRetryDelay.TotalSeconds} seconds before retrying.");
+                            finalUpdateAttempt++;
+                            await HostContext.Delay(_finalTimelineUpdateRetryDelay, CancellationToken.None);
+                            continue;
+                        }
+                        else
+                        {
+                            Trace.Error($"Final timeline update failed after {finalUpdateAttempt} attempts.");
+                        }
+
+                        // Report the errors of all attempts.
+                        mainTimelineRecordsUpdateErrors = finalUpdateErrors;
+                    }
+                    else if (finalUpdateAttempt > 1)
+                    {
+                        Trace.Info($"Final timeline update succeeded on attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}.");
+                    }
+
                     if (mainTimelineRecordsUpdateErrors.Count > 0 &&
                             _bufferedRetryRecords.ContainsKey(_jobTimelineId) &&
                             _bufferedRetryRecords[_jobTimelineId] != null &&
