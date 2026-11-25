@@ -27,7 +27,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
         /// <summary>
         /// publish codecoverage files to server
         /// </summary>
-        Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken);
+        Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, Func<string, string> pathValidator, CancellationToken cancellationToken);
     }
 
     public sealed class CodeCoveragePublisher : AgentService, ICodeCoveragePublisher
@@ -49,7 +49,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
             await _codeCoverageServer.PublishCoverageSummaryAsync(context, _connection, project, _buildId, coverageData, cancellationToken);
         }
 
-        public async Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, CancellationToken cancellationToken)
+        public async Task PublishCodeCoverageFilesAsync(IAsyncCommandContext context, Guid projectId, string jobId, long containerId, List<Tuple<string, string>> files, bool browsable, Func<string, string> pathValidator, CancellationToken cancellationToken)
         {
             var publishCCTasks = files.Select(async file =>
             {
@@ -62,7 +62,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.CodeCoverage
                 };
 
                 var fileContainerHelper = new FileContainerServer(_connection, projectId, containerId, file.Item2);
-                await fileContainerHelper.CopyToContainerAsync(context, file.Item1, cancellationToken);
+                await fileContainerHelper.CopyToContainerAsync(context, file.Item1, pathValidator, cancellationToken);
                 var fileContainerFullPath = StringUtil.Format($"#/{containerId}/{file.Item2}");
 
                 var buildHelper = context.GetHostContext().GetService<IBuildServer>();

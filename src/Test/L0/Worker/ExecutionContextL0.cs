@@ -802,7 +802,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_DirectoryWithEscapingFileSymlink_Throws()
+        public void ContainmentValidator_FileSymlinkEscapingWork_Throws()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -824,7 +824,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return;
                     }
 
-                    var ex = Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(dir, dir));
+                    var validator = ec.CreateContainmentValidator();
+                    var ex = Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "rate.txt")));
                     Assert.Contains("rate.txt", ex.Message);
                 }
                 finally
@@ -838,7 +839,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_DirectoryWithEscapingDirectorySymlink_Throws()
+        public void ContainmentValidator_DirectorySymlinkEscapingWork_Throws()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -858,7 +859,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return;
                     }
 
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(dir, dir));
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "linkdir")));
                 }
                 finally
                 {
@@ -871,7 +873,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_DirectoryWithOnlyInternalContent_ReturnsCanonicalPath()
+        public void ContainmentValidator_LinksInsideWork_ReturnCanonicalTarget()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -889,12 +891,18 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                     File.WriteAllText(Path.Combine(dir, "b.txt"), "ok");
 
                     // Links that stay inside the work directory are allowed when the platform lets us create them.
-                    TryCreateSymbolicLink(Path.Combine(dir, "alias.txt"), target, isDirectory: false);
-                    TryCreateSymbolicLink(Path.Combine(dir, "sublink"), nested, isDirectory: true);
+                    var validator = ec.CreateContainmentValidator();
+                    string alias = Path.Combine(dir, "alias.txt");
+                    if (TryCreateSymbolicLink(alias, target, isDirectory: false))
+                    {
+                        Assert.Equal("a.txt", Path.GetFileName(validator(alias)));
+                    }
 
-                    string result = ec.ValidateContainerPath(dir, dir);
-                    Assert.Equal(Path.GetFileName(dir), Path.GetFileName(result));
-                    Assert.True(Directory.Exists(result));
+                    string sublink = Path.Combine(dir, "sublink");
+                    if (TryCreateSymbolicLink(sublink, nested, isDirectory: true))
+                    {
+                        Assert.Equal("sub", Path.GetFileName(validator(sublink)));
+                    }
                 }
                 finally
                 {
@@ -906,7 +914,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_FileSymlinkTargetThroughEscapingDirectorySymlink_Throws()
+        public void ContainmentValidator_FileSymlinkTargetThroughEscapingDirectorySymlink_Throws()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -930,7 +938,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return;
                     }
 
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(dir, dir));
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "rate.txt")));
                 }
                 finally
                 {
@@ -943,7 +952,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_ChainOfFileSymlinksEndingOutsideWork_Throws()
+        public void ContainmentValidator_ChainOfFileSymlinksEndingOutsideWork_Throws()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -970,7 +979,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return;
                     }
 
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(dir, dir));
+                    var validator = ec.CreateContainmentValidator();
+                    Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(dir, "first.txt")));
                 }
                 finally
                 {
@@ -1005,7 +1015,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Fact]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        public void ValidateContainerPath_DirectoryContentsValidationDisabled_ValidatesRootOnly()
+        public void ValidateContainerPath_DoesNotInspectDirectoryContents()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
@@ -1026,11 +1036,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                         return;
                     }
 
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(dir, dir, validateDirectoryContents: true));
-                    Assert.Equal(Path.GetFileName(dir), Path.GetFileName(ec.ValidateContainerPath(dir, dir, validateDirectoryContents: false)));
+                    // Contents are validated by the consumer's walk, so only the root is checked here.
+                    Assert.Equal(Path.GetFileName(dir), Path.GetFileName(ec.ValidateContainerPath(dir, dir)));
 
                     // The root itself is still validated.
-                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(outside, outside, validateDirectoryContents: false));
+                    Assert.Throws<InvalidOperationException>(() => ec.ValidateContainerPath(outside, outside));
                 }
                 finally
                 {
@@ -1043,56 +1053,34 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
         [Theory]
         [Trait("Level", "L0")]
         [Trait("Category", "Worker")]
-        [InlineData(VsoPathTranslationSource.TaskAddAttachment, false)]
-        [InlineData(VsoPathTranslationSource.TaskUploadFile, false)]
-        [InlineData(VsoPathTranslationSource.TaskUploadSummary, false)]
-        [InlineData(VsoPathTranslationSource.BuildUploadLog, false)]
-        [InlineData(VsoPathTranslationSource.BuildUploadSummary, false)]
-        [InlineData(VsoPathTranslationSource.CodeCoveragePublishSummaryFile, false)]
-        [InlineData(VsoPathTranslationSource.CodeCoveragePublishAdditionalFiles, false)]
-        [InlineData(VsoPathTranslationSource.ArtifactUpload, true)]
-        [InlineData(VsoPathTranslationSource.CodeCoveragePublishReportDirectory, true)]
-        [InlineData(VsoPathTranslationSource.ResultsPublishData, true)]
-        [InlineData(VsoPathTranslationSource.ResultsPublishResultFiles, true)]
-        [InlineData((VsoPathTranslationSource)int.MaxValue, true)]
-        public void TranslateToHostPath_InspectsDirectoryContentsOnlyForDirectoryAcceptingSources(VsoPathTranslationSource source, bool inspectsContents)
+        [InlineData(null, true, true)]
+        [InlineData(null, false, false)]
+        [InlineData("host", true, false)]
+        [InlineData("host", false, false)]
+        public void CreateContainmentValidator_IsCreatedOnlyForContainerStepsWithEnforcement(string stepTarget, bool enforce, bool expectValidator)
+        {
+            using (TestHostContext hc = CreateTestContext())
+            using (var ec = new Agent.Worker.ExecutionContext())
+            {
+                InitializePathTranslationContext(hc, ec, enforce, "container", stepTarget);
+                Assert.Equal(expectValidator, ec.CreateContainmentValidator() != null);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        public void CreateContainmentValidator_PathsInsideWorkAreAllowedAndOutsideWorkThrow()
         {
             using (TestHostContext hc = CreateTestContext())
             using (var ec = new Agent.Worker.ExecutionContext())
             {
                 InitializePathTranslationContext(hc, ec, true, "container", null);
                 string work = hc.GetDirectory(WellKnownDirectory.Work);
-                string root = Path.Combine(work, "source-policy");
-                string dir = Path.Combine(root, "office");
-                string outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
-                try
-                {
-                    Directory.CreateDirectory(dir);
-                    Directory.CreateDirectory(outside);
-                    string secret = Path.Combine(outside, "config");
-                    File.WriteAllText(secret, "secret");
-                    if (!TryCreateSymbolicLink(Path.Combine(dir, "rate.txt"), secret, isDirectory: false))
-                    {
-                        return;
-                    }
+                var validator = ec.CreateContainmentValidator();
 
-                    string workAlias = ec.StepTarget().TranslateToContainerPath(work);
-                    string containerDir = Path.Combine(workAlias, "source-policy", "office");
-
-                    if (inspectsContents)
-                    {
-                        Assert.Throws<InvalidOperationException>(() => ec.TranslateToHostPath(containerDir, source));
-                    }
-                    else
-                    {
-                        Assert.False(string.IsNullOrEmpty(ec.TranslateToHostPath(containerDir, source)));
-                    }
-                }
-                finally
-                {
-                    DeleteDirectoryIfExists(root);
-                    DeleteDirectoryIfExists(outside);
-                }
+                Assert.Equal("file.txt", Path.GetFileName(validator(Path.Combine(work, "file.txt"))));
+                Assert.Throws<InvalidOperationException>(() => validator(Path.Combine(work + "-external", "file.txt")));
             }
         }
 

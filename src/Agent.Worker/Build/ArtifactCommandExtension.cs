@@ -202,6 +202,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                                                       context.Variables.System_JobId,
                                                       propertyDictionary,
                                                       fullPath,
+                                                      context.CreateContainmentValidator(),
                                                       context.CancellationToken);
             context.AsyncCommands.Add(commandContext);
         }
@@ -239,10 +240,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             string jobId,
             Dictionary<string, string> propertiesDictionary,
             string source,
+            Func<string, string> pathValidator,
             CancellationToken cancellationToken)
         {
             var fileContainerHelper = new FileContainerServer(connection, projectId, containerId, containerPath);
-            var size = await fileContainerHelper.CopyToContainerAsync(context, source, cancellationToken);
+            var size = await fileContainerHelper.CopyToContainerAsync(context, source, pathValidator, cancellationToken);
             propertiesDictionary.Add(ArtifactUploadEventProperties.ArtifactSize, size.ToString());
 
             var fileContainerFullPath = StringUtil.Format($"#/{containerId}/{containerPath}");
