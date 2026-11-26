@@ -75,7 +75,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCache
         private AgentTaskPluginExecutionContext CreateContext(TestHostContext hostContext, bool enforce)
         {
             var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-            context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue(enforce ? "true" : "false");
+            context.Variables["DistributedTask.Agent.EnforceContainerBoundary"] = new VariableValue(enforce ? "true" : "false");
             context.Container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
             context.Container.MountVolumes.Add(new MountVolume(_mount, "/mount"));
             return context;

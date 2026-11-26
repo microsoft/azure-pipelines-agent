@@ -975,8 +975,6 @@ namespace Agent.Sdk.Knob
             nameof(EnforceContainerBoundary),
             "If true, fail the task instead of proceeding when a path used by Plugin Tasks running on container steps resolves outside the container's allowed mounts.",
             new PipelineFeatureSource("EnforceContainerBoundary"),
-            new RuntimeKnobSource("AGENT_ENFORCE_CONTAINER_BOUNDARY"),
-            new EnvironmentKnobSource("AGENT_ENFORCE_CONTAINER_BOUNDARY"),
             new BuiltInDefaultKnobSource("false"));
     }
 }

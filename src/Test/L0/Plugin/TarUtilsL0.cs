@@ -40,7 +40,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.PipelineCaching
                 Util.PluginFileAccessGuardL0.CreateDirectoryLink(link, outside);
 
                 var context = new AgentTaskPluginExecutionContext();
-                context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue("true");
+                context.Variables["DistributedTask.Agent.EnforceContainerBoundary"] = new VariableValue("true");
                 context.Container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
                 context.Container.MountVolumes.Add(new MountVolume(mount, "/mount"));
                 var manifest = new Manifest(new List<ManifestItem> { new ManifestItem("/archive.tar", new DedupInfo("unused", 0)) });

@@ -118,7 +118,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 using (TestHostContext hostContext = new TestHostContext(this))
                 {
                     AgentTaskPluginExecutionContext context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                    context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue("true");
+                    context.Variables["DistributedTask.Agent.EnforceContainerBoundary"] = new VariableValue("true");
                     context.Container = new ContainerInfo(new Pipelines.ContainerResource() { Alias = "container", Image = "foo" }, isJobContainer: false);
                     context.Container.MountVolumes.Add(new MountVolume(mount, "/mount"));
                     var provider = new FileContainerProvider(null, context.CreateArtifactsTracer());

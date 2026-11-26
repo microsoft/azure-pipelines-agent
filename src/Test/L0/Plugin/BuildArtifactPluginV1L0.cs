@@ -157,7 +157,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 using (var hostContext = new TestHostContext(this))
                 {
                     var context = new AgentTaskPluginExecutionContext(hostContext.GetTrace());
-                    context.Variables["AGENT_ENFORCE_CONTAINER_BOUNDARY"] = new VariableValue("true");
+                    context.Variables["DistributedTask.Agent.EnforceContainerBoundary"] = new VariableValue("true");
                     context.Variables["system.defaultworkingdirectory"] = new VariableValue(mount);
                     context.Variables["Agent.TempDirectory"] = new VariableValue(mount);
                     context.Variables["system.teamProjectId"] = new VariableValue(Guid.NewGuid().ToString());
