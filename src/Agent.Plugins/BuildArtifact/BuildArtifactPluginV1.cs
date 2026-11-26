@@ -320,7 +320,7 @@ namespace Agent.Plugins.BuildArtifacts
                 throw new InvalidOperationException($"Build type '{buildType}' is not recognized.");
             }
 
-            string fullPath = this.CreateDirectoryIfDoesntExist(targetPath);
+            string fullPath = this.CreateDirectoryIfDoesntExist(context, targetPath);
             if (cleanDestinationFolderBool)
             {
                 CleanDirectory(context, fullPath, token);
@@ -346,9 +346,14 @@ namespace Agent.Plugins.BuildArtifacts
             context.Output(StringUtil.Loc("DownloadArtifactFinished"));
         }
 
-        private string CreateDirectoryIfDoesntExist(string targetPath)
+        private string CreateDirectoryIfDoesntExist(AgentTaskPluginExecutionContext context, string targetPath)
         {
             string fullPath = Path.GetFullPath(targetPath);
+            if (AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+            {
+                // Also covers the optional clean-up of this folder.
+                fullPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, fullPath, write: true);
+            }
             bool dirExists = Directory.Exists(fullPath);
             if (!dirExists)
             {

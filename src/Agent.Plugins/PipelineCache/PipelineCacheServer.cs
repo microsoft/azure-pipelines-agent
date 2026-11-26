@@ -310,17 +310,23 @@ namespace Agent.Plugins.PipelineCache
             return pipelineCacheClient;
         }
 
-        private async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
+        internal async Task<string> GetUploadPathAsync(ContentFormat contentFormat, AgentTaskPluginExecutionContext context, string path, CancellationToken cancellationToken)
         {
             string uploadPath = path;
             if (contentFormat == ContentFormat.SingleTar)
             {
                 uploadPath = await TarUtils.ArchiveFilesToTarAsync(context, path, cancellationToken);
             }
+            else if (AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+            {
+                // The client reads the folder itself, so the folder and its contents are checked first.
+                uploadPath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, uploadPath, write: false);
+                PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, uploadPath, write: false);
+            }
             return uploadPath;
         }
 
-        private async Task DownloadPipelineCacheAsync(
+        internal async Task DownloadPipelineCacheAsync(
             AgentTaskPluginExecutionContext context,
             DedupManifestArtifactClient dedupManifestClient,
             DedupIdentifier manifestId,
@@ -365,6 +371,13 @@ namespace Agent.Plugins.PipelineCache
             }
             else
             {
+                if (AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean())
+                {
+                    // The client writes the folder itself, so the folder and its contents are checked first.
+                    targetDirectory = PluginFileAccessGuard.EnsureWithinMounts(context.Container, targetDirectory, write: true);
+                    PluginFileAccessGuard.EnsureTreeWithinMounts(context.Container, targetDirectory, write: true);
+                }
+
                 DownloadDedupManifestArtifactOptions options = DownloadDedupManifestArtifactOptions.CreateWithManifestId(
                     manifestId,
                     targetDirectory,

@@ -969,5 +969,11 @@ namespace Agent.Sdk.Knob
             new RuntimeKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new EnvironmentKnobSource("AZP_AGENT_ENABLE_PLUGIN_EXTERNAL_OUTPUT_FILTERING"),
             new BuiltInDefaultKnobSource("false"));
+
+        public static readonly Knob EnforceContainerBoundary = new Knob(
+            nameof(EnforceContainerBoundary),
+            "If true, fail the task instead of proceeding when a path used by Plugin Tasks running on container steps resolves outside the container's allowed mounts.",
+            new PipelineFeatureSource("EnforceContainerBoundary"),
+            new BuiltInDefaultKnobSource("false"));
     }
 }

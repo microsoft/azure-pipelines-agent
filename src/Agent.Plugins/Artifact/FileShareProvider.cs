@@ -209,6 +209,8 @@ namespace Agent.Plugins
         {
             Stopwatch watch = Stopwatch.StartNew();
 
+            bool enforceContainerBoundary = AgentKnobs.EnforceContainerBoundary.GetValue(context).AsBoolean();
+
             IEnumerable<Func<string, bool>> minimatchFuncs = MinimatchHelper.GetMinimatchFuncs(minimatchPatterns, this.tracer);
 
             var trimChars = new[] { '\\', '/' };
@@ -276,7 +278,13 @@ namespace Agent.Plugins
                     {
                         string tempPath = Path.Combine(destPath, Path.GetRelativePath(sourcePath, file.FullName));
                         context.OutputExternal(StringUtil.Loc("CopyFileToDestination", file, tempPath));
-                        FileInfo tempFile = new System.IO.FileInfo(tempPath);
+                        string writePath = tempPath;
+                        if (enforceContainerBoundary)
+                        {
+                            // Also covers the folder created for this file.
+                            writePath = PluginFileAccessGuard.EnsureWithinMounts(context.Container, tempPath, write: true);
+                        }
+                        FileInfo tempFile = new System.IO.FileInfo(writePath);
                         using (StreamReader fileReader = GetFileReader(file.FullName))
                         {
                             await WriteStreamToFile(
