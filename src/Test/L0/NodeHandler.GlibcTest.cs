@@ -4,12 +4,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
 using Microsoft.VisualStudio.Services.Agent.Util;
 using Microsoft.VisualStudio.Services.Agent.Worker;
+using Microsoft.VisualStudio.Services.Agent.Worker.Handlers;
 using Microsoft.VisualStudio.Services.Agent.Worker.NodeVersionStrategies;
 using Moq;
 using Xunit;
@@ -193,6 +195,74 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.False(result2.Node20HasGlibcError);
                 VerifyProcessCalledOnce(processInvokerMock, "node24");
                 VerifyProcessCalledOnce(processInvokerMock, "node20_1");
+            }
+        }
+
+        [Theory]
+        [InlineData("NodeHandler")]
+        [InlineData("GlibcCompatibilityInfoProvider")]
+        [Trait("Level", "L0")]
+        [Trait("Category", "GlibcChecker")]
+        public async Task GlibcProbe_CancelsBlockedProcessWhenExecutionContextIsCanceled(string probeOwner)
+        {
+            using (var hc = new TestHostContext(this))
+            using (var cts = new CancellationTokenSource())
+            {
+                var processStarted = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var processCompletion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var processInvoker = new Mock<IProcessInvoker>();
+                processInvoker.Setup(x => x.ExecuteAsync(
+                        It.IsAny<string>(), It.IsAny<string>(), "-v",
+                        It.IsAny<IDictionary<string, string>>(), false,
+                        It.IsAny<Encoding>(), It.IsAny<CancellationToken>()))
+                    .Returns((string workingDirectory, string fileName, string arguments,
+                        IDictionary<string, string> environment, bool requireExitCodeZero,
+                        Encoding outputEncoding, CancellationToken token) =>
+                    {
+                        token.Register(() => processCompletion.TrySetCanceled(token));
+                        processStarted.TrySetResult(token);
+                        return processCompletion.Task;
+                    });
+                hc.EnqueueInstance<IProcessInvoker>(processInvoker.Object);
+
+                var executionContext = new Mock<IExecutionContext>();
+                executionContext.Setup(x => x.CancellationToken).Returns(cts.Token);
+
+                Task<bool> probe;
+                if (probeOwner == "NodeHandler")
+                {
+                    hc.SetSingleton<IWorkerCommandManager>(Mock.Of<IWorkerCommandManager>());
+                    var helper = new Mock<INodeHandlerHelper>();
+                    helper.Setup(x => x.IsNodeFolderExist("node24", hc)).Returns(true);
+                    var handler = new NodeHandler(helper.Object) { ExecutionContext = executionContext.Object };
+                    handler.Initialize(hc);
+
+                    // The public caller only runs on Linux, so invoke the probe directly on all platforms.
+                    var method = typeof(NodeHandler).GetMethod("CheckIfNodeResultsInGlibCError", BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.NotNull(method);
+                    // Run on the thread pool so the probe's continuation doesn't queue behind xUnit's
+                    // limited-concurrency sync context, which can starve on slow CI agents.
+                    probe = Task.Run(() => (Task<bool>)method.Invoke(handler, new object[] { "node24" }));
+                }
+                else
+                {
+                    var provider = new TestableGlibcCompatibilityInfoProvider(hc);
+                    probe = Task.Run(() => provider.CheckIfNodeResultsInGlibCErrorAsync("node24", executionContext.Object));
+                }
+
+                try
+                {
+                    var token = await processStarted.Task.WaitAsync(TimeSpan.FromSeconds(60));
+                    Assert.Equal(cts.Token, token);
+                    Assert.False(probe.IsCompleted);
+
+                    cts.Cancel();
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => probe.WaitAsync(TimeSpan.FromSeconds(60)));
+                }
+                finally
+                {
+                    processCompletion.TrySetCanceled();
+                }
             }
         }
 

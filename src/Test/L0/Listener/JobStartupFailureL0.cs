@@ -191,9 +191,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Listener
                     .GetField("_jobInfos", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(dispatcher);
                 var workerDispatch = jobs[message.JobId];
                 var dispatchTask = (Task)workerDispatch.GetType().GetProperty("WorkerDispatch").GetValue(workerDispatch);
-                var observedException = await Record.ExceptionAsync(() => dispatchTask.WaitAsync(TimeSpan.FromSeconds(10)));
+                // Allow for timeline reporting (15s), telemetry (10s), and CI scheduling.
+                var dispatchTimeout = TimeSpan.FromMinutes(1);
+                var observedException = await Record.ExceptionAsync(() => dispatchTask.WaitAsync(dispatchTimeout));
                 Assert.Same(exception, observedException);
-                await dispatcher.WaitAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+                await dispatcher.WaitAsync(CancellationToken.None).WaitAsync(dispatchTimeout);
 
                 Assert.True(renewalToken.IsCancellationRequested);
                 Assert.NotNull(telemetry);
