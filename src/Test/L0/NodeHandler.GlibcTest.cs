@@ -240,22 +240,24 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                     // The public caller only runs on Linux, so invoke the probe directly on all platforms.
                     var method = typeof(NodeHandler).GetMethod("CheckIfNodeResultsInGlibCError", BindingFlags.Instance | BindingFlags.NonPublic);
                     Assert.NotNull(method);
-                    probe = (Task<bool>)method.Invoke(handler, new object[] { "node24" });
+                    // Run on the thread pool so the probe's continuation doesn't queue behind xUnit's
+                    // limited-concurrency sync context, which can starve on slow CI agents.
+                    probe = Task.Run(() => (Task<bool>)method.Invoke(handler, new object[] { "node24" }));
                 }
                 else
                 {
                     var provider = new TestableGlibcCompatibilityInfoProvider(hc);
-                    probe = provider.CheckIfNodeResultsInGlibCErrorAsync("node24", executionContext.Object);
+                    probe = Task.Run(() => provider.CheckIfNodeResultsInGlibCErrorAsync("node24", executionContext.Object));
                 }
 
                 try
                 {
-                    var token = await processStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                    var token = await processStarted.Task.WaitAsync(TimeSpan.FromSeconds(60));
                     Assert.Equal(cts.Token, token);
                     Assert.False(probe.IsCompleted);
 
                     cts.Cancel();
-                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => probe.WaitAsync(TimeSpan.FromSeconds(10)));
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => probe.WaitAsync(TimeSpan.FromSeconds(60)));
                 }
                 finally
                 {
