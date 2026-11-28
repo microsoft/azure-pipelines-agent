@@ -474,5 +474,70 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests.Worker
                            "ServerOM directory variable should be set on Windows platform");
             }
         }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Worker")]
+        // The final update is tried up to 5 times, 5 seconds apart; the job fails only when every try fails.
+        [InlineData(false, 1, 2, TaskResult.Succeeded)]
+        [InlineData(false, int.MaxValue, 5, TaskResult.Failed)]
+        // A job with a failed step stays failed, whether or not the final update gets through.
+        [InlineData(true, int.MaxValue, 5, TaskResult.Failed)]
+        [InlineData(true, 1, 2, TaskResult.Failed)]
+        public async Task FinalTimelineUpdateFailureAtJobEnd(bool stepFailed, int failedFinalUpdates, int expectedFinalUpdates, TaskResult expectedJobResult)
+        {
+            using (var tokenSource = new CancellationTokenSource())
+            using (TestHostContext hc = CreateTestContext())
+            {
+                // Run through the real JobServerQueue; only the server is faked.
+                var jobServer = new FakeTimelineJobServer();
+                var jobServerQueue = new JobServerQueue();
+                hc.SetSingleton<IJobServer>(jobServer.Object);
+                hc.SetSingleton<IJobServerQueue>(jobServerQueue);
+                _message.Plan.Version = 8;
+
+                // Like PagingLogger.End(), queue the last job log page for upload when the job context completes.
+                Guid logTimelineId = Guid.Empty;
+                Guid logRecordId = Guid.Empty;
+                _logger.Setup(x => x.Setup(It.IsAny<Guid>(), It.IsAny<Guid>()))
+                    .Callback((Guid timelineId, Guid recordId) => { logTimelineId = timelineId; logRecordId = recordId; });
+                _logger.Setup(x => x.End())
+                    .Callback(() =>
+                    {
+                        string page = System.IO.Path.Combine(hc.GetDirectory(WellKnownDirectory.Work), $"{Guid.NewGuid()}.log");
+                        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(page));
+                        System.IO.File.WriteAllText(page, "Finishing: job");
+                        jobServerQueue.QueueFileUpload(logTimelineId, logRecordId, "DistributedTask.Core.Log", "CustomToolLog", page, deleteSource: true);
+                    });
+
+                // Timeline updates succeed while the steps run; the final update (the one linking the job log) fails.
+                _stepRunner.Setup(x => x.RunAsync(It.IsAny<IExecutionContext>(), It.IsAny<IList<IStep>>()))
+                    .Returns(async (IExecutionContext jobContext, IList<IStep> steps) =>
+                    {
+                        await jobServer.WaitForSucceededTimelineUpdateAsync(r => r.Id == _message.JobId);
+                        if (stepFailed)
+                        {
+                            jobContext.Result = TaskResult.Failed;
+                        }
+                    });
+                jobServer.FailFinalTimelineUpdates(failedFinalUpdates);
+
+                JobCompletedEvent jobCompletedEvent = null;
+                jobServer.Mock.Setup(x => x.RaisePlanEventAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<JobCompletedEvent>(), It.IsAny<CancellationToken>()))
+                    .Callback((Guid scopeIdentifier, string hubName, Guid planId, JobCompletedEvent jobEvent, CancellationToken token) => jobCompletedEvent = jobEvent)
+                    .Returns(Task.CompletedTask);
+
+                TaskResult result = await _jobRunner.RunAsync(_message, tokenSource.Token);
+
+                Assert.Equal(stepFailed ? TaskResult.Failed : TaskResult.Succeeded, _jobEc.Result);
+                Assert.Equal(expectedJobResult, result);
+                Assert.NotNull(jobCompletedEvent);
+                Assert.Equal(expectedJobResult, jobCompletedEvent.Result);
+                List<TimelineUpdateCall> finalUpdates = jobServer.FinalTimelineUpdates();
+                Assert.Equal(expectedFinalUpdates, finalUpdates.Count);
+                Assert.Equal(failedFinalUpdates < expectedFinalUpdates, finalUpdates.Last().Succeeded);
+                Assert.Equal(Enumerable.Repeat(TimeSpan.FromSeconds(5), expectedFinalUpdates - 1), hc.CapturedDelays);
+            }
+        }
     }
 }
