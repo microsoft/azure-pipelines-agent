@@ -238,6 +238,9 @@
       <Item ItemId=";AgentWorkerStartupFailed" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[The agent failed during job startup before the job was dispatched to the worker. Stage: {0}. Job ID: {1}. Request ID: {2}. Exception: {3}]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[智能体在作业启动期间、作业分派给工作进程之前失败。阶段: {0}。作业 ID: {1}。请求 ID: {2}。异常:{3}]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -325,6 +328,9 @@
       <Item ItemId=";ArtifactNameIsNotValidWithStrictValidation" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Artifact name is not valid: {0}. It cannot contain '\', /', "', ':', '<', '>', '|', '*', and '?'. It cannot be empty or consist entirely of dots or spaces.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[工件名称无效: {0}。名称不能包含 "\"、"/"、"'"、":"、"<", ">"、"|"、"*" 和 "?"。名称不能为空，也不能完全由点或空格组成。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -745,6 +751,9 @@
       <Item ItemId=";CodeCoverageFileSkippedPathTraversal" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Skipping code coverage file due to path traversal attempt: {0}]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[由于路径遍历尝试，正在跳过代码覆盖率文件: {0}]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -2203,15 +2212,6 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";DeprecatedNode6" ItemType="0" PsrId="306" Leaf="true">
-        <Str Cat="Text">
-          <Val><![CDATA[This task uses Node 6 execution handler, which will be removed March 31st 2022. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10 (check this page also if you would like to disable Node 6 deprecation warnings). If you are the user - feel free to reach out to the owners of this task to proceed on migration.]]></Val>
-          <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[此任务使用节点 6 执行处理程序，它将于 2022 年 3 月 31 日移除。如果你是该任务的开发人员，请查看向节点 10 处理程序迁移的指南–https://aka.ms/migrateTaskNode10 (如果要禁用节点 6 弃用警告，请查看此页)。如果你是用户，请随时与此任务的所有者联系以继续迁移。]]></Val>
-          </Tgt>
-        </Str>
-        <Disp Icon="Str" />
-      </Item>
       <Item ItemId=";DeprecatedNodeRunner" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task '{0}' version {1} ({2}@{1}) is dependent on a Node version ({3}) that is end-of-life. Contact the extension owner for an updated version of the task. Task maintainers should review Node upgrade guidance: https://aka.ms/node-runner-guidance]]></Val>
@@ -2485,6 +2485,9 @@
       <Item ItemId=";EnvironmentVariableContainsNullCharacter" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[The {1} of environment variable '{0}' contains a NUL (U+0000) character, which is not permitted in environment variables because it corrupts the process environment block and can cause unexpected behavior, so the operation was blocked.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[环境变量“{0}”的 {1} 包含 NUL (U+0000)字符，环境变量中不允许该字符，因为它会破坏进程环境块并可能导致意外行为，因此操作已被阻止。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3421,12 +3424,18 @@
       <Item ItemId=";LoggingCommandProcessingPaused" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has been paused.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[VSO 命令处理已暂停。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
       <Item ItemId=";LoggingCommandProcessingResumed" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[VSO command processing has resumed.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[VSO 命令处理已恢复。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3814,6 +3823,9 @@
       <Item ItemId=";Node20TaskRetirementWarning" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task {0} relies on Node.js 20, which is no longer supported. Task maintainers should update the task to use Node.js 24. Learn More https://aka.ms/node-runner-guidance]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[任务 {0} 依赖于 Node.js 20，该版本不再受支持。任务维护者应将任务更新为使用 Node.js 24。了解详细信息: https://aka.ms/node-runner-guidance]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3828,10 +3840,13 @@
       </Item>
       <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[任务需要的 {0} 已达到生命周期结束阶段。此操作被组织策略阻止。请将任务升级到 Node20 或 Node24。要暂时禁用此检查: 请设置 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+            <Val><![CDATA[任务需要的 {0} 已达到生命周期结束阶段。此操作被组织策略阻止。请将任务升级到 Node24。若要暂时禁用此检查，请设置 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3864,10 +3879,13 @@
       </Item>
       <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[没有兼容的 Node.js 版本可用于主机执行。处理程序类型: {0}。如果所有可用版本都被 EOL 策略阻止，可能会出现此情况。请更新管道以使用 Node20 或 Node24 任务。要暂时禁用 EOL 策略，请设置 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+            <Val><![CDATA[没有兼容的 Node.js 版本可用于主机执行。处理程序类型: {0}。如果所有可用版本都被 EOL 策略阻止，可能会出现此情况。请更新管道以使用 Node24 任务。若要暂时禁用 EOL 策略，请设置 AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -5362,6 +5380,9 @@
       <Item ItemId=";ServiceConnectionNotDeclared" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Service connection with id '{0}' is not declared in the pipeline job and therefore can't be referenced in task.setendpoint commands.]]></Val>
+          <Tgt Cat="Text" Stat="Loc" Orig="New">
+            <Val><![CDATA[未在管道作业中声明 ID 为“{0}”的服务连接，因此无法在 task.setendpoint 命令中引用它。]]></Val>
+          </Tgt>
         </Str>
         <Disp Icon="Str" />
       </Item>
