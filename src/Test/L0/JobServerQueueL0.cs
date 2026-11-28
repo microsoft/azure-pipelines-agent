@@ -98,7 +98,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
         [Trait("Category", "Common")]
         [InlineData(nameof(TaskOrchestrationPlanNotFoundException))]
         [InlineData(nameof(TaskOrchestrationPlanSecurityException))]
-        public async Task FinalTimelineUpdateIsNotRetriedWhenThePlanIsNotAccessible(string exceptionName)
+        [InlineData(nameof(TimelineRecordUpdateException))]
+        [InlineData(nameof(TimelineRecordUpdateRunCompletedException))]
+        public async Task FinalTimelineUpdateIsNotRetriedWhenTheServerRejectsIt(string exceptionName)
         {
             using (TestHostContext hc = new TestHostContext(this))
             {
@@ -106,10 +108,15 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 var queue = StartQueue(hc, jobServer, out Pipelines.AgentJobRequestMessage message);
                 TimelineRecord jobRecord = await PublishJobRecordAsync(queue, jobServer, message);
 
-                Exception planError = exceptionName == nameof(TaskOrchestrationPlanNotFoundException)
-                    ? new TaskOrchestrationPlanNotFoundException("No plan found.")
-                    : new TaskOrchestrationPlanSecurityException("Access denied.");
-                jobServer.TimelineUpdateError = () => planError;
+                Exception serverError = exceptionName switch
+                {
+                    nameof(TaskOrchestrationPlanNotFoundException) => new TaskOrchestrationPlanNotFoundException("No plan found."),
+                    nameof(TaskOrchestrationPlanSecurityException) => new TaskOrchestrationPlanSecurityException("Access denied."),
+                    nameof(TimelineRecordUpdateException) => new TimelineRecordUpdateException("The timeline record is not valid. Name and Type are required fields."),
+                    nameof(TimelineRecordUpdateRunCompletedException) => new TimelineRecordUpdateRunCompletedException("Unable to update the timeline because it is in a completed state."),
+                    _ => throw new ArgumentOutOfRangeException(nameof(exceptionName)),
+                };
+                jobServer.TimelineUpdateError = () => serverError;
                 jobServer.FailFinalTimelineUpdates(int.MaxValue);
                 CompleteJob(hc, queue, message, jobRecord, stepsWithPendingLogs: 0);
 
@@ -118,7 +125,111 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
                 Assert.StartsWith(StringUtil.Loc("OutputVariablePublishFailed"), ex.Message);
                 Assert.Single(jobServer.FinalTimelineUpdates());
                 Assert.Empty(hc.CapturedDelays);
-                Assert.Same(planError, Assert.Single(ex.InnerExceptions));
+                Assert.Same(serverError, Assert.Single(ex.InnerExceptions));
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(nameof(IHostContext.ShutdownAgent))]
+        [InlineData(nameof(IHostContext.ShutdownWorkerForTimeout))]
+        public async Task FinalTimelineUpdateIsNotRetriedWhenShuttingDown(string shutdown)
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                var jobServer = new FakeTimelineJobServer();
+                var queue = StartQueue(hc, jobServer, out Pipelines.AgentJobRequestMessage message);
+                TimelineRecord jobRecord = await PublishJobRecordAsync(queue, jobServer, message);
+
+                jobServer.FailFinalTimelineUpdates(int.MaxValue);
+                CompleteJob(hc, queue, message, jobRecord, stepsWithPendingLogs: 0);
+                if (shutdown == nameof(IHostContext.ShutdownAgent))
+                {
+                    hc.ShutdownAgent(ShutdownReason.UserCancelled);
+                }
+                else
+                {
+                    hc.ShutdownWorkerForTimeout();
+                }
+
+                var ex = await Assert.ThrowsAsync<AggregateException>(() => queue.ShutdownAsync());
+
+                Assert.StartsWith(StringUtil.Loc("OutputVariablePublishFailed"), ex.Message);
+                Assert.Single(jobServer.FinalTimelineUpdates());
+                Assert.Empty(hc.CapturedDelays);
+            }
+        }
+
+        [Fact]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        public async Task FinalTimelineUpdateStopsWaitingToRetryWhenTheAgentShutsDown()
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                hc.UseRealDelays = true;
+                var jobServer = new FakeTimelineJobServer();
+                var queue = StartQueue(hc, jobServer, out Pipelines.AgentJobRequestMessage message);
+                TimelineRecord jobRecord = await PublishJobRecordAsync(queue, jobServer, message);
+
+                jobServer.FailFinalTimelineUpdates(int.MaxValue);
+                CompleteJob(hc, queue, message, jobRecord, stepsWithPendingLogs: 0);
+                Task shutdownTask = queue.ShutdownAsync();
+
+                // The first final update fails and the queue starts its 5-second wait before retrying; the agent shuts down during that wait.
+                DateTime deadline = DateTime.UtcNow.AddSeconds(30);
+                while (hc.CapturedDelays.Count == 0)
+                {
+                    Assert.True(DateTime.UtcNow < deadline, "Timed out waiting for the queue to wait before retrying the final timeline update.");
+                    await Task.Delay(20);
+                }
+
+                var sinceWaitStarted = System.Diagnostics.Stopwatch.StartNew();
+                await Task.Delay(200);
+                hc.ShutdownAgent(ShutdownReason.UserCancelled);
+                var ex = await Assert.ThrowsAsync<AggregateException>(() => shutdownTask);
+
+                Assert.True(sinceWaitStarted.Elapsed < TimeSpan.FromSeconds(4), $"The queue returned {sinceWaitStarted.Elapsed} after the wait started; the wait should end when the agent shuts down.");
+                Assert.StartsWith(StringUtil.Loc("OutputVariablePublishFailed"), ex.Message);
+                Assert.Single(jobServer.FinalTimelineUpdates());
+                Assert.Equal(new[] { RetryDelay }, hc.CapturedDelays);
+            }
+        }
+
+        [Theory]
+        [Trait("Level", "L0")]
+        [Trait("Category", "Common")]
+        [InlineData(1, 2)]
+        [InlineData(int.MaxValue, 5)]
+        public async Task FailedDetailTimelineUpdateIsRetriedWithoutFailingTheJob(int failedDetailUpdates, int expectedDetailUpdates)
+        {
+            using (TestHostContext hc = new TestHostContext(this))
+            {
+                var jobServer = new FakeTimelineJobServer();
+                var queue = StartQueue(hc, jobServer, out Pipelines.AgentJobRequestMessage message);
+                TimelineRecord jobRecord = await PublishJobRecordAsync(queue, jobServer, message);
+
+                // Like ExecutionContext.UpdateDetailTimelineRecord (##vso[task.logdetail]): the step record points to a detail timeline holding the detail records.
+                Guid detailTimelineId = Guid.NewGuid();
+                TimelineRecord stepRecord = CreateRecord(Guid.NewGuid(), message.JobId, "Task", "Step with details");
+                stepRecord.Details = new Timeline(detailTimelineId);
+                queue.QueueTimelineRecordUpdate(message.Timeline.Id, stepRecord);
+                TimelineRecord detailRecord = CreateRecord(Guid.NewGuid(), parentId: null, "Task", "Detail");
+                queue.QueueTimelineRecordUpdate(detailTimelineId, detailRecord);
+
+                int failed = 0;
+                jobServer.ShouldFailTimelineUpdate = records => records.Any(r => r.Id == detailRecord.Id) && Interlocked.Increment(ref failed) <= failedDetailUpdates;
+                CompleteJob(hc, queue, message, jobRecord, stepsWithPendingLogs: 0);
+
+                await queue.ShutdownAsync();
+
+                List<TimelineUpdateCall> detailUpdates = jobServer.TimelineUpdates().Where(u => u.TimelineId == detailTimelineId).ToList();
+                Assert.Equal(expectedDetailUpdates, detailUpdates.Count);
+                Assert.Equal(failedDetailUpdates < expectedDetailUpdates, detailUpdates.Last().Succeeded);
+                Assert.Equal(Enumerable.Repeat(RetryDelay, expectedDetailUpdates - 1), hc.CapturedDelays);
+                // The job timeline's final update succeeded on the first try and is not sent again.
+                Assert.True(Assert.Single(jobServer.FinalTimelineUpdates()).Succeeded);
             }
         }
 
@@ -245,6 +356,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Tests
             _mock.Setup(x => x.AppendLogContentAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
                 .Returns((Guid scopeIdentifier, string hubName, Guid planId, int logId, Stream stream, CancellationToken token) =>
                     Task.FromResult(new TaskLog($"logs\\{logId}") { Id = logId }));
+
+            _mock.Setup(x => x.CreateTimelineAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Returns((Guid scopeIdentifier, string hubName, Guid planId, Guid timelineId, CancellationToken token) => Task.FromResult(new Timeline(timelineId)));
         }
 
         public IJobServer Object => _mock.Object;

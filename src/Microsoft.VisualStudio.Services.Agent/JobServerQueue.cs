@@ -42,6 +42,7 @@ namespace Microsoft.VisualStudio.Services.Agent
         private static readonly TimeSpan _delayForFileUploadDequeue = TimeSpan.FromMilliseconds(1000);
 
         // Tries for the final timeline update at job end, same as raising the JobCompleted event in JobRunner.
+        // There are no further tries once the agent or the worker is shutting down.
         private const int _finalTimelineUpdateMaxAttempts = 5;
         private static readonly TimeSpan _finalTimelineUpdateRetryDelay = TimeSpan.FromSeconds(5);
 
@@ -478,8 +479,8 @@ namespace Microsoft.VisualStudio.Services.Agent
 
         private async Task ProcessTimelinesUpdateQueueAsync(bool runOnce = false)
         {
-            // The final run (runOnce) retries a failed job timeline update,
-            // resending the buffered (previously failed) records even when nothing new is queued.
+            // The final run (runOnce) retries when the update of any timeline (the job timeline or a detail timeline) fails,
+            // resending the buffered (previously failed) records even when nothing new is queued. Only the job timeline can fail the job.
             int finalUpdateAttempt = 1;
             List<Exception> finalUpdateErrors = new List<Exception>();
             while (!_jobCompletionSource.Task.IsCompleted || runOnce)
@@ -513,6 +514,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                 // if so, we need continue update timeline record even we on the last run.
                 bool pendingSubtimelineUpdate = false;
                 List<Exception> mainTimelineRecordsUpdateErrors = new List<Exception>();
+                List<Exception> timelineRecordsUpdateErrors = new List<Exception>();
                 if (pendingUpdates.Count > 0)
                 {
                     foreach (var update in pendingUpdates)
@@ -559,6 +561,7 @@ namespace Microsoft.VisualStudio.Services.Agent
                             Trace.Info("Catch exception during update timeline records, try to update these timeline records next time.");
                             Trace.Error(ex);
                             _bufferedRetryRecords[update.TimelineId] = update.PendingRecords;
+                            timelineRecordsUpdateErrors.Add(ex);
                             if (update.TimelineId == _jobTimelineId)
                             {
                                 mainTimelineRecordsUpdateErrors.Add(ex);
@@ -587,30 +590,42 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 if (runOnce)
                 {
-                    if (mainTimelineRecordsUpdateErrors.Count > 0)
+                    if (timelineRecordsUpdateErrors.Count > 0)
                     {
                         finalUpdateErrors.AddRange(mainTimelineRecordsUpdateErrors);
 
-                        // Same as raising the JobCompleted event: retrying cannot help when the plan is gone or not accessible.
-                        Exception planError = mainTimelineRecordsUpdateErrors.FirstOrDefault(ex => ex is TaskOrchestrationPlanNotFoundException || ex is TaskOrchestrationPlanSecurityException);
-                        if (planError != null)
+                        // Retrying cannot help when the plan is gone or not accessible (same as raising the JobCompleted event),
+                        // or when the server rejects the records, for example because the timeline is already completed.
+                        Exception nonRetryableError = timelineRecordsUpdateErrors.FirstOrDefault(ex =>
+                            ex is TaskOrchestrationPlanNotFoundException ||
+                            ex is TaskOrchestrationPlanSecurityException ||
+                            ex is TimelineRecordUpdateException);
+                        if (nonRetryableError != null)
                         {
-                            Trace.Error($"{planError.GetType().Name} received during the final timeline update (attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}). Do not retry.");
+                            Trace.Error($"{nonRetryableError.GetType().Name} received during the final timeline update (attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}). Do not retry.");
                         }
                         else if (finalUpdateAttempt < _finalTimelineUpdateMaxAttempts)
                         {
-                            Trace.Warning($"Final timeline update failed (attempt {finalUpdateAttempt} of {_finalTimelineUpdateMaxAttempts}). Waiting {_finalTimelineUpdateRetryDelay.TotalSeconds} seconds before retrying.");
-                            finalUpdateAttempt++;
-                            await HostContext.Delay(_finalTimelineUpdateRetryDelay, CancellationToken.None);
-                            continue;
+                            if (await WaitToRetryFinalTimelineUpdateAsync(finalUpdateAttempt))
+                            {
+                                finalUpdateAttempt++;
+                                continue;
+                            }
                         }
                         else
                         {
                             Trace.Error($"Final timeline update failed after {finalUpdateAttempt} attempts.");
                         }
 
-                        // Report the errors of all attempts.
-                        mainTimelineRecordsUpdateErrors = finalUpdateErrors;
+                        if (mainTimelineRecordsUpdateErrors.Count > 0)
+                        {
+                            // Report the job timeline errors of all attempts.
+                            mainTimelineRecordsUpdateErrors = finalUpdateErrors;
+                        }
+                        else
+                        {
+                            Trace.Warning($"Final update of detail timeline(s) {string.Join(", ", _bufferedRetryRecords.Keys)} failed. Only the job timeline can fail the job.");
+                        }
                     }
                     else if (finalUpdateAttempt > 1)
                     {
@@ -631,6 +646,41 @@ namespace Microsoft.VisualStudio.Services.Agent
 
                 await Task.Delay(_delayForTimelineUpdateDequeue);
             }
+        }
+
+        // Waits before the next try of the final timeline update. Returns false, without waiting or as soon as it happens,
+        // when the agent or the worker is shutting down: the final timeline update is then not retried.
+        private async Task<bool> WaitToRetryFinalTimelineUpdateAsync(int attempt)
+        {
+            if (!IsShuttingDown())
+            {
+                Trace.Warning($"Final timeline update failed (attempt {attempt} of {_finalTimelineUpdateMaxAttempts}). Waiting {_finalTimelineUpdateRetryDelay.TotalSeconds} seconds before retrying.");
+                using (var shutdownTokenSource = CancellationTokenSource.CreateLinkedTokenSource(HostContext.AgentShutdownToken, HostContext.WorkerShutdownForTimeout))
+                {
+                    try
+                    {
+                        await HostContext.Delay(_finalTimelineUpdateRetryDelay, shutdownTokenSource.Token);
+                    }
+                    catch (OperationCanceledException) when (shutdownTokenSource.IsCancellationRequested)
+                    {
+                        // Shutting down; handled below.
+                    }
+                }
+
+                if (!IsShuttingDown())
+                {
+                    return true;
+                }
+            }
+
+            Trace.Warning($"Final timeline update failed (attempt {attempt} of {_finalTimelineUpdateMaxAttempts}). It is not retried because the agent or the worker is shutting down.");
+            return false;
+        }
+
+        // The agent is shutting down, or the listener is about to kill the worker after the job's cancel timeout (FlushLogsRequest).
+        private bool IsShuttingDown()
+        {
+            return HostContext.AgentShutdownToken.IsCancellationRequested || HostContext.WorkerShutdownForTimeout.IsCancellationRequested;
         }
 
         private List<TimelineRecord> MergeTimelineRecords(List<TimelineRecord> timelineRecords)
