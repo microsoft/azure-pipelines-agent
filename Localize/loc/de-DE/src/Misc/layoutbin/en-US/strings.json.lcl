@@ -2212,15 +2212,6 @@
         </Str>
         <Disp Icon="Str" />
       </Item>
-      <Item ItemId=";DeprecatedNode6" ItemType="0" PsrId="306" Leaf="true">
-        <Str Cat="Text">
-          <Val><![CDATA[This task uses Node 6 execution handler, which will be removed March 31st 2022. If you are the developer of the task - please consider the migration guideline to Node 10 handler - https://aka.ms/migrateTaskNode10 (check this page also if you would like to disable Node 6 deprecation warnings). If you are the user - feel free to reach out to the owners of this task to proceed on migration.]]></Val>
-          <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[Dieser Task verwendet den Node 6-Ausführungshandler, der am 31. März 2022 entfernt wird. Wenn Sie der Entwickler der Aufgabe sind, beachten Sie die Migrationsrichtlinie zum Knoten 10-Handler: https://aka.ms/migrateTaskNode10 (überprüfen Sie diese Seite auch, wenn Sie Warnungen zu veralteten Knoten 6 deaktivieren möchten). Wenn Sie der Benutzer sind, können Sie sich an die Besitzer dieser Aufgabe wenden, um mit der Migration fortzufahren.]]></Val>
-          </Tgt>
-        </Str>
-        <Disp Icon="Str" />
-      </Item>
       <Item ItemId=";DeprecatedNodeRunner" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
           <Val><![CDATA[Task '{0}' version {1} ({2}@{1}) is dependent on a Node version ({3}) that is end-of-life. Contact the extension owner for an updated version of the task. Task maintainers should review Node upgrade guidance: https://aka.ms/node-runner-guidance]]></Val>
@@ -3849,10 +3840,13 @@
       </Item>
       <Item ItemId=";NodeEOLPolicyBlocked" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[Der Vorgang erfordert {0}, das das Ende des Lebenszyklus erreicht hat. Dies wird durch die Organisationsrichtlinie blockiert. Bitte aktualisieren Sie den Vorgang auf Node20 oder Node24. So deaktivieren Sie diese Überprüfung vorübergehend: AGENT_RESTRICT_EOL_NODE_VERSIONS=false festlegen]]></Val>
+            <Val><![CDATA[Der Vorgang erfordert {0}, das das Ende des Lebenszyklus erreicht hat. Dies wird durch die Organisationsrichtlinie blockiert. Bitte aktualisieren Sie den Vorgang auf Node24. So deaktivieren Sie diese Überprüfung vorübergehend: AGENT_RESTRICT_EOL_NODE_VERSIONS=false festlegen]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[Task requires {0} which has reached End-of-Life. This is blocked by organization policy. Please upgrade task to Node20 or Node24. To temporarily disable this check: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
@@ -3885,10 +3879,13 @@
       </Item>
       <Item ItemId=";NodeVersionNotAvailable" ItemType="0" PsrId="306" Leaf="true">
         <Str Cat="Text">
-          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
           <Tgt Cat="Text" Stat="Loc" Orig="New">
-            <Val><![CDATA[Für die Hostausführung ist keine kompatible Node.js-Version verfügbar. Handlertyp: {0}. Dies kann vorkommen, wenn alle verfügbaren Versionen durch die EOL-Richtlinie blockiert sind. Aktualisieren Sie Ihre Pipeline, um Node20- oder Node24-Vorgänge zu verwenden. So deaktivieren Sie die EOL-Richtlinie vorübergehend: AGENT_RESTRICT_EOL_NODE_VERSIONS=false festlegen]]></Val>
+            <Val><![CDATA[Für die Hostausführung ist keine kompatible Node.js Version verfügbar. Handlertyp: {0}. Dies kann auftreten, wenn alle verfügbaren Versionen durch die EOL-Richtlinie blockiert werden. Aktualisieren Sie Ihre Pipeline für die Verwendung von Node24-Aufgaben. So deaktivieren Sie vorübergehend die EOL-Richtlinie: Legen Sie AGENT_RESTRICT_EOL_NODE_VERSIONS=false fest.]]></Val>
           </Tgt>
+          <Prev Cat="Text">
+            <Val><![CDATA[No compatible Node.js version available for host execution. Handler type: {0}. This may occur if all available versions are blocked by EOL policy. Please update your pipeline to use Node20 or Node24 tasks. To temporarily disable EOL policy: Set AGENT_RESTRICT_EOL_NODE_VERSIONS=false]]></Val>
+          </Prev>
         </Str>
         <Disp Icon="Str" />
       </Item>
